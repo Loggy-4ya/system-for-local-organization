@@ -55,12 +55,12 @@ class Nexus3mfLogoPlugin implements NexusPlugin {
             
             // Примусово створюємо яскравий напівпрозорий матеріал, який видно за будь-якого освітлення
             child.material = new THREE.MeshStandardMaterial({
-              color: 0x00ffcc,       
-              emissive: 0x0a2f35,    
-              roughness: 0.1,
-              metalness: 0.8,
+              color: 0x0001cc,       
+              emissive: 0x0a0135,    
+              roughness: 1,
+              metalness: 1,
               side: THREE.DoubleSide,
-              transparent: false
+              transparent: true
             });
             
             console.log(`[NexusLoader] Матеріал успішно замінено для Mesh ID: ${child.id}`);
@@ -179,11 +179,11 @@ class NexusEngine {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 5.0);
     dirLight1.position.set(5, 12, 8);
     this.scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0x00ffcc, 1.5);
+    const dirLight2 = new THREE.DirectionalLight(0x00ffcc, 50.0);
     dirLight2.position.set(-5, -5, -3);
     this.scene.add(dirLight2);
   }
