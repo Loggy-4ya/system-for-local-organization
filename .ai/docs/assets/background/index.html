@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Tracking Smooth Background</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0b0f15;
+        }
+
+        /* Container encapsulating both background rendering layers */
+        .bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+            
+            /* Initializing default center position values for fallback states */
+            --mouse-x: 50%;
+            --mouse-y: 50%;
+        }
+
+        .bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Layer 2: Sharp core area tracks the mouse while surrounding areas blur out */
+        #canvas-blurred {
+            filter: blur(8px);
+            transform: scale(1.03);
+            
+            /* REDUCED RADIUS BOUNDS:
+            Fades from 0% (transparent / sharp canvas) up to 5% out from the cursor,
+            reaching 100% blur (black) by the time it extends 25% away.
+            */
+            mask-image: radial-gradient(circle at var(--mouse-x) var(--mouse-y), transparent 2.5%, black 25%);
+            -webkit-mask-image: radial-gradient(circle at var(--mouse-x) var(--mouse-y), transparent 5%, black 25%);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-container" id="bg-box">
+        <canvas id="canvas-sharp" class="bg-layer"></canvas>
+        <canvas id="canvas-blurred" class="bg-layer"></canvas>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

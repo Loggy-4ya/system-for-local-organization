@@ -1,0 +1,49 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Puck Editor Custom Styles — Project Nexus
+   Makes the editor canvas transparent so the InfiniteGrid background shows through.
+   Syncs Puck chrome colours with the site light/dark theme.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Force all Puck canvas and preview containers to be transparent */
+.Puck,
+.Puck__canvas,
+.Puck__preview,
+[class*="Puck__canvas"],
+[class*="Puck__preview"],
+[class*="Puck__page"],
+[class*="puck-canvas"],
+[class*="puck-preview"] {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Ensure the active dropzones and outlines remain highly visible */
+[class*="Puck__dropzone"] {
+  outline: 1px dashed var(--color-accent-user) !important;
+}
+
+/* ── Puck chrome: dark theme alignment ─────────────────────────────────────── */
+/*
+ * Puck ships a fixed light palette. When the site is in dark mode, remap the
+ * internal --puck-color-* greys so sidebars, fields, and headers stay readable.
+ */
+[data-theme="dark"] .Puck {
+  --puck-color-white: #18213a;
+  --puck-color-grey-12: #121a29;
+  --puck-color-grey-11: #1e2945;
+  --puck-color-grey-10: #293548;
+  --puck-color-grey-09: #3d4a5c;
+  --puck-color-grey-08: #64748b;
+  --puck-color-grey-07: #94a3b8;
+  --puck-color-grey-06: #cbd5e1;
+  --puck-color-grey-05: #94a3b8;
+  --puck-color-grey-04: #cbd5e1;
+  --puck-color-grey-03: #e2e8f0;
+  --puck-color-grey-02: #f1f5f9;
+  --puck-color-black: #f1f5f9;
+}
+
+/* Header action chips in the Puck toolbar use Nexus tokens — ensure contrast */
+[data-theme="light"] .Puck [class*="PuckHeader"] {
+  color: var(--puck-color-black);
+}
