@@ -79,15 +79,37 @@ export async function GET(req: NextRequest) {
 // ── POST ──────────────────────────────────────────────────────────────────────
 
 /**
- * Upsert Puck page data for a given path.
+ * Validate and normalize a path.
+ *
+ * @param rawPath - The raw path string.
+ * @returns The normalized path string, or null if invalid.
+ */
+function validateAndNormalizePath(rawPath: string): string | null {
+  const trimmed = rawPath.trim();
+  if (!trimmed) return null;
+  if (trimmed === "/") return "/";
+
+  const parts = trimmed
+    .toLowerCase()
+    .split("/")
+    .map((p) => p.trim().replace(/[^a-z0-9\-_]/g, "-"))
+    .filter(Boolean);
+
+  if (parts.length === 0) return null;
+  return "/" + parts.join("/");
+}
+
+/**
+ * Upsert or rename Puck page data for a given path.
  *
  * Expected JSON body:
  * ```json
  * {
- *   "path":      "/news",
- *   "puckData":  { "content": [], "zones": {} },
- *   "title":     "News Hub",
- *   "published": false
+ *   "previousPath": "/old-path", // optional
+ *   "path":         "/news",
+ *   "puckData":     { "content": [], "zones": {} },
+ *   "title":        "News Hub",
+ *   "published":    false
  * }
  * ```
  *
@@ -100,6 +122,7 @@ export async function POST(req: NextRequest) {
   }
 
   let body: {
+    previousPath?: string;
     path: string;
     puckData: PuckData;
     title?: string;
@@ -112,7 +135,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { path, puckData, title, published } = body;
+  const { previousPath, path, puckData, title, published } = body;
 
   if (!path || !puckData) {
     return NextResponse.json(
@@ -121,20 +144,60 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const normalizedPath = validateAndNormalizePath(path);
+  if (!normalizedPath) {
+    return NextResponse.json({ error: "Invalid path format." }, { status: 400 });
+  }
+
+  const effectivePreviousPath = previousPath || normalizedPath;
+
   try {
     await connectDB();
 
-    await Page.findOneAndUpdate(
-      { path },
-      {
-        $set: {
-          puckData,
-          ...(title     !== undefined && { title }),
-          ...(published !== undefined && { published }),
+    if (effectivePreviousPath !== normalizedPath) {
+      // Check if the new path is already taken
+      const existing = await Page.findOne({ path: normalizedPath }).lean();
+      if (existing) {
+        return NextResponse.json(
+          { error: `The path "${normalizedPath}" is already taken.` },
+          { status: 409 }
+        );
+      }
+
+      // Perform rename (update existing document)
+      const updated = await Page.findOneAndUpdate(
+        { path: effectivePreviousPath },
+        {
+          $set: {
+            path: normalizedPath,
+            puckData,
+            ...(title !== undefined && { title }),
+            ...(published !== undefined && { published }),
+          },
         },
-      },
-      { upsert: true, new: true }
-    );
+        { new: true }
+      );
+
+      if (!updated) {
+        return NextResponse.json(
+          { error: `No page found at "${effectivePreviousPath}" to rename.` },
+          { status: 404 }
+        );
+      }
+    } else {
+      // Normal upsert
+      await Page.findOneAndUpdate(
+        { path: normalizedPath },
+        {
+          $set: {
+            puckData,
+            ...(title !== undefined && { title }),
+            ...(published !== undefined && { published }),
+          },
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

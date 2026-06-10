@@ -9,6 +9,7 @@
  */
 
 import React from "react";
+import { RgbaColorField } from "../../fields/RgbaColorField";
 
 export const NexusDivider = {
   label: "Divider",
@@ -23,8 +24,9 @@ export const NexusDivider = {
       ],
     },
     colorOverride: {
-      type: "text" as const,
-      label: "Line Color (Optional, e.g. #ef4444)",
+      type: "custom" as const,
+      label: "Line Color",
+      render: RgbaColorField as never,
     },
     width: {
       type: "select" as const,
@@ -45,37 +47,23 @@ export const NexusDivider = {
         { label: "Right", value: "right" },
       ],
     },
-    marginTop: {
-      type: "text" as const,
-      label: "Margin Top (e.g. 16px)",
-    },
-    marginBottom: {
-      type: "text" as const,
-      label: "Margin Bottom (e.g. 16px)",
-    },
   },
   defaultProps: {
     thickness: "1px" as const,
     colorOverride: "",
     width: "100%" as const,
     align: "center" as const,
-    marginTop: "var(--spacing-md)",
-    marginBottom: "var(--spacing-md)",
   },
   render({
     thickness,
     colorOverride,
     width,
     align,
-    marginTop,
-    marginBottom,
   }: {
     thickness: string;
     colorOverride?: string;
     width: string;
     align: "left" | "center" | "right";
-    marginTop?: string;
-    marginBottom?: string;
   }) {
     const alignStyles = {
       left: "flex-start",
@@ -89,8 +77,6 @@ export const NexusDivider = {
           display: "flex",
           justifyContent: alignStyles[align] || "center",
           width: "100%",
-          marginTop: marginTop || "0px",
-          marginBottom: marginBottom || "0px",
         }}
       >
         <hr

@@ -10,6 +10,7 @@
  */
 
 import React from "react";
+import { RgbaColorField } from "../../fields/RgbaColorField";
 
 export const NexusHeading = {
   label: "Heading",
@@ -48,8 +49,9 @@ export const NexusHeading = {
       ],
     },
     customColor: {
-      type: "text" as const,
-      label: "Custom Color (HEX/RGB)",
+      type: "custom" as const,
+      label: "Custom Color",
+      render: RgbaColorField as never,
     },
     fontWeight: {
       type: "select" as const,
@@ -61,14 +63,6 @@ export const NexusHeading = {
         { label: "Bold (700)", value: "700" },
       ],
     },
-    marginTop: {
-      type: "text" as const,
-      label: "Margin Top (e.g. 16px, var(--spacing-md))",
-    },
-    marginBottom: {
-      type: "text" as const,
-      label: "Margin Bottom (e.g. 16px, var(--spacing-md))",
-    },
   },
   defaultProps: {
     text: "Heading Title",
@@ -77,8 +71,13 @@ export const NexusHeading = {
     colorType: "primary" as const,
     customColor: "",
     fontWeight: "700" as const,
-    marginTop: "0px",
-    marginBottom: "var(--spacing-sm)",
+  },
+  resolveFields: (data: { props: { colorType?: string } }, params: { fields: Record<string, { visible?: boolean }> }) => {
+    const fields = { ...params.fields };
+    if (fields.customColor) {
+      fields.customColor.visible = data.props.colorType === "custom";
+    }
+    return fields;
   },
   render({
     text,
@@ -87,8 +86,6 @@ export const NexusHeading = {
     colorType,
     customColor,
     fontWeight,
-    marginTop,
-    marginBottom,
   }: {
     text: string;
     level: "h1" | "h2" | "h3" | "h4";
@@ -96,8 +93,6 @@ export const NexusHeading = {
     colorType: "primary" | "secondary" | "accent" | "custom";
     customColor?: string;
     fontWeight: "400" | "500" | "600" | "700";
-    marginTop?: string;
-    marginBottom?: string;
   }) {
     const Tag = level;
 
@@ -119,8 +114,6 @@ export const NexusHeading = {
       <Tag
         style={{
           margin: 0,
-          marginTop: marginTop || "0px",
-          marginBottom: marginBottom || "0px",
           textAlign: align || "left",
           color: colors[colorType] || colors.primary,
           fontSize: headingSizes[level] || headingSizes.h2,

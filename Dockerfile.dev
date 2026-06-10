@@ -9,4 +9,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "run", "dev"]
+# Ensure dependencies exist, then start dev server
+CMD ["sh", "-c", "if [ ! -d \"node_modules\" ]; then npm ci; fi && npm run dev"]

@@ -89,6 +89,7 @@ All Puck-related files are structured according to the Single-Purpose Folder pol
 ```
 src/components/puck/
 ├── config.tsx              # Main block registry & categories
+├── PagePathEditor.tsx      # Editable header URL chip
 ├── fields/
 │   └── ImageField.tsx      # Custom image URL + upload field
 ├── root/
@@ -98,4 +99,65 @@ src/components/puck/
     ├── content/            # Heading, Text, Button, Tabs, Input
     ├── news/               # NewsCard
     └── user/               # UserBadge, StatCard, Avatar
+```
+
+---
+
+## 7. Metadata Editing & Custom Fields
+
+To provide a seamless visual editing experience, page metadata (URL path and Title) can be edited directly within the Puck interface and is synchronized with MongoDB on Publish:
+
+### A. Page Title Synchronization
+- **Hydration:** The database `Page.title` is loaded on the server and merged into Puck's `root.props.title` during initialization. This ensures the visual canvas label (e.g., "Untitled Page") matches the database state.
+- **Persistence:** When the user clicks **Publish**, the updated title from the sidebar is extracted from `nextData.root.props.title` and saved back to MongoDB.
+
+### B. Page URL Path Renaming
+- **Header Editor:** An interactive `PagePathEditor` component is rendered in the editor toolbar. It allows editing the page path slug inline (e.g., `/test` to `/news`).
+- **Safety Guards:** The homepage `/` is protected and cannot be renamed. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
+- **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
+
+### C. Unified Custom Field Styling
+- Custom fields (such as `ImageField`, `RgbaColorField`, `MediaUploadField`) use the `.nexus-puck-field` CSS wrapper class defined in `puck-editor.css`.
+- This ensures all custom text inputs, buttons, and hover/focus states look visually identical to Puck's native fields across both light and dark themes.
+
+---
+
+## 8. UI/UX Enhancements (Phase 1 Refinements)
+
+Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
+
+| Feature | Implementation |
+|---------|----------------|
+| Path edit state fix | `PuckClient` holds `editorData` via `useState` + Puck `onChange`; `PagePathEditor` uses imperative `getNormalizedPath()` at publish |
+| RGBA color picker | `src/components/puck/fields/RgbaColorField.tsx` — used by Heading, Text, Divider, block lining |
+| Media upload (image/video) | `MediaUploadField.tsx` + `lib/mediaUpload.ts`; `/api/upload` accepts video up to 50MB |
+| Accent background presets | `AccentPresetField.tsx` on `PageRoot` solid backgrounds |
+| Header chrome preview | `EditorHeaderChrome.tsx` rendered at top of every Puck page root |
+| Inline title editing | `PageTitleEditor.tsx` via `overrides.header` portal into Puck header title |
+| Block spacing & lining | `lib/spacingFields.tsx` + `withBlockShell()` applied to all 18 blocks in `config.tsx` |
+| Dark select contrast | Additional rules in `puck-editor.css` under `[data-theme="dark"] .Puck` |
+
+### Directory Mapping (updated)
+
+```
+src/components/puck/
+├── config.tsx
+├── PagePathEditor.tsx
+├── PageTitleEditor.tsx
+├── fields/
+│   ├── RgbaColorField.tsx
+│   ├── MediaUploadField.tsx
+│   ├── AccentPresetField.tsx
+│   └── ImageField.tsx          # image-only wrapper around MediaUploadField
+├── lib/
+│   ├── spacingFields.tsx
+│   └── mediaUpload.ts
+├── root/
+│   ├── PageRoot.tsx
+│   └── EditorHeaderChrome.tsx
+└── blocks/
+    ├── layout/
+    ├── content/
+    ├── news/
+    └── user/
 ```

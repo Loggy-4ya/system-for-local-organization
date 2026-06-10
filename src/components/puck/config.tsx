@@ -3,28 +3,22 @@
 /**
  * @fileoverview Puck.js configuration for Project Nexus.
  *
- * Defines the full component block registry and categories that map 1:1 to Figma
- * component names and the `NexusPuck*` block names documented in
- * `.ai/docs/features/figma_ui_integration.md` Section 4.
- *
  * @module src/components/puck/config
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { Config } from "@measured/puck";
+import { withBlockShell, type BlockShellProps } from "./lib/spacingFields";
 
-// ── Root Config ──────────────────────────────────────────────────────────────
 import { PageRoot } from "./root/PageRoot";
 
-// ── Layout Blocks ────────────────────────────────────────────────────────────
 import { NexusSection } from "./blocks/layout/NexusSection";
 import { NexusGrid } from "./blocks/layout/NexusGrid";
 import { NexusGridItem } from "./blocks/layout/NexusGridItem";
 import { NexusColumns } from "./blocks/layout/NexusColumns";
 import { NexusSpacer } from "./blocks/layout/NexusSpacer";
 
-// ── Content Blocks ───────────────────────────────────────────────────────────
 import { NexusHeading } from "./blocks/content/NexusHeading";
 import { NexusText } from "./blocks/content/NexusText";
 import { NexusImage } from "./blocks/content/NexusImage";
@@ -37,52 +31,53 @@ import { NexusButton } from "./blocks/content/NexusButton";
 import { NexusTabs } from "./blocks/content/NexusTabs";
 import { NexusInput } from "./blocks/content/NexusInput";
 
-// ── News Blocks ──────────────────────────────────────────────────────────────
 import { NexusNewsCard } from "./blocks/news/NexusNewsCard";
 
-// ── User Blocks ──────────────────────────────────────────────────────────────
 import { NexusUserBadge } from "./blocks/user/NexusUserBadge";
 import { NexusStatCard } from "./blocks/user/NexusStatCard";
 import { NexusAvatar } from "./blocks/user/NexusAvatar";
 
-// ── Root Configuration ────────────────────────────────────────────────────────
-
 /**
- * Root Puck configuration object exported for use with `<Puck>` and `<Render>`.
+ * Wrap a block with shared spacing/lining fields and optional shell defaults.
  *
- * All component names map 1:1 to Figma component names and the
- * `NexusPuck*` identifiers in `.ai/docs/features/figma_ui_integration.md`.
+ * @param block - Raw block export from `blocks/`.
+ * @param shellDefaults - Overrides for spacing/lining default props.
+ * @returns Block config registered in Puck.
  */
+function shellBlock(block: Parameters<typeof withBlockShell>[0], shellDefaults?: Partial<BlockShellProps>) {
+  const wrapped = withBlockShell(block);
+  if (shellDefaults) {
+    wrapped.defaultProps = { ...wrapped.defaultProps, ...shellDefaults };
+  }
+  return wrapped as any;
+}
+
 export const puckConfig = {
   root: PageRoot as any,
   components: {
-    // Layout Category
-    NexusSection: NexusSection as any,
-    NexusGrid: NexusGrid as any,
-    NexusGridItem: NexusGridItem as any,
-    NexusColumns: NexusColumns as any,
-    NexusSpacer: NexusSpacer as any,
+    NexusSection: shellBlock(NexusSection as any),
+    NexusGrid: shellBlock(NexusGrid as any),
+    NexusGridItem: shellBlock(NexusGridItem as any),
+    NexusColumns: shellBlock(NexusColumns as any),
+    NexusSpacer: shellBlock(NexusSpacer as any),
 
-    // Content Category
-    NexusHeading: NexusHeading as any,
-    NexusText: NexusText as any,
-    NexusImage: NexusImage as any,
-    NexusDivider: NexusDivider as any,
-    NexusQuote: NexusQuote as any,
-    NexusVideo: NexusVideo as any,
-    NexusAccordion: NexusAccordion as any,
-    NexusList: NexusList as any,
-    NexusButton: NexusButton as any,
-    NexusTabs: NexusTabs as any,
-    NexusInput: NexusInput as any,
+    NexusHeading: shellBlock(NexusHeading as any, { marginBottom: "sm" }),
+    NexusText: shellBlock(NexusText as any),
+    NexusImage: shellBlock(NexusImage as any),
+    NexusDivider: shellBlock(NexusDivider as any, { marginTop: "md", marginBottom: "md" }),
+    NexusQuote: shellBlock(NexusQuote as any),
+    NexusVideo: shellBlock(NexusVideo as any),
+    NexusAccordion: shellBlock(NexusAccordion as any),
+    NexusList: shellBlock(NexusList as any),
+    NexusButton: shellBlock(NexusButton as any),
+    NexusTabs: shellBlock(NexusTabs as any),
+    NexusInput: shellBlock(NexusInput as any),
 
-    // News Category
-    NexusNewsCard: NexusNewsCard as any,
+    NexusNewsCard: shellBlock(NexusNewsCard as any),
 
-    // User Category
-    NexusUserBadge: NexusUserBadge as any,
-    NexusStatCard: NexusStatCard as any,
-    NexusAvatar: NexusAvatar as any,
+    NexusUserBadge: shellBlock(NexusUserBadge as any),
+    NexusStatCard: shellBlock(NexusStatCard as any),
+    NexusAvatar: shellBlock(NexusAvatar as any),
   },
   categories: {
     layout: {

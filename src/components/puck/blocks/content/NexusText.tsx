@@ -3,13 +3,11 @@
 /**
  * @fileoverview Puck block for Body Text.
  *
- * Supports multi-line body text with alignment, custom color, font-size,
- * line-height, and margins.
- *
  * @module src/components/puck/blocks/content/NexusText
  */
 
 import React from "react";
+import { RgbaColorField } from "../../fields/RgbaColorField";
 
 export const NexusText = {
   label: "Body Text",
@@ -39,8 +37,9 @@ export const NexusText = {
       ],
     },
     customColor: {
-      type: "text" as const,
-      label: "Custom Color (HEX/RGB)",
+      type: "custom" as const,
+      label: "Custom Color",
+      render: RgbaColorField as never,
     },
     fontSize: {
       type: "select" as const,
@@ -55,14 +54,6 @@ export const NexusText = {
       type: "text" as const,
       label: "Line Height (e.g. 1.5, 1.8)",
     },
-    marginTop: {
-      type: "text" as const,
-      label: "Margin Top (e.g. 8px)",
-    },
-    marginBottom: {
-      type: "text" as const,
-      label: "Margin Bottom (e.g. 8px)",
-    },
   },
   defaultProps: {
     text: "This is a paragraph of body text. You can edit this text inline or in the sidebar.",
@@ -71,8 +62,13 @@ export const NexusText = {
     customColor: "",
     fontSize: "0.9375rem" as const,
     lineHeight: "1.6",
-    marginTop: "0px",
-    marginBottom: "0px",
+  },
+  resolveFields: (data: { props: { colorType?: string } }, params: { fields: Record<string, { visible?: boolean }> }) => {
+    const fields = { ...params.fields };
+    if (fields.customColor) {
+      fields.customColor.visible = data.props.colorType === "custom";
+    }
+    return fields;
   },
   render({
     text,
@@ -81,8 +77,6 @@ export const NexusText = {
     customColor,
     fontSize,
     lineHeight,
-    marginTop,
-    marginBottom,
   }: {
     text: string;
     align: "left" | "center" | "right" | "justify";
@@ -90,8 +84,6 @@ export const NexusText = {
     customColor?: string;
     fontSize: string;
     lineHeight?: string;
-    marginTop?: string;
-    marginBottom?: string;
   }) {
     const colors = {
       primary: "var(--color-text-primary)",
@@ -104,8 +96,6 @@ export const NexusText = {
       <p
         style={{
           margin: 0,
-          marginTop: marginTop || "0px",
-          marginBottom: marginBottom || "0px",
           fontSize: fontSize || "0.9375rem",
           lineHeight: lineHeight || "1.6",
           textAlign: align || "left",

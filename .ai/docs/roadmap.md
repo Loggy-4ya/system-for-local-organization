@@ -13,10 +13,11 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 
 ## Phase 1: Global Layout, Theming & Background Engine
 - [~] **Figma Design Preview:** Dark theme + strict admin shell on `58:2`/`58:17`. News (`59:17`), Editor (`59:32`), Profile (`59:47`) dark-themed. Remaining: variable bindings, light toggle previews, Foundations type/spacing specimens. See `.ai/docs/features/figma_ui_integration.md`.
-- [x] **Puck.js Integration:** `@measured/puck` installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; custom image upload API (`src/app/api/upload/route.ts`); root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`).
-- [x] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
+- [~] **Puck.js Integration:** `@measured/puck` installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; custom image upload API (`src/app/api/upload/route.ts`); root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`).
+- [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed).
+- [~] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
 - [x] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
-- [x] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). `GlobalHeader` component with contained glass bar, nav links, theme toggle (☀/☾), and RBAC `showAdminPanel` prop.
+- [~] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). `GlobalHeader` component with contained glass bar, nav links, theme toggle (☀/☾), and RBAC `showAdminPanel` prop.
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
 - [ ] **Cross-Platform Auth:** Implement login using Google OAuth2, Apple, and Telegram Widget.

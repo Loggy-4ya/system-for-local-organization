@@ -3,15 +3,26 @@
 /**
  * @fileoverview Puck Root component for Project Nexus.
  *
- * Defines the root page wrapper that supports choosing page-level backgrounds
- * (site-default InfiniteGrid, solid color, or custom uploaded image).
- *
  * @module src/components/puck/root/PageRoot
  */
 
 import React from "react";
-import { ImageField } from "../fields/ImageField";
+import { MediaUploadField } from "../fields/MediaUploadField";
+import { AccentPresetField, resolveAccentPreset } from "../fields/AccentPresetField";
+import { RgbaColorField } from "../fields/RgbaColorField";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
+import { EditorHeaderChrome } from "./EditorHeaderChrome";
+
+/** Root props shape for PageRoot render and field resolution. */
+interface PageRootProps {
+  children: React.ReactNode;
+  title: string;
+  background: "site-default" | "solid" | "custom-image";
+  backgroundPreset?: string;
+  backgroundColor?: string;
+  backgroundImage?: string;
+  puck?: { isEditing?: boolean };
+}
 
 export const PageRoot = {
   fields: {
@@ -28,38 +39,59 @@ export const PageRoot = {
         { label: "Custom Image", value: "custom-image" },
       ],
     },
+    backgroundPreset: {
+      type: "custom" as const,
+      label: "Accent Background Preset",
+      render: AccentPresetField as never,
+    },
     backgroundColor: {
-      type: "text" as const,
-      label: "Background Color (HEX/RGB)",
+      type: "custom" as const,
+      label: "Custom Background Color",
+      render: RgbaColorField as never,
     },
     backgroundImage: {
       type: "custom" as const,
       label: "Background Image",
-      render: ImageField as any,
+      render: MediaUploadField as never,
     },
   },
   defaultProps: {
     title: "Untitled Page",
     background: "site-default" as const,
+    backgroundPreset: "blue-medium",
     backgroundColor: "#0f1729",
     backgroundImage: "",
+  },
+  resolveFields: (data: { props: PageRootProps }, params: { fields: Record<string, { visible?: boolean }> }) => {
+    const { background, backgroundPreset } = data.props;
+    const fields = { ...params.fields };
+
+    if (fields.backgroundPreset) {
+      fields.backgroundPreset.visible = background === "solid";
+    }
+    if (fields.backgroundColor) {
+      fields.backgroundColor.visible = background === "solid" && backgroundPreset === "custom";
+    }
+    if (fields.backgroundImage) {
+      fields.backgroundImage.visible = background === "custom-image";
+    }
+
+    return fields;
   },
   render({
     children,
     background,
+    backgroundPreset,
     backgroundColor,
     backgroundImage,
-  }: {
-    children: React.ReactNode;
-    title: string;
-    background: "site-default" | "solid" | "custom-image";
-    backgroundColor: string;
-    backgroundImage: string;
-  }) {
+    puck,
+  }: PageRootProps) {
     const bgStyles: React.CSSProperties = {};
+    const isEditing = Boolean(puck?.isEditing);
 
     if (background === "solid") {
-      bgStyles.backgroundColor = backgroundColor || "#0f1729";
+      const presetColor = resolveAccentPreset(backgroundPreset);
+      bgStyles.backgroundColor = presetColor || backgroundColor || "#0f1729";
       bgStyles.backgroundImage = "none";
     } else if (background === "custom-image") {
       bgStyles.backgroundImage = backgroundImage ? `url(${backgroundImage})` : "none";
@@ -67,14 +99,13 @@ export const PageRoot = {
       bgStyles.backgroundPosition = "center";
       bgStyles.backgroundRepeat = "no-repeat";
     } else {
-      // site-default: transparent wrapper so InfiniteGrid from root layout shows through
       bgStyles.background = "transparent";
     }
 
     return (
       <div
         style={{
-          position: "relative", // Required for absolute positioning of contained InfiniteGrid
+          position: "relative",
           minHeight: "100vh",
           width: "100%",
           display: "flex",
@@ -84,7 +115,17 @@ export const PageRoot = {
         }}
       >
         {background === "site-default" && <InfiniteGrid isContained />}
-        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, width: "100%" }}>
+        <EditorHeaderChrome isEditor={isEditing} />
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            width: "100%",
+          }}
+        >
           {children}
         </div>
       </div>

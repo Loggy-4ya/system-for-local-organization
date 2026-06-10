@@ -29,7 +29,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`) and route-local `NewPageForm.tsx` | Active |
 | `src/app/api/puck/` | REST API for loading/saving Puck page layouts to MongoDB | Active |
-| `src/app/api/upload/` | REST API for uploading image files to `public/uploads/` | Active |
+| `src/app/api/upload/` | REST API for uploading image/video files to `public/uploads/` | Active |
 | `src/app/(marketing)/` | Hardcoded landing and public marketing pages (excluded from Puck) | Planned |
 | `src/app/(dashboard)/` | Hardcoded admin dashboard shell (excluded from Puck) | Planned |
 | `src/app/(auth)/` | Authentication flows (login, student registration) | Planned |
@@ -38,8 +38,9 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/ui/` | Shared UI: `GlobalHeader`, `ThemeProvider` | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
-| `src/components/puck/fields/` | Custom Puck fields (e.g. `ImageField` with file upload) | Active |
-| `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx` with background picker) | Active |
+| `src/components/puck/fields/` | Custom Puck fields (`RgbaColorField`, `MediaUploadField`, `AccentPresetField`, legacy `ImageField`) | Active |
+| `src/components/puck/lib/` | Shared Puck helpers (`spacingFields.tsx`, `mediaUpload.ts`) | Active |
+| `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`), `EditorHeaderChrome.tsx` | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) | Active |
 
 ## `shared/` Sub-directories
@@ -57,6 +58,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 |------|---------|---------|-------------|
 | `.ai/docs/features/` | Per-feature specifications with acceptance criteria | `*.md` spec files | Runtime `.ts` / `.tsx` imported by the app |
 | `.ai/docs/features/puck_editor.md` | Puck Editor overhaul and block specifications | Markdown spec | — |
+| `.ai/docs/features/puck_editor_enhancements.md` | Editor UI/UX refinements (fields, path bug, spacing) | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |

@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { ImageField } from "../../fields/ImageField";
+import { MediaUploadField } from "../../fields/MediaUploadField";
 
 export const NexusImage = {
   label: "Image",
@@ -18,7 +18,7 @@ export const NexusImage = {
     image: {
       type: "custom" as const,
       label: "Image Source",
-      render: ImageField as any,
+      render: MediaUploadField as never,
     },
     alt: {
       type: "text" as const,

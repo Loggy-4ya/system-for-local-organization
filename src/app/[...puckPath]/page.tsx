@@ -64,12 +64,14 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
   const { path, isEditing } = resolvePath(puckPath);
 
   let data: Data | null = null;
+  let pageTitle: string = "Untitled Page";
 
   try {
     await connectDB();
     const doc = await Page.findOne({ path }).lean();
     if (doc) {
       data = doc.puckData as Data;
+      pageTitle = doc.title || "Untitled Page";
     }
   } catch (err) {
     console.error("[PuckPage] DB error:", err);
@@ -80,5 +82,5 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
     notFound();
   }
 
-  return <PuckClient path={path} data={data} isEditing={isEditing} />;
+  return <PuckClient path={path} data={data} pageTitle={pageTitle} isEditing={isEditing} />;
 }
