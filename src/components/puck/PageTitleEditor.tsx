@@ -7,7 +7,7 @@
  */
 
 import { usePuck } from "@measured/puck";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -18,19 +18,18 @@ import { createPortal } from "react-dom";
 export function PageTitleEditor() {
   const { appState, dispatch } = usePuck();
   const title =
-    (appState.data.root as { props?: { title?: string } })?.props?.title ??
-    "Untitled Page";
+    (appState.data.root as { props?: { title?: string } })?.props?.title ?? "Untitled Page";
 
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.querySelector('[class*="PuckHeader-title"]') as HTMLElement | null;
-    if (el) {
-      el.innerHTML = "";
-      setHost(el);
-    }
+    if (!el) return;
+
+    el.querySelector("h2, [class*='Heading']")?.remove();
+    setHost(el);
   }, []);
 
   useEffect(() => {

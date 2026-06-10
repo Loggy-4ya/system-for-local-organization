@@ -7,91 +7,63 @@
  */
 
 import React from "react";
-import { MediaUploadField } from "../fields/MediaUploadField";
-import { AccentPresetField, resolveAccentPreset } from "../fields/AccentPresetField";
-import { RgbaColorField } from "../fields/RgbaColorField";
+import { PageAppearanceFieldGroup } from "../fields/PageAppearanceFieldGroup";
+import { resolveAccentPreset } from "../fields/AccentPresetField";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
 import { EditorHeaderChrome } from "./EditorHeaderChrome";
+
+/** Page background settings grouped in the Puck sidebar. */
+interface PageAppearanceProps {
+  background: "site-default" | "solid" | "custom-image";
+  backgroundPreset?: string;
+  backgroundImage?: string;
+}
 
 /** Root props shape for PageRoot render and field resolution. */
 interface PageRootProps {
   children: React.ReactNode;
   title: string;
-  background: "site-default" | "solid" | "custom-image";
+  appearance?: PageAppearanceProps;
+  /** @deprecated Flat props kept for pages saved before grouping. */
+  background?: PageAppearanceProps["background"];
   backgroundPreset?: string;
-  backgroundColor?: string;
   backgroundImage?: string;
   puck?: { isEditing?: boolean };
 }
 
+function resolveAppearance(props: PageRootProps): PageAppearanceProps {
+  return {
+    background: props.appearance?.background ?? props.background ?? "site-default",
+    backgroundPreset: props.appearance?.backgroundPreset ?? props.backgroundPreset,
+    backgroundImage: props.appearance?.backgroundImage ?? props.backgroundImage,
+  };
+}
+
 export const PageRoot = {
   fields: {
-    title: {
-      type: "text" as const,
-      label: "Page Title",
-    },
-    background: {
-      type: "select" as const,
-      label: "Page Background Style",
-      options: [
-        { label: "Site Default (InfiniteGrid)", value: "site-default" },
-        { label: "Solid Color", value: "solid" },
-        { label: "Custom Image", value: "custom-image" },
-      ],
-    },
-    backgroundPreset: {
+    title: { type: "text" as const, label: "Page Title" },
+    appearance: {
       type: "custom" as const,
-      label: "Accent Background Preset",
-      render: AccentPresetField as never,
-    },
-    backgroundColor: {
-      type: "custom" as const,
-      label: "Custom Background Color",
-      render: RgbaColorField as never,
-    },
-    backgroundImage: {
-      type: "custom" as const,
-      label: "Background Image",
-      render: MediaUploadField as never,
+      label: "",
+      render: PageAppearanceFieldGroup as never,
     },
   },
   defaultProps: {
     title: "Untitled Page",
-    background: "site-default" as const,
-    backgroundPreset: "blue-medium",
-    backgroundColor: "#0f1729",
-    backgroundImage: "",
+    appearance: {
+      background: "site-default" as const,
+      backgroundPreset: "hue-blue",
+      backgroundImage: "",
+    },
   },
-  resolveFields: (data: { props: PageRootProps }, params: { fields: Record<string, { visible?: boolean }> }) => {
-    const { background, backgroundPreset } = data.props;
-    const fields = { ...params.fields };
-
-    if (fields.backgroundPreset) {
-      fields.backgroundPreset.visible = background === "solid";
-    }
-    if (fields.backgroundColor) {
-      fields.backgroundColor.visible = background === "solid" && backgroundPreset === "custom";
-    }
-    if (fields.backgroundImage) {
-      fields.backgroundImage.visible = background === "custom-image";
-    }
-
-    return fields;
-  },
-  render({
-    children,
-    background,
-    backgroundPreset,
-    backgroundColor,
-    backgroundImage,
-    puck,
-  }: PageRootProps) {
+  render(props: PageRootProps) {
+    const { children, puck } = props;
+    const { background, backgroundPreset, backgroundImage } = resolveAppearance(props);
     const bgStyles: React.CSSProperties = {};
     const isEditing = Boolean(puck?.isEditing);
 
     if (background === "solid") {
-      const presetColor = resolveAccentPreset(backgroundPreset);
-      bgStyles.backgroundColor = presetColor || backgroundColor || "#0f1729";
+      bgStyles.backgroundColor = resolveAccentPreset(backgroundPreset);
       bgStyles.backgroundImage = "none";
     } else if (background === "custom-image") {
       bgStyles.backgroundImage = backgroundImage ? `url(${backgroundImage})` : "none";

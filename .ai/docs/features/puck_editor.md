@@ -24,7 +24,7 @@ For structural composition and nested drag-and-drop grids:
 ### B. Content Category
 For standard typography, actions, and form inputs:
 - **`NexusHeading`** — Styled headings (H1, H2, H3) with alignment controls.
-- **`NexusText`** — Paragraph body copy with alignment and muted options.
+- **`NexusText`** — Paragraph body copy with Tiptap rich text (bold, headings, lists, blockquote) plus alignment and color presets.
 - **`NexusButton`** — Action button mapping to Figma variants (Primary, Secondary, Ghost) with optional link URL.
 - **`NexusTabs`** — Interactive tab group mapping to Figma `TabGroup`.
 - **`NexusInput`** — Form input mapping to Figma `Input/Default` for page-level forms.
@@ -75,6 +75,7 @@ The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. Th
 | File | Role |
 |------|------|
 | `src/components/ui/ThemeToggle.tsx` | Shared ☀/☾ toggle used by `GlobalHeader` and Puck `headerActions` |
+| `src/components/puck/EditorModeToggle.tsx` | Edit vs Interactive preview toggle in Puck `headerActions` |
 | `src/components/puck/PuckIframeTheme.tsx` | Puck `iframe` override — sets `data-theme` and injects Nexus CSS variables into the preview iframe |
 | `src/app/puck-editor.css` | Remaps Puck's internal `--puck-color-*` palette when `[data-theme="dark"]` so sidebars/fields stay readable |
 
@@ -112,12 +113,13 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 - **Persistence:** When the user clicks **Publish**, the updated title from the sidebar is extracted from `nextData.root.props.title` and saved back to MongoDB.
 
 ### B. Page URL Path Renaming
-- **Header Editor:** An interactive `PagePathEditor` component is rendered in the editor toolbar. It allows editing the page path slug inline (e.g., `/test` to `/news`).
+- **Header Editor:** `PagePathHeaderChip` in the right toolbar (`headerActions`) — compact URL pill, click-to-edit. Publish reads the slug via imperative ref.
+- **Title:** `PageTitleEditor` stays in the header title slot (left).
 - **Safety Guards:** The homepage `/` is protected and cannot be renamed. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
 - **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
 
 ### C. Unified Custom Field Styling
-- Custom fields (such as `ImageField`, `RgbaColorField`, `MediaUploadField`) use the `.nexus-puck-field` CSS wrapper class defined in `puck-editor.css`.
+- Custom fields (`ImageField`, `NexusColorPresetField`, `MediaUploadField`) use `.nexus-puck-field` in `puck-editor.css`.
 - This ensures all custom text inputs, buttons, and hover/focus states look visually identical to Puck's native fields across both light and dark themes.
 
 ---
@@ -128,30 +130,48 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 
 | Feature | Implementation |
 |---------|----------------|
-| Path edit state fix | `PuckClient` holds `editorData` via `useState` + Puck `onChange`; `PagePathEditor` uses imperative `getNormalizedPath()` at publish |
-| RGBA color picker | `src/components/puck/fields/RgbaColorField.tsx` — used by Heading, Text, Divider, block lining |
+| Path edit state fix | `PuckClient` + `PuckEditorShell` (`ssr: false`); path via `PagePathHeaderChip` ref at publish |
+| Design-system colors | `nexusColorTokens.ts` — simplified dual-theme hue catalog |
+| Island layout | `IslandFieldGroup.tsx` — compact categorized chapter |
+| Custom spacing | `SpacingFieldGroup.tsx` — Padding/Margin 2×2 grids |
+| Inline path editing | `PagePathHeaderChip.tsx` in header actions (right) |
 | Media upload (image/video) | `MediaUploadField.tsx` + `lib/mediaUpload.ts`; `/api/upload` accepts video up to 50MB |
-| Accent background presets | `AccentPresetField.tsx` on `PageRoot` solid backgrounds |
+| Accent background presets | `AccentPresetField.tsx` — 6 hue families for solid page backgrounds |
 | Header chrome preview | `EditorHeaderChrome.tsx` rendered at top of every Puck page root |
-| Inline title editing | `PageTitleEditor.tsx` via `overrides.header` portal into Puck header title |
-| Block spacing & lining | `lib/spacingFields.tsx` + `withBlockShell()` applied to all 18 blocks in `config.tsx` |
-| Dark select contrast | Additional rules in `puck-editor.css` under `[data-theme="dark"] .Puck` |
+| Inline title editing | `PageTitleEditor.tsx` via `overrides.header` |
+| Block spacing & islands | `SpacingFieldGroup` + `IslandFieldGroup` custom fields in `spacingFields.tsx` |
+| Dark theme contrast | Grey + azure token remap in `puck-editor.css`; hover/selection overrides for Outline and array lists |
+| Interactive preview mode | `EditorModeToggle.tsx` — toggles Puck `previewMode` (`edit` \| `interactive`) |
+| Rich body text | `TiptapField.tsx` + `richTextContent.ts` — StarterKit editor; sanitized HTML via `.nexus-rich-text` |
+| Spacing custom inputs | `spacingCustomValue.ts` — numeric + unit picker with validation bounds |
+| List markers | `NexusList.tsx` — explicit `listStyleType` for bullet/numbered lists |
 
 ### Directory Mapping (updated)
 
 ```
 src/components/puck/
 ├── config.tsx
-├── PagePathEditor.tsx
-├── PageTitleEditor.tsx
+├── PagePathEditor.tsx       # normalizePagePath + shared handle type
+├── PagePathHeaderChip.tsx   # URL pill in header actions (right)
+├── PageTitleEditor.tsx      # title in header title slot
+├── EditorModeToggle.tsx     # edit vs interactive preview toggle
 ├── fields/
-│   ├── RgbaColorField.tsx
+│   ├── FieldChapter.tsx
+│   ├── SpacingFieldGroup.tsx
+│   ├── IslandFieldGroup.tsx
+│   ├── PageAppearanceFieldGroup.tsx
+│   ├── NexusColorPresetField.tsx
+│   ├── TiptapField.tsx
 │   ├── MediaUploadField.tsx
 │   ├── AccentPresetField.tsx
-│   └── ImageField.tsx          # image-only wrapper around MediaUploadField
+│   └── ImageField.tsx
 ├── lib/
+│   ├── nexusColorTokens.ts
 │   ├── spacingFields.tsx
-│   └── mediaUpload.ts
+│   ├── spacingCustomValue.ts
+│   ├── richTextContent.ts
+│   ├── mediaUpload.ts
+│   └── useDeferredFieldCommit.ts
 ├── root/
 │   ├── PageRoot.tsx
 │   └── EditorHeaderChrome.tsx

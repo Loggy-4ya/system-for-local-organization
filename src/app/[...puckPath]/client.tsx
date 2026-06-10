@@ -6,21 +6,24 @@
  * @module src/app/[...puckPath]/client
  */
 
-import { Puck, Render } from "@measured/puck";
-import "@measured/puck/puck.css";
-import "../puck-editor.css";
 import puckConfig from "@/components/puck/config";
-import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { PagePathEditor, type PagePathEditorHandle } from "@/components/puck/PagePathEditor";
-import { PageTitleEditor } from "@/components/puck/PageTitleEditor";
+import { Render } from "@measured/puck";
 import { installSafePointerCapture } from "@/lib/safePointerCapture";
 import type { Data } from "@measured/puck";
-import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 installSafePointerCapture();
+
+/** Puck editor loaded only on the client to avoid hydration mismatches. */
+const PuckEditorShell = dynamic(
+  () => import("./PuckEditorShell").then((m) => m.PuckEditorShell),
+  {
+    ssr: false,
+    loading: () => <PuckEditorLoading />,
+  },
+);
 
 /** Props accepted by the Puck client component. */
 interface PuckClientProps {
@@ -32,6 +35,30 @@ interface PuckClientProps {
   pageTitle: string;
   /** When true, renders the full Puck editor. Otherwise renders `<Render>`. */
   isEditing: boolean;
+}
+
+/**
+ * Minimal placeholder shown while the client-only Puck bundle loads.
+ *
+ * @returns Loading skeleton for the editor chrome.
+ */
+function PuckEditorLoading() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        color: "var(--color-text-secondary)",
+        fontSize: 14,
+      }}
+      aria-busy="true"
+      aria-label="Loading page editor"
+    >
+      Loading editor…
+    </div>
+  );
 }
 
 /**
@@ -65,135 +92,30 @@ function buildEditorData(data: Data | null, title: string): Data {
  */
 export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps) {
   const router = useRouter();
-  const pathEditorRef = useRef<PagePathEditorHandle>(null);
   const [editorData, setEditorData] = useState<Data>(() => buildEditorData(data, pageTitle));
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Persist the current Puck layout to MongoDB via the `/api/puck` endpoint.
-   *
-   * @param nextData - The full Puck data object emitted by Puck on publish.
-   */
-  const handlePublish = useCallback(
-    async (nextData: Data) => {
-      setError(null);
-      const secret = process.env.NEXT_PUBLIC_PUCK_SECRET;
-      const cleanPath = pathEditorRef.current?.getNormalizedPath() ?? path;
-
-      if (!cleanPath || !cleanPath.startsWith("/")) {
-        setError("Path must start with a slash (/)");
-        return;
-      }
-
-      const title =
-        (nextData.root as { props?: { title?: string } })?.props?.title ||
-        pageTitle ||
-        "Untitled Page";
-
-      const res = await fetch("/api/puck", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
-        },
-        body: JSON.stringify({
-          previousPath: path,
-          path: cleanPath,
-          puckData: nextData,
-          title,
-          published: true,
-        }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        let errMsg = "Failed to save page.";
-        try {
-          const parsed = JSON.parse(errText);
-          errMsg = parsed.error || errMsg;
-        } catch {
-          /* use default */
-        }
-        setError(errMsg);
-        console.error("[PuckClient] Failed to save page:", errText);
-        return;
-      }
-
-      if (cleanPath !== path) {
-        router.replace(`${cleanPath}/edit`);
+  const handlePublished = useCallback(
+    (nextPath: string) => {
+      if (nextPath !== path) {
+        router.replace(`${nextPath}/edit`);
       } else {
         router.refresh();
       }
     },
-    [path, pageTitle, router],
+    [path, router],
   );
 
   if (isEditing) {
     return (
-      <Puck
-        config={puckConfig}
-        data={editorData}
-        onChange={setEditorData}
-        onPublish={handlePublish}
-        overrides={{
-          iframe: ({ children, document }) => (
-            <PuckIframeTheme document={document}>{children}</PuckIframeTheme>
-          ),
-          header: ({ children }) => (
-            <>
-              {children}
-              <PageTitleEditor />
-            </>
-          ),
-          headerActions: ({ children }) => (
-            <>
-              {error && (
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "#ef4444",
-                    marginRight: "12px",
-                    fontWeight: 500,
-                    background: "rgba(239, 68, 68, 0.1)",
-                    border: "1px solid rgba(239, 68, 68, 0.2)",
-                    padding: "4px 8px",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  {error}
-                </span>
-              )}
-
-              <PagePathEditor ref={pathEditorRef} initialPath={path} />
-
-              <Link
-                href="/pages"
-                style={{
-                  fontSize: "12px",
-                  color: "var(--color-text-primary)",
-                  textDecoration: "none",
-                  padding: "6px 12px",
-                  background: "var(--color-bg-elevated)",
-                  border: "1px solid var(--color-border-default)",
-                  borderRadius: "var(--radius-sm)",
-                  fontWeight: 500,
-                  marginRight: "8px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <span>All Pages</span>
-              </Link>
-
-              <span style={{ marginRight: "8px", display: "inline-flex" }}>
-                <ThemeToggle />
-              </span>
-
-              {children}
-            </>
-          ),
-        }}
+      <PuckEditorShell
+        path={path}
+        pageTitle={pageTitle}
+        editorData={editorData}
+        onEditorDataChange={setEditorData}
+        onPublished={handlePublished}
+        error={error}
+        onError={setError}
       />
     );
   }

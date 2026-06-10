@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * @fileoverview Shared spacing and background-lining field definitions for Puck blocks.
- *
- * Provides reusable field schemas, defaults, resolveFields visibility, and a render
- * helper that wraps block output in margin/padding/lining shells.
+ * @fileoverview Shared spacing and island shell field definitions for Puck blocks.
  *
  * @module src/components/puck/lib/spacingFields
  */
 
 import React from "react";
-import { RgbaColorField } from "../fields/RgbaColorField";
+import { IslandFieldGroup } from "../fields/IslandFieldGroup";
+import { SpacingFieldGroup } from "../fields/SpacingFieldGroup";
+import { resolveNexusColor } from "./nexusColorTokens";
 
 /** Spacing token keys available in select fields. */
 export type SpacingToken = "none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "custom";
 
-/** Props added to every block wrapped with {@link withBlockShell}. */
-export interface BlockShellProps {
+/** Island max-width modes (aligned with header / page shell). */
+export type IslandMaxWidth = "contained" | "narrow" | "full";
+
+/** Padding and margin props stored under the `spacing` object field group. */
+export interface SpacingProps {
   paddingTop?: SpacingToken;
   paddingTopCustom?: string;
   paddingRight?: SpacingToken;
@@ -33,24 +35,33 @@ export interface BlockShellProps {
   marginBottomCustom?: string;
   marginLeft?: SpacingToken;
   marginLeftCustom?: string;
+}
+
+/** Island layout props stored under the `island` object field group. */
+export interface IslandProps {
+  islandEnabled?: boolean;
+  islandMaxWidth?: IslandMaxWidth;
+  islandAlign?: "left" | "center" | "right";
+  islandFillPreset?: string;
+  islandBorderPreset?: string;
+  islandBorderWidth?: "none" | "thin" | "medium";
+  islandRadius?: "sm" | "md" | "lg";
+  islandPadding?: SpacingToken;
+}
+
+/** Props added to every block wrapped with {@link withBlockShell}. */
+export interface BlockShellProps extends SpacingProps, IslandProps {
+  /** Grouped spacing fields in the Puck sidebar. */
+  spacing?: SpacingProps;
+  /** Grouped island fields in the Puck sidebar. */
+  island?: IslandProps;
+  /** @deprecated Legacy lining props — mapped to island when present. */
   liningEnabled?: boolean;
   liningColor?: string;
   liningRadius?: string;
   liningPadding?: string;
 }
 
-const SPACING_OPTIONS = [
-  { label: "None", value: "none" },
-  { label: "XS (4px)", value: "xs" },
-  { label: "SM (8px)", value: "sm" },
-  { label: "MD (16px)", value: "md" },
-  { label: "LG (24px)", value: "lg" },
-  { label: "XL (32px)", value: "xl" },
-  { label: "2XL (48px)", value: "2xl" },
-  { label: "Custom", value: "custom" },
-];
-
-/** CSS values for spacing tokens. */
 const SPACING_MAP: Record<SpacingToken, string> = {
   none: "0",
   xs: "var(--spacing-xs)",
@@ -62,116 +73,32 @@ const SPACING_MAP: Record<SpacingToken, string> = {
   custom: "0",
 };
 
-/** Reusable Puck field definitions for padding and margin. */
-export const SPACING_FIELD_DEFS = {
-  paddingTop: {
-    type: "select" as const,
-    label: "Padding Top",
-    options: SPACING_OPTIONS,
-  },
-  paddingTopCustom: {
-    type: "text" as const,
-    label: "Custom Padding Top",
-  },
-  paddingRight: {
-    type: "select" as const,
-    label: "Padding Right",
-    options: SPACING_OPTIONS,
-  },
-  paddingRightCustom: {
-    type: "text" as const,
-    label: "Custom Padding Right",
-  },
-  paddingBottom: {
-    type: "select" as const,
-    label: "Padding Bottom",
-    options: SPACING_OPTIONS,
-  },
-  paddingBottomCustom: {
-    type: "text" as const,
-    label: "Custom Padding Bottom",
-  },
-  paddingLeft: {
-    type: "select" as const,
-    label: "Padding Left",
-    options: SPACING_OPTIONS,
-  },
-  paddingLeftCustom: {
-    type: "text" as const,
-    label: "Custom Padding Left",
-  },
-  marginTop: {
-    type: "select" as const,
-    label: "Margin Top",
-    options: SPACING_OPTIONS,
-  },
-  marginTopCustom: {
-    type: "text" as const,
-    label: "Custom Margin Top",
-  },
-  marginRight: {
-    type: "select" as const,
-    label: "Margin Right",
-    options: SPACING_OPTIONS,
-  },
-  marginRightCustom: {
-    type: "text" as const,
-    label: "Custom Margin Right",
-  },
-  marginBottom: {
-    type: "select" as const,
-    label: "Margin Bottom",
-    options: SPACING_OPTIONS,
-  },
-  marginBottomCustom: {
-    type: "text" as const,
-    label: "Custom Margin Bottom",
-  },
-  marginLeft: {
-    type: "select" as const,
-    label: "Margin Left",
-    options: SPACING_OPTIONS,
-  },
-  marginLeftCustom: {
-    type: "text" as const,
-    label: "Custom Margin Left",
-  },
+const ISLAND_WIDTH_MAP: Record<IslandMaxWidth, string> = {
+  contained: "1200px",
+  narrow: "800px",
+  full: "100%",
 };
 
-/** Background lining field definitions. */
-export const LINING_FIELD_DEFS = {
-  liningEnabled: {
-    type: "radio" as const,
-    label: "Background Lining",
-    options: [
-      { label: "Off", value: false },
-      { label: "On", value: true },
-    ],
-  },
-  liningColor: {
-    type: "custom" as const,
-    label: "Lining Color",
-    render: RgbaColorField as never,
-  },
-  liningRadius: {
-    type: "select" as const,
-    label: "Lining Radius",
-    options: [
-      { label: "None", value: "0" },
-      { label: "Small", value: "var(--radius-sm)" },
-      { label: "Medium", value: "var(--radius-md)" },
-      { label: "Large", value: "var(--radius-lg)" },
-    ],
-  },
-  liningPadding: {
-    type: "select" as const,
-    label: "Lining Inner Padding",
-    options: SPACING_OPTIONS.filter((o) => o.value !== "custom"),
-  },
-};
+const ISLAND_ALIGN_MAP = {
+  left: "flex-start",
+  center: "center",
+  right: "flex-end",
+} as const;
 
-/** Safe defaults — no visual change on existing pages. */
-export const SPACING_DEFAULTS: BlockShellProps = {
+const ISLAND_RADIUS_MAP = {
+  sm: "var(--radius-sm)",
+  md: "var(--radius-md)",
+  lg: "var(--radius-lg)",
+} as const;
+
+const ISLAND_BORDER_WIDTH_MAP = {
+  none: "0",
+  thin: "1px",
+  medium: "2px",
+} as const;
+
+/** Default spacing values for new blocks. */
+export const SPACING_DEFAULTS: SpacingProps = {
   paddingTop: "none",
   paddingTopCustom: "",
   paddingRight: "none",
@@ -188,11 +115,72 @@ export const SPACING_DEFAULTS: BlockShellProps = {
   marginBottomCustom: "",
   marginLeft: "none",
   marginLeftCustom: "",
-  liningEnabled: false,
-  liningColor: "rgba(59, 130, 246, 0.12)",
-  liningRadius: "var(--radius-md)",
-  liningPadding: "md",
 };
+
+/** Default island values for new blocks. */
+export const ISLAND_DEFAULTS: IslandProps = {
+  islandEnabled: false,
+  islandMaxWidth: "contained",
+  islandAlign: "center",
+  islandFillPreset: "glass-panel",
+  islandBorderPreset: "border-default",
+  islandBorderWidth: "thin",
+  islandRadius: "md",
+  islandPadding: "md",
+};
+
+/** Compact spacing chapter — custom categorized UI. */
+export const SPACING_GROUP_FIELD = {
+  type: "custom" as const,
+  label: "",
+  render: SpacingFieldGroup as never,
+};
+
+/** Compact island chapter — custom categorized UI. */
+export const ISLAND_GROUP_FIELD = {
+  type: "custom" as const,
+  label: "",
+  render: IslandFieldGroup as never,
+};
+
+/**
+ * Flatten nested `spacing` / `island` groups for render and legacy flat props.
+ *
+ * @param props - Raw block props from Puck (nested or flat).
+ * @returns Flat shell props for {@link applyBlockShell}.
+ */
+export function flattenBlockShellProps(props: BlockShellProps): BlockShellProps {
+  const spacing = props.spacing ?? {};
+  const island = props.island ?? {};
+
+  return {
+    ...props,
+    paddingTop: spacing.paddingTop ?? props.paddingTop,
+    paddingTopCustom: spacing.paddingTopCustom ?? props.paddingTopCustom,
+    paddingRight: spacing.paddingRight ?? props.paddingRight,
+    paddingRightCustom: spacing.paddingRightCustom ?? props.paddingRightCustom,
+    paddingBottom: spacing.paddingBottom ?? props.paddingBottom,
+    paddingBottomCustom: spacing.paddingBottomCustom ?? props.paddingBottomCustom,
+    paddingLeft: spacing.paddingLeft ?? props.paddingLeft,
+    paddingLeftCustom: spacing.paddingLeftCustom ?? props.paddingLeftCustom,
+    marginTop: spacing.marginTop ?? props.marginTop,
+    marginTopCustom: spacing.marginTopCustom ?? props.marginTopCustom,
+    marginRight: spacing.marginRight ?? props.marginRight,
+    marginRightCustom: spacing.marginRightCustom ?? props.marginRightCustom,
+    marginBottom: spacing.marginBottom ?? props.marginBottom,
+    marginBottomCustom: spacing.marginBottomCustom ?? props.marginBottomCustom,
+    marginLeft: spacing.marginLeft ?? props.marginLeft,
+    marginLeftCustom: spacing.marginLeftCustom ?? props.marginLeftCustom,
+    islandEnabled: island.islandEnabled ?? props.islandEnabled,
+    islandMaxWidth: island.islandMaxWidth ?? props.islandMaxWidth,
+    islandAlign: island.islandAlign ?? props.islandAlign,
+    islandFillPreset: island.islandFillPreset ?? props.islandFillPreset,
+    islandBorderPreset: island.islandBorderPreset ?? props.islandBorderPreset,
+    islandBorderWidth: island.islandBorderWidth ?? props.islandBorderWidth,
+    islandRadius: island.islandRadius ?? props.islandRadius,
+    islandPadding: island.islandPadding ?? props.islandPadding,
+  };
+}
 
 /**
  * Resolve a spacing token + optional custom override to a CSS length.
@@ -211,34 +199,45 @@ export function resolveSpacingValue(
 }
 
 /**
- * Compute wrapper and inner styles from block shell props.
+ * Whether island mode is active (supports legacy `liningEnabled` props).
  *
- * @param props - Block props including spacing and lining fields.
- * @param innerStyle - Optional extra styles merged into the inner content wrapper.
- * @returns `shellStyle` (outer margin) and `contentStyle` (padding + lining).
+ * @param props - Block shell props.
+ * @returns True when island wrapper should render.
  */
-export function applyBlockShell(
-  props: BlockShellProps,
-  innerStyle: React.CSSProperties = {},
-): { shellStyle: React.CSSProperties; contentStyle: React.CSSProperties } {
-  const paddingTop = resolveSpacingValue(props.paddingTop, props.paddingTopCustom);
-  const paddingRight = resolveSpacingValue(props.paddingRight, props.paddingRightCustom);
-  const paddingBottom = resolveSpacingValue(props.paddingBottom, props.paddingBottomCustom);
-  const paddingLeft = resolveSpacingValue(props.paddingLeft, props.paddingLeftCustom);
+export function isIslandActive(props: BlockShellProps): boolean {
+  const flat = flattenBlockShellProps(props);
+  return Boolean(flat.islandEnabled ?? flat.liningEnabled);
+}
+
+/**
+ * Compute margin shell, content padding, and optional island wrapper styles.
+ *
+ * @param props - Block props including spacing and island fields.
+ * @returns Style objects and island flag for render composition.
+ */
+export function applyBlockShell(props: BlockShellProps): {
+  shellStyle: React.CSSProperties;
+  contentStyle: React.CSSProperties;
+  islandOuterStyle: React.CSSProperties;
+  islandInnerStyle: React.CSSProperties;
+  islandActive: boolean;
+} {
+  const flat = flattenBlockShellProps(props);
+  const paddingTop = resolveSpacingValue(flat.paddingTop, flat.paddingTopCustom);
+  const paddingRight = resolveSpacingValue(flat.paddingRight, flat.paddingRightCustom);
+  const paddingBottom = resolveSpacingValue(flat.paddingBottom, flat.paddingBottomCustom);
+  const paddingLeft = resolveSpacingValue(flat.paddingLeft, flat.paddingLeftCustom);
 
   const shellStyle: React.CSSProperties = {
-    marginTop: resolveSpacingValue(props.marginTop, props.marginTopCustom),
-    marginRight: resolveSpacingValue(props.marginRight, props.marginRightCustom),
-    marginBottom: resolveSpacingValue(props.marginBottom, props.marginBottomCustom),
-    marginLeft: resolveSpacingValue(props.marginLeft, props.marginLeftCustom),
+    marginTop: resolveSpacingValue(flat.marginTop, flat.marginTopCustom),
+    marginRight: resolveSpacingValue(flat.marginRight, flat.marginRightCustom),
+    marginBottom: resolveSpacingValue(flat.marginBottom, flat.marginBottomCustom),
+    marginLeft: resolveSpacingValue(flat.marginLeft, flat.marginLeftCustom),
     width: "100%",
     boxSizing: "border-box",
   };
 
-  const liningPadding = resolveSpacingValue(props.liningPadding as SpacingToken);
-
   const contentStyle: React.CSSProperties = {
-    ...innerStyle,
     paddingTop,
     paddingRight,
     paddingBottom,
@@ -247,64 +246,62 @@ export function applyBlockShell(
     width: "100%",
   };
 
-  if (props.liningEnabled) {
-    contentStyle.background = props.liningColor || "rgba(59, 130, 246, 0.12)";
-    contentStyle.borderRadius = props.liningRadius || "var(--radius-md)";
-    contentStyle.paddingTop = `calc(${paddingTop} + ${liningPadding})`;
-    contentStyle.paddingRight = `calc(${paddingRight} + ${liningPadding})`;
-    contentStyle.paddingBottom = `calc(${paddingBottom} + ${liningPadding})`;
-    contentStyle.paddingLeft = `calc(${paddingLeft} + ${liningPadding})`;
-  }
+  const islandActive = isIslandActive(flat);
+  const islandPadding = resolveSpacingValue(
+    (flat.islandPadding ?? flat.liningPadding ?? "md") as SpacingToken,
+  );
+  const borderWidth = ISLAND_BORDER_WIDTH_MAP[flat.islandBorderWidth ?? "thin"];
+  const borderColor = resolveNexusColor(
+    flat.islandBorderPreset ?? "border-default",
+    "var(--color-border-default)",
+  );
+  const fill = resolveNexusColor(
+    flat.islandFillPreset ?? "glass-panel",
+    "color-mix(in srgb, var(--color-bg-panel) 94%, transparent)",
+  );
+  const radiusKey = flat.islandRadius ?? "md";
+  const radius = ISLAND_RADIUS_MAP[radiusKey] ?? ISLAND_RADIUS_MAP.md;
+  const maxWidth = ISLAND_WIDTH_MAP[flat.islandMaxWidth ?? "contained"];
+  const align = ISLAND_ALIGN_MAP[flat.islandAlign ?? "center"];
 
-  return { shellStyle, contentStyle };
+  const islandOuterStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: align,
+    width: "100%",
+    maxWidth,
+    marginInline: flat.islandMaxWidth === "full" ? undefined : "auto",
+    boxSizing: "border-box",
+  };
+
+  const islandInnerStyle: React.CSSProperties = {
+    width: "100%",
+    background: fill,
+    border:
+      borderWidth === "0" ? "none" : `${borderWidth} solid ${borderColor}`,
+    borderRadius: radius,
+    padding: islandPadding,
+    boxSizing: "border-box",
+    backdropFilter: flat.islandFillPreset?.startsWith("glass") ? "blur(12px)" : undefined,
+    WebkitBackdropFilter: flat.islandFillPreset?.startsWith("glass") ? "blur(12px)" : undefined,
+  };
+
+  return { shellStyle, contentStyle, islandOuterStyle, islandInnerStyle, islandActive };
 }
 
-/** Custom-field keys paired with their parent token field. */
-const CUSTOM_FIELD_PAIRS: Array<[keyof BlockShellProps, keyof BlockShellProps]> = [
-  ["paddingTopCustom", "paddingTop"],
-  ["paddingRightCustom", "paddingRight"],
-  ["paddingBottomCustom", "paddingBottom"],
-  ["paddingLeftCustom", "paddingLeft"],
-  ["marginTopCustom", "marginTop"],
-  ["marginRightCustom", "marginRight"],
-  ["marginBottomCustom", "marginBottom"],
-  ["marginLeftCustom", "marginLeft"],
-];
-
 /**
- * Hide custom spacing text fields unless their parent token is `custom`.
+ * Pass-through for block resolveFields chains (custom groups handle their own UI).
  *
  * @param fields - Current resolved field map from Puck.
- * @param props - Block props used for visibility checks.
- * @returns Field map with updated `visible` flags.
+ * @param _props - Block props (unused — kept for API compatibility).
+ * @returns Unmodified field map.
  */
 export function resolveSpacingFieldVisibility<T extends Record<string, unknown>>(
   fields: T,
-  props: BlockShellProps,
+  _props: BlockShellProps,
 ): T {
-  const next = { ...fields } as T & Record<string, { visible?: boolean }>;
-
-  for (const [customKey, tokenKey] of CUSTOM_FIELD_PAIRS) {
-    const field = next[customKey as string];
-    if (field && typeof field === "object") {
-      (field as { visible?: boolean }).visible = props[tokenKey] === "custom";
-    }
-  }
-
-  if (next.liningColor) {
-    (next.liningColor as { visible?: boolean }).visible = Boolean(props.liningEnabled);
-  }
-  if (next.liningRadius) {
-    (next.liningRadius as { visible?: boolean }).visible = Boolean(props.liningEnabled);
-  }
-  if (next.liningPadding) {
-    (next.liningPadding as { visible?: boolean }).visible = Boolean(props.liningEnabled);
-  }
-
-  return next;
+  return fields;
 }
 
-/** Minimal Puck block shape accepted by {@link withBlockShell}. */
 interface PuckBlockLike {
   label?: string;
   fields: Record<string, unknown>;
@@ -317,10 +314,10 @@ interface PuckBlockLike {
 }
 
 /**
- * Wrap a Puck block config with shared spacing/lining fields and render shell.
+ * Wrap a Puck block with spacing + optional island shell fields and render wrapper.
  *
- * @param block - Original block definition from `src/components/puck/blocks/`.
- * @returns Extended block with shell fields and wrapped render output.
+ * @param block - Original block definition.
+ * @returns Extended block config.
  */
 export function withBlockShell<T extends PuckBlockLike>(block: T): T {
   const originalRender = block.render;
@@ -330,12 +327,13 @@ export function withBlockShell<T extends PuckBlockLike>(block: T): T {
     ...block,
     fields: {
       ...block.fields,
-      ...SPACING_FIELD_DEFS,
-      ...LINING_FIELD_DEFS,
+      spacing: SPACING_GROUP_FIELD,
+      island: ISLAND_GROUP_FIELD,
     },
     defaultProps: {
       ...block.defaultProps,
-      ...SPACING_DEFAULTS,
+      spacing: SPACING_DEFAULTS,
+      island: ISLAND_DEFAULTS,
     },
     resolveFields: (data, params) => {
       const base = originalResolveFields
@@ -344,11 +342,30 @@ export function withBlockShell<T extends PuckBlockLike>(block: T): T {
       return resolveSpacingFieldVisibility(base, data.props);
     },
     render: (props) => {
-      const { shellStyle, contentStyle } = applyBlockShell(props as BlockShellProps);
+      const {
+        shellStyle,
+        contentStyle,
+        islandOuterStyle,
+        islandInnerStyle,
+        islandActive,
+      } = applyBlockShell(props as BlockShellProps);
       const inner = originalRender(props);
+
+      if (!islandActive) {
+        return (
+          <div style={shellStyle}>
+            <div style={contentStyle}>{inner}</div>
+          </div>
+        );
+      }
+
       return (
         <div style={shellStyle}>
-          <div style={contentStyle}>{inner}</div>
+          <div style={islandOuterStyle}>
+            <div style={islandInnerStyle}>
+              <div style={contentStyle}>{inner}</div>
+            </div>
+          </div>
         </div>
       );
     },

@@ -3,13 +3,12 @@
 /**
  * @fileoverview Puck block for a horizontal Divider.
  *
- * Supports thickness, custom color, margin, and width settings.
- *
  * @module src/components/puck/blocks/content/NexusDivider
  */
 
 import React from "react";
-import { RgbaColorField } from "../../fields/RgbaColorField";
+import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
+import { resolveNexusColor } from "../../lib/nexusColorTokens";
 
 export const NexusDivider = {
   label: "Divider",
@@ -23,10 +22,11 @@ export const NexusDivider = {
         { label: "Thick (4px)", value: "4px" },
       ],
     },
-    colorOverride: {
+    borderColorPreset: {
       type: "custom" as const,
       label: "Line Color",
-      render: RgbaColorField as never,
+      presetGroup: "island-border" as const,
+      render: NexusColorPresetField as never,
     },
     width: {
       type: "select" as const,
@@ -50,17 +50,19 @@ export const NexusDivider = {
   },
   defaultProps: {
     thickness: "1px" as const,
-    colorOverride: "",
+    borderColorPreset: "border-default",
     width: "100%" as const,
     align: "center" as const,
   },
   render({
     thickness,
+    borderColorPreset,
     colorOverride,
     width,
     align,
   }: {
     thickness: string;
+    borderColorPreset?: string;
     colorOverride?: string;
     width: string;
     align: "left" | "center" | "right";
@@ -70,6 +72,10 @@ export const NexusDivider = {
       center: "center",
       right: "flex-end",
     };
+    const lineColor =
+      borderColorPreset
+        ? resolveNexusColor(borderColorPreset, "var(--color-border-default)")
+        : colorOverride || "var(--color-border-default)";
 
     return (
       <div
@@ -83,7 +89,7 @@ export const NexusDivider = {
           style={{
             width: width || "100%",
             border: "none",
-            borderTop: `${thickness || "1px"} solid ${colorOverride || "var(--color-border-default)"}`,
+            borderTop: `${thickness || "1px"} solid ${lineColor}`,
             margin: 0,
           }}
         />

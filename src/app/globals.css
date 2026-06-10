@@ -151,3 +151,86 @@ body {
   margin-inline: auto;
   padding: var(--spacing-lg);
 }
+
+/* ── Rich body text (NexusText published output) ──────────────────────────── */
+.nexus-rich-text {
+  word-wrap: break-word;
+}
+
+.nexus-rich-text p {
+  margin: 0 0 0.65em;
+}
+
+.nexus-rich-text p:last-child {
+  margin-bottom: 0;
+}
+
+.nexus-rich-text h1,
+.nexus-rich-text h2,
+.nexus-rich-text h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 0.5em;
+}
+
+.nexus-rich-text h1 {
+  font-size: 1.5em;
+}
+
+.nexus-rich-text h2 {
+  font-size: 1.25em;
+}
+
+.nexus-rich-text h3 {
+  font-size: 1.1em;
+}
+
+.nexus-rich-text ul,
+.nexus-rich-text ol {
+  list-style-position: outside;
+  margin: 0 0 0.65em;
+  padding-left: 1.35rem;
+}
+
+.nexus-rich-text ul {
+  list-style-type: disc;
+}
+
+.nexus-rich-text ol {
+  list-style-type: decimal;
+}
+
+.nexus-rich-text li {
+  margin-bottom: 0.25em;
+}
+
+.nexus-rich-text blockquote {
+  border-left: 3px solid var(--color-border-default);
+  margin: 0 0 0.65em;
+  padding-left: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.nexus-rich-text code {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+}
+
+.nexus-rich-text strong,
+.nexus-rich-text b {
+  font-weight: 600;
+}
+
+.nexus-rich-text em,
+.nexus-rich-text i {
+  font-style: italic;
+}
+
+.nexus-rich-text s,
+.nexus-rich-text strike {
+  text-decoration: line-through;
+}
+

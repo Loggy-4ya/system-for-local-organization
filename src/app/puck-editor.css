@@ -4,15 +4,13 @@
    Syncs Puck chrome colours with the site light/dark theme.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Force all Puck canvas and preview containers to be transparent */
-.Puck,
-.Puck__canvas,
-.Puck__preview,
+/* Force canvas/preview containers transparent so InfiniteGrid shows through */
 [class*="Puck__canvas"],
 [class*="Puck__preview"],
 [class*="Puck__page"],
 [class*="puck-canvas"],
-[class*="puck-preview"] {
+[class*="puck-preview"],
+[class*="PuckCanvas"] {
   background-color: transparent !important;
   background-image: none !important;
 }
@@ -24,8 +22,10 @@
 
 /* ── Puck chrome: dark theme alignment ─────────────────────────────────────── */
 /*
- * Puck ships a fixed light palette. When the site is in dark mode, remap the
- * internal --puck-color-* greys so sidebars, fields, and headers stay readable.
+ * Puck ships a fixed light palette. When the site is in dark mode, remap grey
+ * AND azure tokens so sidebars, hover rows, and selection states stay readable.
+ * Interactive hovers use azure-* in Puck CSS; without remapping, backgrounds
+ * stay near-white while text stays light grey → invisible contrast.
  */
 [data-theme="dark"] .Puck {
   --puck-color-white: #18213a;
@@ -41,6 +41,125 @@
   --puck-color-grey-03: #e2e8f0;
   --puck-color-grey-02: #f1f5f9;
   --puck-color-black: #f1f5f9;
+
+  /* Azure scale — inverted for dark interactive surfaces */
+  --puck-color-azure-01: #1e3a8a;
+  --puck-color-azure-02: #1e40af;
+  --puck-color-azure-03: #2563eb;
+  --puck-color-azure-04: #93c5fd;
+  --puck-color-azure-05: #60a5fa;
+  --puck-color-azure-06: #93c5fd;
+  --puck-color-azure-07: #bfdbfe;
+  --puck-color-azure-08: #64748b;
+  --puck-color-azure-09: #3d4a5c;
+  --puck-color-azure-10: #354660;
+  --puck-color-azure-11: #1e2945;
+  --puck-color-azure-12: #293548;
+}
+
+/* Belt-and-suspenders: Puck sometimes changes hover bg without updating text color */
+[data-theme="dark"] .Puck [class*="ArrayFieldItem-summary"]:hover,
+[data-theme="dark"] .Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .Puck [class*="ArrayFieldItem-actions"] {
+  color: var(--puck-color-grey-06);
+}
+
+/* Neutral array/list chrome — drop azure-tinted panel backgrounds */
+.Puck [class*="ArrayField"]:not([class*="ArrayFieldItem"]) {
+  background: var(--puck-color-grey-12) !important;
+}
+
+.Puck [class*="ArrayFieldItem-summary"] {
+  background: var(--puck-color-white) !important;
+  color: var(--puck-color-black) !important;
+}
+
+.Puck [class*="ArrayFieldItem-summary"]:hover,
+.Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
+  background: var(--puck-color-grey-11) !important;
+  color: var(--puck-color-black) !important;
+}
+
+.Puck [class*="ArrayFieldItem-body"],
+.Puck [class*="ArrayField-addButton"] {
+  background: var(--puck-color-white) !important;
+  color: var(--puck-color-black) !important;
+}
+
+.Puck [class*="ArrayField-addButton"]:hover {
+  background: var(--puck-color-grey-11) !important;
+}
+
+/* ── Canvas: visible selection + hover rings ──────────────────────────────── */
+.Puck [class*="DraggableComponent--isSelected"] [class*="DraggableComponent-overlay"] {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, transparent) !important;
+  outline: 2px solid var(--color-accent-user) !important;
+  outline-offset: -2px;
+}
+
+.Puck [class*="DraggableComponent--hover"] [class*="DraggableComponent-overlay"] {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, transparent) !important;
+  outline: 2px solid color-mix(in srgb, var(--color-accent-user) 55%, transparent) !important;
+  outline-offset: -2px;
+}
+
+/* Outline tree — selected row (both themes) */
+.Puck [class*="Layer--isSelected"] > [class*="Layer-inner"] {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white)) !important;
+  border-color: color-mix(in srgb, var(--color-accent-user) 45%, transparent) !important;
+  color: var(--puck-color-black) !important;
+}
+
+.Puck [class*="Layer"]:not([class*="Layer--isSelected"]) > [class*="Layer-inner"]:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white)) !important;
+  border-color: color-mix(in srgb, var(--color-accent-user) 30%, transparent) !important;
+  color: var(--puck-color-black) !important;
+}
+
+/* ── Left sidebar: subtle scrollbar, stable width ─────────────────────────── */
+.Puck [class*="Sidebar--left"],
+.Puck [class*="Sidebar--right"] {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--puck-color-grey-08) 50%, transparent) transparent;
+}
+
+.Puck [class*="Sidebar"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.Puck [class*="Sidebar"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.Puck [class*="Sidebar"]::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--puck-color-grey-08) 45%, transparent);
+  border-radius: 999px;
+}
+
+.Puck [class*="Sidebar"]::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--puck-color-grey-08) 65%, transparent);
+}
+
+/* Components panel — gap below section title before first category */
+.Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > [class*="ComponentList"]:first-child {
+  margin-top: 12px;
+}
+
+/* Drawer tiles — clear hover without blue-only text */
+.Puck [class*="DrawerItem-draggable"]:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white)) !important;
+  border-color: color-mix(in srgb, var(--color-accent-user) 35%, var(--puck-color-grey-09)) !important;
+  color: var(--puck-color-black) !important;
+}
+
+/* Outline panel — same rhythm below its title */
+.Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > [class*="LayerTree"]:first-child,
+.Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > div:first-child > [class*="LayerTree"] {
+  margin-top: 12px;
 }
 
 /* Header action chips in the Puck toolbar use Nexus tokens — ensure contrast */
@@ -90,27 +209,59 @@
   cursor: not-allowed;
 }
 
-.nexus-puck-field select {
+.nexus-puck-field select,
+.nexus-puck-select {
   width: 100%;
-  padding: 8px 12px;
-  background: var(--puck-color-white);
+  min-height: 42px;
+  padding: 12px 32px 12px 15px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--puck-color-white);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2394a3b8'><polygon points='0,0 100,0 50,50'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 12px;
+  background-position: calc(100% - 15px) center;
   border: 1px solid var(--puck-color-grey-09);
   color: var(--puck-color-black);
   border-radius: 4px;
+  font-family: inherit;
   font-size: 14px;
+  line-height: 1.2;
   outline: none;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
-.nexus-puck-field select:focus {
+.nexus-puck-field select:focus,
+.nexus-puck-select:focus {
   border-color: var(--puck-color-grey-07);
   box-shadow: 0 0 0 1px var(--puck-color-grey-07);
 }
 
-/* ── Dark theme: native select / radio contrast ───────────────────────────── */
-[data-theme="dark"] .Puck select,
-[data-theme="dark"] .Puck .nexus-puck-field select {
-  background: var(--puck-color-grey-11);
+/* ── Dark theme: Puck native selects (chevron, not zigzag tile) ─────────── */
+[data-theme="dark"] .Puck select[class*="Input-input"],
+[data-theme="dark"] .Puck select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--puck-color-grey-11) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23cbd5e1'><polygon points='0,0 100,0 50,50'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-size: 12px !important;
+  background-position: calc(100% - 12px) center !important;
+  border-color: var(--puck-color-grey-09) !important;
+  color: var(--puck-color-black) !important;
+}
+
+[data-theme="dark"] .Puck select[class*="Input-input"]:hover:not([disabled]),
+[data-theme="dark"] .Puck select:hover:not([disabled]) {
+  background-color: var(--puck-color-grey-10) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0'><polygon points='0,0 100,0 50,50'/></svg>") !important;
+}
+
+[data-theme="dark"] .nexus-puck-field select,
+[data-theme="dark"] .nexus-puck-select {
+  background-color: var(--puck-color-grey-11);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23cbd5e1'><polygon points='0,0 100,0 50,50'/></svg>");
   border-color: var(--puck-color-grey-09);
   color: var(--puck-color-black);
 }
@@ -122,16 +273,380 @@
 }
 
 [data-theme="dark"] .Puck [class*="Input-input"],
-[data-theme="dark"] .Puck [class*="Select"],
 [data-theme="dark"] .Puck [class*="RadioGroup"],
 [data-theme="dark"] .Puck [class*="Field"] label {
   color: var(--puck-color-black);
 }
 
-[data-theme="dark"] .Puck [class*="Input-input"],
-[data-theme="dark"] .Puck [class*="Select"] select {
+/* ── Header URL chip (right toolbar) ──────────────────────────────────────── */
+.nexus-path-chip {
+  align-items: center;
+  background: var(--puck-color-grey-11);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  margin-right: 10px;
+  padding: 4px 10px;
+  user-select: none;
+}
+
+.nexus-path-chip__label {
+  color: var(--puck-color-grey-07);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.nexus-path-chip__value {
+  align-items: baseline;
+  color: var(--color-accent-user);
+  display: inline-flex;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nexus-path-chip__button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: text;
+  font: inherit;
+  padding: 0;
+}
+
+.nexus-path-chip__button:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.nexus-path-chip__slash {
+  opacity: 0.75;
+}
+
+.nexus-path-chip__input {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  min-width: 60px;
+  max-width: 200px;
+  outline: none;
+  padding: 0;
+}
+
+/* ── Compact sidebar field chapters ───────────────────────────────────────── */
+.nexus-field-chapter {
+  margin-top: 10px;
+}
+
+.nexus-field-chapter__head {
+  align-items: center;
+  color: var(--puck-color-grey-07);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  letter-spacing: 0.03em;
+  list-style: none;
+  padding: 6px 0;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.nexus-field-chapter__head::-webkit-details-marker {
+  display: none;
+}
+
+.nexus-field-chapter__icon {
+  align-items: center;
+  color: var(--puck-color-grey-08);
+  display: inline-flex;
+  height: 14px;
+  width: 14px;
+}
+
+.nexus-field-chapter__icon svg {
+  height: 14px;
+  width: 14px;
+}
+
+.nexus-field-chapter__title {
+  flex: 1;
+}
+
+.nexus-field-chapter__head::after {
+  color: var(--puck-color-grey-08);
+  content: "+";
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.nexus-field-chapter[open] > .nexus-field-chapter__head::after {
+  content: "−";
+}
+
+.nexus-field-chapter__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.nexus-field-category {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nexus-field-category__label {
+  color: var(--puck-color-grey-08);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nexus-field-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.nexus-field-grid__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nexus-field-grid__cell--wide {
+  grid-column: 1 / -1;
+}
+
+.nexus-field-grid__label {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+}
+
+.nexus-field-grid__custom {
+  background: var(--puck-color-white);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 4px;
+  color: var(--puck-color-black);
+  font-family: inherit;
+  font-size: 14px;
+  min-height: 42px;
+  padding: 12px 15px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.nexus-color-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.nexus-color-row__swatch {
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 4px;
+  flex-shrink: 0;
+  height: 42px;
+  width: 42px;
+}
+
+.nexus-segmented {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.nexus-segmented__btn {
+  background: var(--puck-color-grey-11);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 4px;
+  color: var(--puck-color-black);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.nexus-segmented__btn--active {
+  background: var(--puck-color-white);
+  border-color: var(--puck-color-grey-07);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .nexus-field-grid__custom {
   background: var(--puck-color-grey-11);
   border-color: var(--puck-color-grey-09);
   color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-path-chip {
+  background: var(--puck-color-grey-11);
+  border-color: var(--puck-color-grey-09);
+}
+
+/* ── Editor mode toggle (header actions) ── */
+.nexus-mode-toggle {
+  align-items: center;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 34px;
+  padding: 6px 12px;
+  transition: opacity 0.15s ease;
+}
+
+.nexus-mode-toggle:hover {
+  opacity: 0.85;
+}
+
+.nexus-mode-toggle[aria-pressed="true"] {
+  background: var(--puck-color-azure-09);
+  border-color: var(--puck-color-azure-07);
+  color: var(--puck-color-black);
+}
+
+/* ── Spacing custom numeric + unit row ── */
+.nexus-field-grid__custom-row {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+}
+
+.nexus-field-grid__custom--number {
+  min-width: 0;
+}
+
+.nexus-field-grid__custom-unit {
+  min-width: 72px;
+  width: auto;
+}
+
+/* ── Tiptap sidebar editor ── */
+.nexus-tiptap-editor {
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.nexus-tiptap-editor--loading {
+  color: var(--puck-color-grey-07);
+  font-size: 13px;
+  padding: 12px 15px;
+}
+
+.nexus-tiptap-editor__toolbar {
+  background: var(--puck-color-grey-12);
+  border-bottom: 1px solid var(--puck-color-grey-09);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+}
+
+.nexus-tiptap-editor__btn {
+  background: var(--puck-color-white);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 4px;
+  color: var(--puck-color-black);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 6px;
+}
+
+.nexus-tiptap-editor__btn:hover {
+  border-color: var(--puck-color-grey-07);
+}
+
+.nexus-tiptap-editor__btn--active {
+  background: var(--puck-color-azure-09);
+  border-color: var(--puck-color-azure-07);
+}
+
+.nexus-tiptap-editor__content {
+  background: var(--puck-color-white);
+  color: var(--puck-color-black);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 120px;
+  outline: none;
+  padding: 12px 15px;
+}
+
+.nexus-tiptap-editor__content p {
+  margin: 0 0 0.5em;
+}
+
+.nexus-tiptap-editor__content p:last-child {
+  margin-bottom: 0;
+}
+
+.nexus-tiptap-editor__content ul,
+.nexus-tiptap-editor__content ol {
+  margin: 0 0 0.5em;
+  padding-left: 1.25rem;
+}
+
+.nexus-tiptap-editor__content blockquote {
+  border-left: 3px solid var(--puck-color-grey-07);
+  margin: 0 0 0.5em;
+  padding-left: 0.75rem;
+}
+
+.nexus-tiptap-editor__content code {
+  background: var(--puck-color-grey-12);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+}
+
+[data-theme="dark"] .nexus-tiptap-editor {
+  border-color: var(--puck-color-grey-09);
+}
+
+[data-theme="dark"] .nexus-tiptap-editor__toolbar {
+  background: var(--puck-color-grey-11);
+}
+
+[data-theme="dark"] .nexus-tiptap-editor__btn {
+  background: var(--puck-color-grey-11);
+  border-color: var(--puck-color-grey-09);
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-tiptap-editor__content {
+  background: var(--puck-color-grey-11);
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-tiptap-editor__content code {
+  background: var(--puck-color-grey-12);
 }
 

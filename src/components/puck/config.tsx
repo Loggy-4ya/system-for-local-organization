@@ -9,7 +9,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { Config } from "@measured/puck";
-import { withBlockShell, type BlockShellProps } from "./lib/spacingFields";
+import { withBlockShell, SPACING_DEFAULTS, ISLAND_DEFAULTS, type SpacingProps, type IslandProps } from "./lib/spacingFields";
 
 import { PageRoot } from "./root/PageRoot";
 
@@ -44,10 +44,28 @@ import { NexusAvatar } from "./blocks/user/NexusAvatar";
  * @param shellDefaults - Overrides for spacing/lining default props.
  * @returns Block config registered in Puck.
  */
-function shellBlock(block: Parameters<typeof withBlockShell>[0], shellDefaults?: Partial<BlockShellProps>) {
+function shellBlock(
+  block: Parameters<typeof withBlockShell>[0],
+  shellDefaults?: Partial<SpacingProps & IslandProps>,
+) {
   const wrapped = withBlockShell(block);
   if (shellDefaults) {
-    wrapped.defaultProps = { ...wrapped.defaultProps, ...shellDefaults };
+    const spacing: Partial<SpacingProps> = {};
+    const island: Partial<IslandProps> = {};
+
+    for (const [key, value] of Object.entries(shellDefaults)) {
+      if (key in SPACING_DEFAULTS) {
+        (spacing as Record<string, unknown>)[key] = value;
+      } else if (key in ISLAND_DEFAULTS) {
+        (island as Record<string, unknown>)[key] = value;
+      }
+    }
+
+    wrapped.defaultProps = {
+      ...wrapped.defaultProps,
+      spacing: { ...(wrapped.defaultProps.spacing as SpacingProps), ...spacing },
+      island: { ...(wrapped.defaultProps.island as IslandProps), ...island },
+    };
   }
   return wrapped as any;
 }
@@ -82,6 +100,7 @@ export const puckConfig = {
   categories: {
     layout: {
       title: "Layout",
+      defaultExpanded: false,
       components: [
         "NexusSection",
         "NexusGrid",
@@ -92,6 +111,7 @@ export const puckConfig = {
     },
     content: {
       title: "Content",
+      defaultExpanded: false,
       components: [
         "NexusHeading",
         "NexusText",
@@ -108,10 +128,12 @@ export const puckConfig = {
     },
     news: {
       title: "News & Cards",
+      defaultExpanded: false,
       components: ["NexusNewsCard"],
     },
     user: {
       title: "User & Data",
+      defaultExpanded: false,
       components: ["NexusUserBadge", "NexusStatCard", "NexusAvatar"],
     },
   },

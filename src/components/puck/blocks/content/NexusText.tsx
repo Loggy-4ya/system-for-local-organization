@@ -7,14 +7,21 @@
  */
 
 import React from "react";
-import { RgbaColorField } from "../../fields/RgbaColorField";
+import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
+import { TiptapField } from "../../fields/TiptapField";
+import {
+  legacyColorTypeToToken,
+  resolveNexusColor,
+} from "../../lib/nexusColorTokens";
+import { normalizeRichTextForRender } from "../../lib/richTextContent";
 
 export const NexusText = {
   label: "Body Text",
   fields: {
     text: {
-      type: "textarea" as const,
+      type: "custom" as const,
       label: "Text Content",
+      render: TiptapField as never,
     },
     align: {
       type: "radio" as const,
@@ -26,20 +33,11 @@ export const NexusText = {
         { label: "Justify", value: "justify" },
       ],
     },
-    colorType: {
-      type: "select" as const,
-      label: "Color Style",
-      options: [
-        { label: "Primary Text (Default)", value: "primary" },
-        { label: "Secondary Text (Muted)", value: "secondary" },
-        { label: "User Accent Color", value: "accent" },
-        { label: "Custom HEX/RGB", value: "custom" },
-      ],
-    },
-    customColor: {
+    colorPreset: {
       type: "custom" as const,
-      label: "Custom Color",
-      render: RgbaColorField as never,
+      label: "Text Color",
+      presetGroup: "text" as const,
+      render: NexusColorPresetField as never,
     },
     fontSize: {
       type: "select" as const,
@@ -56,23 +54,16 @@ export const NexusText = {
     },
   },
   defaultProps: {
-    text: "This is a paragraph of body text. You can edit this text inline or in the sidebar.",
+    text: "<p>This is a paragraph of body text. You can edit this text inline or in the sidebar.</p>",
     align: "left" as const,
-    colorType: "primary" as const,
-    customColor: "",
+    colorPreset: "text-primary",
     fontSize: "0.9375rem" as const,
     lineHeight: "1.6",
-  },
-  resolveFields: (data: { props: { colorType?: string } }, params: { fields: Record<string, { visible?: boolean }> }) => {
-    const fields = { ...params.fields };
-    if (fields.customColor) {
-      fields.customColor.visible = data.props.colorType === "custom";
-    }
-    return fields;
   },
   render({
     text,
     align,
+    colorPreset,
     colorType,
     customColor,
     fontSize,
@@ -80,32 +71,29 @@ export const NexusText = {
   }: {
     text: string;
     align: "left" | "center" | "right" | "justify";
-    colorType: "primary" | "secondary" | "accent" | "custom";
+    colorPreset?: string;
+    colorType?: string;
     customColor?: string;
     fontSize: string;
     lineHeight?: string;
   }) {
-    const colors = {
-      primary: "var(--color-text-primary)",
-      secondary: "var(--color-text-secondary)",
-      accent: "var(--color-accent-user)",
-      custom: customColor || "var(--color-text-primary)",
-    };
+    const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
+    const html = normalizeRichTextForRender(text);
 
     return (
-      <p
+      <div
+        className="nexus-rich-text"
         style={{
           margin: 0,
           fontSize: fontSize || "0.9375rem",
           lineHeight: lineHeight || "1.6",
           textAlign: align || "left",
-          color: colors[colorType] || colors.primary,
+          color: resolveNexusColor(token),
           whiteSpace: "pre-wrap",
           width: "100%",
         }}
-      >
-        {text}
-      </p>
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     );
   },
 };

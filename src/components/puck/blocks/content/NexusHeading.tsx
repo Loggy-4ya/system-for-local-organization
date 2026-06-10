@@ -3,22 +3,20 @@
 /**
  * @fileoverview Puck block for styled Headings.
  *
- * Supports h1, h2, h3, and h4 levels styled according to the design system,
- * with alignment, color type, custom color, margins, and font-weight.
- *
  * @module src/components/puck/blocks/content/NexusHeading
  */
 
 import React from "react";
-import { RgbaColorField } from "../../fields/RgbaColorField";
+import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
+import {
+  legacyColorTypeToToken,
+  resolveNexusColor,
+} from "../../lib/nexusColorTokens";
 
 export const NexusHeading = {
   label: "Heading",
   fields: {
-    text: {
-      type: "text" as const,
-      label: "Heading Text",
-    },
+    text: { type: "text" as const, label: "Heading Text" },
     level: {
       type: "radio" as const,
       label: "Heading Level",
@@ -38,20 +36,11 @@ export const NexusHeading = {
         { label: "Right", value: "right" },
       ],
     },
-    colorType: {
-      type: "select" as const,
-      label: "Color Type",
-      options: [
-        { label: "Primary Text (Default)", value: "primary" },
-        { label: "Secondary Text", value: "secondary" },
-        { label: "User Accent Color", value: "accent" },
-        { label: "Custom HEX/RGB", value: "custom" },
-      ],
-    },
-    customColor: {
+    colorPreset: {
       type: "custom" as const,
-      label: "Custom Color",
-      render: RgbaColorField as never,
+      label: "Text Color",
+      presetGroup: "text" as const,
+      render: NexusColorPresetField as never,
     },
     fontWeight: {
       type: "select" as const,
@@ -68,21 +57,14 @@ export const NexusHeading = {
     text: "Heading Title",
     level: "h2" as const,
     align: "left" as const,
-    colorType: "primary" as const,
-    customColor: "",
+    colorPreset: "text-primary",
     fontWeight: "700" as const,
-  },
-  resolveFields: (data: { props: { colorType?: string } }, params: { fields: Record<string, { visible?: boolean }> }) => {
-    const fields = { ...params.fields };
-    if (fields.customColor) {
-      fields.customColor.visible = data.props.colorType === "custom";
-    }
-    return fields;
   },
   render({
     text,
     level,
     align,
+    colorPreset,
     colorType,
     customColor,
     fontWeight,
@@ -90,12 +72,13 @@ export const NexusHeading = {
     text: string;
     level: "h1" | "h2" | "h3" | "h4";
     align: "left" | "center" | "right";
-    colorType: "primary" | "secondary" | "accent" | "custom";
+    colorPreset?: string;
+    colorType?: string;
     customColor?: string;
     fontWeight: "400" | "500" | "600" | "700";
   }) {
     const Tag = level;
-
+    const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
     const headingSizes = {
       h1: "2rem",
       h2: "1.5rem",
@@ -103,19 +86,12 @@ export const NexusHeading = {
       h4: "0.9375rem",
     };
 
-    const colors = {
-      primary: "var(--color-text-primary)",
-      secondary: "var(--color-text-secondary)",
-      accent: "var(--color-accent-user)",
-      custom: customColor || "var(--color-text-primary)",
-    };
-
     return (
       <Tag
         style={{
           margin: 0,
           textAlign: align || "left",
-          color: colors[colorType] || colors.primary,
+          color: resolveNexusColor(token),
           fontSize: headingSizes[level] || headingSizes.h2,
           fontWeight: parseInt(fontWeight, 10) || 700,
           letterSpacing: level === "h1" || level === "h2" ? "-0.01em" : "normal",

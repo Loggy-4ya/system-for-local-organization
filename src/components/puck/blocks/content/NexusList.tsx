@@ -66,9 +66,8 @@ export const NexusList = {
           paddingLeft: "24px",
           textAlign: "left",
           color: "var(--color-text-primary)",
-          display: "flex",
-          flexDirection: "column",
-          gap: itemGap,
+          listStyleType: listType === "number" ? "decimal" : "disc",
+          listStylePosition: "outside",
           fontSize: "14px",
           lineHeight: 1.5,
           width: "100%",
@@ -76,10 +75,14 @@ export const NexusList = {
         }}
       >
         {items.map((item, idx) => (
-          <li key={idx} style={{ color: "var(--color-text-primary)" }}>
-            <span style={{ color: "var(--color-text-primary)" }}>
-              {item.text || "List Item"}
-            </span>
+          <li
+            key={idx}
+            style={{
+              color: "var(--color-text-primary)",
+              marginBottom: idx < items.length - 1 ? itemGap : undefined,
+            }}
+          >
+            {item.text || "List Item"}
           </li>
         ))}
       </Tag>

@@ -38,8 +38,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/ui/` | Shared UI: `GlobalHeader`, `ThemeProvider` | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
-| `src/components/puck/fields/` | Custom Puck fields (`RgbaColorField`, `MediaUploadField`, `AccentPresetField`, legacy `ImageField`) | Active |
-| `src/components/puck/lib/` | Shared Puck helpers (`spacingFields.tsx`, `mediaUpload.ts`) | Active |
+| `src/components/puck/fields/` | Custom Puck fields (`NexusColorPresetField`, `MediaUploadField`, `AccentPresetField`, `ImageField`) | Active |
+| `src/components/puck/lib/` | Shared helpers (`nexusColorTokens.ts`, `spacingFields.tsx`, `mediaUpload.ts`, `useDeferredFieldCommit.ts`) | Active |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`), `EditorHeaderChrome.tsx` | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) | Active |
 
