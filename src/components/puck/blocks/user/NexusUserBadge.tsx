@@ -102,7 +102,6 @@ export const NexusUserBadge = {
           gap: "16px",
           padding: "20px",
           width: "100%",
-          maxWidth: isVertical ? "320px" : "480px",
           margin: "0 auto",
           textAlign: isVertical ? "center" : "left",
           background: backgroundOverride || "var(--color-bg-panel)",

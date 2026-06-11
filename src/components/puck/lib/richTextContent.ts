@@ -4,7 +4,7 @@
  * @module src/components/puck/lib/richTextContent
  */
 
-/** Tags allowed in stored/rendered rich text (StarterKit subset). */
+/** Tags allowed in stored/rendered rich text (StarterKit + links). */
 const ALLOWED_TAGS = new Set([
   "p",
   "br",
@@ -22,7 +22,31 @@ const ALLOWED_TAGS = new Set([
   "ol",
   "li",
   "blockquote",
+  "a",
 ]);
+
+/** Safe URL protocols for inline links. */
+const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+/**
+ * Validate whether a hyperlink target is safe to render.
+ *
+ * @param href - Raw href attribute.
+ * @returns True when the URL is allowed.
+ */
+export function isSafeHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("#")) return true;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+
+  try {
+    const url = new URL(trimmed, "https://example.com");
+    return SAFE_PROTOCOLS.has(url.protocol);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Strip disallowed tags and event-handler attributes from HTML.
@@ -51,6 +75,54 @@ export function sanitizeRichTextHtml(html: string): string {
 }
 
 /**
+ * Unwrap an element — move children to parent and remove the element.
+ *
+ * @param el - Element to unwrap.
+ * @param parent - Parent node.
+ */
+function unwrapElement(el: HTMLElement, parent: Node): void {
+  while (el.firstChild) {
+    parent.insertBefore(el.firstChild, el);
+  }
+  parent.removeChild(el);
+}
+
+/**
+ * Sanitize anchor attributes and drop unsafe links.
+ *
+ * @param el - Anchor element.
+ * @param parent - Parent for unwrap fallback.
+ */
+function sanitizeAnchor(el: HTMLAnchorElement, parent: Node): void {
+  const href = el.getAttribute("href") || "";
+  if (!isSafeHref(href)) {
+    unwrapElement(el, parent);
+    return;
+  }
+
+  const attrs = Array.from(el.attributes);
+  for (const attr of attrs) {
+    el.removeAttribute(attr.name);
+  }
+
+  el.setAttribute("href", href.trim());
+
+  const isExternal =
+    href.startsWith("http://") ||
+    href.startsWith("https://") ||
+    href.startsWith("mailto:") ||
+    href.startsWith("tel:");
+
+  if (isExternal) {
+    el.setAttribute("target", "_blank");
+    el.setAttribute("rel", "noopener noreferrer");
+  }
+
+  el.setAttribute("class", "nexus-rich-text__link");
+  sanitizeNode(el);
+}
+
+/**
  * Recursively sanitize a DOM node tree.
  *
  * @param node - Node to sanitize in place.
@@ -63,11 +135,13 @@ function sanitizeNode(node: Node): void {
       const el = child as HTMLElement;
       const tag = el.tagName.toLowerCase();
 
+      if (tag === "a") {
+        sanitizeAnchor(el as HTMLAnchorElement, node);
+        continue;
+      }
+
       if (!ALLOWED_TAGS.has(tag)) {
-        while (el.firstChild) {
-          node.insertBefore(el.firstChild, el);
-        }
-        node.removeChild(el);
+        unwrapElement(el, node);
         continue;
       }
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@teispace/next-themes";
 import { getTheme, getThemeScript } from "@teispace/next-themes/server";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
@@ -21,6 +21,20 @@ const inter = Inter({
   display: "swap",
 });
 
+const sourceSerif = Source_Serif_4({
+  variable: "--font-serif-face",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono-face",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const fontVariables = `${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable}`;
+
 export const metadata: Metadata = {
   title: "Nexus — Institutional Management Platform",
   description:
@@ -33,7 +47,7 @@ export const metadata: Metadata = {
  * @fileoverview Root Next.js layout for Project Nexus.
  *
  * Responsibilities:
- *  - Applies the Inter typeface via a CSS variable (`--font-inter`).
+ *  - Applies Inter (sans), Source Serif 4 (serif), and JetBrains Mono (mono) via CSS variables.
  *  - Seeds the theme via a server-rendered `<head>` script (zero-flicker SSR)
  *    and wraps the tree with `@teispace/next-themes` so descendants can toggle
  *    Light / Dark mode via `useTheme`.
@@ -50,7 +64,7 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
       <head>
         {/*
           suppressHydrationWarning: the anti-FOUC script is SSR-only; browser

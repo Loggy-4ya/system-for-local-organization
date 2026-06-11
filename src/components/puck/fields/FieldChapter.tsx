@@ -6,7 +6,9 @@
  * @module src/components/puck/fields/FieldChapter
  */
 
+import { Box, Grid3x3, Palette, Settings2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { puckIcon } from "../lib/puckIcons";
 
 /** Props for a sidebar field chapter. */
 export interface FieldChapterProps {
@@ -46,36 +48,22 @@ export function FieldChapter({ title, icon, children, defaultOpen = false }: Fie
 
 /** Spacing chapter icon. */
 export function SpacingIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M2 5h12M2 11h12M5 2v12M11 2v12"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return puckIcon(Grid3x3);
 }
 
 /** Island layout chapter icon. */
 export function IslandIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.25" />
-      <path d="M5 7h6M5 9.5h4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-    </svg>
-  );
+  return puckIcon(Box);
 }
 
 /** Page background chapter icon. */
 export function BackgroundIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden>
-      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.25" />
-      <path d="M8 2.5v11" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-    </svg>
-  );
+  return puckIcon(Palette);
+}
+
+/** Generic settings chapter icon. */
+export function SettingsIcon() {
+  return puckIcon(Settings2);
 }
 
 export default FieldChapter;

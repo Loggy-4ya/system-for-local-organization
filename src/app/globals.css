@@ -8,6 +8,8 @@
 /* ── Global base ──────────────────────────────────────────────────────────── */
 :root {
   --font-sans: var(--font-inter, "Inter", system-ui, sans-serif);
+  --font-serif: var(--font-serif-face, "Source Serif 4", Georgia, "Times New Roman", serif);
+  --font-mono: var(--font-mono-face, "JetBrains Mono", ui-monospace, monospace);
 
   /* ── Spacing tokens (Nexus/Spacing) ──────────────────────────────────────── */
   --spacing-xs:  4px;
@@ -16,6 +18,17 @@
   --spacing-lg:  24px;
   --spacing-xl:  32px;
   --spacing-2xl: 48px;
+
+  /* ── Content width tokens (pages, sections, islands) ───────────────────── */
+  --content-width-xs: 640px;
+  --content-width-sm: 800px;
+  --content-width-md: 1024px;
+  --content-width-lg: 1200px;
+  --content-width-xl: 1400px;
+  --content-width-full: 100%;
+
+  /* Horizontal/vertical inset so page content reveals the InfiniteGrid background */
+  --page-content-gutter: clamp(12px, 3vw, 24px);
 
   /* ── Border-radius tokens (Nexus/Radius) ─────────────────────────────────── */
   --radius-sm:  4px;
@@ -146,10 +159,10 @@ body {
 
 /* ── Contained page shell ─────────────────────────────────────────────────── */
 .page-shell {
-  width: 1200px;
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--content-width-lg);
   margin-inline: auto;
-  padding: var(--spacing-lg);
+  padding: var(--page-content-gutter);
 }
 
 /* ── Rich body text (NexusText published output) ──────────────────────────── */
@@ -214,7 +227,7 @@ body {
 .nexus-rich-text code {
   background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   border-radius: 3px;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
   padding: 0.1em 0.35em;
 }
@@ -232,5 +245,545 @@ body {
 .nexus-rich-text s,
 .nexus-rich-text strike {
   text-decoration: line-through;
+}
+
+.nexus-rich-text a,
+.nexus-rich-text__link {
+  color: var(--color-accent-user);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  text-underline-offset: 2px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.nexus-rich-text a:hover,
+.nexus-rich-text__link:hover {
+  color: color-mix(in srgb, var(--color-accent-user) 82%, white);
+  text-decoration-color: var(--color-accent-user);
+}
+
+/* ── Carousel (NexusCarousel published output) ──────────────────────────── */
+.nexus-carousel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.nexus-carousel--empty {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 24px;
+  text-align: center;
+}
+
+.nexus-carousel__viewport {
+  position: relative;
+  width: 100%;
+}
+
+.nexus-carousel__slide {
+  position: relative;
+  width: 100%;
+}
+
+.nexus-carousel__image {
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.nexus-carousel__placeholder {
+  align-items: center;
+  background: var(--color-bg-cell);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  min-height: 200px;
+  padding: 24px;
+}
+
+.nexus-carousel__placeholder-hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.nexus-carousel__caption {
+  background: linear-gradient(transparent, color-mix(in srgb, var(--color-bg-surface) 88%, transparent));
+  bottom: 0;
+  color: var(--color-text-primary);
+  left: 0;
+  padding: 20px 16px 12px;
+  position: absolute;
+  right: 0;
+}
+
+.nexus-carousel__caption p {
+  font-size: 13px;
+  margin: 4px 0 0;
+  opacity: 0.9;
+}
+
+.nexus-carousel__link {
+  color: inherit;
+  display: block;
+  text-decoration: none;
+}
+
+.nexus-carousel__arrow {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  font-size: 22px;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  z-index: 2;
+}
+
+.nexus-carousel__arrow--prev {
+  left: 12px;
+}
+
+.nexus-carousel__arrow--next {
+  right: 12px;
+}
+
+.nexus-carousel__dots {
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  right: 0;
+  z-index: 2;
+}
+
+.nexus-carousel__dot {
+  background: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  height: 8px;
+  padding: 0;
+  width: 8px;
+}
+
+.nexus-carousel__dot--active {
+  background: var(--color-accent-user);
+}
+
+/* ── Tabs (NexusTabs published output) ──────────────────────────────────── */
+.nexus-tabs {
+  width: 100%;
+}
+
+.nexus-tabs--empty {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 16px;
+  text-align: center;
+}
+
+.nexus-tabs__strip {
+  display: flex;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.nexus-tabs__list {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+}
+
+.nexus-tabs__trigger {
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s, color 0.2s;
+  user-select: none;
+}
+
+.nexus-tabs__panel-inner {
+  min-height: 48px;
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-tabs__empty-hint {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.nexus-tabs__panels--edit {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nexus-tabs__panel--edit {
+  background: var(--color-bg-cell);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.nexus-tabs__panel-editor-label {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.nexus-carousel--edit .nexus-carousel__edit-hint {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.nexus-carousel__slides--edit {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+}
+
+.nexus-carousel__slide--edit {
+  background: var(--color-bg-cell);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.nexus-carousel__slide-editor-label {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  text-transform: uppercase;
+}
+
+.nexus-carousel__slide-content--edit {
+  border-top: 1px dashed var(--color-border-default);
+  margin-top: 8px;
+  padding: 8px 12px 12px;
+}
+
+.nexus-carousel__slide-content {
+  padding: 8px 12px 0;
+}
+
+.nexus-carousel__empty-hint {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.nexus-carousel--interactive .nexus-carousel__arrow,
+.nexus-carousel--interactive .nexus-carousel__dot {
+  pointer-events: auto;
+}
+
+/* ── Responsive site header ─────────────────────────────────────────────── */
+.site-header-slot {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 72px;
+  padding: 8px clamp(12px, 3vw, 24px);
+  position: relative;
+  width: 100%;
+  z-index: 10;
+}
+
+.site-header-bar {
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.site-header-bar__main {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.site-header-bar__left {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  min-width: 0;
+}
+
+.site-header-bar__logo {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.site-header-bar__logo-mark {
+  align-items: center;
+  background: var(--color-accent-user);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.site-header-bar__wordmark {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.site-header-bar__nav {
+  display: none;
+}
+
+.site-header-bar__nav-list,
+.site-header-bar__mobile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-header-bar__nav-link,
+.site-header-bar__mobile-link {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.site-header-bar__nav-link--active,
+.site-header-bar__mobile-link--active {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.site-header-bar__actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.site-header-bar__preview-badge {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.site-header-bar__cta {
+  background: var(--color-accent-user);
+  border-radius: var(--radius-md);
+  color: #fff;
+  display: none;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  text-decoration: none;
+}
+
+.site-header-bar__theme-toggle {
+  flex-shrink: 0;
+}
+
+.site-header-bar__avatar {
+  border: 2px solid var(--color-accent-user);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  height: 28px;
+  overflow: hidden;
+  width: 28px;
+}
+
+.site-header-bar__avatar-img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.site-header-bar__avatar-fallback {
+  background: var(--color-accent-user);
+  display: block;
+  height: 100%;
+  opacity: 0.6;
+  width: 100%;
+}
+
+.site-header-bar__menu-btn {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 16px;
+  height: 34px;
+  line-height: 1;
+  width: 34px;
+}
+
+.site-header-bar__mobile-nav {
+  border-top: 1px solid var(--color-border-default);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.site-header-bar__mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-header-bar__mobile-link {
+  display: block;
+  padding: 8px 4px;
+}
+
+@media (min-width: 768px) {
+  .site-header-bar__nav {
+    display: block;
+  }
+
+  .site-header-bar__nav-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .site-header-bar__cta {
+    display: inline-flex;
+  }
+
+  .site-header-bar__menu-btn {
+    display: none;
+  }
+
+  .site-header-bar__mobile-nav {
+    display: none;
+  }
+}
+
+/* ── Responsive page content ──────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .page-shell {
+    padding: var(--page-content-gutter);
+  }
+
+  .nexus-tabs__list {
+    flex-wrap: wrap;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .nexus-tabs__strip {
+    justify-content: stretch !important;
+  }
+
+  .nexus-tabs__trigger {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .nexus-carousel__arrow {
+    height: 32px;
+    width: 32px;
+  }
+
+  .nexus-carousel__caption {
+    padding: 16px 12px 10px;
+  }
+
+  .nexus-rich-text h1 {
+    font-size: 1.35em;
+  }
+}
+
+/* ── Page Manager tabs (/pages) ─────────────────────────────────────────── */
+.page-manager-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.page-manager-tabs__tab {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.page-manager-tabs__tab--active {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--color-bg-elevated));
+  border-color: color-mix(in srgb, var(--color-accent-user) 35%, var(--color-border-default));
+  color: var(--color-text-primary);
+}
+
+.editor-defaults-category__title {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.editor-defaults-category__list {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.editor-defaults-check {
+  align-items: center;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.8125rem;
+  gap: 8px;
+}
+
+.editor-defaults-check input {
+  accent-color: var(--color-accent-user);
 }
 

@@ -14,18 +14,10 @@ import {
   parseSpacingCustom,
   type SpacingCustomUnit,
 } from "../lib/spacingCustomValue";
+import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
 import { FieldChapter, SpacingIcon } from "./FieldChapter";
 
-const SPACING_OPTIONS: Array<{ label: string; value: SpacingToken }> = [
-  { label: "None", value: "none" },
-  { label: "XS (4px)", value: "xs" },
-  { label: "SM (8px)", value: "sm" },
-  { label: "MD (16px)", value: "md" },
-  { label: "LG (24px)", value: "lg" },
-  { label: "XL (32px)", value: "xl" },
-  { label: "2XL (48px)", value: "2xl" },
-  { label: "Custom", value: "custom" },
-];
+const SPACING_OPTIONS = SPACING_TOKEN_LABELS;
 
 const SPACING_UNITS: SpacingCustomUnit[] = ["px", "rem", "em", "%"];
 
@@ -176,6 +168,10 @@ function SideGrid({
     <div className="nexus-field-grid">
       {sides.map(({ tokenKey, customKey, label }) => {
         const token = (value[tokenKey] as SpacingToken | undefined) ?? "none";
+        const hint =
+          token === "custom"
+            ? formatSpacingResolvedHint(token, value[customKey] as string | undefined)
+            : formatSpacingResolvedHint(token);
         return (
           <div key={tokenKey} className="nexus-field-grid__cell">
             <span className="nexus-field-grid__label">{label}</span>
@@ -190,6 +186,7 @@ function SideGrid({
                 </option>
               ))}
             </select>
+            {hint ? <span className="nexus-field-grid__resolved">{hint}</span> : null}
             {token === "custom" ? (
               <CustomSpacingInput
                 value={value[customKey] as string | undefined}

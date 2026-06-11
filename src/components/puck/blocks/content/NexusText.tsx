@@ -7,12 +7,15 @@
  */
 
 import React from "react";
+import { FontFamilyField } from "../../fields/FontFamilyField";
+import { FontWeightField } from "../../fields/FontWeightField";
 import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
 import { TiptapField } from "../../fields/TiptapField";
 import {
   legacyColorTypeToToken,
   resolveNexusColor,
 } from "../../lib/nexusColorTokens";
+import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
 import { normalizeRichTextForRender } from "../../lib/richTextContent";
 
 export const NexusText = {
@@ -39,6 +42,16 @@ export const NexusText = {
       presetGroup: "text" as const,
       render: NexusColorPresetField as never,
     },
+    fontFamily: {
+      type: "custom" as const,
+      label: "Font Family",
+      render: FontFamilyField as never,
+    },
+    fontWeight: {
+      type: "custom" as const,
+      label: "Font Weight",
+      render: FontWeightField as never,
+    },
     fontSize: {
       type: "select" as const,
       label: "Font Size",
@@ -57,6 +70,8 @@ export const NexusText = {
     text: "<p>This is a paragraph of body text. You can edit this text inline or in the sidebar.</p>",
     align: "left" as const,
     colorPreset: "text-primary",
+    fontFamily: "sans" as FontFamilyToken,
+    fontWeight: "400" as FontWeightToken,
     fontSize: "0.9375rem" as const,
     lineHeight: "1.6",
   },
@@ -66,6 +81,8 @@ export const NexusText = {
     colorPreset,
     colorType,
     customColor,
+    fontFamily,
+    fontWeight,
     fontSize,
     lineHeight,
   }: {
@@ -74,11 +91,14 @@ export const NexusText = {
     colorPreset?: string;
     colorType?: string;
     customColor?: string;
+    fontFamily?: FontFamilyToken;
+    fontWeight?: FontWeightToken;
     fontSize: string;
     lineHeight?: string;
   }) {
     const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
     const html = normalizeRichTextForRender(text);
+    const typography = resolveBlockTypography("NexusText", fontFamily, fontWeight);
 
     return (
       <div
@@ -89,6 +109,9 @@ export const NexusText = {
           lineHeight: lineHeight || "1.6",
           textAlign: align || "left",
           color: resolveNexusColor(token),
+          fontFamily: typography.fontFamily,
+          fontWeight: typography.fontWeight,
+          fontStyle: typography.fontStyle,
           whiteSpace: "pre-wrap",
           width: "100%",
         }}

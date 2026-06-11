@@ -7,12 +7,20 @@
  */
 
 import puckConfig from "@/components/puck/config";
+import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
+import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
+import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
+import {
+  editorIslandSettingsRef,
+  setEditorIslandDefaultComponents,
+} from "@/components/puck/lib/editorIslandSettings";
+import { DEFAULT_ISLAND_COMPONENTS } from "@shared/constants/editorSettings";
 import { Render } from "@measured/puck";
 import { installSafePointerCapture } from "@/lib/safePointerCapture";
 import type { Data } from "@measured/puck";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 installSafePointerCapture();
 
@@ -62,24 +70,50 @@ function PuckEditorLoading() {
 }
 
 /**
- * Merge server root title into Puck data once at editor init.
+ * Convert a MongoDB page path to a slug stored in root page settings.
+ *
+ * @param pagePath - Absolute path such as `/news` or `/`.
+ * @returns Slug without leading slash (empty for homepage).
+ */
+function pathToSlug(pagePath: string): string {
+  return pagePath === "/" ? "" : pagePath.replace(/^\//, "");
+}
+
+/**
+ * Merge server metadata into Puck root props once at editor init.
  *
  * @param data - Loaded Puck payload.
  * @param title - MongoDB page title fallback.
+ * @param pagePath - MongoDB page path key.
  * @returns Initial editor data object.
  */
-function buildEditorData(data: Data | null, title: string): Data {
+function buildEditorData(data: Data | null, title: string, pagePath: string): Data {
+  const withContent = withDefaultEditorContent(data);
+  const withIsland = ensureIslandOnEligibleBlocks(withContent, {
+    islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
+  });
+  const existingProps =
+    (withIsland.root as { props?: Record<string, unknown> })?.props ?? {};
+  const existingPageSettings = existingProps.pageSettings as PageSettingsValue | undefined;
+
+  const pageSettings: PageSettingsValue = {
+    title:
+      existingPageSettings?.title ??
+      (existingProps.title as string | undefined) ??
+      title ??
+      "Untitled Page",
+    slug: existingPageSettings?.slug ?? pathToSlug(pagePath),
+    slugLocked: pagePath === "/",
+  };
+
   return {
-    ...(data ?? { content: [], zones: {} }),
+    ...withIsland,
     root: {
-      ...(data?.root ?? {}),
+      ...(withIsland.root ?? {}),
       props: {
-        ...(data?.root as { props?: Record<string, unknown> })?.props,
-        title:
-          (data?.root as { props?: { title?: string } })?.props?.title ??
-          title ??
-          "Untitled Page",
-      },
+        ...existingProps,
+        pageSettings,
+      } as Record<string, unknown>,
     },
   };
 }
@@ -92,11 +126,43 @@ function buildEditorData(data: Data | null, title: string): Data {
  */
 export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps) {
   const router = useRouter();
-  const [editorData, setEditorData] = useState<Data>(() => buildEditorData(data, pageTitle));
+  const [editorData, setEditorData] = useState<Data>(() =>
+    buildEditorData(data, pageTitle, path),
+  );
   const [error, setError] = useState<string | null>(null);
+  const latestDataRef = useRef(editorData);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/editor-settings");
+        if (!res.ok) return;
+        const payload = (await res.json()) as { islandDefaultComponents?: string[] };
+        if (!cancelled && payload.islandDefaultComponents) {
+          setEditorIslandDefaultComponents(payload.islandDefaultComponents);
+        }
+      } catch {
+        /* keep seed defaults */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing]);
+
+  const handleEditorDataChange = useCallback((nextData: Data) => {
+    latestDataRef.current = nextData;
+    setEditorData(nextData);
+  }, []);
 
   const handlePublished = useCallback(
     (nextPath: string) => {
+      setEditorData(latestDataRef.current);
       if (nextPath !== path) {
         router.replace(`${nextPath}/edit`);
       } else {
@@ -106,13 +172,23 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
     [path, router],
   );
 
+  const viewData = useMemo(
+    () =>
+      data
+        ? ensureIslandOnEligibleBlocks(data, {
+            islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
+          })
+        : null,
+    [data],
+  );
+
   if (isEditing) {
     return (
       <PuckEditorShell
         path={path}
         pageTitle={pageTitle}
         editorData={editorData}
-        onEditorDataChange={setEditorData}
+        onEditorDataChange={handleEditorDataChange}
         onPublished={handlePublished}
         error={error}
         onError={setError}
@@ -120,7 +196,7 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
     );
   }
 
-  if (!data) {
+  if (!data || !viewData) {
     return (
       <div
         style={{
@@ -137,7 +213,7 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
     );
   }
 
-  return <Render config={puckConfig} data={data} />;
+  return <Render config={puckConfig} data={viewData} />;
 }
 
 export default PuckClient;

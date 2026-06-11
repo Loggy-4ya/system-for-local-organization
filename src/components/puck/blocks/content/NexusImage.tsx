@@ -121,7 +121,7 @@ export const NexusImage = {
         ) : (
           <div
             style={{
-              width: width && width.includes("px") ? width : "320px",
+              width: width || "100%",
               height: height && height.includes("px") ? height : "180px",
               maxWidth: "100%",
               background: "var(--color-bg-cell)",

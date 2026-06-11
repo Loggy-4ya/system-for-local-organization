@@ -7,22 +7,26 @@
  */
 
 import React from "react";
-import { PageAppearanceFieldGroup } from "../fields/PageAppearanceFieldGroup";
+import { PageAppearanceFieldGroup, type PageAppearanceProps } from "../fields/PageAppearanceFieldGroup";
+import {
+  PageSettingsFieldGroup,
+  type PageSettingsValue,
+} from "../fields/PageSettingsFieldGroup";
 import { resolveAccentPreset } from "../fields/AccentPresetField";
+import {
+  contentWidthContainerStyle,
+  DEFAULT_CONTENT_WIDTH,
+  pageGutterStyle,
+} from "../lib/contentWidthTokens";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
 import { EditorHeaderChrome } from "./EditorHeaderChrome";
-
-/** Page background settings grouped in the Puck sidebar. */
-interface PageAppearanceProps {
-  background: "site-default" | "solid" | "custom-image";
-  backgroundPreset?: string;
-  backgroundImage?: string;
-}
 
 /** Root props shape for PageRoot render and field resolution. */
 interface PageRootProps {
   children: React.ReactNode;
-  title: string;
+  pageSettings?: PageSettingsValue;
+  /** @deprecated Flat title kept for pages saved before pageSettings grouping. */
+  title?: string;
   appearance?: PageAppearanceProps;
   /** @deprecated Flat props kept for pages saved before grouping. */
   background?: PageAppearanceProps["background"];
@@ -36,12 +40,17 @@ function resolveAppearance(props: PageRootProps): PageAppearanceProps {
     background: props.appearance?.background ?? props.background ?? "site-default",
     backgroundPreset: props.appearance?.backgroundPreset ?? props.backgroundPreset,
     backgroundImage: props.appearance?.backgroundImage ?? props.backgroundImage,
+    contentWidth: props.appearance?.contentWidth ?? DEFAULT_CONTENT_WIDTH,
   };
 }
 
 export const PageRoot = {
   fields: {
-    title: { type: "text" as const, label: "Page Title" },
+    pageSettings: {
+      type: "custom" as const,
+      label: "",
+      render: PageSettingsFieldGroup as never,
+    },
     appearance: {
       type: "custom" as const,
       label: "",
@@ -49,18 +58,26 @@ export const PageRoot = {
     },
   },
   defaultProps: {
-    title: "Untitled Page",
+    pageSettings: {
+      title: "Untitled Page",
+      slug: "",
+      slugLocked: false,
+    },
     appearance: {
       background: "site-default" as const,
       backgroundPreset: "hue-blue",
       backgroundImage: "",
+      contentWidth: DEFAULT_CONTENT_WIDTH,
     },
   },
   render(props: PageRootProps) {
     const { children, puck } = props;
-    const { background, backgroundPreset, backgroundImage } = resolveAppearance(props);
+    const { background, backgroundPreset, backgroundImage, contentWidth } = resolveAppearance(props);
     const bgStyles: React.CSSProperties = {};
     const isEditing = Boolean(puck?.isEditing);
+    const widthStyle = contentWidthContainerStyle(
+      contentWidth ?? DEFAULT_CONTENT_WIDTH,
+    );
 
     if (background === "solid") {
       bgStyles.backgroundColor = resolveAccentPreset(backgroundPreset);
@@ -95,7 +112,9 @@ export const PageRoot = {
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            width: "100%",
+            boxSizing: "border-box",
+            ...widthStyle,
+            ...pageGutterStyle(),
           }}
         >
           {children}

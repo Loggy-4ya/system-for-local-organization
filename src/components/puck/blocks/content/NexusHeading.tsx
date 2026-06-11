@@ -7,11 +7,14 @@
  */
 
 import React from "react";
+import { FontFamilyField } from "../../fields/FontFamilyField";
+import { FontWeightField } from "../../fields/FontWeightField";
 import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
 import {
   legacyColorTypeToToken,
   resolveNexusColor,
 } from "../../lib/nexusColorTokens";
+import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
 
 export const NexusHeading = {
   label: "Heading",
@@ -42,15 +45,15 @@ export const NexusHeading = {
       presetGroup: "text" as const,
       render: NexusColorPresetField as never,
     },
+    fontFamily: {
+      type: "custom" as const,
+      label: "Font Family",
+      render: FontFamilyField as never,
+    },
     fontWeight: {
-      type: "select" as const,
+      type: "custom" as const,
       label: "Font Weight",
-      options: [
-        { label: "Normal (400)", value: "400" },
-        { label: "Medium (500)", value: "500" },
-        { label: "Semibold (600)", value: "600" },
-        { label: "Bold (700)", value: "700" },
-      ],
+      render: FontWeightField as never,
     },
   },
   defaultProps: {
@@ -58,7 +61,8 @@ export const NexusHeading = {
     level: "h2" as const,
     align: "left" as const,
     colorPreset: "text-primary",
-    fontWeight: "700" as const,
+    fontFamily: "sans" as FontFamilyToken,
+    fontWeight: "700" as FontWeightToken,
   },
   render({
     text,
@@ -67,6 +71,7 @@ export const NexusHeading = {
     colorPreset,
     colorType,
     customColor,
+    fontFamily,
     fontWeight,
   }: {
     text: string;
@@ -75,10 +80,12 @@ export const NexusHeading = {
     colorPreset?: string;
     colorType?: string;
     customColor?: string;
-    fontWeight: "400" | "500" | "600" | "700";
+    fontFamily?: FontFamilyToken;
+    fontWeight?: FontWeightToken;
   }) {
     const Tag = level;
     const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
+    const typography = resolveBlockTypography("NexusHeading", fontFamily, fontWeight);
     const headingSizes = {
       h1: "2rem",
       h2: "1.5rem",
@@ -93,7 +100,9 @@ export const NexusHeading = {
           textAlign: align || "left",
           color: resolveNexusColor(token),
           fontSize: headingSizes[level] || headingSizes.h2,
-          fontWeight: parseInt(fontWeight, 10) || 700,
+          fontFamily: typography.fontFamily,
+          fontWeight: typography.fontWeight,
+          fontStyle: typography.fontStyle,
           letterSpacing: level === "h1" || level === "h2" ? "-0.01em" : "normal",
           width: "100%",
         }}

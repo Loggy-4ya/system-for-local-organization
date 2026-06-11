@@ -26,7 +26,8 @@ For standard typography, actions, and form inputs:
 - **`NexusHeading`** — Styled headings (H1, H2, H3) with alignment controls.
 - **`NexusText`** — Paragraph body copy with Tiptap rich text (bold, headings, lists, blockquote) plus alignment and color presets.
 - **`NexusButton`** — Action button mapping to Figma variants (Primary, Secondary, Ghost) with optional link URL.
-- **`NexusTabs`** — Interactive tab group mapping to Figma `TabGroup`.
+- **`NexusTabs`** — Interactive tab group; each tab has a drag-and-drop slot for arbitrary block content.
+- **`NexusCarousel`** — Image carousel with slides, captions, optional links, arrows, dots, and autoplay.
 - **`NexusInput`** — Form input mapping to Figma `Input/Default` for page-level forms.
 
 ### C. News & Cards Category
@@ -143,6 +144,13 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Dark theme contrast | Grey + azure token remap in `puck-editor.css`; hover/selection overrides for Outline and array lists |
 | Interactive preview mode | `EditorModeToggle.tsx` — toggles Puck `previewMode` (`edit` \| `interactive`) |
 | Rich body text | `TiptapField.tsx` + `richTextContent.ts` — StarterKit editor; sanitized HTML via `.nexus-rich-text` |
+| Carousel | `NexusCarousel.tsx` — multi-slide carousel with media upload per slide |
+| Functional tabs | `NexusTabs.tsx` — per-tab Puck slots for nested block content |
+| Inline links | `@tiptap/extension-link` — accent-colored links in body text |
+| Editor icons | `puckIcons.tsx` + `lucide-react` — icons in component drawer and field labels |
+| Unified content width | `contentWidthTokens.ts` — xs–xl + full; page, section, island share one system |
+| Full-width sidebar controls | `SegmentedControl.tsx` — all Off/On and radio groups span 100% sidebar width |
+| Typography system | `nexusTypography.ts` — role defaults (sans/serif) + weight 100–900 overrides |
 | Spacing custom inputs | `spacingCustomValue.ts` — numeric + unit picker with validation bounds |
 | List markers | `NexusList.tsx` — explicit `listStyleType` for bullet/numbered lists |
 
@@ -169,7 +177,13 @@ src/components/puck/
 │   ├── nexusColorTokens.ts
 │   ├── spacingFields.tsx
 │   ├── spacingCustomValue.ts
+│   ├── spacingDisplay.ts
+│   ├── contentWidthTokens.ts
+│   ├── nexusTypography.ts
 │   ├── richTextContent.ts
+│   ├── FontFamilyField.tsx
+│   ├── FontWeightField.tsx
+│   ├── SegmentedControl.tsx
 │   ├── mediaUpload.ts
 │   └── useDeferredFieldCommit.ts
 ├── root/

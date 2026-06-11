@@ -9,12 +9,19 @@
 import { AccentPresetField } from "./AccentPresetField";
 import { BackgroundIcon, FieldChapter } from "./FieldChapter";
 import { MediaUploadField } from "./MediaUploadField";
+import {
+  CONTENT_WIDTH_OPTIONS,
+  DEFAULT_CONTENT_WIDTH,
+} from "../lib/contentWidthTokens";
+import { Rows3 } from "lucide-react";
+import { puckIcon } from "../lib/puckIcons";
 
-/** Page background props stored under `appearance`. */
+/** Page background and layout props stored under `appearance`. */
 export interface PageAppearanceProps {
   background: "site-default" | "solid" | "custom-image";
   backgroundPreset?: string;
   backgroundImage?: string;
+  contentWidth?: import("../lib/contentWidthTokens").ContentWidthToken;
 }
 
 /** Puck custom field props. */
@@ -38,7 +45,29 @@ export function PageAppearanceFieldGroup({ value, onChange }: PageAppearanceFiel
   };
 
   return (
-    <FieldChapter title="Background" icon={<BackgroundIcon />}>
+    <>
+      <FieldChapter title="Layout" icon={puckIcon(Rows3)}>
+        <div className="nexus-field-category">
+          <span className="nexus-field-category__label">Page Content Width</span>
+          <select
+            className="nexus-puck-select"
+            value={appearance.contentWidth ?? DEFAULT_CONTENT_WIDTH}
+            onChange={(e) =>
+              set({
+                contentWidth: e.target.value as PageAppearanceProps["contentWidth"],
+              })
+            }
+          >
+            {CONTENT_WIDTH_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </FieldChapter>
+
+      <FieldChapter title="Background" icon={<BackgroundIcon />}>
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">Style</span>
         <select
@@ -74,6 +103,7 @@ export function PageAppearanceFieldGroup({ value, onChange }: PageAppearanceFiel
         </div>
       ) : null}
     </FieldChapter>
+    </>
   );
 }
 

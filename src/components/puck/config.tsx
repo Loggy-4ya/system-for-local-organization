@@ -29,6 +29,7 @@ import { NexusAccordion } from "./blocks/content/NexusAccordion";
 import { NexusList } from "./blocks/content/NexusList";
 import { NexusButton } from "./blocks/content/NexusButton";
 import { NexusTabs } from "./blocks/content/NexusTabs";
+import { NexusCarousel } from "./blocks/content/NexusCarousel";
 import { NexusInput } from "./blocks/content/NexusInput";
 
 import { NexusNewsCard } from "./blocks/news/NexusNewsCard";
@@ -40,15 +41,17 @@ import { NexusAvatar } from "./blocks/user/NexusAvatar";
 /**
  * Wrap a block with shared spacing/lining fields and optional shell defaults.
  *
+ * @param componentType - Puck registry key for resolveData island lookup.
  * @param block - Raw block export from `blocks/`.
  * @param shellDefaults - Overrides for spacing/lining default props.
  * @returns Block config registered in Puck.
  */
 function shellBlock(
+  componentType: string,
   block: Parameters<typeof withBlockShell>[0],
   shellDefaults?: Partial<SpacingProps & IslandProps>,
 ) {
-  const wrapped = withBlockShell(block);
+  const wrapped = withBlockShell(block, componentType);
   if (shellDefaults) {
     const spacing: Partial<SpacingProps> = {};
     const island: Partial<IslandProps> = {};
@@ -73,29 +76,30 @@ function shellBlock(
 export const puckConfig = {
   root: PageRoot as any,
   components: {
-    NexusSection: shellBlock(NexusSection as any),
-    NexusGrid: shellBlock(NexusGrid as any),
-    NexusGridItem: shellBlock(NexusGridItem as any),
-    NexusColumns: shellBlock(NexusColumns as any),
-    NexusSpacer: shellBlock(NexusSpacer as any),
+    NexusSection: shellBlock("NexusSection", NexusSection as any),
+    NexusGrid: shellBlock("NexusGrid", NexusGrid as any),
+    NexusGridItem: shellBlock("NexusGridItem", NexusGridItem as any),
+    NexusColumns: shellBlock("NexusColumns", NexusColumns as any),
+    NexusSpacer: shellBlock("NexusSpacer", NexusSpacer as any),
 
-    NexusHeading: shellBlock(NexusHeading as any, { marginBottom: "sm" }),
-    NexusText: shellBlock(NexusText as any),
-    NexusImage: shellBlock(NexusImage as any),
-    NexusDivider: shellBlock(NexusDivider as any, { marginTop: "md", marginBottom: "md" }),
-    NexusQuote: shellBlock(NexusQuote as any),
-    NexusVideo: shellBlock(NexusVideo as any),
-    NexusAccordion: shellBlock(NexusAccordion as any),
-    NexusList: shellBlock(NexusList as any),
-    NexusButton: shellBlock(NexusButton as any),
-    NexusTabs: shellBlock(NexusTabs as any),
-    NexusInput: shellBlock(NexusInput as any),
+    NexusHeading: shellBlock("NexusHeading", NexusHeading as any, { marginBottom: "sm" }),
+    NexusText: shellBlock("NexusText", NexusText as any),
+    NexusImage: shellBlock("NexusImage", NexusImage as any),
+    NexusDivider: shellBlock("NexusDivider", NexusDivider as any, { marginTop: "md", marginBottom: "md" }),
+    NexusQuote: shellBlock("NexusQuote", NexusQuote as any),
+    NexusVideo: shellBlock("NexusVideo", NexusVideo as any),
+    NexusAccordion: shellBlock("NexusAccordion", NexusAccordion as any),
+    NexusList: shellBlock("NexusList", NexusList as any),
+    NexusButton: shellBlock("NexusButton", NexusButton as any),
+    NexusTabs: shellBlock("NexusTabs", NexusTabs as any),
+    NexusCarousel: shellBlock("NexusCarousel", NexusCarousel as any),
+    NexusInput: shellBlock("NexusInput", NexusInput as any),
 
-    NexusNewsCard: shellBlock(NexusNewsCard as any),
+    NexusNewsCard: shellBlock("NexusNewsCard", NexusNewsCard as any),
 
-    NexusUserBadge: shellBlock(NexusUserBadge as any),
-    NexusStatCard: shellBlock(NexusStatCard as any),
-    NexusAvatar: shellBlock(NexusAvatar as any),
+    NexusUserBadge: shellBlock("NexusUserBadge", NexusUserBadge as any),
+    NexusStatCard: shellBlock("NexusStatCard", NexusStatCard as any),
+    NexusAvatar: shellBlock("NexusAvatar", NexusAvatar as any),
   },
   categories: {
     layout: {
@@ -123,6 +127,7 @@ export const puckConfig = {
         "NexusList",
         "NexusButton",
         "NexusTabs",
+        "NexusCarousel",
         "NexusInput",
       ],
     },

@@ -10,6 +10,13 @@
  */
 
 import React from "react";
+import {
+  contentWidthContainerStyle,
+  CONTENT_WIDTH_OPTIONS,
+  DEFAULT_CONTENT_WIDTH,
+  type ContentWidthToken,
+  type LegacyContentWidth,
+} from "../../lib/contentWidthTokens";
 
 export const NexusSection = {
   label: "Section Container",
@@ -17,11 +24,10 @@ export const NexusSection = {
     maxWidth: {
       type: "select" as const,
       label: "Max Width",
-      options: [
-        { label: "Contained (1200px)", value: "contained" },
-        { label: "Narrow (800px)", value: "narrow" },
-        { label: "Full Width (100%)", value: "full" },
-      ],
+      options: CONTENT_WIDTH_OPTIONS.map((opt) => ({
+        label: opt.label,
+        value: opt.value,
+      })),
     },
     padding: {
       type: "select" as const,
@@ -63,7 +69,7 @@ export const NexusSection = {
     },
   },
   defaultProps: {
-    maxWidth: "contained" as const,
+    maxWidth: DEFAULT_CONTENT_WIDTH,
     padding: "normal" as const,
     backgroundOverride: "",
     textColor: "",
@@ -79,7 +85,7 @@ export const NexusSection = {
     borderBottom,
     content: Content,
   }: {
-    maxWidth: "contained" | "narrow" | "full";
+    maxWidth: ContentWidthToken | LegacyContentWidth;
     padding: "none" | "small" | "normal" | "large";
     backgroundOverride?: string;
     textColor?: string;
@@ -94,11 +100,7 @@ export const NexusSection = {
       large: "var(--spacing-2xl) var(--spacing-md)",
     };
 
-    const widthStyles = {
-      contained: "1200px",
-      narrow: "800px",
-      full: "100%",
-    };
+    const widthStyle = contentWidthContainerStyle(maxWidth);
 
     const borderStyle = "1px solid var(--color-border-default)";
 
@@ -113,9 +115,7 @@ export const NexusSection = {
       >
         <div
           style={{
-            maxWidth: widthStyles[maxWidth] || "1200px",
-            width: "100%",
-            margin: "0 auto",
+            ...widthStyle,
             padding: paddingStyles[padding] || paddingStyles.normal,
             color: textColor || "inherit",
             boxSizing: "border-box",

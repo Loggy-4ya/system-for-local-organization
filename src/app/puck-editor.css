@@ -462,8 +462,9 @@
 }
 
 .nexus-segmented {
-  display: inline-flex;
+  display: flex;
   gap: 4px;
+  width: 100%;
 }
 
 .nexus-segmented__btn {
@@ -472,6 +473,7 @@
   border-radius: 4px;
   color: var(--puck-color-black);
   cursor: pointer;
+  flex: 1;
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -494,6 +496,24 @@
 [data-theme="dark"] .nexus-path-chip {
   background: var(--puck-color-grey-11);
   border-color: var(--puck-color-grey-09);
+}
+
+/* Puck native radio fields — match full-width segmented control height */
+.Puck [class*="RadioField"] {
+  width: 100%;
+}
+
+.Puck [class*="RadioField"] > div,
+.Puck [class*="RadioField"] fieldset {
+  display: flex !important;
+  gap: 4px !important;
+  width: 100% !important;
+}
+
+.Puck [class*="RadioField"] label,
+.Puck [class*="RadioField"] button {
+  flex: 1 !important;
+  min-height: 42px !important;
 }
 
 /* ── Editor mode toggle (header actions) ── */
@@ -532,6 +552,14 @@
 
 .nexus-field-grid__custom--number {
   min-width: 0;
+}
+
+.nexus-field-grid__resolved {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-top: 2px;
 }
 
 .nexus-field-grid__custom-unit {
@@ -648,5 +676,151 @@
 
 [data-theme="dark"] .nexus-tiptap-editor__content code {
   background: var(--puck-color-grey-12);
+}
+
+.nexus-tiptap-editor__content a,
+.nexus-tiptap-editor__content .nexus-rich-text__link {
+  color: var(--color-accent-user);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Component drawer icons ─────────────────────────────────────────────── */
+.nexus-drawer-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.nexus-drawer-item__icon {
+  align-items: center;
+  color: var(--puck-color-grey-07);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  width: 16px;
+}
+
+.nexus-drawer-item__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.Puck [class*="DrawerItem"]:hover .nexus-drawer-item__icon,
+.Puck [class*="DrawerItem--isDragging"] .nexus-drawer-item__icon {
+  color: var(--puck-color-black);
+}
+
+/* ── Field label icons (sidebar) ────────────────────────────────────────── */
+.Puck [class*="FieldLabel"] svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.nexus-field-chapter__icon svg {
+  display: block;
+}
+
+/* Interactive carousel/tabs in editor preview */
+.Puck .nexus-carousel--interactive .nexus-carousel__arrow,
+.Puck .nexus-carousel--interactive .nexus-carousel__dot,
+.Puck .nexus-tabs__trigger {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 2;
+}
+
+.Puck .nexus-tabs__panel--edit [data-puck-dropzone] {
+  min-height: 140px;
+  padding: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Edit layout — embeds must not steal Puck overlay clicks */
+.Puck [data-puck-component] iframe,
+.Puck [data-puck-component] video {
+  pointer-events: none !important;
+}
+
+.Puck .nexus-video--interactive iframe,
+.Puck .nexus-video--interactive video {
+  pointer-events: auto !important;
+}
+
+.Puck .nexus-carousel__dropzone[data-puck-dropzone],
+.Puck .nexus-carousel--edit [data-puck-dropzone] {
+  min-height: 120px;
+  position: relative;
+  z-index: 2;
+}
+
+.nexus-video__edit-badge {
+  background: color-mix(in srgb, var(--color-bg-surface) 82%, transparent);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  left: 50%;
+  padding: 4px 10px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* ── Page Settings (root sidebar) ───────────────────────────────────────── */
+.nexus-puck-input {
+  background: var(--color-bg-cell);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.nexus-puck-input:focus {
+  border-color: var(--color-accent-user);
+  outline: none;
+}
+
+.nexus-puck-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.nexus-page-slug-row {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.nexus-page-slug-row__prefix {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.nexus-page-slug-row__input {
+  flex: 1;
+  font-family: var(--font-mono);
+}
+
+.nexus-page-slug-preview {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  margin: 6px 0 0;
+}
+
+.nexus-page-slug-preview code {
+  color: var(--color-accent-user);
+  font-family: var(--font-mono);
 }
 

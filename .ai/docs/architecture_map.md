@@ -27,8 +27,9 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/globals.css` | Nexus CSS Custom Properties (spacing, color, radius, glass utilities) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
-| `src/app/pages/` | Page Manager UI (`/pages`) and route-local `NewPageForm.tsx` | Active |
+| `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
 | `src/app/api/puck/` | REST API for loading/saving Puck page layouts to MongoDB | Active |
+| `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
 | `src/app/api/upload/` | REST API for uploading image/video files to `public/uploads/` | Active |
 | `src/app/(marketing)/` | Hardcoded landing and public marketing pages (excluded from Puck) | Planned |
 | `src/app/(dashboard)/` | Hardcoded admin dashboard shell (excluded from Puck) | Planned |
@@ -38,8 +39,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/ui/` | Shared UI: `GlobalHeader`, `ThemeProvider` | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
-| `src/components/puck/fields/` | Custom Puck fields (`NexusColorPresetField`, `MediaUploadField`, `AccentPresetField`, `ImageField`) | Active |
-| `src/components/puck/lib/` | Shared helpers (`nexusColorTokens.ts`, `spacingFields.tsx`, `mediaUpload.ts`, `useDeferredFieldCommit.ts`) | Active |
+| `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `TiptapField`, `MediaUploadField`, …) | Active |
+| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`), `EditorHeaderChrome.tsx` | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) | Active |
 
@@ -50,6 +51,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/lib/db.ts` | Mongoose connection helper with global cache | Active |
 | `shared/models/User.ts` | Unified User schema (cross-platform auth, RBAC, gamification) | Active |
 | `shared/models/Page.ts` | Puck page layout schema (path → puckData) | Active |
+| `shared/models/EditorSettings.ts` | Singleton Puck editor settings (`islandDefaultComponents`) | Active |
+| `shared/constants/editorSettings.ts` | Client-safe editor settings seed constants | Active |
 | `shared/domains/` | Consolidated domain engines (one file per domain) | Planned |
 
 ## `.ai/docs/` Sub-directories

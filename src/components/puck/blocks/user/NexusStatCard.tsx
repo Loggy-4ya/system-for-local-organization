@@ -82,7 +82,6 @@ export const NexusStatCard = {
           justifyContent: "space-between",
           gap: "12px",
           width: "100%",
-          maxWidth: "220px",
           margin: "0 auto",
           boxSizing: "border-box",
         }}

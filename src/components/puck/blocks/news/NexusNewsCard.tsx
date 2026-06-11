@@ -125,7 +125,6 @@ export const NexusNewsCard = {
           display: "flex",
           flexDirection: "column",
           width: "100%",
-          maxWidth: "340px",
           margin: "0 auto",
           boxShadow: shadowDepth || "none",
         }}

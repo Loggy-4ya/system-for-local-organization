@@ -140,3 +140,153 @@ Legacy token ids (e.g. `blue-medium`) map to canonical ids at resolve time.
 | Published styles | `globals.css` | `.nexus-rich-text` typography for headings, lists, blockquote, code |
 
 **Dependencies:** `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/pm` — Tiptap uses `immediatelyRender: false` for Next.js SSR safety.
+
+---
+
+## 11. Carousel, Functional Tabs, Links & Editor Icons (Phase 3)
+
+| Feature | File | Detail |
+|---------|------|--------|
+| Carousel block | `NexusCarousel.tsx` | Slide array (image, title, caption, link), arrows, dots, autoplay |
+| Functional tabs | `NexusTabs.tsx` | Each tab has a Puck `slot` panel — drag any blocks into tab content |
+| Rich text links | `TiptapField.tsx` + `@tiptap/extension-link` | Link / unlink toolbar; safe href allowlist in `richTextContent.ts` |
+| Link styling | `globals.css` | `.nexus-rich-text__link` uses accent color + underline (distinct from body text) |
+| Editor icons | `puckIcons.tsx` + `lucide-react` | Lucide icons on drawer items, field labels, and field chapters |
+| Drawer override | `PuckEditorShell.tsx` | `drawerItem` + `fieldLabel` overrides inject icons |
+
+**New dependency:** `lucide-react`, `@tiptap/extension-link`
+
+---
+
+## 12. Unified Width, Sidebar Controls & Typography (Phase 4)
+
+### Content width tokens
+
+Single source: [`contentWidthTokens.ts`](../../src/components/puck/lib/contentWidthTokens.ts)
+
+| Token | Width |
+|-------|-------|
+| `xs` | 640px |
+| `sm` | 800px |
+| `md` | 1024px |
+| `lg` | 1200px (default) |
+| `xl` | 1400px |
+| `full` | 100% |
+
+Wired into: `PageRoot` (Page Content Width), `NexusSection`, island shell, `globals.css` (`--content-width-*`), `GlobalHeader` / `EditorHeaderChrome`.
+
+Legacy values `contained` → `lg`, `narrow` → `sm` at read time.
+
+Per-block hardcoded `maxWidth` caps removed from NewsCard, StatCard, UserBadge, Video, Image placeholder.
+
+### Sidebar control standards
+
+> **Rule:** All binary and small-option controls (Show/Hide, Off/On, Left/Center/Right) **must span 100% of the sidebar field width**.
+>
+> - Prefer Puck `type: "radio"` for native fields (already full-width).
+> - Custom toggles use [`SegmentedControl.tsx`](../../src/components/puck/fields/SegmentedControl.tsx) with `.nexus-segmented { width: 100% }` and `.nexus-segmented__btn { flex: 1 }`.
+
+### Spacing pixel hints
+
+- Token selects show labels like `MD (16px)` via [`spacingDisplay.ts`](../../src/components/puck/lib/spacingDisplay.ts).
+- Resolved hint row (e.g. `MD · 16px`) rendered under each spacing/island token select via `.nexus-field-grid__resolved`.
+
+### Typography
+
+| Role | Default family | Default weight |
+|------|----------------|----------------|
+| Heading | Sans (Inter) | 700 |
+| Body Text | Sans (Inter) | 400 |
+| Blockquote | Serif (Source Serif 4) | 400 italic |
+
+Fonts loaded in `layout.tsx`: Inter, Source Serif 4, JetBrains Mono → `--font-sans`, `--font-serif`, `--font-mono`.
+
+Per-block overrides: `FontFamilyField` + `FontWeightField` (100–900) on Heading, Body Text, Blockquote. Module: [`nexusTypography.ts`](../../src/components/puck/lib/nexusTypography.ts).
+
+---
+
+## 13. Starter Content, Responsive Header, Tabs & Interactive Components (Phase 5)
+
+| Feature | File | Detail |
+|---------|------|--------|
+| Default starter section | `defaultEditorContent.ts` | Empty editor pages seed a Section + Heading + Body Text |
+| Responsive header | `SiteHeaderBar.tsx` | Mobile hamburger menu; shared by `GlobalHeader` + `EditorHeaderChrome` |
+| Tabs slot fix | `NexusTabs.tsx` | Each tab includes `panel: []` for Puck inline slots |
+| Tabs editor UX | `NexusTabsRender.tsx` | Edit mode stacks all tab panels with drop zones; Interactive mode switches tabs |
+| Carousel editor UX | `NexusCarouselRender.tsx` | Controls + autoplay in Interactive/published; hint in edit layout mode |
+
+---
+
+## 14. Page Gutter & Editor Stability Fixes (Phase 6)
+
+### Page content gutter
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--page-content-gutter` | `clamp(12px, 3vw, 24px)` | Horizontal/vertical inset on Puck pages and `.page-shell` |
+
+Applied via `pageGutterStyle()` in [`contentWidthTokens.ts`](../../src/components/puck/lib/contentWidthTokens.ts) and wired into [`PageRoot.tsx`](../../src/components/puck/root/PageRoot.tsx). Ensures the InfiniteGrid background remains visible on mobile and desktop even when content width is `full`.
+
+### Carousel edit mode
+
+In **Edit** layout mode, [`NexusCarouselRender.tsx`](../../src/components/puck/blocks/content/NexusCarouselRender.tsx) stacks all slides vertically (`.nexus-carousel__slides--edit`) with per-slide labels. Navigation arrows/dots are disabled to avoid fighting Puck drag overlays. **Interactive** and published modes retain single-slide carousel behavior.
+
+### Video embeds in edit mode
+
+[`NexusVideoRender.tsx`](../../src/components/puck/blocks/content/NexusVideoRender.tsx) sets `pointer-events: none` on iframe/video in edit layout mode only. **No capturing overlay shield** — a previous `.nexus-video__edit-shield` with `pointer-events: auto` blocked Puck's portaled action bar. Re-enabled in interactive preview via `.nexus-video--interactive`. Global rule in `puck-editor.css`: `[data-puck-component] iframe/video { pointer-events: none }` with interactive exception.
+
+### Sidebar typing stability
+
+| Layer | File | Behavior |
+|-------|------|----------|
+| Tiptap field | `TiptapField.tsx` | Debounced `onChange` (400ms); flush on blur; skip external `setContent` while focused |
+| Parent state | `client.tsx` | **Immediate** `setEditorData` (debounce removed — it broke drag-and-drop); `latestDataRef` kept for publish flush |
+
+Tiptap debounce alone prevents typing rerenders without stale controlled `data` fighting Puck DnD.
+
+### Tabs & carousel slot drop zones (Phase 6b)
+
+| Block | Pattern |
+|-------|---------|
+| Tabs | [`NexusTabsRender.tsx`](../../src/components/puck/blocks/content/NexusTabsRender.tsx) — render `<Panel />` directly (no memo wrapper); `typeof Panel === "function"` guard; index-only keys; editor padding via slot `style` |
+| Carousel | [`NexusCarousel.tsx`](../../src/components/puck/blocks/content/NexusCarousel.tsx) — per-slide `content` slot; stacked drop zones in edit mode, active slide only in interactive/published |
+
+CSS: `[data-puck-dropzone]` selectors in `puck-editor.css` with `min-height`, padding, `z-index: 2`.
+
+---
+
+## 15. Island Defaults on Insert & Page Settings Slug (Phase 7)
+
+### Editor settings API
+
+| Piece | File | Detail |
+|-------|------|--------|
+| Constants | [`shared/constants/editorSettings.ts`](../../shared/constants/editorSettings.ts) | Seed list of small/content blocks (`NexusHeading`, `NexusText`, …) |
+| Model | [`shared/models/EditorSettings.ts`](../../shared/models/EditorSettings.ts) | Singleton `_id: "puck-editor"` with `islandDefaultComponents: string[]` |
+| API | [`src/app/api/editor-settings/route.ts`](../../src/app/api/editor-settings/route.ts) | `GET` upserts seed; `POST` saves list (bearer guard matches `/api/puck`) |
+
+### Page Manager — Editor Defaults tab
+
+[`PageManagerShell.tsx`](../../src/app/pages/PageManagerShell.tsx) adds **Pages** / **Editor Defaults** tabs on `/pages`. [`EditorDefaultsPanel.tsx`](../../src/app/pages/EditorDefaultsPanel.tsx) renders a category-grouped checklist of all Puck component keys from `config.tsx` and persists via `POST /api/editor-settings`.
+
+### Island-on-insert (resolveData)
+
+| Piece | Role |
+|-------|------|
+| [`editorIslandSettings.ts`](../../src/components/puck/lib/editorIslandSettings.ts) | Shared `editorIslandSettingsRef` — admin list from `/api/editor-settings` |
+| [`spacingFields.tsx`](../../src/components/puck/lib/spacingFields.tsx) | `withBlockShell` → `resolveData` on `insert` / `move` with `params.parent`; enables island when type is in admin list and parent island is off |
+| [`applyIslandDefaultsOnInsert.ts`](../../src/components/puck/lib/applyIslandDefaultsOnInsert.ts) | `ensureIslandOnEligibleBlocks` only — heals starter/saved pages at init and viewer render |
+
+Drag-insert island is handled **inside Puck's data pipeline** via `resolveData` (runs after `defaultProps` merge). Client `onChange` is pass-through only (preserves move/delete overlays). Skips when parent has `isIslandActive()` (no nested glass shells). Does not re-run on `replace` (user can turn island off permanently).
+
+**Starter content:** [`defaultEditorContent.ts`](../../src/components/puck/lib/defaultEditorContent.ts) — `NexusSection` shell off; each `NexusHeading` + `NexusText` gets its **own** island (separate glass wrappers, not one shared parent island). `buildEditorData` + viewer `ensureIslandOnEligibleBlocks` heal older saved pages.
+
+### Page Settings sidebar (title + slug)
+
+| Piece | File | Detail |
+|-------|------|--------|
+| Field group | [`PageSettingsFieldGroup.tsx`](../../src/components/puck/fields/PageSettingsFieldGroup.tsx) | **Page Settings** chapter: title, slug (`/` prefix), live preview |
+| Root config | [`PageRoot.tsx`](../../src/components/puck/root/PageRoot.tsx) | Replaces flat `title` field with `pageSettings` custom group |
+| Init | `client.tsx` `buildEditorData` | Seeds `slug` from MongoDB `path`; `slugLocked` for homepage |
+| Publish | [`PuckEditorShell.tsx`](../../src/app/[...puckPath]/PuckEditorShell.tsx) | Reads `pageSettings.title` + `normalizePagePath(slug)`; header path/title editors removed |
+

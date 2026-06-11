@@ -1,28 +1,40 @@
 "use client";
 
 /**
- * @fileoverview Puck block for styled Tab strips.
- *
- * Maps to Figma TabGroup components with alignment, size, and accent color overrides.
+ * @fileoverview Puck block for interactive tabs with per-tab drag-and-drop content slots.
  *
  * @module src/components/puck/blocks/content/NexusTabs
  */
 
-import React, { useState } from "react";
+import { NexusTabsRender } from "./NexusTabsRender";
 
+/** Default empty tab with slot array for Puck inline data model. */
+const emptyTab = { label: "New Tab", panel: [] as never[] };
+
+/**
+ * Tab group — each tab exposes a slot for arbitrary Puck blocks.
+ */
 export const NexusTabs = {
   label: "Tabs Group",
   fields: {
     tabs: {
       type: "array" as const,
       label: "Tabs",
+      min: 1,
+      max: 8,
+      getItemSummary: (item: { label?: string }) => item.label || "Tab",
       arrayFields: {
-        label: { type: "text" as const, label: "Label" },
+        label: { type: "text" as const, label: "Tab Label" },
+        panel: {
+          type: "slot" as const,
+          label: "Tab Content",
+        },
       },
+      defaultItemProps: emptyTab,
     },
     defaultActiveIndex: {
       type: "number" as const,
-      label: "Default Active Index",
+      label: "Default Active Tab",
       min: 0,
     },
     align: {
@@ -44,88 +56,21 @@ export const NexusTabs = {
     },
     accentColor: {
       type: "text" as const,
-      label: "Accent Color Override (Optional)",
+      label: "Active Tab Color (optional css color)",
     },
   },
   defaultProps: {
     tabs: [
-      { label: "Current" },
-      { label: "Sport" },
-      { label: "Announcements" },
+      { label: "Overview", panel: [] },
+      { label: "Details", panel: [] },
+      { label: "Resources", panel: [] },
     ],
     defaultActiveIndex: 0,
     align: "left" as const,
     size: "md" as const,
     accentColor: "",
   },
-  render({
-    tabs,
-    defaultActiveIndex,
-    align,
-    size,
-    accentColor,
-  }: {
-    tabs: Array<{ label: string }>;
-    defaultActiveIndex: number;
-    align: "left" | "center" | "right";
-    size: "sm" | "md";
-    accentColor?: string;
-  }) {
-    const [activeIndex, setActiveIndex] = useState(defaultActiveIndex);
-
-    const sizeStyles = {
-      sm: { padding: "6px 10px", fontSize: "11px" },
-      md: { padding: "8px 14px", fontSize: "12px" },
-    };
-
-    const alignmentStyles = {
-      left: "flex-start",
-      center: "center",
-      right: "flex-end",
-    };
-
-    const activeBg = accentColor || "var(--color-accent-user)";
-
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: alignmentStyles[align] || "flex-start",
-          width: "100%",
-        }}
-      >
-        <div
-          style={{
-            display: "inline-flex",
-            gap: 6,
-            padding: 4,
-            borderRadius: "var(--radius-md)",
-            background: "var(--color-bg-elevated)",
-            border: "1px solid var(--color-border-default)",
-          }}
-        >
-          {tabs.map((tab, idx) => (
-            <span
-              key={idx}
-              onClick={() => setActiveIndex(idx)}
-              style={{
-                borderRadius: "var(--radius-md)",
-                fontWeight: idx === activeIndex ? 500 : 400,
-                background: idx === activeIndex ? activeBg : "transparent",
-                color: idx === activeIndex ? "#fff" : "var(--color-text-secondary)",
-                cursor: "pointer",
-                userSelect: "none",
-                transition: "background 0.2s, color 0.2s",
-                ...sizeStyles[size],
-              }}
-            >
-              {tab.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  },
+  render: NexusTabsRender,
 };
 
 export default NexusTabs;

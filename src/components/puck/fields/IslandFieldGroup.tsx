@@ -8,17 +8,18 @@
 
 import type { IslandProps, SpacingToken } from "../lib/spacingFields";
 import {
+  CONTENT_WIDTH_OPTIONS,
+  normalizeContentWidth,
+  type ContentWidthToken,
+} from "../lib/contentWidthTokens";
+import {
   getColorOptionsForGroup,
   normalizeColorToken,
   resolveNexusColor,
 } from "../lib/nexusColorTokens";
+import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
 import { FieldChapter, IslandIcon } from "./FieldChapter";
-
-const WIDTH_OPTIONS = [
-  { label: "Contained", value: "contained" },
-  { label: "Narrow", value: "narrow" },
-  { label: "Full", value: "full" },
-];
+import { SegmentedControl } from "./SegmentedControl";
 
 const BORDER_WIDTH_OPTIONS = [
   { label: "None", value: "none" },
@@ -30,16 +31,6 @@ const RADIUS_OPTIONS = [
   { label: "SM", value: "sm" },
   { label: "MD", value: "md" },
   { label: "LG", value: "lg" },
-];
-
-const PADDING_OPTIONS = [
-  { label: "None", value: "none" },
-  { label: "XS", value: "xs" },
-  { label: "SM", value: "sm" },
-  { label: "MD", value: "md" },
-  { label: "LG", value: "lg" },
-  { label: "XL", value: "xl" },
-  { label: "2XL", value: "2xl" },
 ];
 
 /** Puck custom field props for island settings. */
@@ -115,6 +106,8 @@ function ColorRow({
 export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   const island = value ?? {};
   const enabled = Boolean(island.islandEnabled);
+  const widthToken = normalizeContentWidth(island.islandMaxWidth) as ContentWidthToken;
+  const paddingToken = (island.islandPadding ?? "md") as SpacingToken;
 
   const set = <K extends keyof IslandProps>(key: K, next: IslandProps[K]) => {
     onChange(patchIsland(island, key, next));
@@ -123,22 +116,15 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   return (
     <FieldChapter title="Island" icon={<IslandIcon />}>
       <div className="nexus-field-category">
-        <div className="nexus-segmented">
-          <button
-            type="button"
-            className={`nexus-segmented__btn${!enabled ? " nexus-segmented__btn--active" : ""}`}
-            onClick={() => set("islandEnabled", false)}
-          >
-            Off
-          </button>
-          <button
-            type="button"
-            className={`nexus-segmented__btn${enabled ? " nexus-segmented__btn--active" : ""}`}
-            onClick={() => set("islandEnabled", true)}
-          >
-            On
-          </button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Island mode"
+          options={[
+            { label: "Off", value: "off" },
+            { label: "On", value: "on" },
+          ]}
+          value={enabled ? "on" : "off"}
+          onChange={(v) => set("islandEnabled", v === "on")}
+        />
       </div>
 
       {enabled ? (
@@ -150,10 +136,12 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                 <span className="nexus-field-grid__label">Width</span>
                 <select
                   className="nexus-puck-select"
-                  value={island.islandMaxWidth ?? "contained"}
-                  onChange={(e) => set("islandMaxWidth", e.target.value as IslandProps["islandMaxWidth"])}
+                  value={widthToken}
+                  onChange={(e) =>
+                    set("islandMaxWidth", e.target.value as ContentWidthToken)
+                  }
                 >
-                  {WIDTH_OPTIONS.map((opt) => (
+                  {CONTENT_WIDTH_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -230,15 +218,20 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                 <span className="nexus-field-grid__label">Padding</span>
                 <select
                   className="nexus-puck-select"
-                  value={island.islandPadding ?? "md"}
+                  value={paddingToken}
                   onChange={(e) => set("islandPadding", e.target.value as SpacingToken)}
                 >
-                  {PADDING_OPTIONS.map((opt) => (
+                  {SPACING_TOKEN_LABELS.filter((opt) => opt.value !== "custom").map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
                   ))}
                 </select>
+                {formatSpacingResolvedHint(paddingToken) ? (
+                  <span className="nexus-field-grid__resolved">
+                    {formatSpacingResolvedHint(paddingToken)}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>

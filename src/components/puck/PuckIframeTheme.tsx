@@ -58,6 +58,15 @@ const PREVIEW_TOKEN_CSS = `
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
+  --content-width-xs: 640px;
+  --content-width-sm: 800px;
+  --content-width-md: 1024px;
+  --content-width-lg: 1200px;
+  --content-width-xl: 1400px;
+  --content-width-full: 100%;
+  --font-sans: var(--font-inter, "Inter", system-ui, sans-serif);
+  --font-serif: var(--font-serif-face, "Source Serif 4", Georgia, serif);
+  --font-mono: var(--font-mono-face, "JetBrains Mono", ui-monospace, monospace);
 }
 [data-theme="light"] {
   --color-bg-surface: #f8fafc;
@@ -103,7 +112,7 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
 
     if (iframeDoc.body) {
       iframeDoc.body.style.color = "var(--color-text-primary)";
-      iframeDoc.body.style.fontFamily = 'var(--font-inter, "Inter", system-ui, sans-serif)';
+      iframeDoc.body.style.fontFamily = "var(--font-sans)";
       iframeDoc.body.style.margin = "0";
     }
   }, [iframeDoc, resolvedTheme]);

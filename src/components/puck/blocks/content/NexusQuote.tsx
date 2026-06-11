@@ -3,12 +3,13 @@
 /**
  * @fileoverview Puck block for styled Blockquotes.
  *
- * Supports quote text, author, and accent border color settings.
- *
  * @module src/components/puck/blocks/content/NexusQuote
  */
 
 import React from "react";
+import { FontFamilyField } from "../../fields/FontFamilyField";
+import { FontWeightField } from "../../fields/FontWeightField";
+import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
 
 export const NexusQuote = {
   label: "Blockquote",
@@ -25,21 +26,39 @@ export const NexusQuote = {
       type: "text" as const,
       label: "Accent Border Color (Optional)",
     },
+    fontFamily: {
+      type: "custom" as const,
+      label: "Font Family",
+      render: FontFamilyField as never,
+    },
+    fontWeight: {
+      type: "custom" as const,
+      label: "Font Weight",
+      render: FontWeightField as never,
+    },
   },
   defaultProps: {
     text: "The best way to predict the future is to invent it.",
     author: "Alan Kay",
     borderColor: "",
+    fontFamily: "serif" as FontFamilyToken,
+    fontWeight: "400" as FontWeightToken,
   },
   render({
     text,
     author,
     borderColor,
+    fontFamily,
+    fontWeight,
   }: {
     text: string;
     author?: string;
     borderColor?: string;
+    fontFamily?: FontFamilyToken;
+    fontWeight?: FontWeightToken;
   }) {
+    const typography = resolveBlockTypography("NexusQuote", fontFamily, fontWeight, "italic");
+
     return (
       <blockquote
         style={{
@@ -51,15 +70,17 @@ export const NexusQuote = {
           width: "100%",
           boxSizing: "border-box",
           textAlign: "left",
+          fontFamily: typography.fontFamily,
         }}
       >
         <p
           style={{
             margin: 0,
             fontSize: "1.0625rem",
-            fontStyle: "italic",
+            fontStyle: typography.fontStyle,
             lineHeight: 1.5,
             color: "var(--color-text-primary)",
+            fontWeight: typography.fontWeight,
             marginBottom: author ? "var(--spacing-xs)" : "0px",
           }}
         >
@@ -72,6 +93,7 @@ export const NexusQuote = {
               fontWeight: 500,
               color: "var(--color-text-secondary)",
               fontStyle: "normal",
+              fontFamily: typography.fontFamily,
             }}
           >
             — {author}

@@ -6,19 +6,19 @@
  * @module src/app/[...puckPath]/PuckEditorShell
  */
 
-import { Puck } from "@measured/puck";
+import { FieldLabel, Puck } from "@measured/puck";
 import "@measured/puck/puck.css";
 import "../puck-editor.css";
 import puckConfig from "@/components/puck/config";
+import { componentDrawerIcon, fieldLabelIcon } from "@/components/puck/lib/puckIcons";
 import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
 import { EditorModeToggle } from "@/components/puck/EditorModeToggle";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { PagePathHeaderChip } from "@/components/puck/PagePathHeaderChip";
-import type { PagePathEditorHandle } from "@/components/puck/PagePathEditor";
-import { PageTitleEditor } from "@/components/puck/PageTitleEditor";
+import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
+import { normalizePagePath } from "@/components/puck/PagePathEditor";
 import type { Data } from "@measured/puck";
 import Link from "next/link";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 /** Props for the client-only Puck editor shell. */
 export interface PuckEditorShellProps {
@@ -39,6 +39,36 @@ export interface PuckEditorShellProps {
 }
 
 /**
+ * Read page title and slug from root props (grouped or legacy flat shape).
+ *
+ * @param data - Puck document at publish time.
+ * @param fallbackTitle - MongoDB title when root props omit one.
+ * @param currentPath - Current MongoDB path key.
+ * @returns Resolved title and normalized absolute path.
+ */
+function resolvePageMetadata(
+  data: Data,
+  fallbackTitle: string,
+  currentPath: string,
+): { title: string; cleanPath: string } {
+  const rootProps = (data.root as { props?: Record<string, unknown> })?.props ?? {};
+  const pageSettings = rootProps.pageSettings as PageSettingsValue | undefined;
+
+  const title =
+    pageSettings?.title ??
+    (rootProps.title as string | undefined) ??
+    fallbackTitle ??
+    "Untitled Page";
+
+  const slugLocked = pageSettings?.slugLocked ?? currentPath === "/";
+  const cleanPath = slugLocked
+    ? "/"
+    : normalizePagePath(pageSettings?.slug ?? currentPath.replace(/^\//, ""));
+
+  return { title, cleanPath };
+}
+
+/**
  * Full Puck editor with Nexus header overrides.
  *
  * @param props - See {@link PuckEditorShellProps}.
@@ -53,23 +83,16 @@ export function PuckEditorShell({
   error,
   onError,
 }: PuckEditorShellProps) {
-  const pathEditorRef = useRef<PagePathEditorHandle>(null);
-
   const handlePublish = useCallback(
     async (nextData: Data) => {
       onError(null);
       const secret = process.env.NEXT_PUBLIC_PUCK_SECRET;
-      const cleanPath = pathEditorRef.current?.getNormalizedPath() ?? path;
+      const { title, cleanPath } = resolvePageMetadata(nextData, pageTitle, path);
 
       if (!cleanPath || !cleanPath.startsWith("/")) {
         onError("Path must start with a slash (/)");
         return;
       }
-
-      const title =
-        (nextData.root as { props?: { title?: string } })?.props?.title ||
-        pageTitle ||
-        "Untitled Page";
 
       const res = await fetch("/api/puck", {
         method: "POST",
@@ -115,16 +138,28 @@ export function PuckEditorShell({
         iframe: ({ children, document }) => (
           <PuckIframeTheme document={document}>{children}</PuckIframeTheme>
         ),
-        header: ({ children }) => (
-          <>
+        drawerItem: ({ children, name }) => {
+          const icon = componentDrawerIcon(name);
+          return (
+            <div className="nexus-drawer-item">
+              {icon ? <span className="nexus-drawer-item__icon">{icon}</span> : null}
+              <span className="nexus-drawer-item__label">{children}</span>
+            </div>
+          );
+        },
+        fieldLabel: ({ children, icon, label, el, readOnly, className }) => (
+          <FieldLabel
+            label={label}
+            icon={icon ?? fieldLabelIcon(label)}
+            el={el}
+            readOnly={readOnly}
+            className={className}
+          >
             {children}
-            <PageTitleEditor />
-          </>
+          </FieldLabel>
         ),
         headerActions: ({ children }) => (
           <>
-            <PagePathHeaderChip ref={pathEditorRef} initialPath={path} />
-
             {error && (
               <span
                 style={{

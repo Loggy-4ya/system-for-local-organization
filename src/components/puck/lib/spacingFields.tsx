@@ -9,13 +9,21 @@
 import React from "react";
 import { IslandFieldGroup } from "../fields/IslandFieldGroup";
 import { SpacingFieldGroup } from "../fields/SpacingFieldGroup";
+import {
+  contentWidthContainerStyle,
+  DEFAULT_CONTENT_WIDTH,
+  normalizeContentWidth,
+  type ContentWidthToken,
+  type LegacyContentWidth,
+} from "./contentWidthTokens";
 import { resolveNexusColor } from "./nexusColorTokens";
+import { editorIslandSettingsRef } from "./editorIslandSettings";
 
 /** Spacing token keys available in select fields. */
 export type SpacingToken = "none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "custom";
 
-/** Island max-width modes (aligned with header / page shell). */
-export type IslandMaxWidth = "contained" | "narrow" | "full";
+/** Island max-width modes (shared content width tokens). */
+export type IslandMaxWidth = ContentWidthToken | LegacyContentWidth;
 
 /** Padding and margin props stored under the `spacing` object field group. */
 export interface SpacingProps {
@@ -73,12 +81,6 @@ const SPACING_MAP: Record<SpacingToken, string> = {
   custom: "0",
 };
 
-const ISLAND_WIDTH_MAP: Record<IslandMaxWidth, string> = {
-  contained: "1200px",
-  narrow: "800px",
-  full: "100%",
-};
-
 const ISLAND_ALIGN_MAP = {
   left: "flex-start",
   center: "center",
@@ -120,7 +122,7 @@ export const SPACING_DEFAULTS: SpacingProps = {
 /** Default island values for new blocks. */
 export const ISLAND_DEFAULTS: IslandProps = {
   islandEnabled: false,
-  islandMaxWidth: "contained",
+  islandMaxWidth: DEFAULT_CONTENT_WIDTH,
   islandAlign: "center",
   islandFillPreset: "glass-panel",
   islandBorderPreset: "border-default",
@@ -261,7 +263,9 @@ export function applyBlockShell(props: BlockShellProps): {
   );
   const radiusKey = flat.islandRadius ?? "md";
   const radius = ISLAND_RADIUS_MAP[radiusKey] ?? ISLAND_RADIUS_MAP.md;
-  const maxWidth = ISLAND_WIDTH_MAP[flat.islandMaxWidth ?? "contained"];
+  const widthToken = normalizeContentWidth(flat.islandMaxWidth);
+  const widthStyle = contentWidthContainerStyle(widthToken);
+  const maxWidth = widthStyle.maxWidth;
   const align = ISLAND_ALIGN_MAP[flat.islandAlign ?? "center"];
 
   const islandOuterStyle: React.CSSProperties = {
@@ -269,7 +273,7 @@ export function applyBlockShell(props: BlockShellProps): {
     justifyContent: align,
     width: "100%",
     maxWidth,
-    marginInline: flat.islandMaxWidth === "full" ? undefined : "auto",
+    marginInline: widthStyle.marginInline,
     boxSizing: "border-box",
   };
 
@@ -311,17 +315,71 @@ interface PuckBlockLike {
     data: { props: BlockShellProps },
     params: { fields: Record<string, unknown> },
   ) => Record<string, unknown>;
+  resolveData?: (
+    data: { props: BlockShellProps },
+    params: PuckResolveDataParams,
+  ) => Promise<{ props: BlockShellProps }> | { props: BlockShellProps };
+}
+
+/** Params passed to Puck component resolveData hooks. */
+interface PuckResolveDataParams {
+  trigger: "insert" | "replace" | "move" | "load" | "force" | string;
+  parent?: { type?: string; props?: BlockShellProps } | null;
+  changed?: Record<string, unknown>;
+}
+
+/**
+ * Apply auto island props when a block is inserted or moved under an eligible parent.
+ *
+ * @param componentType - Puck registry key for the block.
+ * @param props - Current block props from resolveData.
+ * @param params - Puck resolveData params including trigger and parent.
+ * @returns Updated props when island should be auto-enabled.
+ */
+function resolveAutoIslandProps(
+  componentType: string,
+  props: BlockShellProps,
+  params: PuckResolveDataParams,
+): BlockShellProps {
+  if (params.trigger !== "insert" && params.trigger !== "move") {
+    return props;
+  }
+
+  const allowed = new Set(editorIslandSettingsRef.islandDefaultComponents);
+  if (!allowed.has(componentType)) return props;
+  if (isIslandActive(props)) return props;
+
+  const parentProps = params.parent?.props;
+  if (parentProps && isIslandActive(parentProps)) return props;
+
+  const existingIsland = props.island ?? {};
+  const existingSpacing = props.spacing ?? {};
+
+  return {
+    ...props,
+    spacing: {
+      ...SPACING_DEFAULTS,
+      ...existingSpacing,
+    },
+    island: {
+      ...ISLAND_DEFAULTS,
+      ...existingIsland,
+      islandEnabled: true,
+    },
+  };
 }
 
 /**
  * Wrap a Puck block with spacing + optional island shell fields and render wrapper.
  *
  * @param block - Original block definition.
+ * @param componentType - Puck registry key used for admin island default lookup.
  * @returns Extended block config.
  */
-export function withBlockShell<T extends PuckBlockLike>(block: T): T {
+export function withBlockShell<T extends PuckBlockLike>(block: T, componentType: string): T {
   const originalRender = block.render;
   const originalResolveFields = block.resolveFields;
+  const originalResolveData = block.resolveData;
 
   return {
     ...block,
@@ -340,6 +398,18 @@ export function withBlockShell<T extends PuckBlockLike>(block: T): T {
         ? originalResolveFields(data, params)
         : params.fields;
       return resolveSpacingFieldVisibility(base, data.props);
+    },
+    resolveData: async (data, params) => {
+      let props = data.props as BlockShellProps;
+
+      if (originalResolveData) {
+        const resolved = await originalResolveData(data, params);
+        props = resolved.props as BlockShellProps;
+      }
+
+      return {
+        props: resolveAutoIslandProps(componentType, props, params),
+      };
     },
     render: (props) => {
       const {
