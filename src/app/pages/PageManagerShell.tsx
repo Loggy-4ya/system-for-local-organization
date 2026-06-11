@@ -19,9 +19,14 @@ export interface PageManagerRow {
   updatedAt: Date;
 }
 
+/** Page manager redirect notice keys from `?error=` query param. */
+export type PageManagerNotice = "reserved-slug" | "homepage-code-only";
+
 /** Props for the tabbed page manager shell. */
 interface PageManagerShellProps {
   pages: PageManagerRow[];
+  /** Optional notice shown above the new-page form. */
+  notice?: PageManagerNotice;
 }
 
 type ManagerTab = "pages" | "defaults";
@@ -32,7 +37,7 @@ type ManagerTab = "pages" | "defaults";
  * @param props - See {@link PageManagerShellProps}.
  * @returns Tabbed page manager UI.
  */
-export function PageManagerShell({ pages }: PageManagerShellProps) {
+export function PageManagerShell({ pages, notice }: PageManagerShellProps) {
   const [tab, setTab] = useState<ManagerTab>("pages");
 
   return (
@@ -88,6 +93,43 @@ export function PageManagerShell({ pages }: PageManagerShellProps) {
             >
               New page
             </p>
+            {notice === "homepage-code-only" ? (
+              <p
+                role="alert"
+                style={{
+                  margin: 0,
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                  color: "#ef4444",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.45,
+                }}
+              >
+                The homepage at <code>/</code> is built in code (<code>src/app/page.tsx</code>), not
+                the Puck editor. Create CMS pages below with a custom slug (e.g.{" "}
+                <code>news</code>).
+              </p>
+            ) : null}
+            {notice === "reserved-slug" ? (
+              <p
+                role="alert"
+                style={{
+                  margin: 0,
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                  color: "#ef4444",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.45,
+                }}
+              >
+                The slug <strong>edit</strong> is reserved for routing. Choose a different slug
+                below to create a new page.
+              </p>
+            ) : null}
             <NewPageForm />
             <p style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
               Enter a slug like <code style={{ color: "var(--color-accent-user)" }}>news</code> or{" "}

@@ -31,8 +31,12 @@ export function useDeferredFieldCommit({
 }: UseDeferredFieldCommitOptions) {
   const [draft, setDraft] = useState(value || "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFocusedRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useEffect(() => {
+    if (isFocusedRef.current) return;
     setDraft(value || "");
   }, [value]);
 
@@ -40,10 +44,10 @@ export function useDeferredFieldCommit({
     (next?: string) => {
       const resolved = next ?? draft;
       if (resolved !== value) {
-        onChange(resolved);
+        onChangeRef.current(resolved);
       }
     },
-    [draft, onChange, value],
+    [draft, value],
   );
 
   const onDraftChange = useCallback((next: string) => {
@@ -53,15 +57,21 @@ export function useDeferredFieldCommit({
   const onTextChange = useCallback(
     (next: string) => {
       setDraft(next);
+      if (textDebounceMs <= 0) return;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        onChange(next);
+        onChangeRef.current(next);
       }, textDebounceMs);
     },
-    [onChange, textDebounceMs],
+    [textDebounceMs],
   );
 
+  const onTextFocus = useCallback(() => {
+    isFocusedRef.current = true;
+  }, []);
+
   const onTextBlur = useCallback(() => {
+    isFocusedRef.current = false;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     commit();
   }, [commit]);
@@ -81,6 +91,7 @@ export function useDeferredFieldCommit({
     setDraft: onDraftChange,
     commit,
     onTextChange,
+    onTextFocus,
     onTextBlur,
     onPointerUpCommit,
   };

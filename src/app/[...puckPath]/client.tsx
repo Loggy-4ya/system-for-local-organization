@@ -10,17 +10,18 @@ import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
 import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
 import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
+import { normalizeCarouselSlides } from "@/components/puck/lib/puckDataTree";
+import { setEditorPagePath } from "@/components/puck/lib/editorPagePathRef";
 import {
   editorIslandSettingsRef,
   setEditorIslandDefaultComponents,
 } from "@/components/puck/lib/editorIslandSettings";
-import { DEFAULT_ISLAND_COMPONENTS } from "@shared/constants/editorSettings";
 import { Render } from "@measured/puck";
 import { installSafePointerCapture } from "@/lib/safePointerCapture";
 import type { Data } from "@measured/puck";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 installSafePointerCapture();
 
@@ -89,7 +90,8 @@ function pathToSlug(pagePath: string): string {
  */
 function buildEditorData(data: Data | null, title: string, pagePath: string): Data {
   const withContent = withDefaultEditorContent(data);
-  const withIsland = ensureIslandOnEligibleBlocks(withContent, {
+  const withCarousel = normalizeCarouselSlides(withContent);
+  const withIsland = ensureIslandOnEligibleBlocks(withCarousel, {
     islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
   });
   const existingProps =
@@ -102,7 +104,9 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
       (existingProps.title as string | undefined) ??
       title ??
       "Untitled Page",
-    slug: existingPageSettings?.slug ?? pathToSlug(pagePath),
+    slug: existingPageSettings?.slug?.trim()
+      ? existingPageSettings.slug
+      : pathToSlug(pagePath),
     slugLocked: pagePath === "/",
   };
 
@@ -119,6 +123,19 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
 }
 
 /**
+ * Normalize viewer payload with island defaults for static render.
+ *
+ * @param payload - MongoDB Puck document.
+ * @returns Viewer-ready data or null.
+ */
+function buildViewData(payload: Data | null): Data | null {
+  if (!payload) return null;
+  return ensureIslandOnEligibleBlocks(normalizeCarouselSlides(payload), {
+    islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
+  });
+}
+
+/**
  * Puck Client Component — renders either the editor or the static viewer.
  *
  * @param props - See {@link PuckClientProps}.
@@ -126,11 +143,13 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
  */
 export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps) {
   const router = useRouter();
-  const [editorData, setEditorData] = useState<Data>(() =>
+  setEditorPagePath(path);
+  const [initialEditorData, setInitialEditorData] = useState<Data>(() =>
     buildEditorData(data, pageTitle, path),
   );
-  const [error, setError] = useState<string | null>(null);
-  const latestDataRef = useRef(editorData);
+  const [puckMountKey, setPuckMountKey] = useState(0);
+  const latestDataRef = useRef(initialEditorData);
+  const skipServerSyncRef = useRef(true);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -155,31 +174,32 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
     };
   }, [isEditing]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+    if (skipServerSyncRef.current) {
+      skipServerSyncRef.current = false;
+      return;
+    }
+
+    const next = buildEditorData(data, pageTitle, path);
+    latestDataRef.current = next;
+    setInitialEditorData(next);
+    setPuckMountKey((key) => key + 1);
+  }, [data, pageTitle, path, isEditing]);
+
   const handleEditorDataChange = useCallback((nextData: Data) => {
     latestDataRef.current = nextData;
-    setEditorData(nextData);
   }, []);
 
   const handlePublished = useCallback(
     (nextPath: string) => {
-      setEditorData(latestDataRef.current);
       if (nextPath !== path) {
         router.replace(`${nextPath}/edit`);
-      } else {
-        router.refresh();
+        return;
       }
+      router.refresh();
     },
     [path, router],
-  );
-
-  const viewData = useMemo(
-    () =>
-      data
-        ? ensureIslandOnEligibleBlocks(data, {
-            islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
-          })
-        : null,
-    [data],
   );
 
   if (isEditing) {
@@ -187,14 +207,16 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
       <PuckEditorShell
         path={path}
         pageTitle={pageTitle}
-        editorData={editorData}
+        initialEditorData={initialEditorData}
+        puckMountKey={puckMountKey}
+        getLatestData={() => latestDataRef.current}
         onEditorDataChange={handleEditorDataChange}
         onPublished={handlePublished}
-        error={error}
-        onError={setError}
       />
     );
   }
+
+  const viewData = buildViewData(data);
 
   if (!data || !viewData) {
     return (

@@ -6,8 +6,14 @@
  * @module src/components/puck/fields/PageSettingsFieldGroup
  */
 
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 import { FieldChapter, SettingsIcon } from "./FieldChapter";
-import { normalizePagePath } from "../PagePathEditor";
+import { editorPagePathRef } from "../lib/editorPagePathRef";
+import {
+  fetchReservedPagePaths,
+  validatePageSlug,
+} from "../lib/pageSlugValidation";
+import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 
 /** Page metadata stored under root `pageSettings`. */
 export interface PageSettingsValue {
@@ -38,16 +44,83 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     slugLocked: value?.slugLocked ?? false,
   };
 
-  const previewSlug = settings.slugLocked
+  const [reservedPaths, setReservedPaths] = useState<string[]>([]);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const onChangeRef = useRef(onChange);
+  const settingsRef = useRef(settings);
+  onChangeRef.current = onChange;
+  settingsRef.current = settings;
+
+  const isHomepageSlug = settings.slugLocked || editorPagePathRef.currentPath === "/";
+
+  const {
+    draft: slugDraft,
+    onTextChange: onSlugDraftChange,
+    onTextFocus: onSlugFocus,
+    onTextBlur: onSlugBlur,
+    commit: commitSlug,
+  } = useDeferredFieldCommit({
+    value: settings.slug,
+    onChange: (next) => {
+      onChangeRef.current({ ...settingsRef.current, slug: next });
+    },
+    textDebounceMs: 0,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const paths = await fetchReservedPagePaths();
+      if (!cancelled) setReservedPaths(paths);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const slugValidation = useMemo(
+    () =>
+      validatePageSlug(slugDraft, {
+        slugLocked: isHomepageSlug,
+        currentPath: editorPagePathRef.currentPath,
+        reservedPaths,
+      }),
+    [slugDraft, isHomepageSlug, reservedPaths],
+  );
+
+  const previewSlug = isHomepageSlug
     ? ""
-    : normalizePagePath(settings.slug).replace(/^\//, "") || "(homepage)";
+    : slugValidation.slugSegment || "(homepage)";
 
   const set = (patch: Partial<PageSettingsValue>) => {
     onChange({ ...settings, ...patch });
   };
 
+  const handleSlugPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData("text").trim();
+    if (!pasted) return;
+
+    const pastedValidation = validatePageSlug(pasted.replace(/^\//, ""), {
+      slugLocked: false,
+      currentPath: editorPagePathRef.currentPath,
+      reservedPaths,
+    });
+
+    if (!pastedValidation.valid && pastedValidation.error?.includes("already used")) {
+      event.preventDefault();
+      setPasteError(pastedValidation.error);
+      return;
+    }
+
+    setPasteError(null);
+  };
+
+  const slugError = pasteError ?? (isHomepageSlug ? null : slugValidation.error);
+
   return (
-    <FieldChapter title="Page Settings" icon={<SettingsIcon />} defaultOpen>
+    <FieldChapter title="Page Settings" icon={<SettingsIcon />}>
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">Page Title</span>
         <input
@@ -61,22 +134,52 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
 
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">URL Slug</span>
-        <div className="nexus-page-slug-row">
-          <span className="nexus-page-slug-row__prefix">/</span>
-          <input
-            type="text"
-            className="nexus-puck-input nexus-page-slug-row__input"
-            value={settings.slug}
-            onChange={(e) => set({ slug: e.target.value })}
-            disabled={settings.slugLocked}
-            placeholder={settings.slugLocked ? "" : "page-path"}
-            title={
-              settings.slugLocked
-                ? "The homepage URL cannot be renamed"
-                : "Edit page URL path"
-            }
-          />
-        </div>
+        {isHomepageSlug ? (
+          <>
+            <div className="nexus-page-slug-row nexus-page-slug-row--locked">
+              <span className="nexus-page-slug-row__prefix">/</span>
+              <span
+                className="nexus-puck-input nexus-page-slug-row__input nexus-page-slug-row__locked-value"
+                aria-readonly="true"
+              >
+                (homepage — fixed at /)
+              </span>
+            </div>
+            <p className="nexus-page-slug-hint">
+              The homepage URL cannot be renamed. Create other pages from{" "}
+              <strong>All Pages</strong> to set custom slugs.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="nexus-page-slug-row">
+              <span className="nexus-page-slug-row__prefix">/</span>
+              <input
+                type="text"
+                className="nexus-puck-input nexus-page-slug-row__input"
+                value={slugDraft}
+                onChange={(e) => {
+                  setPasteError(null);
+                  onSlugDraftChange(e.target.value);
+                }}
+                onFocus={onSlugFocus}
+                onBlur={() => {
+                  onSlugBlur();
+                  commitSlug();
+                }}
+                onPaste={handleSlugPaste}
+                placeholder="page-path"
+                title="Edit page URL path"
+                aria-invalid={Boolean(slugError)}
+              />
+            </div>
+            {slugError ? (
+              <p className="nexus-page-slug-error" role="alert">
+                {slugError}
+              </p>
+            ) : null}
+          </>
+        )}
         <p className="nexus-page-slug-preview">
           Preview: <code>yoursite.com/{previewSlug}</code>
         </p>

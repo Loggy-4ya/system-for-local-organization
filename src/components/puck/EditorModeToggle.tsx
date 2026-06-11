@@ -8,7 +8,7 @@
  * @module src/components/puck/EditorModeToggle
  */
 
-import { usePuck } from "@measured/puck";
+import { useNexusPuck } from "./lib/useNexusPuck";
 
 /** Props for the editor mode toggle button. */
 export interface EditorModeToggleProps {
@@ -25,8 +25,9 @@ export interface EditorModeToggleProps {
 export function EditorModeToggle({
   className = "nexus-mode-toggle",
 }: EditorModeToggleProps) {
-  const { appState, dispatch } = usePuck();
-  const isInteractive = appState.ui.previewMode === "interactive";
+  const previewMode = useNexusPuck((state) => state.appState.ui.previewMode ?? "edit");
+  const dispatch = useNexusPuck((state) => state.dispatch);
+  const isInteractive = previewMode === "interactive";
 
   const handleToggle = () => {
     dispatch({

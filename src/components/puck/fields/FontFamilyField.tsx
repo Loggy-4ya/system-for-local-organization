@@ -8,6 +8,7 @@
 
 import { FieldLabel } from "@measured/puck";
 import { FONT_FAMILY_OPTIONS, type FontFamilyToken } from "../lib/nexusTypography";
+import { PuckSelectField } from "./PuckSelectField";
 
 /** Props passed by Puck to the font family field renderer. */
 interface FontFamilyFieldProps {
@@ -27,18 +28,13 @@ export function FontFamilyField({ field, value, onChange }: FontFamilyFieldProps
 
   return (
     <FieldLabel label={field.label || "Font Family"}>
-      <select
-        className="nexus-puck-select"
-        value={stored}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ marginTop: 4 }}
-      >
-        {FONT_FAMILY_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: 4 }}>
+        <PuckSelectField
+          value={stored}
+          onChange={onChange}
+          options={FONT_FAMILY_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+        />
+      </div>
     </FieldLabel>
   );
 }

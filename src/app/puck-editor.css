@@ -127,6 +127,16 @@
   scrollbar-color: color-mix(in srgb, var(--puck-color-grey-08) 50%, transparent) transparent;
 }
 
+@media (min-width: 1024px) {
+  .Puck [class*="Sidebar--left"] {
+    min-width: 280px;
+  }
+
+  .Puck [class*="Sidebar--right"] {
+    min-width: 320px;
+  }
+}
+
 .Puck [class*="Sidebar"]::-webkit-scrollbar {
   width: 6px;
 }
@@ -209,8 +219,7 @@
   cursor: not-allowed;
 }
 
-.nexus-puck-field select,
-.nexus-puck-select {
+.nexus-puck-field select {
   width: 100%;
   min-height: 42px;
   padding: 12px 32px 12px 15px;
@@ -232,8 +241,22 @@
   cursor: pointer;
 }
 
-.nexus-puck-field select:focus,
-.nexus-puck-select:focus {
+.nexus-puck-select-trigger {
+  width: 100%;
+  min-height: 42px;
+  background-color: var(--puck-color-white);
+  border-color: var(--puck-color-grey-09);
+  color: var(--puck-color-black);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.nexus-puck-field select:focus {
+  border-color: var(--puck-color-grey-07);
+  box-shadow: 0 0 0 1px var(--puck-color-grey-07);
+}
+
+.nexus-puck-select-trigger:focus-visible {
   border-color: var(--puck-color-grey-07);
   box-shadow: 0 0 0 1px var(--puck-color-grey-07);
 }
@@ -258,10 +281,15 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0'><polygon points='0,0 100,0 50,50'/></svg>") !important;
 }
 
-[data-theme="dark"] .nexus-puck-field select,
-[data-theme="dark"] .nexus-puck-select {
+[data-theme="dark"] .nexus-puck-field select {
   background-color: var(--puck-color-grey-11);
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23cbd5e1'><polygon points='0,0 100,0 50,50'/></svg>");
+  border-color: var(--puck-color-grey-09);
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-puck-select-trigger {
+  background-color: var(--puck-color-grey-11);
   border-color: var(--puck-color-grey-09);
   color: var(--puck-color-black);
 }
@@ -487,6 +515,44 @@
   font-weight: 600;
 }
 
+/* ── Shadcn switch rows (binary toggles) ─────────────────────────────────── */
+.nexus-switch-field {
+  width: 100%;
+}
+
+.nexus-switch-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 42px;
+  width: 100%;
+}
+
+.nexus-switch-row [data-slot="switch"] {
+  flex-shrink: 0;
+}
+
+.nexus-switch-row__label {
+  color: var(--puck-color-black);
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.nexus-switch-row__hint {
+  color: var(--puck-color-grey-04, var(--color-text-secondary));
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 4px 0 0;
+}
+
+[data-theme="dark"] .nexus-switch-row__label {
+  color: var(--puck-color-black);
+}
+
 [data-theme="dark"] .nexus-field-grid__custom {
   background: var(--puck-color-grey-11);
   border-color: var(--puck-color-grey-09);
@@ -498,7 +564,7 @@
   border-color: var(--puck-color-grey-09);
 }
 
-/* Puck native radio fields — match full-width segmented control height */
+/* Puck radio override — segmented multi-option fields (binary toggles use switch) */
 .Puck [class*="RadioField"] {
   width: 100%;
 }
@@ -545,13 +611,20 @@
 
 /* ── Spacing custom numeric + unit row ── */
 .nexus-field-grid__custom-row {
+  align-items: stretch;
   display: grid;
   gap: 6px;
   grid-template-columns: 1fr auto;
 }
 
 .nexus-field-grid__custom--number {
+  min-height: 42px;
   min-width: 0;
+}
+
+.nexus-field-grid__custom-row .nexus-puck-select-trigger {
+  height: 100%;
+  min-height: 42px;
 }
 
 .nexus-field-grid__resolved {
@@ -723,20 +796,75 @@
   display: block;
 }
 
-/* Interactive carousel/tabs in editor preview */
-.Puck .nexus-carousel--interactive .nexus-carousel__arrow,
-.Puck .nexus-carousel--interactive .nexus-carousel__dot,
+/* Interactive carousel/tabs strip controls in editor */
+.Puck .nexus-tabs--strip-edit .nexus-tabs__strip {
+  isolation: isolate;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 40;
+}
+
 .Puck .nexus-tabs__trigger {
   pointer-events: auto !important;
   position: relative;
-  z-index: 2;
+  z-index: 41;
 }
 
-.Puck .nexus-tabs__panel--edit [data-puck-dropzone] {
+.Puck .nexus-strip-editor__panel [data-puck-dropzone],
+.Puck .nexus-tabs__dropzone[data-puck-dropzone] {
   min-height: 140px;
   padding: 12px;
   position: relative;
   z-index: 2;
+}
+
+/* Carousel edit mode — Embla track; inactive slides keep layout height (tallest slide wins) */
+.Puck .nexus-carousel--edit .nexus-carousel__viewport,
+.Puck .nexus-carousel--edit [data-slot="carousel-content"],
+.Puck .nexus-carousel--edit .nexus-carousel__track--fixed {
+  width: 100%;
+}
+
+.Puck .nexus-carousel--edit .nexus-carousel__slide {
+  position: relative;
+  width: 100%;
+}
+
+.Puck .nexus-carousel--edit .nexus-carousel__slide--with-controls {
+  padding-bottom: 36px;
+}
+
+.Puck .nexus-carousel--edit .nexus-carousel__slide--inactive-edit {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Auto-height edit slides — content defines size with a sensible floor */
+.Puck .nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+.Puck .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fixed-height edit slides — exact configured height on drop zone */
+.Puck .nexus-carousel--edit.nexus-carousel--fixed-height .nexus-carousel__dropzone[data-puck-dropzone],
+.Puck .nexus-carousel--edit.nexus-carousel--fixed-height [data-puck-dropzone] {
+  height: 100%;
+  min-height: var(--nexus-carousel-height);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.nexus-carousel-dimension-custom__label {
+  color: var(--puck-color-grey-04, var(--color-text-secondary));
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.nexus-carousel-size-fields .nexus-field-grid__custom-row:not([hidden]) {
+  margin-top: 8px;
 }
 
 /* Edit layout — embeds must not steal Puck overlay clicks */
@@ -750,8 +878,26 @@
   pointer-events: auto !important;
 }
 
+.Puck .nexus-carousel--interactive .nexus-carousel__arrow,
+.Puck .nexus-carousel--interactive .nexus-carousel__dot,
+.Puck .nexus-carousel--edit .nexus-carousel__arrow,
+.Puck .nexus-carousel--edit .nexus-carousel__dot,
+.Puck .nexus-tabs:not(.nexus-tabs--strip-edit) .nexus-tabs__trigger {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 40;
+}
+
+/* Ensure Shadcn button sizing does not shrink carousel control hit targets */
+.Puck .nexus-carousel__arrow[data-slot="button"] {
+  height: 40px !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
+  width: 40px !important;
+}
+
 .Puck .nexus-carousel__dropzone[data-puck-dropzone],
-.Puck .nexus-carousel--edit [data-puck-dropzone] {
+.Puck .nexus-carousel--interactive [data-puck-dropzone] {
   min-height: 120px;
   position: relative;
   z-index: 2;
@@ -813,6 +959,19 @@
   font-family: var(--font-mono);
 }
 
+.nexus-page-slug-row__locked-value {
+  color: var(--puck-color-grey-07);
+  cursor: default;
+  user-select: none;
+}
+
+.nexus-page-slug-hint {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
 .nexus-page-slug-preview {
   color: var(--color-text-secondary);
   font-size: 11px;
@@ -822,5 +981,11 @@
 .nexus-page-slug-preview code {
   color: var(--color-accent-user);
   font-family: var(--font-mono);
+}
+
+.nexus-page-slug-error {
+  color: #ef4444;
+  font-size: 12px;
+  margin: 6px 0 0;
 }
 

@@ -9,6 +9,7 @@
 import { AccentPresetField } from "./AccentPresetField";
 import { BackgroundIcon, FieldChapter } from "./FieldChapter";
 import { MediaUploadField } from "./MediaUploadField";
+import { PuckSelectField } from "./PuckSelectField";
 import {
   CONTENT_WIDTH_OPTIONS,
   DEFAULT_CONTENT_WIDTH,
@@ -49,38 +50,35 @@ export function PageAppearanceFieldGroup({ value, onChange }: PageAppearanceFiel
       <FieldChapter title="Layout" icon={puckIcon(Rows3)}>
         <div className="nexus-field-category">
           <span className="nexus-field-category__label">Page Content Width</span>
-          <select
-            className="nexus-puck-select"
+          <PuckSelectField
             value={appearance.contentWidth ?? DEFAULT_CONTENT_WIDTH}
-            onChange={(e) =>
+            onChange={(next) =>
               set({
-                contentWidth: e.target.value as PageAppearanceProps["contentWidth"],
+                contentWidth: next as PageAppearanceProps["contentWidth"],
               })
             }
-          >
-            {CONTENT_WIDTH_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            options={CONTENT_WIDTH_OPTIONS.map((opt) => ({
+              label: opt.label,
+              value: opt.value,
+            }))}
+          />
         </div>
       </FieldChapter>
 
       <FieldChapter title="Background" icon={<BackgroundIcon />}>
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">Style</span>
-        <select
-          className="nexus-puck-select"
+        <PuckSelectField
           value={mode}
-          onChange={(e) =>
-            set({ background: e.target.value as PageAppearanceProps["background"] })
+          onChange={(next) =>
+            set({ background: next as PageAppearanceProps["background"] })
           }
-        >
-          <option value="site-default">Site Default (Grid)</option>
-          <option value="solid">Solid Color</option>
-          <option value="custom-image">Custom Image</option>
-        </select>
+          options={[
+            { label: "Site Default (Grid)", value: "site-default" },
+            { label: "Solid Color", value: "solid" },
+            { label: "Custom Image", value: "custom-image" },
+          ]}
+        />
       </div>
 
       {mode === "solid" ? (

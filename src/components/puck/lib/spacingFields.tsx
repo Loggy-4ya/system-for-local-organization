@@ -48,6 +48,8 @@ export interface SpacingProps {
 /** Island layout props stored under the `island` object field group. */
 export interface IslandProps {
   islandEnabled?: boolean;
+  /** When true, auto-island healing must not override the user's island choice. */
+  islandUserOverride?: boolean;
   islandMaxWidth?: IslandMaxWidth;
   islandAlign?: "left" | "center" | "right";
   islandFillPreset?: string;

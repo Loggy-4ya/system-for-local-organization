@@ -9,6 +9,7 @@
  * Admins can override this list via the Page Manager Editor Defaults tab.
  */
 export const DEFAULT_ISLAND_COMPONENTS: string[] = [
+  "NexusSection",
   "NexusHeading",
   "NexusText",
   "NexusList",

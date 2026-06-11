@@ -6,7 +6,8 @@
  * @module src/components/puck/fields/TiptapField
  */
 
-import { FieldLabel, usePuck } from "@measured/puck";
+import { FieldLabel } from "@measured/puck";
+import { useNexusPuck } from "../lib/useNexusPuck";
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -69,7 +70,7 @@ function handleLinkAction(editor: NonNullable<ReturnType<typeof useEditor>>): vo
  * @returns Tiptap editor UI.
  */
 export function TiptapField({ field, value, onChange }: TiptapFieldProps) {
-  const { selectedItem } = usePuck();
+  const selectedItem = useNexusPuck((state) => state.selectedItem);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;

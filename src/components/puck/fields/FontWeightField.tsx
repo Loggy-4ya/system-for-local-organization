@@ -8,6 +8,7 @@
 
 import { FieldLabel } from "@measured/puck";
 import { FONT_WEIGHT_OPTIONS, type FontWeightToken } from "../lib/nexusTypography";
+import { PuckSelectField } from "./PuckSelectField";
 
 /** Props passed by Puck to the font weight field renderer. */
 interface FontWeightFieldProps {
@@ -27,18 +28,13 @@ export function FontWeightField({ field, value, onChange }: FontWeightFieldProps
 
   return (
     <FieldLabel label={field.label || "Font Weight"}>
-      <select
-        className="nexus-puck-select"
-        value={stored}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ marginTop: 4 }}
-      >
-        {FONT_WEIGHT_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: 4 }}>
+        <PuckSelectField
+          value={stored}
+          onChange={onChange}
+          options={FONT_WEIGHT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+        />
+      </div>
     </FieldLabel>
   );
 }

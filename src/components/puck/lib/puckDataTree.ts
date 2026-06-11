@@ -5,6 +5,7 @@
  */
 
 import type { Data } from "@measured/puck";
+import { isIslandActive, type BlockShellProps } from "./spacingFields";
 
 /** Minimal Puck component node shape. */
 export interface PuckComponentNode {
@@ -145,6 +146,32 @@ export function findComponentById(data: Data, id: string): PuckParentRef | null 
 }
 
 /**
+ * Whether any ancestor of the component has island mode active.
+ *
+ * Used by the island sidebar to disable nested island toggles.
+ *
+ * @param data - Puck document state.
+ * @param componentId - Target component id.
+ * @returns True when a parent block already renders an island shell.
+ */
+export function hasAncestorWithActiveIsland(data: Data, componentId: string): boolean {
+  let match = findComponentById(data, componentId);
+
+  while (match?.parent) {
+    const parentProps = match.parent.props as BlockShellProps;
+    if (isIslandActive(parentProps)) {
+      return true;
+    }
+
+    const parentId = String(match.parent.props.id ?? "");
+    if (!parentId) break;
+    match = findComponentById(data, parentId);
+  }
+
+  return false;
+}
+
+/**
  * Deep-clone and patch props on a component node.
  *
  * @param node - Source component node.
@@ -224,4 +251,133 @@ export function replaceComponentProps(
     ...data,
     content: mapComponentNodes((data.content ?? []) as PuckComponentNode[], id, patch),
   };
+}
+
+/** Legacy carousel slide shape before slot-only refactor. */
+interface LegacyCarouselSlide {
+  label?: string;
+  title?: string;
+  caption?: string;
+  image?: string;
+  linkUrl?: string;
+  content?: PuckComponentNode[];
+}
+
+/**
+ * Determine whether a slide array item uses the legacy carousel schema.
+ *
+ * @param slide - Slide record from Puck props.
+ * @returns True when legacy image/title fields are present.
+ */
+function isLegacyCarouselSlide(slide: Record<string, unknown>): boolean {
+  return (
+    "image" in slide ||
+    "title" in slide ||
+    "caption" in slide ||
+    "linkUrl" in slide
+  );
+}
+
+/**
+ * Build a synthetic NexusImage node for migrated carousel hero images.
+ *
+ * @param imageUrl - Legacy slide image URL.
+ * @param alt - Alt text derived from slide metadata.
+ * @returns Puck component node for NexusImage.
+ */
+function buildMigratedCarouselImage(imageUrl: string, alt: string): PuckComponentNode {
+  return {
+    type: "NexusImage",
+    props: {
+      id: crypto.randomUUID(),
+      image: imageUrl,
+      alt,
+      width: "100%",
+      height: "auto",
+      align: "center",
+      borderRadius: "var(--radius-md)",
+      shadowDepth: "none",
+    },
+  };
+}
+
+/**
+ * Normalize a single carousel slide to the slot-only `{ label, content }` model.
+ *
+ * @param slide - Raw slide props from saved Puck data.
+ * @param index - Zero-based slide index for fallback labels.
+ * @returns Normalized slide record.
+ */
+function normalizeCarouselSlide(
+  slide: Record<string, unknown>,
+  index: number,
+): { label: string; content: PuckComponentNode[] } {
+  const legacy = slide as LegacyCarouselSlide;
+  const existingContent = Array.isArray(legacy.content)
+    ? legacy.content.filter(isComponentNode)
+    : [];
+
+  const label =
+    (typeof legacy.label === "string" && legacy.label.trim()) ||
+    (typeof legacy.title === "string" && legacy.title.trim()) ||
+    (typeof legacy.caption === "string" && legacy.caption.trim().slice(0, 40)) ||
+    `Slide ${index + 1}`;
+
+  const alt =
+    (typeof legacy.title === "string" && legacy.title.trim()) ||
+    (typeof legacy.caption === "string" && legacy.caption.trim()) ||
+    label;
+
+  const hasImageBlock = existingContent.some((node) => node.type === "NexusImage");
+  const imageUrl = typeof legacy.image === "string" ? legacy.image.trim() : "";
+
+  const content =
+    imageUrl && !hasImageBlock
+      ? [buildMigratedCarouselImage(imageUrl, alt), ...existingContent]
+      : existingContent;
+
+  return { label, content };
+}
+
+/**
+ * Migrate legacy NexusCarousel slides (image/title/caption) to slot-only `{ label, content }`.
+ *
+ * @param data - Puck document state.
+ * @returns Document with normalized carousel slide arrays.
+ */
+export function normalizeCarouselSlides(data: Data): Data {
+  let result = data;
+
+  walkAllComponents(data, (node) => {
+    if (node.type !== "NexusCarousel") return;
+
+    const slides = node.props.slides;
+    if (!Array.isArray(slides) || slides.length === 0) return;
+
+    const needsMigration = slides.some(
+      (slide) => slide && typeof slide === "object" && isLegacyCarouselSlide(slide as Record<string, unknown>),
+    );
+
+    if (!needsMigration) return;
+
+    const normalizedSlides = slides.map((slide, index) => {
+      if (!slide || typeof slide !== "object") {
+        return { label: `Slide ${index + 1}`, content: [] };
+      }
+
+      const record = slide as Record<string, unknown>;
+      if (!isLegacyCarouselSlide(record) && typeof record.label === "string") {
+        return {
+          label: record.label,
+          content: Array.isArray(record.content) ? record.content : [],
+        };
+      }
+
+      return normalizeCarouselSlide(record, index);
+    });
+
+    result = replaceComponentProps(result, String(node.props.id), { slides: normalizedSlides });
+  });
+
+  return result;
 }

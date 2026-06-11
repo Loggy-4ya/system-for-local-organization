@@ -9,7 +9,28 @@
  * @module src/components/puck/blocks/content/NexusButton
  */
 
-import React from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { VariantProps } from "class-variance-authority";
+
+/** Puck variant keys mapped to Shadcn button variants. */
+const VARIANT_MAP: Record<
+  "primary" | "secondary" | "ghost" | "success" | "danger",
+  NonNullable<VariantProps<typeof buttonVariants>["variant"]>
+> = {
+  primary: "default",
+  secondary: "secondary",
+  ghost: "ghost",
+  success: "success",
+  danger: "danger",
+};
+
+/** Puck size keys mapped to Shadcn button sizes. */
+const SIZE_MAP: Record<"sm" | "md" | "lg", NonNullable<VariantProps<typeof buttonVariants>["size"]>> = {
+  sm: "sm",
+  md: "default",
+  lg: "lg",
+};
 
 export const NexusButton = {
   label: "Button",
@@ -111,73 +132,39 @@ export const NexusButton = {
     iconPosition: "left" | "right";
     href?: string;
   }) {
-    const styles: Record<"primary" | "secondary" | "ghost" | "success" | "danger", React.CSSProperties> = {
-      primary: {
-        background: "var(--color-accent-user)",
-        color: "#fff",
-        border: "none",
-      },
-      secondary: {
-        background: "var(--color-bg-elevated)",
-        color: "var(--color-text-primary)",
-        border: "1px solid var(--color-border-default)",
-      },
-      ghost: {
-        background: "transparent",
-        color: "var(--color-text-secondary)",
-        border: "1px solid var(--color-border-default)",
-      },
-      success: {
-        background: "var(--color-success)",
-        color: "#0f1729",
-        border: "none",
-        fontWeight: 600,
-      },
-      danger: {
-        background: "var(--color-danger)",
-        color: "#fff",
-        border: "none",
-      },
-    };
+    const shadcnVariant = VARIANT_MAP[variant];
+    const shadcnSize = SIZE_MAP[size];
+    const className = cn(
+      buttonVariants({ variant: shadcnVariant, size: shadcnSize }),
+      fullWidth === "yes" && "w-full",
+    );
+    const style = { borderRadius: borderRadius || "var(--radius-md)" };
 
-    const sizeStyles = {
-      sm: { padding: "6px 12px", fontSize: "12px" },
-      md: { padding: "10px 18px", fontSize: "13px" },
-      lg: { padding: "14px 24px", fontSize: "15px" },
-    };
-
-    const buttonElement = (
-      <button
-        style={{
-          borderRadius: borderRadius || "var(--radius-md)",
-          fontWeight: 500,
-          cursor: "pointer",
-          transition: "opacity 0.2s, transform 0.1s",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "6px",
-          width: fullWidth === "yes" ? "100%" : "auto",
-          boxSizing: "border-box",
-          ...styles[variant],
-          ...sizeStyles[size],
-        }}
-      >
-        {icon && iconPosition === "left" && <span aria-hidden="true">{icon}</span>}
+    const content = (
+      <>
+        {icon && iconPosition === "left" ? <span aria-hidden="true">{icon}</span> : null}
         <span>{label}</span>
-        {icon && iconPosition === "right" && <span aria-hidden="true">{icon}</span>}
-      </button>
+        {icon && iconPosition === "right" ? <span aria-hidden="true">{icon}</span> : null}
+      </>
     );
 
     if (href) {
       return (
-        <a href={href} style={{ textDecoration: "none", display: fullWidth === "yes" ? "block" : "inline-block", width: fullWidth === "yes" ? "100%" : "auto" }}>
-          {buttonElement}
+        <a
+          href={href}
+          className={cn(className, "no-underline")}
+          style={style}
+        >
+          {content}
         </a>
       );
     }
 
-    return buttonElement;
+    return (
+      <Button type="button" className={className} style={style}>
+        {content}
+      </Button>
+    );
   },
 };
 

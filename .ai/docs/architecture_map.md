@@ -24,7 +24,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 |------|---------|--------|
 | `src/app/` | App Router routes, root layout, API handlers | Active |
 | `src/app/layout.tsx` | Root layout: Inter font, ThemeProvider, InfiniteGrid, GlobalHeader | Active |
-| `src/app/globals.css` | Nexus CSS Custom Properties (spacing, color, radius, glass utilities) | Active |
+| `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.) | Active |
+| `src/lib/utils.ts` | Shadcn `cn()` helper (`clsx` + `tailwind-merge`) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
@@ -36,10 +37,10 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/(auth)/` | Authentication flows (login, student registration) | Planned |
 | `src/components/` | Reusable UI primitives bound to design tokens | Active |
 | `src/components/background/` | `InfiniteGrid` dual-canvas client component; light theme uses `logo-grid.svg` (no stroke rings) | Active |
-| `src/components/ui/` | Shared UI: `GlobalHeader`, `ThemeProvider` | Active |
+| `src/components/ui/` | Shared UI: Shadcn/Base UI primitives (`button`, `card`, `carousel`, `accordion`, `select`, `command`, `dialog`), `GlobalHeader`, `SiteHeaderBar`, `ThemeProvider` | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
-| `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `TiptapField`, `MediaUploadField`, …) | Active |
+| `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
 | `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`), `EditorHeaderChrome.tsx` | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) | Active |
@@ -62,6 +63,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/` | Per-feature specifications with acceptance criteria | `*.md` spec files | Runtime `.ts` / `.tsx` imported by the app |
 | `.ai/docs/features/puck_editor.md` | Puck Editor overhaul and block specifications | Markdown spec | — |
 | `.ai/docs/features/puck_editor_enhancements.md` | Editor UI/UX refinements (fields, path bug, spacing) | Markdown spec | — |
+| `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |

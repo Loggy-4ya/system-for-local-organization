@@ -1,35 +1,61 @@
 "use client";
 
 /**
- * @fileoverview Puck block for an image/content carousel with navigation controls.
+ * @fileoverview Puck block for a content carousel with per-slide drag-and-drop slots.
  *
  * @module src/components/puck/blocks/content/NexusCarousel
  */
 
-import React from "react";
-import { MediaUploadField } from "../../fields/MediaUploadField";
-import { NexusCarouselRender } from "./NexusCarouselRender";
-
-/** Single carousel slide props. */
-interface CarouselSlide {
-  image: string;
-  title: string;
-  caption: string;
-  linkUrl: string;
-  content?: never[];
-}
+import {
+  normalizeCarouselSizeSettings,
+  type CarouselSizeSettings,
+} from "../../fields/CarouselDimensionFields";
+import { NexusCarouselRender, type NexusCarouselRenderProps } from "./NexusCarouselRender";
+import { CarouselSizeFieldGroup } from "../../fields/CarouselDimensionFields";
+import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
 
 /** Default empty slide with slot array for Puck inline data model. */
-const emptySlide = {
-  image: "",
-  title: "New Slide",
-  caption: "",
-  linkUrl: "",
-  content: [] as never[],
-};
+const emptySlide = { label: "New Slide", content: [] as never[] };
+
+/** Props passed to carousel render after size normalization. */
+interface CarouselRenderProps {
+  id?: string;
+  slides: typeof emptySlide[];
+  carouselSize?: CarouselSizeSettings;
+  height?: string;
+  heightCustom?: string;
+  borderRadius?: string;
+  borderRadiusCustom?: string;
+  autoplay: "off" | "on";
+  intervalSeconds: number;
+  showArrows: "yes" | "no";
+  showDots: "yes" | "no";
+  slidesPerView: "auto" | "1" | "2" | "3";
+  editorActiveIndex?: number;
+  puck?: { isEditing?: boolean };
+}
+
+/**
+ * Resolve flat size props from grouped `carouselSize` or legacy flat fields.
+ *
+ * @param props - Raw carousel block props.
+ * @returns Normalized size settings.
+ */
+function resolveSizeProps(props: CarouselRenderProps): CarouselSizeSettings {
+  if (props.carouselSize) {
+    return normalizeCarouselSizeSettings(props.carouselSize);
+  }
+  return normalizeCarouselSizeSettings({
+    height: props.height,
+    heightCustom: props.heightCustom,
+    borderRadius: props.borderRadius,
+    borderRadiusCustom: props.borderRadiusCustom,
+  });
+}
 
 /**
  * Carousel block — cycles through slides with optional autoplay and controls.
+ * Each slide exposes a Puck slot for arbitrary nested blocks.
  */
 export const NexusCarousel = {
   label: "Carousel",
@@ -37,16 +63,13 @@ export const NexusCarousel = {
     slides: {
       type: "array" as const,
       label: "Slides",
-      getItemSummary: (item: CarouselSlide) => item.title || item.caption || "Slide",
+      getItemSummary: (item: { label?: string }) => item.label || "Slide",
       arrayFields: {
-        image: {
+        label: {
           type: "custom" as const,
-          label: "Image",
-          render: MediaUploadField as never,
+          label: "Slide Label",
+          render: StripArrayLabelField as never,
         },
-        title: { type: "text" as const, label: "Title (optional)" },
-        caption: { type: "textarea" as const, label: "Caption (optional)" },
-        linkUrl: { type: "text" as const, label: "Link URL (optional)" },
         content: {
           type: "slot" as const,
           label: "Slide Content",
@@ -54,25 +77,10 @@ export const NexusCarousel = {
       },
       defaultItemProps: emptySlide,
     },
-    height: {
-      type: "select" as const,
-      label: "Slide Height",
-      options: [
-        { label: "Small (240px)", value: "240px" },
-        { label: "Medium (360px)", value: "360px" },
-        { label: "Large (480px)", value: "480px" },
-        { label: "Auto", value: "auto" },
-      ],
-    },
-    borderRadius: {
-      type: "select" as const,
-      label: "Corner Radius",
-      options: [
-        { label: "None", value: "0" },
-        { label: "Small", value: "var(--radius-sm)" },
-        { label: "Medium", value: "var(--radius-md)" },
-        { label: "Large", value: "var(--radius-lg)" },
-      ],
+    carouselSize: {
+      type: "custom" as const,
+      label: "Carousel Size",
+      render: CarouselSizeFieldGroup as never,
     },
     autoplay: {
       type: "radio" as const,
@@ -104,32 +112,88 @@ export const NexusCarousel = {
         { label: "Hide", value: "no" },
       ],
     },
+    slidesPerView: {
+      type: "radio" as const,
+      label: "Slides Visible",
+      options: [
+        { label: "Auto (responsive)", value: "auto" },
+        { label: "1", value: "1" },
+        { label: "2", value: "2" },
+        { label: "3", value: "3" },
+      ],
+    },
+    editorActiveIndex: {
+      type: "number" as const,
+      label: "Editor Active Slide",
+      min: 0,
+      visible: false,
+    },
   },
   defaultProps: {
     slides: [
-      {
-        image: "",
-        title: "First slide",
-        caption: "Add an image and optional caption for this slide.",
-        linkUrl: "",
-        content: [],
-      },
-      {
-        image: "",
-        title: "Second slide",
-        caption: "Carousel supports multiple slides with titles and links.",
-        linkUrl: "",
-        content: [],
-      },
+      { label: "First slide", content: [] },
+      { label: "Second slide", content: [] },
     ],
-    height: "360px" as const,
-    borderRadius: "var(--radius-md)" as const,
+    carouselSize: {
+      height: "auto" as const,
+      heightCustom: "360px",
+      borderRadius: "var(--radius-md)" as const,
+      borderRadiusCustom: "var(--radius-md)",
+    },
     autoplay: "off" as const,
     intervalSeconds: 5,
     showArrows: "yes" as const,
     showDots: "yes" as const,
+    slidesPerView: "auto" as const,
+    editorActiveIndex: 0,
   },
-  render: NexusCarouselRender,
+  resolveData: (
+    { props }: { props: CarouselRenderProps },
+    params: {
+      changed: Partial<Record<keyof CarouselRenderProps, boolean>>;
+      trigger: "insert" | "replace" | "load" | "move" | "force";
+    },
+  ) => {
+    const shouldNormalize =
+      params.trigger === "load" ||
+      params.trigger === "insert" ||
+      params.changed.carouselSize ||
+      params.changed.height ||
+      params.changed.heightCustom ||
+      params.changed.borderRadius ||
+      params.changed.borderRadiusCustom;
+
+    if (!shouldNormalize) {
+      return { props };
+    }
+
+    return {
+      props: {
+        ...props,
+        carouselSize: resolveSizeProps(props),
+      },
+    };
+  },
+  render: (props: CarouselRenderProps) => {
+    const size = resolveSizeProps(props);
+    return (
+      <NexusCarouselRender
+        id={props.id}
+        slides={props.slides as unknown as NexusCarouselRenderProps["slides"]}
+        autoplay={props.autoplay}
+        intervalSeconds={props.intervalSeconds}
+        showArrows={props.showArrows}
+        showDots={props.showDots}
+        slidesPerView={props.slidesPerView ?? "auto"}
+        editorActiveIndex={props.editorActiveIndex}
+        puck={props.puck}
+        height={size.height}
+        heightCustom={size.heightCustom}
+        borderRadius={size.borderRadius}
+        borderRadiusCustom={size.borderRadiusCustom}
+      />
+    );
+  },
 };
 
 export default NexusCarousel;

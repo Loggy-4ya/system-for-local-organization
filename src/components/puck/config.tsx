@@ -27,6 +27,7 @@ import { NexusQuote } from "./blocks/content/NexusQuote";
 import { NexusVideo } from "./blocks/content/NexusVideo";
 import { NexusAccordion } from "./blocks/content/NexusAccordion";
 import { NexusList } from "./blocks/content/NexusList";
+import type { ListPositionValue } from "./fields/ListPositionField";
 import { NexusButton } from "./blocks/content/NexusButton";
 import { NexusTabs } from "./blocks/content/NexusTabs";
 import { NexusCarousel } from "./blocks/content/NexusCarousel";
@@ -73,6 +74,44 @@ function shellBlock(
   return wrapped as any;
 }
 
+/**
+ * Merge NexusList vertical position presets into block shell spacing before render.
+ *
+ * @param props - Puck render props for NexusList.
+ * @returns Props with listPosition margins applied to spacing.
+ */
+function mergeListPositionProps(props: Record<string, unknown>): Record<string, unknown> {
+  const listPosition = props.listPosition as ListPositionValue | undefined;
+  if (!listPosition) return props;
+
+  const spacing = (props.spacing as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    ...props,
+    spacing: {
+      ...spacing,
+      marginTop: listPosition.marginTop ?? spacing.marginTop,
+      marginBottom: listPosition.marginBottom ?? spacing.marginBottom,
+    },
+  };
+}
+
+/**
+ * Wrap NexusList with block shell plus list position margin merge.
+ *
+ * @returns Puck component config for NexusList.
+ */
+function listShellBlock() {
+  const wrapped = shellBlock("NexusList", NexusList as any);
+  const originalRender = wrapped.render;
+
+  return {
+    ...wrapped,
+    render: (props: Record<string, unknown>) =>
+      originalRender(mergeListPositionProps(props) as never),
+  } as any;
+}
+
 export const puckConfig = {
   root: PageRoot as any,
   components: {
@@ -89,7 +128,7 @@ export const puckConfig = {
     NexusQuote: shellBlock("NexusQuote", NexusQuote as any),
     NexusVideo: shellBlock("NexusVideo", NexusVideo as any),
     NexusAccordion: shellBlock("NexusAccordion", NexusAccordion as any),
-    NexusList: shellBlock("NexusList", NexusList as any),
+    NexusList: listShellBlock(),
     NexusButton: shellBlock("NexusButton", NexusButton as any),
     NexusTabs: shellBlock("NexusTabs", NexusTabs as any),
     NexusCarousel: shellBlock("NexusCarousel", NexusCarousel as any),

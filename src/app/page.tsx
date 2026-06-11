@@ -61,7 +61,7 @@ export default function HomePage() {
         </p>
 
         <Link
-          href="/edit"
+          href="/pages"
           style={{
             display: "flex",
             alignItems: "center",
@@ -75,34 +75,14 @@ export default function HomePage() {
             textDecoration: "none",
           }}
         >
-          <span>Edit Homepage</span>
+          <span>Create &amp; Manage Pages</span>
           <span aria-hidden="true" style={{ opacity: 0.8 }}>→</span>
-        </Link>
-
-        <Link
-          href="/pages"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 16px",
-            borderRadius: "var(--radius-md)",
-            background: "var(--color-bg-elevated)",
-            border: "1px solid var(--color-border-default)",
-            color: "var(--color-text-primary)",
-            fontWeight: 500,
-            fontSize: "0.875rem",
-            textDecoration: "none",
-          }}
-        >
-          <span>Manage Pages</span>
-          <span aria-hidden="true" style={{ color: "var(--color-text-secondary)" }}>→</span>
         </Link>
       </div>
 
       {/* ── Status pill ──────────────────────────────────────────────────── */}
       <p style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)" }}>
-        Phase 1 · Auth not required · Editor open to all
+        The landing page at <code>/</code> is defined in code. Use Page Manager for CMS pages.
       </p>
 
     </div>

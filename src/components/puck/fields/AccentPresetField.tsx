@@ -14,6 +14,7 @@ import {
   PAGE_HUE_OPTIONS,
   resolveNexusColor,
 } from "../lib/nexusColorTokens";
+import { PuckSelectField } from "./PuckSelectField";
 
 /** Accent preset token values stored in Puck root props. */
 export type AccentPresetValue = string;
@@ -39,7 +40,7 @@ interface AccentPresetFieldProps {
  * Select field for page solid-background hue presets.
  *
  * @param props - Puck custom field props.
- * @returns Preset `<select>` control.
+ * @returns Preset Shadcn select control.
  */
 export function AccentPresetField({ field, value, onChange }: AccentPresetFieldProps) {
   const normalized = normalizeColorToken(value) ?? "hue-blue";
@@ -47,18 +48,11 @@ export function AccentPresetField({ field, value, onChange }: AccentPresetFieldP
   return (
     <FieldLabel label={field.label || "Background Hue"}>
       <div className="nexus-puck-field" style={{ marginTop: 4 }}>
-        <select
-          className="nexus-puck-select"
+        <PuckSelectField
           value={normalized}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ width: "100%" }}
-        >
-          {PAGE_HUE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          options={PAGE_HUE_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+        />
       </div>
     </FieldLabel>
   );

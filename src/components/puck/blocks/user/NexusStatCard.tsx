@@ -9,7 +9,7 @@
  * @module src/components/puck/blocks/user/NexusStatCard
  */
 
-import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export const NexusStatCard = {
   label: "Stat Card",
@@ -70,61 +70,28 @@ export const NexusStatCard = {
     backgroundOverride?: string;
   }) {
     return (
-      <div
-        className="glass-panel"
+      <Card
+        className="glass-panel mx-auto w-full border-border py-0"
         style={{
-          padding: "16px 20px",
           borderRadius: borderRadius || "var(--radius-lg)",
-          border: "1px solid var(--color-border-default)",
-          background: backgroundOverride || "var(--color-bg-panel)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
-          width: "100%",
-          margin: "0 auto",
-          boxSizing: "border-box",
+          background: backgroundOverride || undefined,
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px", textAlign: "left" }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "12px",
-              color: "var(--color-text-secondary)",
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {label}
-          </p>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "var(--color-text-primary)",
-              lineHeight: 1.1,
-            }}
-          >
-            {value}
-          </p>
-        </div>
+        <CardContent className="flex items-center justify-between gap-3 px-5 py-4">
+          <div className="flex flex-col gap-1 text-left">
+            <p className="m-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {label}
+            </p>
+            <p className="m-0 text-2xl leading-tight font-bold text-foreground">{value}</p>
+          </div>
 
-        {icon && (
-          <span
-            style={{
-              fontSize: "28px",
-              opacity: 0.9,
-              userSelect: "none",
-            }}
-            aria-hidden="true"
-          >
-            {icon}
-          </span>
-        )}
-      </div>
+          {icon ? (
+            <span className="text-[28px] opacity-90 select-none" aria-hidden="true">
+              {icon}
+            </span>
+          ) : null}
+        </CardContent>
+      </Card>
     );
   },
 };

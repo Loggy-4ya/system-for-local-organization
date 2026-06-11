@@ -7,10 +7,10 @@
 import type { Data } from "@measured/puck";
 import { ISLAND_DEFAULTS, SPACING_DEFAULTS } from "./spacingFields";
 
-/** Shared shell props for starter content blocks with island enabled. */
-const STARTER_BLOCK_SHELL = {
+/** Shared spacing defaults for starter child blocks (no island — parent section owns the shell). */
+const STARTER_CHILD_SHELL = {
   spacing: { ...SPACING_DEFAULTS },
-  island: { ...ISLAND_DEFAULTS, islandEnabled: true },
+  island: { ...ISLAND_DEFAULTS, islandEnabled: false },
 };
 
 /** Starter section with heading + body text for empty editor canvases. */
@@ -37,7 +37,7 @@ export function createDefaultEditorContent(): Data["content"] {
               colorPreset: "text-primary",
               fontFamily: "sans",
               fontWeight: "700",
-              ...STARTER_BLOCK_SHELL,
+              ...STARTER_CHILD_SHELL,
             },
           },
           {
@@ -51,7 +51,7 @@ export function createDefaultEditorContent(): Data["content"] {
               fontWeight: "400",
               fontSize: "0.9375rem",
               lineHeight: "1.6",
-              ...STARTER_BLOCK_SHELL,
+              ...STARTER_CHILD_SHELL,
             },
           },
         ],
@@ -66,7 +66,8 @@ export function createDefaultEditorContent(): Data["content"] {
           marginLeft: "none",
         },
         island: {
-          islandEnabled: false,
+          ...ISLAND_DEFAULTS,
+          islandEnabled: true,
           islandMaxWidth: "lg",
           islandAlign: "center",
           islandFillPreset: "glass-panel",

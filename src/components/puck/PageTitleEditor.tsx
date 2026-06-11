@@ -6,7 +6,8 @@
  * @module src/components/puck/PageTitleEditor
  */
 
-import { usePuck } from "@measured/puck";
+import { useGetPuck } from "@measured/puck";
+import { useNexusPuck } from "./lib/useNexusPuck";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -16,9 +17,13 @@ import { createPortal } from "react-dom";
  * @returns Portal-mounted editable title or null until the host node exists.
  */
 export function PageTitleEditor() {
-  const { appState, dispatch } = usePuck();
-  const title =
-    (appState.data.root as { props?: { title?: string } })?.props?.title ?? "Untitled Page";
+  const title = useNexusPuck(
+    (state) =>
+      (state.appState.data.root as { props?: { title?: string } })?.props?.title ??
+      "Untitled Page",
+  );
+  const dispatch = useNexusPuck((state) => state.dispatch);
+  const getPuck = useGetPuck();
 
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [editing, setEditing] = useState(false);
@@ -38,22 +43,19 @@ export function PageTitleEditor() {
 
   const commit = useCallback(() => {
     const nextTitle = draft.trim() || "Untitled Page";
-    const data = appState.data;
+    const { appState } = getPuck();
     dispatch({
-      type: "setData",
-      data: {
-        ...data,
-        root: {
-          ...data.root,
-          props: {
-            ...(data.root as { props?: Record<string, unknown> })?.props,
-            title: nextTitle,
-          },
+      type: "replaceRoot",
+      root: {
+        ...appState.data.root,
+        props: {
+          ...(appState.data.root as { props?: Record<string, unknown> })?.props,
+          title: nextTitle,
         },
       },
     });
     setEditing(false);
-  }, [appState.data, dispatch, draft]);
+  }, [dispatch, draft, getPuck]);
 
   if (!host) return null;
 

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./tw-animate.css";
+@import "./shadcn-tailwind.css";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Nexus Design System — CSS Custom Properties
@@ -84,6 +86,54 @@
 
   /* Active accent alias (defaults to Blue/Medium; overridden per user in JS) */
   --color-accent-user: var(--accent-blue-medium);
+
+  /* ── Shadcn UI tokens (mapped to Nexus design system) ─────────────────── */
+  --radius: var(--radius-md);
+  --background: var(--color-bg-surface);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-panel);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-accent-user);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-bg-elevated);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-cell);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-bg-elevated);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-border-default);
+  --input: var(--color-border-default);
+  --ring: var(--color-accent-user);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 /* ── Light Theme overrides ───────────────────────────────────────────────── */
@@ -97,6 +147,26 @@
   --color-text-secondary: #475569;
 
   --color-border-default: rgba(148, 163, 184, 0.45);
+
+  --background: var(--color-bg-surface);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-panel);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-accent-user);
+  --primary-foreground: #0f172a;
+  --secondary: var(--color-bg-elevated);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-cell);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-bg-elevated);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-border-default);
+  --input: var(--color-border-default);
+  --ring: var(--color-accent-user);
 }
 
 /* ── Global base styles ─────────────────────────────────────────────────────── */
@@ -289,6 +359,111 @@ body {
   width: 100%;
 }
 
+/* Multi-slide track — gap and flex-basis per slides-per-view preset */
+.nexus-carousel {
+  --nexus-carousel-gap: 0.75rem;
+}
+
+.nexus-carousel--spv-1 [data-slot="carousel-content"] > .flex {
+  gap: 0;
+}
+
+.nexus-carousel--spv-1 [data-slot="carousel-item"] {
+  flex: 0 0 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.nexus-carousel--spv-2 [data-slot="carousel-content"] > .flex,
+.nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex,
+.nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
+  gap: var(--nexus-carousel-gap);
+}
+
+.nexus-carousel--spv-2 [data-slot="carousel-item"] {
+  flex: 0 0 calc((100% - var(--nexus-carousel-gap)) / 2) !important;
+  max-width: calc((100% - var(--nexus-carousel-gap)) / 2);
+  min-width: 0;
+}
+
+.nexus-carousel--spv-3 [data-slot="carousel-item"] {
+  flex: 0 0 calc((100% - var(--nexus-carousel-gap) * 2) / 3) !important;
+  max-width: calc((100% - var(--nexus-carousel-gap) * 2) / 3);
+  min-width: 0;
+}
+
+.nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
+  gap: 0;
+}
+
+.nexus-carousel--spv-auto [data-slot="carousel-item"] {
+  flex: 0 0 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
+    gap: var(--nexus-carousel-gap);
+  }
+
+  .nexus-carousel--spv-auto [data-slot="carousel-item"] {
+    flex: 0 0 calc((100% - var(--nexus-carousel-gap)) / 2) !important;
+    max-width: calc((100% - var(--nexus-carousel-gap)) / 2);
+  }
+}
+
+@media (min-width: 1024px) {
+  .nexus-carousel--spv-auto [data-slot="carousel-item"] {
+    flex: 0 0 calc((100% - var(--nexus-carousel-gap) * 2) / 3) !important;
+    max-width: calc((100% - var(--nexus-carousel-gap) * 2) / 3);
+  }
+}
+
+/* Auto-height carousels — equalize slide heights to tallest slide in the track */
+.nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
+  align-items: stretch;
+}
+
+.nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"],
+.nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__slide {
+  height: auto;
+  min-height: 100%;
+}
+
+/* Auto-height carousels — drop zones and empty slides keep a usable minimum */
+.nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
+  box-sizing: border-box;
+}
+
+/* Fixed-height carousels — propagate configured slide height through Embla chain */
+.nexus-carousel--fixed-height {
+  min-height: var(--nexus-carousel-height);
+}
+
+.nexus-carousel--fixed-height .nexus-carousel__viewport,
+.nexus-carousel--fixed-height .nexus-carousel__viewport--fixed,
+.nexus-carousel--fixed-height [data-slot="carousel-content"],
+.nexus-carousel--fixed-height .nexus-carousel__track--fixed,
+.nexus-carousel--fixed-height [data-slot="carousel-item"],
+.nexus-carousel--fixed-height .nexus-carousel__slide--fixed {
+  height: var(--nexus-carousel-height);
+  min-height: var(--nexus-carousel-height);
+}
+
+.nexus-carousel--fixed-height .nexus-carousel__slide--fixed {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-carousel--fixed-height .nexus-carousel__dropzone[data-puck-dropzone] {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
 .nexus-carousel__image {
   display: block;
   object-fit: cover;
@@ -343,14 +518,25 @@ body {
   cursor: pointer;
   display: flex;
   font-size: 22px;
-  height: 36px;
+  height: 40px;
   justify-content: center;
   line-height: 1;
+  min-height: 44px;
+  min-width: 44px;
   position: absolute;
   top: 50%;
+  touch-action: manipulation;
   transform: translateY(-50%);
-  width: 36px;
+  width: 40px;
   z-index: 2;
+}
+
+/* Invisible expanded hit target beyond the visible circle */
+.nexus-carousel__arrow::before {
+  border-radius: inherit;
+  content: "";
+  inset: -10px;
+  position: absolute;
 }
 
 .nexus-carousel__arrow--prev {
@@ -364,7 +550,7 @@ body {
 .nexus-carousel__dots {
   bottom: 10px;
   display: flex;
-  gap: 6px;
+  gap: 2px;
   justify-content: center;
   left: 0;
   position: absolute;
@@ -374,16 +560,21 @@ body {
 
 .nexus-carousel__dot {
   background: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  background-clip: content-box;
   border: none;
   border-radius: var(--radius-full);
+  box-sizing: content-box;
   cursor: pointer;
   height: 8px;
-  padding: 0;
+  padding: 10px;
+  position: relative;
+  touch-action: manipulation;
   width: 8px;
 }
 
 .nexus-carousel__dot--active {
   background: var(--color-accent-user);
+  background-clip: content-box;
 }
 
 /* ── Tabs (NexusTabs published output) ──────────────────────────────────── */
@@ -435,68 +626,48 @@ body {
   padding: 12px 0;
 }
 
-.nexus-tabs__panels--edit {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.nexus-tabs__panel--edit {
+/* ── Strip edit mode (Carousel + Tabs) ──────────────────────────────────── */
+.nexus-strip-editor__panel {
   background: var(--color-bg-cell);
   border: 1px dashed var(--color-border-default);
   border-radius: var(--radius-md);
   padding: 12px;
+  width: 100%;
 }
 
-.nexus-tabs__panel-editor-label {
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  margin-bottom: 8px;
-  text-transform: uppercase;
+.nexus-strip-editor__panel--active {
+  border-color: color-mix(in srgb, var(--color-accent-user) 45%, var(--color-border-default));
 }
 
-.nexus-carousel--edit .nexus-carousel__edit-hint {
-  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent);
-  border-bottom: 1px solid var(--color-border-default);
-  color: var(--color-text-secondary);
+.nexus-carousel__strip {
+  display: flex;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.nexus-carousel__list {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+}
+
+.nexus-carousel__trigger {
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 12px;
-  padding: 8px 12px;
-  text-align: center;
+  padding: 8px 14px;
+  transition: background 0.2s, color 0.2s;
+  user-select: none;
 }
 
-.nexus-carousel__slides--edit {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 12px;
-}
-
-.nexus-carousel__slide--edit {
-  background: var(--color-bg-cell);
-  border: 1px dashed var(--color-border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.nexus-carousel__slide-editor-label {
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 8px 12px;
-  text-transform: uppercase;
-}
-
-.nexus-carousel__slide-content--edit {
-  border-top: 1px dashed var(--color-border-default);
-  margin-top: 8px;
-  padding: 8px 12px 12px;
-}
-
-.nexus-carousel__slide-content {
-  padding: 8px 12px 0;
+.nexus-carousel__panels {
+  width: 100%;
 }
 
 .nexus-carousel__empty-hint {
@@ -572,23 +743,20 @@ body {
   display: none;
 }
 
-.site-header-bar__nav-list,
-.site-header-bar__mobile-list {
+.site-header-bar__nav-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.site-header-bar__nav-link,
-.site-header-bar__mobile-link {
+.site-header-bar__nav-link {
   color: var(--color-text-secondary);
   font-size: 13px;
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-.site-header-bar__nav-link--active,
-.site-header-bar__mobile-link--active {
+.site-header-bar__nav-link--active {
   color: var(--color-text-primary);
   font-weight: 500;
 }
@@ -646,32 +814,7 @@ body {
 }
 
 .site-header-bar__menu-btn {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  font-size: 16px;
-  height: 34px;
-  line-height: 1;
-  width: 34px;
-}
-
-.site-header-bar__mobile-nav {
-  border-top: 1px solid var(--color-border-default);
-  margin-top: 10px;
-  padding-top: 10px;
-}
-
-.site-header-bar__mobile-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.site-header-bar__mobile-link {
-  display: block;
-  padding: 8px 4px;
+  flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
@@ -687,14 +830,6 @@ body {
 
   .site-header-bar__cta {
     display: inline-flex;
-  }
-
-  .site-header-bar__menu-btn {
-    display: none;
-  }
-
-  .site-header-bar__mobile-nav {
-    display: none;
   }
 }
 
@@ -720,8 +855,10 @@ body {
   }
 
   .nexus-carousel__arrow {
-    height: 32px;
-    width: 32px;
+    height: 40px;
+    min-height: 44px;
+    min-width: 44px;
+    width: 40px;
   }
 
   .nexus-carousel__caption {

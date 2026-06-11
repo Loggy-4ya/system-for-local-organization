@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * @fileoverview Interactive tabs render — edit-mode stacked panels + live preview.
+ * @fileoverview Interactive tabs render — strip edit mode + live preview.
  *
  * @module src/components/puck/blocks/content/NexusTabsRender
  */
 
-import { usePuck } from "@measured/puck";
-import { useEffect, useState, type ComponentType, type CSSProperties } from "react";
+import { type ComponentType, type CSSProperties } from "react";
+import { usePuckPreviewMode } from "../../lib/useNexusPuck";
+import { cn } from "@/lib/utils";
+import { usePuckOverlayPortalRef } from "../../lib/usePuckOverlayPortal";
+import { useStripActiveIndex } from "../../lib/useStripActiveIndex";
 
 /** Puck slot component signature for tab panels. */
 type TabPanelComponent = ComponentType<{
@@ -24,8 +27,10 @@ export interface NexusTabItem {
 
 /** Props for {@link NexusTabsRender}. */
 export interface NexusTabsRenderProps {
+  id?: string;
   tabs: NexusTabItem[];
   defaultActiveIndex: number;
+  editorActiveIndex?: number;
   align: "left" | "center" | "right";
   size: "sm" | "md";
   accentColor?: string;
@@ -49,7 +54,7 @@ const ALIGN_STYLES = {
  * @param Panel - Puck slot component for the tab panel.
  * @param minEmptyHeight - Minimum drop zone height.
  * @param className - Optional class for the drop zone.
- * @param editLayoutMode - Whether editor stacked layout is active.
+ * @param editLayoutMode - Whether editor strip layout is active.
  * @param emptyHint - Message when slot is unavailable.
  * @returns Tab panel slot UI.
  */
@@ -74,34 +79,34 @@ function renderTabPanel(
 }
 
 /**
- * Render tab strip + panels. In editor layout mode all panels stack for drop targets.
- * In interactive / published mode only the active panel shows.
+ * Render tab strip + panels. Edit mode keeps all panel slots mounted; inactive panels are hidden.
  *
  * @param props - Tab configuration and slot components.
  * @returns Tabs UI.
  */
 export function NexusTabsRender({
+  id,
   tabs,
   defaultActiveIndex,
+  editorActiveIndex,
   align,
   size,
   accentColor,
   puck,
 }: NexusTabsRenderProps) {
-  const { appState } = usePuck();
-  const isInteractivePreview = appState.ui.previewMode === "interactive";
+  const previewMode = usePuckPreviewMode();
+  const isInteractivePreview = previewMode === "interactive";
   const isEditing = puck?.isEditing ?? false;
   const editLayoutMode = isEditing && !isInteractivePreview;
 
-  const safeIndex = Math.min(
-    Math.max(0, defaultActiveIndex),
-    Math.max(0, tabs.length - 1),
-  );
-  const [activeIndex, setActiveIndex] = useState(safeIndex);
+  const stripPortalRef = usePuckOverlayPortalRef(isEditing);
 
-  useEffect(() => {
-    setActiveIndex(safeIndex);
-  }, [safeIndex]);
+  const [activeIndex, setActiveIndex] = useStripActiveIndex(
+    id,
+    defaultActiveIndex,
+    tabs.length,
+    editorActiveIndex,
+  );
 
   const activeBg = accentColor || "var(--color-accent-user)";
 
@@ -117,9 +122,17 @@ export function NexusTabsRender({
     setActiveIndex(idx);
   };
 
+  const emptyHint = editLayoutMode
+    ? "Drag blocks from the sidebar into this tab panel."
+    : "This tab has no content yet.";
+
   return (
-    <div className="nexus-tabs" style={{ width: "100%" }}>
+    <div
+      className={cn("nexus-tabs", editLayoutMode && "nexus-tabs--strip-edit")}
+      style={{ width: "100%" }}
+    >
       <div
+        ref={stripPortalRef}
         className="nexus-tabs__strip"
         style={{ justifyContent: ALIGN_STYLES[align] || "flex-start" }}
         role="tablist"
@@ -147,53 +160,36 @@ export function NexusTabsRender({
         </div>
       </div>
 
-      {editLayoutMode ? (
-        <div className="nexus-tabs__panels nexus-tabs__panels--edit">
-          {tabs.map((tab, idx) => (
-            <div key={idx} className="nexus-tabs__panel nexus-tabs__panel--edit">
-              <div className="nexus-tabs__panel-editor-label">
-                Tab {idx + 1}: {tab.label || "Untitled"}
-              </div>
+      <div className="nexus-tabs__panels">
+        {tabs.map((tab, idx) => {
+          const isActive = idx === activeIndex;
+
+          return (
+            <div
+              key={idx}
+              role="tabpanel"
+              className={cn(
+                "nexus-tabs__panel",
+                editLayoutMode && "nexus-strip-editor__panel",
+                editLayoutMode && isActive && "nexus-strip-editor__panel--active",
+              )}
+              hidden={!isActive}
+              aria-hidden={!isActive}
+              style={{ display: isActive ? "block" : "none" }}
+            >
               <div className="nexus-tabs__panel-inner">
                 {renderTabPanel(
                   tab.panel,
-                  140,
-                  "nexus-tabs__dropzone",
-                  true,
-                  "Drag blocks from the sidebar into this tab panel.",
+                  editLayoutMode ? 140 : 80,
+                  editLayoutMode ? "nexus-tabs__dropzone" : undefined,
+                  editLayoutMode,
+                  emptyHint,
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="nexus-tabs__panels">
-          {tabs.map((tab, idx) => {
-            const isActive = idx === activeIndex;
-
-            return (
-              <div
-                key={idx}
-                role="tabpanel"
-                className="nexus-tabs__panel"
-                hidden={!isActive}
-                aria-hidden={!isActive}
-                style={{ display: isActive ? "block" : "none" }}
-              >
-                <div className="nexus-tabs__panel-inner">
-                  {renderTabPanel(
-                    tab.panel,
-                    80,
-                    undefined,
-                    false,
-                    "This tab has no content yet.",
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

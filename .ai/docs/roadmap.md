@@ -17,7 +17,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed).
 - [~] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
 - [x] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
-- [~] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). `GlobalHeader` component with contained glass bar, nav links, theme toggle (☀/☾), and RBAC `showAdminPanel` prop.
+- [~] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). Shadcn UI (Base UI / `base-vega`) installed with token bridge in `globals.css`. `GlobalHeader` + `SiteHeaderBar` with command-palette mobile nav, theme toggle (☀/☾), and RBAC `showAdminPanel` prop.
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
 - [ ] **Cross-Platform Auth:** Implement login using Google OAuth2, Apple, and Telegram Widget.

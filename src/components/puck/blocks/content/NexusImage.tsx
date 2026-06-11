@@ -9,7 +9,7 @@
  * @module src/components/puck/blocks/content/NexusImage
  */
 
-import React from "react";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { MediaUploadField } from "../../fields/MediaUploadField";
 
 export const NexusImage = {
@@ -95,6 +95,16 @@ export const NexusImage = {
       right: "flex-end",
     };
 
+    const useAspectFrame = height === "auto" || !height;
+    const imageStyle = {
+      width: useAspectFrame ? "100%" : width || "100%",
+      height: useAspectFrame ? "100%" : height || "auto",
+      maxWidth: "100%",
+      borderRadius: borderRadius || "0px",
+      boxShadow: shadowDepth || "none",
+      objectFit: "cover" as const,
+    };
+
     return (
       <div
         style={{
@@ -105,41 +115,39 @@ export const NexusImage = {
         }}
       >
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={alt}
-            style={{
-              width: width || "100%",
-              height: height || "auto",
-              maxWidth: "100%",
-              borderRadius: borderRadius || "0px",
-              boxShadow: shadowDepth || "none",
-              objectFit: "cover" as const,
-            }}
-          />
+          useAspectFrame ? (
+            <AspectRatio
+              ratio={16 / 9}
+              className="overflow-hidden bg-muted"
+              style={{
+                width: width || "100%",
+                maxWidth: "100%",
+                borderRadius: borderRadius || "0px",
+                boxShadow: shadowDepth || "none",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image} alt={alt} className="absolute inset-0 h-full w-full object-cover" />
+            </AspectRatio>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt={alt} style={imageStyle} />
+          )
         ) : (
-          <div
+          <AspectRatio
+            ratio={16 / 9}
+            className="flex items-center justify-center border border-dashed border-border bg-muted text-muted-foreground"
             style={{
               width: width || "100%",
-              height: height && height.includes("px") ? height : "180px",
               maxWidth: "100%",
-              background: "var(--color-bg-cell)",
-              border: "1px dashed var(--color-border-default)",
               borderRadius: borderRadius || "var(--radius-md)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--color-text-secondary)",
-              gap: "8px",
             }}
           >
-            <span style={{ fontSize: "28px" }}>🖼️</span>
-            <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Empty Image Block
-            </span>
-          </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <span style={{ fontSize: "28px" }}>🖼️</span>
+              <span className="text-[11px] tracking-wide uppercase">Empty Image Block</span>
+            </div>
+          </AspectRatio>
         )}
       </div>
     );

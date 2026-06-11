@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import Page, { type PuckData } from "@shared/models/Page";
+import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid path format." }, { status: 400 });
   }
 
+  if (normalizedPath === "/") {
+    return NextResponse.json(
+      { error: "The homepage (/) is not managed by the page editor. Edit src/app/page.tsx in code." },
+      { status: 400 },
+    );
+  }
+
+  if (isReservedSlugPath(normalizedPath)) {
+    return NextResponse.json(
+      {
+        error: `The path "${normalizedPath}" is reserved. Create pages from Page Manager with a different slug.`,
+      },
+      { status: 400 },
+    );
+  }
+
   const effectivePreviousPath = previousPath || normalizedPath;
 
   try {
@@ -185,6 +202,14 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
+      const existing = await Page.findOne({ path: normalizedPath }).lean();
+      if (existing && effectivePreviousPath !== normalizedPath) {
+        return NextResponse.json(
+          { error: `The path "${normalizedPath}" is already taken.` },
+          { status: 409 }
+        );
+      }
+
       // Normal upsert
       await Page.findOneAndUpdate(
         { path: normalizedPath },

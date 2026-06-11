@@ -10,15 +10,21 @@
 
 import connectDB from "@shared/lib/db";
 import Page from "@shared/models/Page";
-import { PageManagerShell, type PageManagerRow } from "./PageManagerShell";
+import { PageManagerShell, type PageManagerNotice, type PageManagerRow } from "./PageManagerShell";
 
 /**
  * Page Manager — lists all Puck-managed pages and lets you open the editor
  * for any existing page or create a new one by slug.
  *
+ * @param props - Next.js search params for redirect notices.
  * @returns The page manager JSX.
  */
-export default async function PagesPage() {
+export default async function PagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   let pages: PageManagerRow[] = [];
 
   try {
@@ -27,7 +33,9 @@ export default async function PagesPage() {
       .sort({ updatedAt: -1 })
       .lean();
 
-    pages = docs.map((d) => ({
+    pages = docs
+      .filter((d) => d.path !== "/")
+      .map((d) => ({
       path: d.path,
       title: d.title,
       published: d.published,
@@ -37,5 +45,8 @@ export default async function PagesPage() {
     console.error("[PagesPage] DB error:", err);
   }
 
-  return <PageManagerShell pages={pages} />;
+  const notice: PageManagerNotice | undefined =
+    error === "reserved-slug" || error === "homepage-code-only" ? error : undefined;
+
+  return <PageManagerShell pages={pages} notice={notice} />;
 }

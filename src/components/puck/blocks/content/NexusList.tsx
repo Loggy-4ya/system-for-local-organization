@@ -3,22 +3,22 @@
 /**
  * @fileoverview Puck block for bulleted or numbered Lists.
  *
- * Renders a list of items with customizable list styles and spacing.
+ * Renders a list of items with customizable list styles, reorderable items,
+ * and vertical positioning presets.
  *
  * @module src/components/puck/blocks/content/NexusList
  */
 
-import React from "react";
+import { ListItemsField } from "../../fields/ListItemsField";
+import { ListPositionField, type ListPositionValue } from "../../fields/ListPositionField";
 
 export const NexusList = {
   label: "List",
   fields: {
     items: {
-      type: "array" as const,
+      type: "custom" as const,
       label: "List Items",
-      arrayFields: {
-        text: { type: "text" as const, label: "Item Text" },
-      },
+      render: ListItemsField as never,
     },
     listType: {
       type: "radio" as const,
@@ -28,13 +28,18 @@ export const NexusList = {
         { label: "Numbered", value: "number" },
       ],
     },
-    spacing: {
+    itemSpacing: {
       type: "radio" as const,
       label: "Item Spacing",
       options: [
         { label: "Tight", value: "sm" },
         { label: "Normal", value: "md" },
       ],
+    },
+    listPosition: {
+      type: "custom" as const,
+      label: "Vertical Position",
+      render: ListPositionField as never,
     },
   },
   defaultProps: {
@@ -44,20 +49,24 @@ export const NexusList = {
       { text: "Third item in the list" },
     ],
     listType: "bullet" as const,
-    spacing: "md" as const,
+    itemSpacing: "md" as const,
+    listPosition: {
+      marginTop: "none",
+      marginBottom: "none",
+    } satisfies ListPositionValue,
   },
   render({
     items,
     listType,
-    spacing,
+    itemSpacing,
   }: {
     items: Array<{ text: string }>;
     listType: "bullet" | "number";
-    spacing: "sm" | "md";
+    itemSpacing: "sm" | "md";
   }) {
     const Tag = listType === "number" ? "ol" : "ul";
 
-    const itemGap = spacing === "sm" ? "4px" : "8px";
+    const itemGap = itemSpacing === "sm" ? "4px" : "8px";
 
     return (
       <Tag

@@ -13,6 +13,7 @@ import {
   resolveNexusColor,
   type ColorPresetGroup,
 } from "../lib/nexusColorTokens";
+import { PuckSelectField } from "./PuckSelectField";
 
 /** Props passed by Puck to the preset field renderer. */
 interface NexusColorPresetFieldProps {
@@ -52,18 +53,12 @@ export function NexusColorPresetField({ field, value, onChange }: NexusColorPres
               flexShrink: 0,
             }}
           />
-          <select
-            className="nexus-puck-select"
+          <PuckSelectField
             value={stored}
-            onChange={(e) => onChange(e.target.value)}
-            style={{ flex: 1 }}
-          >
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={onChange}
+            triggerClassName="flex-1"
+            options={options.map((opt) => ({ label: opt.label, value: opt.value }))}
+          />
         </div>
       </div>
     </FieldLabel>

@@ -6,16 +6,12 @@
  * @module src/components/puck/fields/SpacingFieldGroup
  */
 
-import { useCallback, useEffect, useState } from "react";
 import type { SpacingProps, SpacingToken } from "../lib/spacingFields";
-import {
-  formatSpacingCustom,
-  getSpacingCustomMax,
-  parseSpacingCustom,
-  type SpacingCustomUnit,
-} from "../lib/spacingCustomValue";
+import type { SpacingCustomUnit } from "../lib/spacingCustomValue";
 import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
+import { CustomDimensionInput } from "./CustomDimensionInput";
 import { FieldChapter, SpacingIcon } from "./FieldChapter";
+import { PuckSelectField } from "./PuckSelectField";
 
 const SPACING_OPTIONS = SPACING_TOKEN_LABELS;
 
@@ -66,88 +62,6 @@ function patchSpacing(
 }
 
 /**
- * Numeric + unit controls for a custom spacing side.
- *
- * @param props - Stored value and change handler.
- * @returns Custom spacing row.
- */
-function CustomSpacingInput({
-  value,
-  onChange,
-}: {
-  value: string | undefined;
-  onChange: (next: string) => void;
-}) {
-  const parsed = parseSpacingCustom(value);
-  const [amount, setAmount] = useState(String(parsed.amount));
-  const [unit, setUnit] = useState<SpacingCustomUnit>(parsed.unit);
-
-  useEffect(() => {
-    const next = parseSpacingCustom(value);
-    setAmount(String(next.amount));
-    setUnit(next.unit);
-  }, [value]);
-
-  const commit = useCallback(
-    (nextAmount: string, nextUnit: SpacingCustomUnit) => {
-      const numeric = parseFloat(nextAmount);
-      const formatted = formatSpacingCustom(numeric, nextUnit);
-      onChange(formatted);
-    },
-    [onChange],
-  );
-
-  const handleAmountChange = (raw: string) => {
-    setAmount(raw);
-    if (raw === "" || raw === "-") return;
-    commit(raw, unit);
-  };
-
-  const handleAmountBlur = () => {
-    const numeric = parseFloat(amount);
-    const safe = Number.isNaN(numeric) ? 0 : numeric;
-    const formatted = formatSpacingCustom(safe, unit);
-    setAmount(String(parseSpacingCustom(formatted).amount));
-    onChange(formatted);
-  };
-
-  const handleUnitChange = (nextUnit: SpacingCustomUnit) => {
-    setUnit(nextUnit);
-    commit(amount, nextUnit);
-  };
-
-  const max = getSpacingCustomMax(unit);
-
-  return (
-    <div className="nexus-field-grid__custom-row">
-      <input
-        type="number"
-        className="nexus-field-grid__custom nexus-field-grid__custom--number"
-        min={0}
-        max={max}
-        step={unit === "px" ? 1 : 0.1}
-        value={amount}
-        onChange={(e) => handleAmountChange(e.target.value)}
-        onBlur={handleAmountBlur}
-        aria-label="Custom spacing value"
-      />
-      <select
-        className="nexus-puck-select nexus-field-grid__custom-unit"
-        value={unit}
-        onChange={(e) => handleUnitChange(e.target.value as SpacingCustomUnit)}
-        aria-label="Custom spacing unit"
-      >
-        {SPACING_UNITS.map((u) => (
-          <option key={u} value={u}>
-            {u}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/**
  * Render a 2×2 grid for padding or margin sides.
  *
  * @param sides - Side definitions.
@@ -175,22 +89,18 @@ function SideGrid({
         return (
           <div key={tokenKey} className="nexus-field-grid__cell">
             <span className="nexus-field-grid__label">{label}</span>
-            <select
-              className="nexus-puck-select"
+            <PuckSelectField
               value={token}
-              onChange={(e) => onSideChange(tokenKey, e.target.value)}
-            >
-              {SPACING_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => onSideChange(tokenKey, next)}
+              options={SPACING_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+            />
             {hint ? <span className="nexus-field-grid__resolved">{hint}</span> : null}
             {token === "custom" ? (
-              <CustomSpacingInput
+              <CustomDimensionInput
                 value={value[customKey] as string | undefined}
                 onChange={(next) => onSideChange(customKey, next)}
+                units={SPACING_UNITS}
+                ariaLabel={`Custom ${label.toLowerCase()} spacing`}
               />
             ) : null}
           </div>

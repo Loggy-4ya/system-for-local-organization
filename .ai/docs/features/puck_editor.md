@@ -116,7 +116,7 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 ### B. Page URL Path Renaming
 - **Header Editor:** `PagePathHeaderChip` in the right toolbar (`headerActions`) — compact URL pill, click-to-edit. Publish reads the slug via imperative ref.
 - **Title:** `PageTitleEditor` stays in the header title slot (left).
-- **Safety Guards:** The homepage `/` is protected and cannot be renamed. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
+- **Safety Guards:** The homepage at `/` is **not** Puck-managed (see `src/app/page.tsx` in code). Visiting `/edit` redirects to Page Manager. Puck pages use `/<slug>/edit`. Slugs `edit`, `pages`, and `api` are reserved. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
 - **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
 
 ### C. Unified Custom Field Styling
@@ -153,6 +153,8 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Typography system | `nexusTypography.ts` — role defaults (sans/serif) + weight 100–900 overrides |
 | Spacing custom inputs | `spacingCustomValue.ts` — numeric + unit picker with validation bounds |
 | List markers | `NexusList.tsx` — explicit `listStyleType` for bullet/numbered lists |
+| Canvas performance | [puck_editor_performance.md](./puck_editor_performance.md) — ref-only parent sync, selective `useNexusPuck`, deferred fields, tight `resolveData` |
+| Sidebar switches | `PuckSwitchField.tsx`, `binaryToggleFields.ts`, `puckEditorOverrides.tsx` — binary yes/no/on/off radios render as Shadcn switches |
 
 ### Directory Mapping (updated)
 
@@ -163,7 +165,13 @@ src/components/puck/
 ├── PagePathHeaderChip.tsx   # URL pill in header actions (right)
 ├── PageTitleEditor.tsx      # title in header title slot
 ├── EditorModeToggle.tsx     # edit vs interactive preview toggle
+├── puckEditorOverrides.tsx  # stable module-level Puck overrides (see performance doc)
+├── PuckEditorErrorContext.tsx
 ├── fields/
+│   ├── CustomDimensionInput.tsx
+│   ├── DeferredTextInputField.tsx
+│   ├── StripArrayLabelField.tsx
+│   ├── PuckSwitchField.tsx
 │   ├── FieldChapter.tsx
 │   ├── SpacingFieldGroup.tsx
 │   ├── IslandFieldGroup.tsx
@@ -185,7 +193,9 @@ src/components/puck/
 │   ├── FontWeightField.tsx
 │   ├── SegmentedControl.tsx
 │   ├── mediaUpload.ts
-│   └── useDeferredFieldCommit.ts
+│   ├── useDeferredFieldCommit.ts
+│   ├── binaryToggleFields.ts
+│   └── useNexusPuck.ts      # createUsePuck selectors — never bare usePuck() in renders
 ├── root/
 │   ├── PageRoot.tsx
 │   └── EditorHeaderChrome.tsx

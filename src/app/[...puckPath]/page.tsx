@@ -3,9 +3,8 @@
  *
  * This page handles two URL patterns via the `[...puckPath]` catch-all segment:
  *
- *  - `/edit`              → Renders the Puck visual editor (protected in Phase 2).
- *  - `/[anything-else]`   → Renders the public-facing `<Render>` viewer, loading
- *                            content from MongoDB using the `Page` model.
+ *  - `/edit`              → Redirects to Page Manager (homepage is code-only, not Puck).
+ *  - `/foo/edit`          → Puck editor for `/foo`.
  *
  * The Server Component loads data from MongoDB so the initial HTML can be
  * rendered on the server (ISR-compatible). The Client Component
@@ -14,7 +13,7 @@
  * @module src/app/[...puckPath]/page
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import connectDB    from "@shared/lib/db";
 import Page         from "@shared/models/Page";
 import type { Data } from "@measured/puck";
@@ -29,11 +28,6 @@ import { PuckClient } from "./client";
  * @returns Object containing the normalised path string and `isEditing` flag.
  */
 function resolvePath(segments: string[]): { path: string; isEditing: boolean } {
-  // `/edit` triggers editor mode and targets the root `/` canvas
-  if (segments.length === 1 && segments[0] === "edit") {
-    return { path: "/", isEditing: true };
-  }
-
   // `/foo/edit` triggers editor mode for `/foo`
   if (segments.at(-1) === "edit") {
     return {
@@ -61,7 +55,20 @@ interface PageParams {
  */
 export default async function PuckPage({ params }: { params: Promise<PageParams> }) {
   const { puckPath } = await params;
+
+  if (puckPath.length === 1 && puckPath[0] === "edit") {
+    redirect("/pages?error=homepage-code-only");
+  }
+
   const { path, isEditing } = resolvePath(puckPath);
+
+  if (isEditing && path === "/edit") {
+    redirect("/pages?error=reserved-slug");
+  }
+
+  if (isEditing && path === "/") {
+    redirect("/pages?error=homepage-code-only");
+  }
 
   let data: Data | null = null;
   let pageTitle: string = "Untitled Page";

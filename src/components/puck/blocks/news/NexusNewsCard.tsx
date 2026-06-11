@@ -10,7 +10,14 @@
  * @module src/components/puck/blocks/news/NexusNewsCard
  */
 
-import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { ImageField } from "../../fields/ImageField";
 
 export const NexusNewsCard = {
@@ -19,7 +26,7 @@ export const NexusNewsCard = {
     image: {
       type: "custom" as const,
       label: "Card Image",
-      render: ImageField as any,
+      render: ImageField as never,
     },
     title: {
       type: "text" as const,
@@ -82,7 +89,8 @@ export const NexusNewsCard = {
   defaultProps: {
     image: "",
     title: "Council budget approved for spring events",
-    description: "The student council has finalized and approved the budget allocation for upcoming spring activities, including sports and cultural festivals.",
+    description:
+      "The student council has finalized and approved the budget allocation for upcoming spring activities, including sports and cultural festivals.",
     category: "Current",
     readTime: "3 min read",
     borderRadius: "var(--radius-lg)" as const,
@@ -115,124 +123,56 @@ export const NexusNewsCard = {
     href?: string;
   }) {
     const cardElement = (
-      <div
-        className={`glass-panel ${hoverEffect === "yes" ? "transition-transform duration-200 hover:-translate-y-1" : ""}`}
+      <Card
+        className={cn(
+          "glass-panel mx-auto w-full overflow-hidden border-border bg-card py-0 transition-transform duration-200",
+          hoverEffect === "yes" && "hover:-translate-y-1",
+        )}
         style={{
           borderRadius: borderRadius || "var(--radius-lg)",
-          border: "1px solid var(--color-border-default)",
-          background: "var(--color-bg-panel)",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          margin: "0 auto",
           boxShadow: shadowDepth || "none",
         }}
       >
-        {/* Image Header */}
-        <div
-          style={{
-            height: "160px",
-            background: "var(--color-bg-elevated)",
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+        <div className="relative flex h-40 items-center justify-center overflow-hidden bg-secondary">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={image}
-              alt={title}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
+            <img src={image} alt={title} className="h-full w-full object-cover" />
           ) : (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 8,
-                color: "var(--color-text-secondary)",
-              }}
-            >
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span style={{ fontSize: "24px" }}>📰</span>
-              <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                No Image Selected
-              </span>
+              <span className="text-[11px] tracking-wide uppercase">No Image Selected</span>
             </div>
           )}
         </div>
 
-        {/* Content Body */}
-        <div
-          style={{
-            padding: "16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            flex: 1,
-            textAlign: align || "left",
-          }}
+        <CardHeader
+          className="gap-2 px-4 pt-4 pb-0"
+          style={{ textAlign: align || "left" }}
         >
-          {/* Category & Read Time Row */}
           <div
+            className="flex gap-3 text-[11px] font-medium text-muted-foreground"
             style={{
-              display: "flex",
-              justifyContent: align === "center" ? "center" : align === "right" ? "flex-end" : "space-between",
-              gap: "12px",
-              fontSize: "11px",
-              color: "var(--color-text-secondary)",
-              fontWeight: 500,
+              justifyContent:
+                align === "center" ? "center" : align === "right" ? "flex-end" : "space-between",
             }}
           >
-            <span style={{ textTransform: "uppercase", color: "var(--color-accent-user)" }}>
-              {category}
-            </span>
+            <span className="uppercase text-primary">{category}</span>
             <span>{readTime}</span>
           </div>
+          <CardTitle className="text-[15px] leading-snug">{title}</CardTitle>
+        </CardHeader>
 
-          {/* Title */}
-          <h4
-            style={{
-              margin: 0,
-              fontSize: "15px",
-              fontWeight: 600,
-              lineHeight: 1.3,
-              color: "var(--color-text-primary)",
-            }}
-          >
-            {title}
-          </h4>
-
-          {/* Description */}
-          <p
-            style={{
-              margin: 0,
-              fontSize: "12px",
-              lineHeight: 1.5,
-              color: "var(--color-text-secondary)",
-              display: "-webkit-box",
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
+        <CardContent className="px-4 pb-4" style={{ textAlign: align || "left" }}>
+          <CardDescription className="line-clamp-3 text-xs leading-relaxed">
             {description}
-          </p>
-        </div>
-      </div>
+          </CardDescription>
+        </CardContent>
+      </Card>
     );
 
     if (href) {
       return (
-        <a href={href} style={{ textDecoration: "none", display: "block" }}>
+        <a href={href} className="block no-underline">
           {cardElement}
         </a>
       );

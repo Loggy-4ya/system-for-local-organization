@@ -6,6 +6,7 @@
  * @module src/components/puck/fields/IslandFieldGroup
  */
 
+import { useMemo } from "react";
 import type { IslandProps, SpacingToken } from "../lib/spacingFields";
 import {
   CONTENT_WIDTH_OPTIONS,
@@ -18,8 +19,11 @@ import {
   resolveNexusColor,
 } from "../lib/nexusColorTokens";
 import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
+import { hasAncestorWithActiveIsland } from "../lib/puckDataTree";
+import { useNexusPuck } from "../lib/useNexusPuck";
 import { FieldChapter, IslandIcon } from "./FieldChapter";
-import { SegmentedControl } from "./SegmentedControl";
+import { PuckSelectField } from "./PuckSelectField";
+import { PuckSwitchField } from "./PuckSwitchField";
 
 const BORDER_WIDTH_OPTIONS = [
   { label: "None", value: "none" },
@@ -81,17 +85,11 @@ function ColorRow({
       <span className="nexus-field-grid__label">{label}</span>
       <div className="nexus-color-row">
         <span className="nexus-color-row__swatch" style={{ background: resolved }} aria-hidden />
-        <select
-          className="nexus-puck-select"
+        <PuckSelectField
           value={stored}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          options={options.map((opt) => ({ label: opt.label, value: opt.value }))}
+        />
       </div>
     </div>
   );
@@ -109,56 +107,74 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   const widthToken = normalizeContentWidth(island.islandMaxWidth) as ContentWidthToken;
   const paddingToken = (island.islandPadding ?? "md") as SpacingToken;
 
+  const selectedId = useNexusPuck(
+    (state) => state.selectedItem?.props?.id as string | undefined,
+  );
+  const puckData = useNexusPuck((state) => state.appState.data);
+
+  const blockedByParent = useMemo(() => {
+    if (!selectedId || !puckData) return false;
+    return hasAncestorWithActiveIsland(puckData, selectedId);
+  }, [puckData, selectedId]);
+
   const set = <K extends keyof IslandProps>(key: K, next: IslandProps[K]) => {
     onChange(patchIsland(island, key, next));
+  };
+
+  const handleIslandToggle = (next: string) => {
+    onChange({
+      ...patchIsland(island, "islandEnabled", next === "on"),
+      islandUserOverride: true,
+    });
   };
 
   return (
     <FieldChapter title="Island" icon={<IslandIcon />}>
       <div className="nexus-field-category">
-        <SegmentedControl
-          ariaLabel="Island mode"
-          options={[
-            { label: "Off", value: "off" },
-            { label: "On", value: "on" },
-          ]}
+        <PuckSwitchField
+          label="Island mode"
           value={enabled ? "on" : "off"}
-          onChange={(v) => set("islandEnabled", v === "on")}
+          onChange={handleIslandToggle}
+          trueValue="on"
+          falseValue="off"
+          disabled={blockedByParent}
+          description={
+            blockedByParent
+              ? "Disabled — parent block already uses island mode."
+              : undefined
+          }
         />
       </div>
 
-      {enabled ? (
+      {enabled && !blockedByParent ? (
         <>
           <div className="nexus-field-category">
             <span className="nexus-field-category__label">Layout</span>
             <div className="nexus-field-grid">
               <div className="nexus-field-grid__cell">
                 <span className="nexus-field-grid__label">Width</span>
-                <select
-                  className="nexus-puck-select"
+                <PuckSelectField
                   value={widthToken}
-                  onChange={(e) =>
-                    set("islandMaxWidth", e.target.value as ContentWidthToken)
-                  }
-                >
-                  {CONTENT_WIDTH_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) => set("islandMaxWidth", next as ContentWidthToken)}
+                  options={CONTENT_WIDTH_OPTIONS.map((opt) => ({
+                    label: opt.label,
+                    value: opt.value,
+                  }))}
+                />
               </div>
               <div className="nexus-field-grid__cell">
                 <span className="nexus-field-grid__label">Align</span>
-                <select
-                  className="nexus-puck-select"
+                <PuckSelectField
                   value={island.islandAlign ?? "center"}
-                  onChange={(e) => set("islandAlign", e.target.value as IslandProps["islandAlign"])}
-                >
-                  <option value="left">Left</option>
-                  <option value="center">Center</option>
-                  <option value="right">Right</option>
-                </select>
+                  onChange={(next) =>
+                    set("islandAlign", next as IslandProps["islandAlign"])
+                  }
+                  options={[
+                    { label: "Left", value: "left" },
+                    { label: "Center", value: "center" },
+                    { label: "Right", value: "right" },
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -186,47 +202,39 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
             <div className="nexus-field-grid">
               <div className="nexus-field-grid__cell">
                 <span className="nexus-field-grid__label">Border</span>
-                <select
-                  className="nexus-puck-select"
+                <PuckSelectField
                   value={island.islandBorderWidth ?? "thin"}
-                  onChange={(e) =>
-                    set("islandBorderWidth", e.target.value as IslandProps["islandBorderWidth"])
+                  onChange={(next) =>
+                    set("islandBorderWidth", next as IslandProps["islandBorderWidth"])
                   }
-                >
-                  {BORDER_WIDTH_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  options={BORDER_WIDTH_OPTIONS.map((opt) => ({
+                    label: opt.label,
+                    value: opt.value,
+                  }))}
+                />
               </div>
               <div className="nexus-field-grid__cell">
                 <span className="nexus-field-grid__label">Radius</span>
-                <select
-                  className="nexus-puck-select"
+                <PuckSelectField
                   value={island.islandRadius ?? "md"}
-                  onChange={(e) => set("islandRadius", e.target.value as IslandProps["islandRadius"])}
-                >
-                  {RADIUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) =>
+                    set("islandRadius", next as IslandProps["islandRadius"])
+                  }
+                  options={RADIUS_OPTIONS.map((opt) => ({
+                    label: opt.label,
+                    value: opt.value,
+                  }))}
+                />
               </div>
               <div className="nexus-field-grid__cell">
                 <span className="nexus-field-grid__label">Padding</span>
-                <select
-                  className="nexus-puck-select"
+                <PuckSelectField
                   value={paddingToken}
-                  onChange={(e) => set("islandPadding", e.target.value as SpacingToken)}
-                >
-                  {SPACING_TOKEN_LABELS.filter((opt) => opt.value !== "custom").map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) => set("islandPadding", next as SpacingToken)}
+                  options={SPACING_TOKEN_LABELS.filter((opt) => opt.value !== "custom").map(
+                    (opt) => ({ label: opt.label, value: opt.value }),
+                  )}
+                />
                 {formatSpacingResolvedHint(paddingToken) ? (
                   <span className="nexus-field-grid__resolved">
                     {formatSpacingResolvedHint(paddingToken)}

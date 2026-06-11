@@ -7,6 +7,7 @@
  */
 
 import { NexusTabsRender } from "./NexusTabsRender";
+import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
 
 /** Default empty tab with slot array for Puck inline data model. */
 const emptyTab = { label: "New Tab", panel: [] as never[] };
@@ -24,7 +25,11 @@ export const NexusTabs = {
       max: 8,
       getItemSummary: (item: { label?: string }) => item.label || "Tab",
       arrayFields: {
-        label: { type: "text" as const, label: "Tab Label" },
+        label: {
+          type: "custom" as const,
+          label: "Tab Label",
+          render: StripArrayLabelField as never,
+        },
         panel: {
           type: "slot" as const,
           label: "Tab Content",
@@ -58,6 +63,12 @@ export const NexusTabs = {
       type: "text" as const,
       label: "Active Tab Color (optional css color)",
     },
+    editorActiveIndex: {
+      type: "number" as const,
+      label: "Editor Active Tab",
+      min: 0,
+      visible: false,
+    },
   },
   defaultProps: {
     tabs: [
@@ -66,6 +77,7 @@ export const NexusTabs = {
       { label: "Resources", panel: [] },
     ],
     defaultActiveIndex: 0,
+    editorActiveIndex: 0,
     align: "left" as const,
     size: "md" as const,
     accentColor: "",

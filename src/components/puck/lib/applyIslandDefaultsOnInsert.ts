@@ -63,6 +63,9 @@ function isEligibleForAutoIsland(
   if (!allowed.has(node.type)) return false;
   if (isIslandActive(node.props as BlockShellProps)) return false;
 
+  const existingIsland = (node.props.island as Record<string, unknown> | undefined) ?? {};
+  if (existingIsland.islandUserOverride === true) return false;
+
   const parentProps = parent?.props as BlockShellProps | undefined;
   if (parentProps && isIslandActive(parentProps)) return false;
 
@@ -117,6 +120,40 @@ export function applyIslandDefaultsToIds(
     result = replaceComponentProps(result, id, buildIslandEnablePatch(node));
   }
 
+  return normalizeNestedIslands(result);
+}
+
+/**
+ * Disable island mode on direct children when the parent already has island active.
+ *
+ * Prevents nested glass shells on saved pages and after auto-island healing.
+ *
+ * @param data - Puck document state.
+ * @returns Document with redundant child islands stripped.
+ */
+export function normalizeNestedIslands(data: Data): Data {
+  let result = data;
+
+  walkAllComponents(data, (node, parent) => {
+    if (!parent) return;
+
+    const parentProps = parent.props as BlockShellProps;
+    if (!isIslandActive(parentProps)) return;
+
+    const childProps = node.props as BlockShellProps;
+    if (!isIslandActive(childProps)) return;
+
+    const id = String(node.props.id);
+    const existingIsland = (node.props.island as Record<string, unknown> | undefined) ?? {};
+
+    result = replaceComponentProps(result, id, {
+      island: {
+        ...existingIsland,
+        islandEnabled: false,
+      },
+    });
+  });
+
   return result;
 }
 
@@ -144,7 +181,7 @@ export function ensureIslandOnEligibleBlocks(
     result = replaceComponentProps(result, id, buildIslandEnablePatch(node));
   }
 
-  return result;
+  return normalizeNestedIslands(result);
 }
 
 export { findNewComponentIds };
