@@ -17,6 +17,7 @@ import {
   type ContentWidthToken,
   type LegacyContentWidth,
 } from "../../lib/contentWidthTokens";
+import { SECTION_PADDING_OPTIONS } from "../../lib/fieldOptionLabels";
 
 export const NexusSection = {
   label: "Section Container",
@@ -32,12 +33,7 @@ export const NexusSection = {
     padding: {
       type: "select" as const,
       label: "Padding",
-      options: [
-        { label: "None", value: "none" },
-        { label: "Small", value: "small" },
-        { label: "Normal", value: "normal" },
-        { label: "Large", value: "large" },
-      ],
+      options: [...SECTION_PADDING_OPTIONS],
     },
     backgroundOverride: {
       type: "text" as const,

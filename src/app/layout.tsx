@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@teispace/next-themes";
 import { getTheme, getThemeScript } from "@teispace/next-themes/server";
@@ -48,7 +49,7 @@ export const metadata: Metadata = {
  *
  * Responsibilities:
  *  - Applies Inter (sans), Source Serif 4 (serif), and JetBrains Mono (mono) via CSS variables.
- *  - Seeds the theme via a server-rendered `<head>` script (zero-flicker SSR)
+ *  - Seeds the theme via a `next/script` beforeInteractive block (zero-flicker SSR)
  *    and wraps the tree with `@teispace/next-themes` so descendants can toggle
  *    Light / Dark mode via `useTheme`.
  *  - Renders the `InfiniteGrid` background canvas (added in Phase 1).
@@ -65,17 +66,14 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={fontVariables} suppressHydrationWarning>
-      <head>
-        {/*
-          suppressHydrationWarning: the anti-FOUC script is SSR-only; browser
-          extensions may rewrite <head> scripts before React hydrates.
-        */}
-        <script
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
-      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/*
+          beforeInteractive: Next.js injects this before hydration (React 19 rejects
+          raw <script> in component trees). Pair with ThemeProvider noScript below.
+        */}
+        <Script id="nexus-theme-init" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
         <ThemeProvider
           {...THEME_CONFIG}
           initialTheme={initialTheme ?? undefined}

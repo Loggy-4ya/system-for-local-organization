@@ -7,6 +7,7 @@
  */
 
 import { NexusTabsRender } from "./NexusTabsRender";
+import { TAB_SIZE_OPTIONS } from "../../lib/fieldOptionLabels";
 import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
 
 /** Default empty tab with slot array for Puck inline data model. */
@@ -54,10 +55,7 @@ export const NexusTabs = {
     size: {
       type: "radio" as const,
       label: "Size",
-      options: [
-        { label: "Small", value: "sm" },
-        { label: "Medium", value: "md" },
-      ],
+      options: [...TAB_SIZE_OPTIONS],
     },
     accentColor: {
       type: "text" as const,

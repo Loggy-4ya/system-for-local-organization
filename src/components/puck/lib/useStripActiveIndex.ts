@@ -5,7 +5,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getStripActiveIndex, setStripActiveIndex } from "./stripEditorState";
+import {
+  getStripActiveIndex,
+  setStripActiveIndex,
+  subscribeStripActiveIndex,
+} from "./stripEditorState";
 
 /**
  * Manage active tab/slide index for strip editors inside Puck.
@@ -56,6 +60,15 @@ export function useStripActiveIndex(
     setStripActiveIndex(componentId, nextDefault);
     setActiveIndexLocal(nextDefault);
   }, [componentId, defaultIndex, editorActiveIndex, maxIndex]);
+
+  useEffect(() => {
+    if (!componentId) return undefined;
+
+    return subscribeStripActiveIndex(componentId, (index) => {
+      const next = Math.min(Math.max(0, index), maxIndex);
+      setActiveIndexLocal((previous) => (previous === next ? previous : next));
+    });
+  }, [componentId, maxIndex]);
 
   const clampedIndex = Math.min(Math.max(0, activeIndex), maxIndex);
 

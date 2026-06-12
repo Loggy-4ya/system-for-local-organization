@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImageField } from "../../fields/ImageField";
+import { SHADOW_DEPTH_OPTIONS } from "../../lib/fieldOptionLabels";
 
 export const NexusNewsCard = {
   label: "News Card",
@@ -57,12 +58,7 @@ export const NexusNewsCard = {
     shadowDepth: {
       type: "select" as const,
       label: "Shadow Depth",
-      options: [
-        { label: "None", value: "none" },
-        { label: "Soft", value: "0 4px 12px rgba(0,0,0,0.1)" },
-        { label: "Medium", value: "0 8px 24px rgba(0,0,0,0.2)" },
-        { label: "Strong (Figma)", value: "0 8px 24px -4px rgba(0,0,0,0.35)" },
-      ],
+      options: [...SHADOW_DEPTH_OPTIONS],
     },
     align: {
       type: "radio" as const,

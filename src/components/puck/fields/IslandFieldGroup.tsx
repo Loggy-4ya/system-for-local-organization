@@ -19,23 +19,16 @@ import {
   resolveNexusColor,
 } from "../lib/nexusColorTokens";
 import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
-import { hasAncestorWithActiveIsland } from "../lib/puckDataTree";
+import {
+  ISLAND_BORDER_WIDTH_OPTIONS,
+  ISLAND_RADIUS_OPTIONS,
+} from "../lib/fieldOptionLabels";
+import { hasAncestorWithActiveIsland, hasAncestorWithSlotShell } from "../lib/puckDataTree";
 import { useNexusPuck } from "../lib/useNexusPuck";
 import { FieldChapter, IslandIcon } from "./FieldChapter";
 import { PuckSelectField } from "./PuckSelectField";
 import { PuckSwitchField } from "./PuckSwitchField";
 
-const BORDER_WIDTH_OPTIONS = [
-  { label: "None", value: "none" },
-  { label: "Thin", value: "thin" },
-  { label: "Medium", value: "medium" },
-];
-
-const RADIUS_OPTIONS = [
-  { label: "SM", value: "sm" },
-  { label: "MD", value: "md" },
-  { label: "LG", value: "lg" },
-];
 
 /** Puck custom field props for island settings. */
 interface IslandFieldGroupProps {
@@ -117,6 +110,24 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
     return hasAncestorWithActiveIsland(puckData, selectedId);
   }, [puckData, selectedId]);
 
+  const inSlotShell = useMemo(() => {
+    if (!selectedId || !puckData) return false;
+    return hasAncestorWithSlotShell(puckData, selectedId);
+  }, [puckData, selectedId]);
+
+  const blockedReason = useMemo(() => {
+    if (!selectedId || !puckData) return undefined;
+    if (hasAncestorWithActiveIsland(puckData, selectedId)) {
+      return "Disabled — parent block already uses island mode.";
+    }
+    return undefined;
+  }, [puckData, selectedId]);
+
+  const slotShellHint =
+    inSlotShell && !enabled && !blockedByParent
+      ? "Off by default in carousel and tab slides — enable if you need an extra frame."
+      : undefined;
+
   const set = <K extends keyof IslandProps>(key: K, next: IslandProps[K]) => {
     onChange(patchIsland(island, key, next));
   };
@@ -138,11 +149,7 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
           trueValue="on"
           falseValue="off"
           disabled={blockedByParent}
-          description={
-            blockedByParent
-              ? "Disabled — parent block already uses island mode."
-              : undefined
-          }
+          description={blockedReason ?? slotShellHint}
         />
       </div>
 
@@ -207,7 +214,7 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                   onChange={(next) =>
                     set("islandBorderWidth", next as IslandProps["islandBorderWidth"])
                   }
-                  options={BORDER_WIDTH_OPTIONS.map((opt) => ({
+                  options={ISLAND_BORDER_WIDTH_OPTIONS.map((opt) => ({
                     label: opt.label,
                     value: opt.value,
                   }))}
@@ -220,7 +227,7 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                   onChange={(next) =>
                     set("islandRadius", next as IslandProps["islandRadius"])
                   }
-                  options={RADIUS_OPTIONS.map((opt) => ({
+                  options={ISLAND_RADIUS_OPTIONS.map((opt) => ({
                     label: opt.label,
                     value: opt.value,
                   }))}

@@ -796,64 +796,279 @@
   display: block;
 }
 
-/* Interactive carousel/tabs strip controls in editor */
-.Puck .nexus-tabs--strip-edit .nexus-tabs__strip {
+/* Interactive carousel/tabs strip controls in editor (no `.Puck` — preview renders in iframe) */
+.nexus-tabs--strip-edit .nexus-tabs__strip {
   isolation: isolate;
   pointer-events: auto !important;
   position: relative;
   z-index: 40;
 }
 
-.Puck .nexus-tabs__trigger {
+.nexus-tabs__trigger {
   pointer-events: auto !important;
   position: relative;
   z-index: 41;
 }
 
-.Puck .nexus-strip-editor__panel [data-puck-dropzone],
-.Puck .nexus-tabs__dropzone[data-puck-dropzone] {
+.nexus-strip-editor__panel [data-puck-dropzone],
+.nexus-tabs__dropzone[data-puck-dropzone] {
   min-height: 140px;
   padding: 12px;
   position: relative;
   z-index: 2;
 }
 
-/* Carousel edit mode — Embla track; inactive slides keep layout height (tallest slide wins) */
-.Puck .nexus-carousel--edit .nexus-carousel__viewport,
-.Puck .nexus-carousel--edit [data-slot="carousel-content"],
-.Puck .nexus-carousel--edit .nexus-carousel__track--fixed {
+/* Carousel edit mode — Embla track; tallest slide sets row height, all slides stretch to match.
+   Selectors omit `.Puck` because the preview canvas renders inside Puck's iframe (no `.Puck` ancestor). */
+.nexus-carousel--edit {
+  position: relative;
+}
+
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) {
+  min-height: 0;
+}
+
+.nexus-carousel--edit .nexus-carousel__edit-select:hover {
+  border-color: var(--color-accent-user);
+}
+
+.nexus-carousel--edit .nexus-carousel__viewport,
+.nexus-carousel--edit [data-slot="carousel-content"],
+.nexus-carousel--edit .nexus-carousel__track--edit,
+.nexus-carousel--edit .nexus-carousel__track--fixed {
   width: 100%;
 }
 
-.Puck .nexus-carousel--edit .nexus-carousel__slide {
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport {
+  min-height: var(--nexus-carousel-edit-height, var(--nexus-carousel-auto-min-height, 240px));
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport::-webkit-scrollbar,
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"]::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Embla viewport — sole horizontal clip container (never clip the transformed track).
+ */
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] {
+  overflow: hidden !important;
+  scrollbar-width: none;
+}
+
+/*
+ * Multi-slide edit when every slide fits — pin track transform (no loop clones).
+ */
+.nexus-carousel--edit.nexus-carousel--edit-static-fit [data-slot="carousel-content"] > .flex {
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex,
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__track--edit {
+  min-height: var(--nexus-carousel-edit-height, var(--nexus-carousel-auto-min-height, 240px));
+}
+
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
+  align-items: stretch;
+}
+
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"] {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
 
-.Puck .nexus-carousel--edit .nexus-carousel__slide--with-controls {
-  padding-bottom: 36px;
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])) {
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
 }
 
-.Puck .nexus-carousel--edit .nexus-carousel__slide--inactive-edit {
+.nexus-carousel--edit .nexus-carousel__slide-dropzone-shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
+  width: 100%;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) .nexus-carousel__slide-dropzone-shell {
+  height: 100%;
+  min-height: 100%;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide .nexus-video,
+.nexus-carousel--edit .nexus-carousel__slide .nexus-image--fill-slide {
+  cursor: pointer;
+}
+
+.nexus-carousel--edit.nexus-carousel--fixed-height .nexus-carousel__slide {
+  min-height: var(--nexus-carousel-height);
+}
+
+/* Dot clearance — skip bottom padding when slide content fills the card (e.g. video) */
+.nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel--edit.nexus-carousel--edit-nav [data-puck-dropzone] {
+  padding-bottom: 40px !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone] {
+  padding-bottom: 0 !important;
+}
+
+/* Edit controls overlay the viewport so they align with multi-slide layout */
+.nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__viewport > .nexus-carousel__controls,
+.nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__viewport > .nexus-carousel__controls[data-puck-overlay-portal] {
+  inset: 0;
+  pointer-events: none !important;
+  position: absolute;
+  z-index: 3;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  .nexus-carousel__viewport
+  > .nexus-carousel__controls
+  .nexus-carousel__arrow,
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  .nexus-carousel__viewport
+  > .nexus-carousel__controls
+  .nexus-carousel__dot,
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  .nexus-carousel__viewport
+  > .nexus-carousel__controls
+  .nexus-carousel__edit-select {
+  pointer-events: auto !important;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide--inactive-edit {
   pointer-events: none;
   user-select: none;
 }
 
-/* Auto-height edit slides — content defines size with a sensible floor */
-.Puck .nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
-.Puck .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
-  min-height: var(--nexus-carousel-auto-min-height, 240px);
-  width: 100%;
+/*
+ * Single-slide edit: collapse inactive slides and pin the Embla track.
+ * Embla scroll breaks layout when inactive items are width-zero — CSS alone drives the view.
+ */
+.nexus-carousel--edit.nexus-carousel--edit-single-slide [data-slot="carousel-content"] > .flex {
+  flex-wrap: nowrap !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-single-slide
+  [data-slot="carousel-item"]:has(.nexus-carousel__slide--inactive-edit) {
+  flex: 0 0 0 !important;
+  max-width: 0 !important;
+  min-width: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-single-slide
+  [data-slot="carousel-item"]:not(:has(.nexus-carousel__slide--inactive-edit)) {
+  flex: 0 0 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-single-slide
+  [data-slot="carousel-content"]
+  > .flex {
+  margin-left: 0 !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-single-slide
+  [data-slot="carousel-item"]:not(:has(.nexus-carousel__slide--inactive-edit)) {
+  padding-left: 0 !important;
+}
+
+/* Multi-slide edit — highlight the focused slide without hiding siblings */
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide)
+  .nexus-carousel__slide--active-edit {
+  outline: 1px solid color-mix(in srgb, var(--color-accent-user) 65%, transparent);
+  outline-offset: -1px;
+  z-index: 1;
+}
+
+/* Empty slide drop zones — keep dashed Puck target visible */
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  flex: 1 1 auto !important;
+  min-height: var(--nexus-carousel-auto-min-height, 240px) !important;
+}
+
+/* Drop zones fill the slide card; blocks stay content-sized, append area keeps remaining height */
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
   box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--nexus-carousel-auto-min-height, 240px) !important;
+  overflow: hidden;
+  width: 100%;
+}
+
+.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--hasChildren"] {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.nexus-carousel--edit [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)) {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) [data-puck-dropzone] {
+  flex: 1 1 auto !important;
+  height: 100%;
+  min-height: var(--nexus-carousel-auto-min-height, 240px) !important;
+  overflow: hidden;
+}
+
+/* Prevent Puck drop-zone min-height animation from fighting carousel stretch during drag */
+.nexus-carousel--edit [data-puck-dropzone] {
+  transition: none !important;
+}
+
+/* Re-enable drop targets while dragging or when Puck marks a destination/hover zone */
+[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone],
+.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--isDestination"],
+.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--hoveringOverArea"],
+.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--isAreaSelected"] {
+  pointer-events: auto !important;
 }
 
 /* Fixed-height edit slides — exact configured height on drop zone */
-.Puck .nexus-carousel--edit.nexus-carousel--fixed-height .nexus-carousel__dropzone[data-puck-dropzone],
-.Puck .nexus-carousel--edit.nexus-carousel--fixed-height [data-puck-dropzone] {
+.nexus-carousel--edit.nexus-carousel--fixed-height .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel--edit.nexus-carousel--fixed-height [data-puck-dropzone] {
+  box-sizing: border-box;
+  flex: 1 1 auto;
   height: 100%;
   min-height: var(--nexus-carousel-height);
   width: 100%;
-  box-sizing: border-box;
 }
 
 .nexus-carousel-dimension-custom__label {
@@ -868,37 +1083,54 @@
 }
 
 /* Edit layout — embeds must not steal Puck overlay clicks */
-.Puck [data-puck-component] iframe,
-.Puck [data-puck-component] video {
+[data-puck-component] iframe,
+[data-puck-component] video {
   pointer-events: none !important;
 }
 
-.Puck .nexus-video--interactive iframe,
-.Puck .nexus-video--interactive video {
+.nexus-carousel__slide .nexus-video,
+.nexus-carousel__slide .nexus-video__frame,
+.nexus-carousel__slide .nexus-video__media,
+.nexus-carousel__slide .nexus-video img.nexus-video__media,
+.nexus-carousel__slide .nexus-image--fill-slide,
+.nexus-carousel__slide .nexus-image--fill-slide .nexus-image__frame,
+.nexus-carousel__slide .nexus-image--fill-slide .nexus-image__media {
   pointer-events: auto !important;
 }
 
-.Puck .nexus-carousel--interactive .nexus-carousel__arrow,
-.Puck .nexus-carousel--interactive .nexus-carousel__dot,
-.Puck .nexus-carousel--edit .nexus-carousel__arrow,
-.Puck .nexus-carousel--edit .nexus-carousel__dot,
-.Puck .nexus-tabs:not(.nexus-tabs--strip-edit) .nexus-tabs__trigger {
+.nexus-video--interactive iframe,
+.nexus-video--interactive video {
+  pointer-events: auto !important;
+}
+
+.nexus-carousel--interactive .nexus-carousel__arrow,
+.nexus-carousel--interactive .nexus-carousel__dot,
+.nexus-carousel--edit .nexus-carousel__arrow,
+.nexus-carousel--edit .nexus-carousel__dot,
+.nexus-carousel--edit .nexus-carousel__edit-select,
+.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__arrow,
+.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__dot,
+.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__edit-select {
+  pointer-events: auto !important;
+  z-index: 40;
+}
+
+.nexus-tabs:not(.nexus-tabs--strip-edit) .nexus-tabs__trigger {
   pointer-events: auto !important;
   position: relative;
   z-index: 40;
 }
 
 /* Ensure Shadcn button sizing does not shrink carousel control hit targets */
-.Puck .nexus-carousel__arrow[data-slot="button"] {
+.nexus-carousel__arrow[data-slot="button"] {
   height: 40px !important;
   min-height: 44px !important;
   min-width: 44px !important;
   width: 40px !important;
 }
 
-.Puck .nexus-carousel__dropzone[data-puck-dropzone],
-.Puck .nexus-carousel--interactive [data-puck-dropzone] {
-  min-height: 120px;
+.nexus-carousel--interactive .nexus-carousel__dropzone[data-puck-dropzone],
+.nexus-carousel--interactive [data-puck-dropzone] {
   position: relative;
   z-index: 2;
 }
@@ -917,6 +1149,14 @@
   transform: translate(-50%, -50%);
   white-space: nowrap;
   z-index: 2;
+}
+
+.nexus-carousel__slide .nexus-video__edit-badge {
+  bottom: 8px;
+  left: auto;
+  right: 8px;
+  top: auto;
+  transform: none;
 }
 
 /* ── Page Settings (root sidebar) ───────────────────────────────────────── */

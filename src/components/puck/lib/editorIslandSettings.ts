@@ -20,5 +20,17 @@ export const editorIslandSettingsRef = {
  * @param list - Puck component registry keys that auto-enable island on insert.
  */
 export function setEditorIslandDefaultComponents(list: string[]): void {
-  editorIslandSettingsRef.islandDefaultComponents = list;
+  editorIslandSettingsRef.islandDefaultComponents =
+    list.length > 0 ? list : [...DEFAULT_ISLAND_COMPONENTS];
+}
+
+/**
+ * Admin island list with fallback when the API returns an empty array.
+ *
+ * @returns Non-empty component type keys for island-on-insert rules.
+ */
+export function resolveEffectiveIslandComponents(): string[] {
+  return editorIslandSettingsRef.islandDefaultComponents.length > 0
+    ? editorIslandSettingsRef.islandDefaultComponents
+    : [...DEFAULT_ISLAND_COMPONENTS];
 }

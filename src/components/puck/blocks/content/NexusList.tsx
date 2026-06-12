@@ -11,6 +11,7 @@
 
 import { ListItemsField } from "../../fields/ListItemsField";
 import { ListPositionField, type ListPositionValue } from "../../fields/ListPositionField";
+import { LIST_ITEM_SPACING_OPTIONS } from "../../lib/fieldOptionLabels";
 
 export const NexusList = {
   label: "List",
@@ -31,10 +32,7 @@ export const NexusList = {
     itemSpacing: {
       type: "radio" as const,
       label: "Item Spacing",
-      options: [
-        { label: "Tight", value: "sm" },
-        { label: "Normal", value: "md" },
-      ],
+      options: [...LIST_ITEM_SPACING_OPTIONS],
     },
     listPosition: {
       type: "custom" as const,

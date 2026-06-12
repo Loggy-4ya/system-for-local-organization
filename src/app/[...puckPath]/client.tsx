@@ -8,12 +8,13 @@
 
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
-import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
+import { ensureIslandOnEligibleBlocks, applyIslandDefaultsOnInsert } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
 import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
 import { normalizeCarouselSlides } from "@/components/puck/lib/puckDataTree";
 import { setEditorPagePath } from "@/components/puck/lib/editorPagePathRef";
 import {
   editorIslandSettingsRef,
+  resolveEffectiveIslandComponents,
   setEditorIslandDefaultComponents,
 } from "@/components/puck/lib/editorIslandSettings";
 import { Render } from "@measured/puck";
@@ -92,7 +93,7 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
   const withContent = withDefaultEditorContent(data);
   const withCarousel = normalizeCarouselSlides(withContent);
   const withIsland = ensureIslandOnEligibleBlocks(withCarousel, {
-    islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
+    islandDefaultComponents: resolveEffectiveIslandComponents(),
   });
   const existingProps =
     (withIsland.root as { props?: Record<string, unknown> })?.props ?? {};
@@ -131,7 +132,7 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
 function buildViewData(payload: Data | null): Data | null {
   if (!payload) return null;
   return ensureIslandOnEligibleBlocks(normalizeCarouselSlides(payload), {
-    islandDefaultComponents: editorIslandSettingsRef.islandDefaultComponents,
+    islandDefaultComponents: resolveEffectiveIslandComponents(),
   });
 }
 
@@ -188,7 +189,11 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
   }, [data, pageTitle, path, isEditing]);
 
   const handleEditorDataChange = useCallback((nextData: Data) => {
-    latestDataRef.current = nextData;
+    const prev = latestDataRef.current;
+    const patched = applyIslandDefaultsOnInsert(prev, nextData, {
+      islandDefaultComponents: resolveEffectiveIslandComponents(),
+    });
+    latestDataRef.current = patched;
   }, []);
 
   const handlePublished = useCallback(

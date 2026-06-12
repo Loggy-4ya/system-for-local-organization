@@ -10,6 +10,7 @@
  */
 
 import React from "react";
+import { LAYOUT_GAP_OPTIONS } from "../../lib/fieldOptionLabels";
 
 export const NexusColumns = {
   label: "2-Column Split",
@@ -28,12 +29,7 @@ export const NexusColumns = {
     gap: {
       type: "select" as const,
       label: "Gap Size",
-      options: [
-        { label: "None", value: "none" },
-        { label: "Small (8px)", value: "small" },
-        { label: "Medium (16px)", value: "medium" },
-        { label: "Large (24px)", value: "large" },
-      ],
+      options: [...LAYOUT_GAP_OPTIONS],
     },
     alignItems: {
       type: "select" as const,
@@ -48,12 +44,7 @@ export const NexusColumns = {
     padding: {
       type: "select" as const,
       label: "Padding",
-      options: [
-        { label: "None", value: "none" },
-        { label: "Small (8px)", value: "small" },
-        { label: "Medium (16px)", value: "medium" },
-        { label: "Large (24px)", value: "large" },
-      ],
+      options: [...LAYOUT_GAP_OPTIONS],
     },
     backgroundOverride: {
       type: "text" as const,

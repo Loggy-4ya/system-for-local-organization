@@ -58,11 +58,11 @@ export function createDefaultEditorContent(): Data["content"] {
         spacing: {
           paddingTop: "none",
           paddingRight: "none",
-          paddingBottom: "md",
+          paddingBottom: "none",
           paddingLeft: "none",
-          marginTop: "none",
+          marginTop: "sm",
           marginRight: "none",
-          marginBottom: "none",
+          marginBottom: "sm",
           marginLeft: "none",
         },
         island: {

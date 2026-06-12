@@ -11,6 +11,7 @@ import { usePuckPreviewMode } from "../../lib/useNexusPuck";
 import { cn } from "@/lib/utils";
 import { usePuckOverlayPortalRef } from "../../lib/usePuckOverlayPortal";
 import { useStripActiveIndex } from "../../lib/useStripActiveIndex";
+import { usePuckArrayOpenStripSync } from "../../lib/usePuckArrayOpenStripSync";
 
 /** Puck slot component signature for tab panels. */
 type TabPanelComponent = ComponentType<{
@@ -107,6 +108,8 @@ export function NexusTabsRender({
     tabs.length,
     editorActiveIndex,
   );
+
+  usePuckArrayOpenStripSync(id, "tabs", editLayoutMode);
 
   const activeBg = accentColor || "var(--color-accent-user)";
 

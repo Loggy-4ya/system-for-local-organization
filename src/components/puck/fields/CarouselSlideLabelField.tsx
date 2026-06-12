@@ -1,23 +1,21 @@
 "use client";
 
 /**
- * @fileoverview Debounced array item label field that syncs strip editor active index.
+ * @fileoverview Editable carousel slide label with auto-numbered placeholder and canvas sync.
  *
- * When a carousel slide or tab item is expanded or its label is focused, the canvas
- * strip navigates via {@link setStripActiveIndex} + {@link useStripActiveIndex} subscription.
- *
- * @module src/components/puck/fields/StripArrayLabelField
+ * @module src/components/puck/fields/CarouselSlideLabelField
  */
 
 import { FieldLabel } from "@measured/puck";
+import { formatCarouselSlideLabel } from "../lib/carouselSlideLabels";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 import {
   parseArrayIndexFromFieldName,
   useStripArrayIndexSync,
 } from "../lib/useStripArrayIndexSync";
 
-/** Props passed by Puck to custom array sub-field renderers. */
-interface StripArrayLabelFieldProps {
+/** Props passed by Puck to the carousel slide label field. */
+interface CarouselSlideLabelFieldProps {
   field: { label?: string };
   name?: string;
   value: string;
@@ -25,12 +23,17 @@ interface StripArrayLabelFieldProps {
 }
 
 /**
- * Debounced label input for carousel slides / tabs with canvas strip sync.
+ * Debounced slide label input — defaults to `Slide N` but remains fully editable.
  *
  * @param props - Puck custom field props.
- * @returns Labeled debounced text input.
+ * @returns Labeled text input with auto-number placeholder.
  */
-export function StripArrayLabelField({ field, name, value, onChange }: StripArrayLabelFieldProps) {
+export function CarouselSlideLabelField({
+  field,
+  name,
+  value,
+  onChange,
+}: CarouselSlideLabelFieldProps) {
   const arrayIndex = parseArrayIndexFromFieldName(name);
   const syncStripIndex = useStripArrayIndexSync(arrayIndex);
 
@@ -40,12 +43,16 @@ export function StripArrayLabelField({ field, name, value, onChange }: StripArra
     textDebounceMs: 400,
   });
 
+  const placeholder =
+    arrayIndex === null ? "Slide" : formatCarouselSlideLabel(arrayIndex);
+
   return (
-    <FieldLabel label={field.label ?? "Label"}>
+    <FieldLabel label={field.label ?? "Slide"}>
       <input
         type="text"
         className="nexus-puck-input"
         value={draft}
+        placeholder={placeholder}
         onChange={(event) => onTextChange(event.target.value)}
         onFocus={syncStripIndex}
         onBlur={onTextBlur}
@@ -60,4 +67,4 @@ export function StripArrayLabelField({ field, name, value, onChange }: StripArra
   );
 }
 
-export default StripArrayLabelField;
+export default CarouselSlideLabelField;

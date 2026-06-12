@@ -10,6 +10,7 @@
  */
 
 import { FieldLabel } from "@measured/puck";
+import { RADIUS_SELECT_OPTIONS } from "../lib/fieldOptionLabels";
 import { CustomDimensionInput } from "./CustomDimensionInput";
 import { PuckSelectField } from "./PuckSelectField";
 
@@ -50,15 +51,11 @@ const HEIGHT_PRESETS: Array<{ label: string; value: CarouselHeightPreset }> = [
   { label: "Custom", value: "custom" },
 ];
 
-const BORDER_RADIUS_PRESETS: Array<{ label: string; value: CarouselBorderRadiusPreset }> = [
-  { label: "None", value: "0" },
-  { label: "Small", value: "var(--radius-sm)" },
-  { label: "Medium", value: "var(--radius-md)" },
-  { label: "Large", value: "var(--radius-lg)" },
-  { label: "Custom", value: "custom" },
-];
-
 const HEIGHT_PRESET_VALUES = new Set<string>(HEIGHT_PRESETS.map((opt) => opt.value));
+const BORDER_RADIUS_PRESETS = RADIUS_SELECT_OPTIONS as unknown as Array<{
+  label: string;
+  value: CarouselBorderRadiusPreset;
+}>;
 const BORDER_RADIUS_PRESET_VALUES = new Set<string>(BORDER_RADIUS_PRESETS.map((opt) => opt.value));
 
 /** Puck custom field props for the combined carousel size field. */

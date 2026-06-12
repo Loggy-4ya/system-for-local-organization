@@ -12,10 +12,18 @@ import {
 } from "../../fields/CarouselDimensionFields";
 import { NexusCarouselRender, type NexusCarouselRenderProps } from "./NexusCarouselRender";
 import { CarouselSizeFieldGroup } from "../../fields/CarouselDimensionFields";
-import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
+import { CarouselSlideLabelField } from "../../fields/CarouselSlideLabelField";
+import {
+  CAROUSEL_SCROLL_STEP_OPTIONS,
+  CAROUSEL_SLIDES_PER_VIEW_OPTIONS,
+} from "../../lib/fieldOptionLabels";
+import {
+  formatCarouselSlideLabel,
+  ensureCarouselSlideLabels,
+} from "../../lib/carouselSlideLabels";
 
-/** Default empty slide with slot array for Puck inline data model. */
-const emptySlide = { label: "New Slide", content: [] as never[] };
+/** Default empty slide — label filled by `ensureCarouselSlideLabels` on insert. */
+const emptySlide = { label: "", content: [] as never[] };
 
 /** Props passed to carousel render after size normalization. */
 interface CarouselRenderProps {
@@ -31,6 +39,7 @@ interface CarouselRenderProps {
   showArrows: "yes" | "no";
   showDots: "yes" | "no";
   slidesPerView: "auto" | "1" | "2" | "3";
+  scrollStep?: "1" | "2" | "3" | "page";
   editorActiveIndex?: number;
   puck?: { isEditing?: boolean };
 }
@@ -63,12 +72,13 @@ export const NexusCarousel = {
     slides: {
       type: "array" as const,
       label: "Slides",
-      getItemSummary: (item: { label?: string }) => item.label || "Slide",
+      getItemSummary: (item: { label?: string }, index?: number) =>
+        item.label?.trim() || formatCarouselSlideLabel(index ?? 0),
       arrayFields: {
         label: {
           type: "custom" as const,
-          label: "Slide Label",
-          render: StripArrayLabelField as never,
+          label: "Slide",
+          render: CarouselSlideLabelField as never,
         },
         content: {
           type: "slot" as const,
@@ -115,12 +125,12 @@ export const NexusCarousel = {
     slidesPerView: {
       type: "radio" as const,
       label: "Slides Visible",
-      options: [
-        { label: "Auto (responsive)", value: "auto" },
-        { label: "1", value: "1" },
-        { label: "2", value: "2" },
-        { label: "3", value: "3" },
-      ],
+      options: [...CAROUSEL_SLIDES_PER_VIEW_OPTIONS],
+    },
+    scrollStep: {
+      type: "radio" as const,
+      label: "Scroll Step",
+      options: [...CAROUSEL_SCROLL_STEP_OPTIONS],
     },
     editorActiveIndex: {
       type: "number" as const,
@@ -131,8 +141,9 @@ export const NexusCarousel = {
   },
   defaultProps: {
     slides: [
-      { label: "First slide", content: [] },
-      { label: "Second slide", content: [] },
+      { label: formatCarouselSlideLabel(0), content: [] },
+      { label: formatCarouselSlideLabel(1), content: [] },
+      { label: formatCarouselSlideLabel(2), content: [] },
     ],
     carouselSize: {
       height: "auto" as const,
@@ -145,6 +156,7 @@ export const NexusCarousel = {
     showArrows: "yes" as const,
     showDots: "yes" as const,
     slidesPerView: "auto" as const,
+    scrollStep: "1" as const,
     editorActiveIndex: 0,
   },
   resolveData: (
@@ -154,23 +166,27 @@ export const NexusCarousel = {
       trigger: "insert" | "replace" | "load" | "move" | "force";
     },
   ) => {
-    const shouldNormalize =
-      params.trigger === "load" ||
-      params.trigger === "insert" ||
-      params.changed.carouselSize ||
-      params.changed.height ||
-      params.changed.heightCustom ||
-      params.changed.borderRadius ||
-      params.changed.borderRadiusCustom;
+    const shouldEnsureLabels =
+      params.trigger === "load" || params.trigger === "insert";
 
-    if (!shouldNormalize) {
+    const slides = shouldEnsureLabels
+      ? ensureCarouselSlideLabels(props.slides)
+      : props.slides;
+
+    const shouldNormalizeSize =
+      params.trigger === "load" || params.trigger === "insert";
+
+    if (!shouldEnsureLabels && !shouldNormalizeSize) {
       return { props };
     }
 
     return {
       props: {
         ...props,
-        carouselSize: resolveSizeProps(props),
+        slides,
+        ...(shouldNormalizeSize
+          ? { carouselSize: resolveSizeProps(props) }
+          : {}),
       },
     };
   },
@@ -185,6 +201,7 @@ export const NexusCarousel = {
         showArrows={props.showArrows}
         showDots={props.showDots}
         slidesPerView={props.slidesPerView ?? "auto"}
+        scrollStep={props.scrollStep ?? "1"}
         editorActiveIndex={props.editorActiveIndex}
         puck={props.puck}
         height={size.height}

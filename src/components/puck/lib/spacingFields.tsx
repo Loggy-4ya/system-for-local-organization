@@ -17,7 +17,8 @@ import {
   type LegacyContentWidth,
 } from "./contentWidthTokens";
 import { resolveNexusColor } from "./nexusColorTokens";
-import { editorIslandSettingsRef } from "./editorIslandSettings";
+import { resolveEffectiveIslandComponents } from "./editorIslandSettings";
+import { isSlotShellComponentType } from "./puckDataTree";
 
 /** Spacing token keys available in select fields. */
 export type SpacingToken = "none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "custom";
@@ -120,6 +121,56 @@ export const SPACING_DEFAULTS: SpacingProps = {
   marginLeft: "none",
   marginLeftCustom: "",
 };
+
+/** Vertical shell margin for root-level blocks (`--spacing-sm` = 8px). */
+export const ISLAND_VERTICAL_MARGIN: SpacingToken = "sm";
+
+/** Spacing applied when island mode is auto-enabled on insert. */
+export const ISLAND_AUTO_SPACING_DEFAULTS: SpacingProps = {
+  ...SPACING_DEFAULTS,
+  marginTop: ISLAND_VERTICAL_MARGIN,
+  marginBottom: ISLAND_VERTICAL_MARGIN,
+};
+
+/**
+ * Merge island vertical margins into spacing props without losing user overrides.
+ *
+ * Applies {@link ISLAND_VERTICAL_MARGIN} only when top/bottom margin is unset or `none`.
+ *
+ * @param existing - Current spacing object from block props.
+ * @returns Spacing with island defaults on vertical margins.
+ */
+export function mergeIslandAutoSpacing(existing: SpacingProps = {}): SpacingProps {
+  return {
+    ...SPACING_DEFAULTS,
+    ...existing,
+    marginTop:
+      !existing.marginTop || existing.marginTop === "none"
+        ? ISLAND_VERTICAL_MARGIN
+        : existing.marginTop,
+    marginBottom:
+      !existing.marginBottom || existing.marginBottom === "none"
+        ? ISLAND_VERTICAL_MARGIN
+        : existing.marginBottom,
+  };
+}
+
+/**
+ * Merge insert-time vertical margins for a component type.
+ *
+ * @param _componentType - Puck registry key (reserved for per-type rules).
+ * @param existing - Current spacing object from block props.
+ * @returns Spacing with 8px top/bottom margins when unset.
+ */
+export function mergeRootInsertSpacing(
+  _componentType: string,
+  existing: SpacingProps = {},
+): SpacingProps {
+  return mergeIslandAutoSpacing(existing);
+}
+
+/** @deprecated Use {@link ISLAND_AUTO_SPACING_DEFAULTS} — sections now share the same vertical margins. */
+export const SECTION_SHELL_SPACING_DEFAULTS: SpacingProps = ISLAND_AUTO_SPACING_DEFAULTS;
 
 /** Default island values for new blocks. */
 export const ISLAND_DEFAULTS: IslandProps = {
@@ -232,6 +283,8 @@ export function applyBlockShell(props: BlockShellProps): {
   const paddingBottom = resolveSpacingValue(flat.paddingBottom, flat.paddingBottomCustom);
   const paddingLeft = resolveSpacingValue(flat.paddingLeft, flat.paddingLeftCustom);
 
+  const islandActive = isIslandActive(flat);
+
   const shellStyle: React.CSSProperties = {
     marginTop: resolveSpacingValue(flat.marginTop, flat.marginTopCustom),
     marginRight: resolveSpacingValue(flat.marginRight, flat.marginRightCustom),
@@ -250,7 +303,6 @@ export function applyBlockShell(props: BlockShellProps): {
     width: "100%",
   };
 
-  const islandActive = isIslandActive(flat);
   const islandPadding = resolveSpacingValue(
     (flat.islandPadding ?? flat.liningPadding ?? "md") as SpacingToken,
   );
@@ -333,6 +385,8 @@ interface PuckResolveDataParams {
 /**
  * Apply auto island props when a block is inserted or moved under an eligible parent.
  *
+ * Vertical margins are seeded only on insert/move — not on load or for saved starter content.
+ *
  * @param componentType - Puck registry key for the block.
  * @param props - Current block props from resolveData.
  * @param params - Puck resolveData params including trigger and parent.
@@ -347,22 +401,44 @@ function resolveAutoIslandProps(
     return props;
   }
 
-  const allowed = new Set(editorIslandSettingsRef.islandDefaultComponents);
+  const existingIsland = props.island ?? {};
+
+  if (isSlotShellComponentType(params.parent?.type)) {
+    if (existingIsland.islandUserOverride === true) {
+      return props;
+    }
+
+    return {
+      ...props,
+      island: {
+        ...ISLAND_DEFAULTS,
+        ...existingIsland,
+        islandEnabled: false,
+      },
+    };
+  }
+
+  const allowed = new Set(resolveEffectiveIslandComponents());
   if (!allowed.has(componentType)) return props;
-  if (isIslandActive(props)) return props;
 
   const parentProps = params.parent?.props;
   if (parentProps && isIslandActive(parentProps)) return props;
 
-  const existingIsland = props.island ?? {};
-  const existingSpacing = props.spacing ?? {};
+  if (existingIsland.islandUserOverride === true) return props;
+
+  const existingSpacing = (props.spacing ?? {}) as SpacingProps;
+  const mergedSpacing = mergeRootInsertSpacing(componentType, existingSpacing);
+
+  if (isIslandActive(props)) {
+    return {
+      ...props,
+      spacing: mergedSpacing,
+    };
+  }
 
   return {
     ...props,
-    spacing: {
-      ...SPACING_DEFAULTS,
-      ...existingSpacing,
-    },
+    spacing: mergedSpacing,
     island: {
       ...ISLAND_DEFAULTS,
       ...existingIsland,
@@ -382,6 +458,7 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
   const originalRender = block.render;
   const originalResolveFields = block.resolveFields;
   const originalResolveData = block.resolveData;
+  const islandDefaultSpacing = ISLAND_AUTO_SPACING_DEFAULTS;
 
   return {
     ...block,
@@ -392,7 +469,7 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
     },
     defaultProps: {
       ...block.defaultProps,
-      spacing: SPACING_DEFAULTS,
+      spacing: islandDefaultSpacing,
       island: ISLAND_DEFAULTS,
     },
     resolveFields: (data, params) => {

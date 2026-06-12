@@ -335,14 +335,46 @@ body {
 
 /* ── Carousel (NexusCarousel published output) ──────────────────────────── */
 .nexus-carousel {
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border-default);
-  overflow: hidden;
+  --nexus-carousel-gap: 0.75rem;
   position: relative;
   width: 100%;
 }
 
+/* Single visible slide — one framed panel */
+.nexus-carousel--single-frame {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  overflow: hidden;
+}
+
+/* Multiple visible slides — separate cards with gap between */
+.nexus-carousel--multi-slide {
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+/* Edit overflow carousels — clip at root so off-screen slides never paint outside the block */
+.nexus-carousel--edit.nexus-carousel--multi-slide {
+  overflow: hidden;
+}
+
+.nexus-carousel--multi-slide .nexus-carousel__viewport {
+  overflow: hidden;
+}
+
+.nexus-carousel--multi-slide .nexus-carousel__slide {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--nexus-carousel-slide-radius, var(--radius-md));
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .nexus-carousel--empty {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: 13px;
   padding: 24px;
@@ -354,16 +386,114 @@ body {
   width: 100%;
 }
 
+.nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport {
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
+}
+
 .nexus-carousel__slide {
+  display: flex;
+  flex-direction: column;
   position: relative;
   width: 100%;
 }
 
-/* Multi-slide track — gap and flex-basis per slides-per-view preset */
-.nexus-carousel {
-  --nexus-carousel-gap: 0.75rem;
+/* ── Carousel slide: slot + nested blocks fill the card ── */
+.nexus-carousel__slide-dropzone-shell,
+.nexus-carousel__slide .nexus-carousel__dropzone,
+.nexus-carousel__slide [data-puck-dropzone] {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: inherit;
+  padding: 0;
+  width: 100%;
 }
 
+.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:has(.nexus-carousel__slide-media-fill) {
+  display: block;
+  height: 100%;
+  inset: 0;
+  max-height: 100%;
+  min-height: 0 !important;
+  overflow: hidden;
+  position: absolute;
+  width: 100%;
+}
+
+.nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) [data-puck-dropzone] {
+  height: 100%;
+  min-height: 0 !important;
+  padding: 0;
+  position: static;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
+  [data-puck-dropzone] {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
+  position: relative;
+  width: 100%;
+}
+
+/* Fill-slide media — anchor to `.nexus-carousel__slide`, cover the card */
+.nexus-carousel__slide .nexus-video,
+.nexus-carousel__slide .nexus-image--fill-slide,
+.nexus-video--fill-slide,
+.nexus-image--fill-slide {
+  display: block !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: absolute !important;
+  width: 100% !important;
+  z-index: 1;
+}
+
+.nexus-carousel__slide .nexus-video > .nexus-video__frame,
+.nexus-carousel__slide .nexus-image--fill-slide > .nexus-image__frame,
+.nexus-video--fill-slide > .nexus-video__frame,
+.nexus-video__frame--fill-slide,
+.nexus-image--fill-slide > .nexus-image__frame {
+  border: none;
+  border-radius: 0;
+  height: 100%;
+  inset: 0;
+  max-width: none;
+  position: absolute;
+  width: 100%;
+}
+
+.nexus-carousel__slide .nexus-video [data-slot="aspect-ratio"],
+.nexus-video--fill-slide [data-slot="aspect-ratio"] {
+  aspect-ratio: unset !important;
+  height: 100% !important;
+  inset: 0;
+  position: absolute;
+  width: 100% !important;
+}
+
+.nexus-carousel__slide .nexus-video__media,
+.nexus-carousel__slide .nexus-image__media {
+  object-fit: cover;
+}
+
+/* Multi-slide track — gap and flex-basis per slides-per-view preset */
 .nexus-carousel--spv-1 [data-slot="carousel-content"] > .flex {
   gap: 0;
 }
@@ -374,22 +504,32 @@ body {
   min-width: 0;
 }
 
+/*
+ * Loop-safe slide spacing — padding-left + negative track margin (not flex gap).
+ * Flex `gap` is omitted at the Embla loop seam between the last and first slide.
+ * `width: calc(100% + gap)` balances the negative margin so the row fills the viewport.
+ */
 .nexus-carousel--spv-2 [data-slot="carousel-content"] > .flex,
-.nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex,
-.nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
-  gap: var(--nexus-carousel-gap);
+.nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex {
+  gap: 0;
+  margin-left: calc(-1 * var(--nexus-carousel-gap));
+  width: calc(100% + var(--nexus-carousel-gap));
+}
+
+.nexus-carousel--spv-2 [data-slot="carousel-item"],
+.nexus-carousel--spv-3 [data-slot="carousel-item"] {
+  padding-left: var(--nexus-carousel-gap);
+  min-width: 0;
 }
 
 .nexus-carousel--spv-2 [data-slot="carousel-item"] {
-  flex: 0 0 calc((100% - var(--nexus-carousel-gap)) / 2) !important;
-  max-width: calc((100% - var(--nexus-carousel-gap)) / 2);
-  min-width: 0;
+  flex: 0 0 50% !important;
+  max-width: 50%;
 }
 
 .nexus-carousel--spv-3 [data-slot="carousel-item"] {
-  flex: 0 0 calc((100% - var(--nexus-carousel-gap) * 2) / 3) !important;
-  max-width: calc((100% - var(--nexus-carousel-gap) * 2) / 3);
-  min-width: 0;
+  flex: 0 0 calc(100% / 3) !important;
+  max-width: calc(100% / 3);
 }
 
 .nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
@@ -404,23 +544,29 @@ body {
 
 @media (min-width: 768px) {
   .nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
-    gap: var(--nexus-carousel-gap);
+    margin-left: calc(-1 * var(--nexus-carousel-gap));
+    width: calc(100% + var(--nexus-carousel-gap));
   }
 
   .nexus-carousel--spv-auto [data-slot="carousel-item"] {
-    flex: 0 0 calc((100% - var(--nexus-carousel-gap)) / 2) !important;
-    max-width: calc((100% - var(--nexus-carousel-gap)) / 2);
+    padding-left: var(--nexus-carousel-gap);
+    flex: 0 0 50% !important;
+    max-width: 50%;
   }
 }
 
 @media (min-width: 1024px) {
   .nexus-carousel--spv-auto [data-slot="carousel-item"] {
-    flex: 0 0 calc((100% - var(--nexus-carousel-gap) * 2) / 3) !important;
-    max-width: calc((100% - var(--nexus-carousel-gap) * 2) / 3);
+    flex: 0 0 calc(100% / 3) !important;
+    max-width: calc(100% / 3);
   }
 }
 
 /* Auto-height carousels — equalize slide heights to tallest slide in the track */
+.nexus-carousel [data-slot="carousel-content"] > .flex {
+  flex-wrap: nowrap !important;
+}
+
 .nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
   align-items: stretch;
 }
@@ -428,14 +574,25 @@ body {
 .nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"],
 .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__slide {
   height: auto;
-  min-height: 100%;
+  min-height: 0;
 }
 
-/* Auto-height carousels — drop zones and empty slides keep a usable minimum */
+.nexus-carousel:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:not(:has([data-puck-component])) {
+  min-height: var(--nexus-carousel-auto-min-height, 240px);
+}
+
+/* Auto-height carousels — empty drop zones keep a usable minimum */
 .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
 .nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
   min-height: var(--nexus-carousel-auto-min-height, 240px);
   box-sizing: border-box;
+}
+
+.nexus-carousel:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:not(:has(.nexus-carousel__slide-media-fill)) {
+  height: auto;
+  min-height: 0;
 }
 
 /* Fixed-height carousels — propagate configured slide height through Embla chain */
@@ -545,6 +702,34 @@ body {
 
 .nexus-carousel__arrow--next {
   right: 12px;
+}
+
+.nexus-carousel__edit-select {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  bottom: 10px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  line-height: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  right: 12px;
+  touch-action: manipulation;
+  width: 40px;
+  z-index: 2;
+}
+
+.nexus-carousel__edit-select:hover {
+  border-color: var(--color-accent-user);
+  color: var(--color-text-primary);
 }
 
 .nexus-carousel__dots {

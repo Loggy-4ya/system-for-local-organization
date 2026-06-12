@@ -13,6 +13,7 @@ import { FieldLabel, type Overrides } from "@measured/puck";
 import Link from "next/link";
 import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
 import { EditorModeToggle } from "@/components/puck/EditorModeToggle";
+import { IslandInsertDefaultsSync } from "@/components/puck/IslandInsertDefaultsSync";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { componentDrawerIcon, fieldLabelIcon } from "@/components/puck/lib/puckIcons";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
@@ -195,6 +196,7 @@ function PuckHeaderActionsOverride({ children }: { children: React.ReactNode }) 
 
   return (
     <>
+      <IslandInsertDefaultsSync />
       {error ? (
         <span
           style={{

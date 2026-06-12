@@ -145,6 +145,19 @@ export function findComponentById(data: Data, id: string): PuckParentRef | null 
   return found;
 }
 
+/** Puck block types whose slot children already live inside a framed shell. */
+export const SLOT_SHELL_COMPONENT_TYPES = new Set(["NexusCarousel", "NexusTabs"]);
+
+/**
+ * Whether a component type provides a slot shell that replaces per-block island framing.
+ *
+ * @param type - Puck registry key.
+ * @returns True for carousel slides and tab panels.
+ */
+export function isSlotShellComponentType(type: string | undefined): boolean {
+  return Boolean(type && SLOT_SHELL_COMPONENT_TYPES.has(type));
+}
+
 /**
  * Whether any ancestor of the component has island mode active.
  *
@@ -172,6 +185,31 @@ export function hasAncestorWithActiveIsland(data: Data, componentId: string): bo
 }
 
 /**
+ * Whether any ancestor is a slot-shell block (carousel slide / tab panel host).
+ *
+ * Slot children should not auto-enable island — the parent strip already frames content.
+ *
+ * @param data - Puck document state.
+ * @param componentId - Target component id.
+ * @returns True when nested under {@link SLOT_SHELL_COMPONENT_TYPES}.
+ */
+export function hasAncestorWithSlotShell(data: Data, componentId: string): boolean {
+  let match = findComponentById(data, componentId);
+
+  while (match?.parent) {
+    if (isSlotShellComponentType(match.parent.type)) {
+      return true;
+    }
+
+    const parentId = String(match.parent.props.id ?? "");
+    if (!parentId) break;
+    match = findComponentById(data, parentId);
+  }
+
+  return false;
+}
+
+/**
  * Deep-clone and patch props on a component node.
  *
  * @param node - Source component node.
@@ -179,12 +217,28 @@ export function hasAncestorWithActiveIsland(data: Data, componentId: string): bo
  * @returns Cloned node with patched props.
  */
 function patchNodeProps(node: PuckComponentNode, patch: Record<string, unknown>): PuckComponentNode {
+  const nextProps: Record<string, unknown> = {
+    ...node.props,
+    ...patch,
+  };
+
+  if (patch.spacing && typeof patch.spacing === "object") {
+    nextProps.spacing = {
+      ...((node.props.spacing as Record<string, unknown> | undefined) ?? {}),
+      ...(patch.spacing as Record<string, unknown>),
+    };
+  }
+
+  if (patch.island && typeof patch.island === "object") {
+    nextProps.island = {
+      ...((node.props.island as Record<string, unknown> | undefined) ?? {}),
+      ...(patch.island as Record<string, unknown>),
+    };
+  }
+
   return {
     ...node,
-    props: {
-      ...node.props,
-      ...patch,
-    },
+    props: nextProps,
   };
 }
 

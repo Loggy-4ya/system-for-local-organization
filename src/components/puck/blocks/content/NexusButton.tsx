@@ -10,6 +10,7 @@
  */
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { BUTTON_SIZE_OPTIONS } from "../../lib/fieldOptionLabels";
 import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
@@ -53,11 +54,7 @@ export const NexusButton = {
     size: {
       type: "radio" as const,
       label: "Size",
-      options: [
-        { label: "Small", value: "sm" },
-        { label: "Medium", value: "md" },
-        { label: "Large", value: "lg" },
-      ],
+      options: [...BUTTON_SIZE_OPTIONS],
     },
     fullWidth: {
       type: "radio" as const,

@@ -10,6 +10,7 @@
 
 import type { Config } from "@measured/puck";
 import { withBlockShell, SPACING_DEFAULTS, ISLAND_DEFAULTS, type SpacingProps, type IslandProps } from "./lib/spacingFields";
+import { DEFAULT_ISLAND_COMPONENTS } from "@shared/constants/editorSettings";
 
 import { PageRoot } from "./root/PageRoot";
 
@@ -39,6 +40,20 @@ import { NexusUserBadge } from "./blocks/user/NexusUserBadge";
 import { NexusStatCard } from "./blocks/user/NexusStatCard";
 import { NexusAvatar } from "./blocks/user/NexusAvatar";
 
+/** Default vertical margins for all shell-wrapped blocks (8px top + bottom). */
+const ROOT_SHELL_SPACING: Partial<SpacingProps> = {
+  marginTop: "sm",
+  marginBottom: "sm",
+};
+
+/**
+ * Default margin spacing shown in the sidebar for admin island-default component types.
+ */
+const ISLAND_COMPONENT_MARGIN_DEFAULTS: Partial<SpacingProps> = {
+  marginTop: "sm",
+  marginBottom: "sm",
+};
+
 /**
  * Wrap a block with shared spacing/lining fields and optional shell defaults.
  *
@@ -53,10 +68,14 @@ function shellBlock(
   shellDefaults?: Partial<SpacingProps & IslandProps>,
 ) {
   const wrapped = withBlockShell(block, componentType);
-  if (shellDefaults) {
-    const spacing: Partial<SpacingProps> = {};
-    const island: Partial<IslandProps> = {};
+  const islandMarginDefaults = DEFAULT_ISLAND_COMPONENTS.includes(componentType)
+    ? ISLAND_COMPONENT_MARGIN_DEFAULTS
+    : {};
 
+  const spacing: Partial<SpacingProps> = { ...islandMarginDefaults };
+  const island: Partial<IslandProps> = {};
+
+  if (shellDefaults) {
     for (const [key, value] of Object.entries(shellDefaults)) {
       if (key in SPACING_DEFAULTS) {
         (spacing as Record<string, unknown>)[key] = value;
@@ -64,7 +83,9 @@ function shellBlock(
         (island as Record<string, unknown>)[key] = value;
       }
     }
+  }
 
+  if (Object.keys(spacing).length > 0 || Object.keys(island).length > 0) {
     wrapped.defaultProps = {
       ...wrapped.defaultProps,
       spacing: { ...(wrapped.defaultProps.spacing as SpacingProps), ...spacing },
@@ -115,16 +136,16 @@ function listShellBlock() {
 export const puckConfig = {
   root: PageRoot as any,
   components: {
-    NexusSection: shellBlock("NexusSection", NexusSection as any),
+    NexusSection: shellBlock("NexusSection", NexusSection as any, ROOT_SHELL_SPACING),
     NexusGrid: shellBlock("NexusGrid", NexusGrid as any),
     NexusGridItem: shellBlock("NexusGridItem", NexusGridItem as any),
     NexusColumns: shellBlock("NexusColumns", NexusColumns as any),
     NexusSpacer: shellBlock("NexusSpacer", NexusSpacer as any),
 
-    NexusHeading: shellBlock("NexusHeading", NexusHeading as any, { marginBottom: "sm" }),
+    NexusHeading: shellBlock("NexusHeading", NexusHeading as any),
     NexusText: shellBlock("NexusText", NexusText as any),
     NexusImage: shellBlock("NexusImage", NexusImage as any),
-    NexusDivider: shellBlock("NexusDivider", NexusDivider as any, { marginTop: "md", marginBottom: "md" }),
+    NexusDivider: shellBlock("NexusDivider", NexusDivider as any),
     NexusQuote: shellBlock("NexusQuote", NexusQuote as any),
     NexusVideo: shellBlock("NexusVideo", NexusVideo as any),
     NexusAccordion: shellBlock("NexusAccordion", NexusAccordion as any),
