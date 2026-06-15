@@ -3,10 +3,13 @@
 /**
  * @fileoverview Inline editable page title for the Puck editor header.
  *
+ * @deprecated Superseded by {@link PageHeaderLabel} + {@link PageSettingsFieldGroup}
+ * with {@link editorPageMetadataStore}. Not mounted in the current editor shell.
+ *
  * @module src/components/puck/PageTitleEditor
  */
 
-import { useGetPuck } from "@measured/puck";
+import { useGetPuck } from "@puckeditor/core";
 import { useNexusPuck } from "./lib/useNexusPuck";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";

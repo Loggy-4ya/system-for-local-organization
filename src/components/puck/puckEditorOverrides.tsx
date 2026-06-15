@@ -9,11 +9,11 @@
  * @module src/components/puck/puckEditorOverrides
  */
 
-import { FieldLabel, type Overrides } from "@measured/puck";
+import { FieldLabel, type Overrides } from "@puckeditor/core";
 import Link from "next/link";
+import { LayoutList } from "lucide-react";
 import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
 import { EditorModeToggle } from "@/components/puck/EditorModeToggle";
-import { IslandInsertDefaultsSync } from "@/components/puck/IslandInsertDefaultsSync";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { componentDrawerIcon, fieldLabelIcon } from "@/components/puck/lib/puckIcons";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
@@ -24,6 +24,23 @@ import {
   resolveToggleValues,
 } from "@/components/puck/lib/binaryToggleFields";
 import { usePuckEditorError } from "@/components/puck/PuckEditorErrorContext";
+import { NexusPuckHeaderShell } from "@/components/puck/NexusPuckHeaderShell";
+import { PuckAutoViewportSync } from "@/components/puck/PuckAutoViewportSync";
+import { PageHeaderLabel } from "@/components/puck/PageHeaderLabel";
+import { editorPagePathRef } from "@/components/puck/lib/editorPagePathRef";
+import { NexusMobilePanelResizer } from "@/components/puck/NexusMobilePanelResizer";
+import { NexusMobileNavPanelGestures } from "@/components/puck/NexusMobileNavPanelGestures";
+import { NexusMobilePanelOpenAnimation } from "@/components/puck/NexusMobilePanelOpenAnimation";
+import { NexusSidebarWidthClamp } from "@/components/puck/NexusSidebarWidthClamp";
+import { NexusMobilePanelCanvasStabilizer } from "@/components/puck/NexusMobilePanelCanvasStabilizer";
+import { NexusPuckZoomGuard } from "@/components/puck/NexusPuckZoomGuard";
+import { NexusSidebarResizeStabilizer } from "@/components/puck/NexusSidebarResizeStabilizer";
+import { NexusViewportZoomEnhancer } from "@/components/puck/NexusViewportZoomEnhancer";
+import { NexusMobileViewportToggleIcon } from "@/components/puck/NexusMobileViewportToggleIcon";
+import { NexusPublishButton } from "@/components/puck/NexusPublishButton";
+import { NexusEditorScrollportGrid } from "@/components/puck/NexusEditorScrollportGrid";
+import { NexusCanvasWheelBridge } from "@/components/puck/NexusCanvasWheelBridge";
+import { NexusCanvasDragCoordinator } from "@/components/puck/NexusCanvasDragCoordinator";
 
 /** Puck field label wrapper passed into `fieldTypes` overrides. */
 type PuckFieldLabelComponent = React.ComponentType<{
@@ -95,6 +112,7 @@ function PuckRadioFieldOverride({
   const options = (field.options ?? []).map((opt) => ({
     label: opt.label,
     value: String(opt.value ?? ""),
+    title: (opt as { title?: string }).title,
   }));
 
   const fieldLabel = label ?? field.label ?? name ?? "Option";
@@ -191,55 +209,68 @@ function PuckFieldLabelOverride({
 }
 
 /** Puck `headerActions` override — publish controls plus Nexus chrome. */
-function PuckHeaderActionsOverride({ children }: { children: React.ReactNode }) {
+function PuckHeaderActionsOverride() {
   const error = usePuckEditorError();
 
   return (
-    <>
-      <IslandInsertDefaultsSync />
+    <span className="nexus-puck-header-actions">
       {error ? (
-        <span
-          style={{
-            fontSize: "12px",
-            color: "#ef4444",
-            marginRight: "12px",
-            fontWeight: 500,
-            background: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
-            padding: "4px 8px",
-            borderRadius: "var(--radius-sm)",
-          }}
-        >
-          {error}
-        </span>
+        <span className="nexus-puck-header-actions__error">{error}</span>
       ) : null}
+
+      <ThemeToggle className="nexus-editor-header-btn nexus-puck-header-actions__theme" />
 
       <Link
         href="/pages"
-        style={{
-          fontSize: "12px",
-          color: "var(--color-text-primary)",
-          textDecoration: "none",
-          padding: "6px 12px",
-          background: "var(--color-bg-elevated)",
-          border: "1px solid var(--color-border-default)",
-          borderRadius: "var(--radius-sm)",
-          fontWeight: 500,
-          marginRight: "8px",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "4px",
-        }}
+        className="nexus-puck-header-actions__pages-link nexus-editor-header-btn"
+        aria-label="All pages"
+        title="All pages"
       >
-        <span>All Pages</span>
+        <LayoutList
+          className="nexus-puck-header-actions__pages-icon"
+          size={14}
+          strokeWidth={2.25}
+          aria-hidden
+        />
+        <span className="nexus-puck-header-actions__pages-label">All Pages</span>
       </Link>
 
-      <span style={{ marginRight: "8px", display: "inline-flex", gap: "8px" }}>
-        <EditorModeToggle />
-        <ThemeToggle />
-      </span>
+      <EditorModeToggle className="nexus-mode-toggle nexus-editor-header-btn" />
 
+      <NexusPublishButton />
+    </span>
+  );
+}
+
+/** Puck `header` override — site-header glass shell around the default toolbar. */
+function PuckHeaderOverride({
+  children,
+}: {
+  children: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  return <NexusPuckHeaderShell>{children}</NexusPuckHeaderShell>;
+}
+
+/** Puck root override — preserve default layout and mount viewport sync. */
+function PuckRootOverride({ children }: { children: React.ReactNode }) {
+  return (
+    <>
       {children}
+      <PageHeaderLabel key={editorPagePathRef.currentPath} />
+      <PuckAutoViewportSync />
+      <NexusSidebarResizeStabilizer />
+      <NexusMobilePanelCanvasStabilizer />
+      <NexusPuckZoomGuard />
+      <NexusSidebarWidthClamp />
+      <NexusMobilePanelResizer />
+      <NexusMobilePanelOpenAnimation />
+      <NexusMobileNavPanelGestures />
+      <NexusViewportZoomEnhancer />
+      <NexusMobileViewportToggleIcon />
+      <NexusEditorScrollportGrid />
+      <NexusCanvasWheelBridge />
+      <NexusCanvasDragCoordinator />
     </>
   );
 }
@@ -255,5 +286,7 @@ export const PUCK_EDITOR_OVERRIDES: Partial<Overrides> = {
   iframe: PuckIframeOverride,
   drawerItem: PuckDrawerItemOverride,
   fieldLabel: PuckFieldLabelOverride,
+  header: PuckHeaderOverride,
   headerActions: PuckHeaderActionsOverride,
+  puck: PuckRootOverride,
 };

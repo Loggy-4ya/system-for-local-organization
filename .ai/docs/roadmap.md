@@ -13,17 +13,18 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 
 ## Phase 1: Global Layout, Theming & Background Engine
 - [~] **Figma Design Preview:** Dark theme + strict admin shell on `58:2`/`58:17`. News (`59:17`), Editor (`59:32`), Profile (`59:47`) dark-themed. Remaining: variable bindings, light toggle previews, Foundations type/spacing specimens. See `.ai/docs/features/figma_ui_integration.md`.
-- [~] **Puck.js Integration:** `@measured/puck` installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; custom image upload API (`src/app/api/upload/route.ts`); root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`).
-- [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed).
+- [~] **Puck.js Integration:** `@puckeditor/core` 0.21.x installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; custom image upload API (`src/app/api/upload/route.ts`); root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`); mobile plugin rail; Outline tree drag reorder; auto viewport sync; glass viewport instrument island; three-tier responsive canvas layout (compact ≤900px, narrow desktop 901–1023px).
+- [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining, root-level block default margin (`sm` / `--spacing-sm`), canvas slot reparenting + full-container drop highlights — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed) and `.ai/docs/features/puck_editor.md` §3b / §6c.
 - [~] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
-- [x] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
-- [~] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). Shadcn UI (Base UI / `base-vega`) installed with token bridge in `globals.css`. `GlobalHeader` + `SiteHeaderBar` with command-palette mobile nav, theme toggle (☀/☾), and RBAC `showAdminPanel` prop.
+- [~] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
+- [~] **Design System & Theming:** `next-themes` installed; `globals.css` defines all Nexus/Color tokens, spacing, radius, glass utilities, accent families (5 × 3 shades). Shadcn UI (Base UI / `base-vega`) installed with token bridge in `globals.css`. `GlobalHeader` + `SiteHeaderBar` with fixed header, native `<details>` mobile nav (no JS), `ThemeToggleLink` + `/api/theme/toggle`, theme toggle (☀/☾) in Puck editor via client `ThemeToggle`, and RBAC `showAdminPanel` prop.
+- [x] **Configurable Global Layout:** MongoDB-backed configurable header categories and footer columns with live preview and Admin-only Global Layout Editor at `/admin/global-layout`.
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
-- [ ] **Cross-Platform Auth:** Implement login using Google OAuth2, Apple, and Telegram Widget.
-- [ ] **Bot Data Harvesting:** Merge Telegram ingress data (phone number, current name, username, avatar) into the unified MongoDB record.
-- [ ] **Profile Management:** Build the user profile page displaying personal info, statistics, special tags, and assigned tasks (hiding sensitive info from non-admins).
-- [ ] **Student Registration Flow:** Create custom sign-up tabs to capture Specialty, Group, and specific roles (e.g., "I am a starosta", "I am a deputy").
+- [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, and email/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md`.
+- [~] **Bot Data Harvesting:** Telegram Login Widget merges phone, name, username, avatar into unified MongoDB record.
+- [x] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields. Task/activity panels use placeholders until Phase 5.
+- [x] **Student Registration Flow:** `/signup` captures Specialty, Group, and student title chips (Starosta / Deputy / Neither).
 
 ## Phase 3: The Admin Dashboard & Complex Tables (Admin Domain)
 - [ ] **Leaderboard & Gamification:** Calculate and display user "Stars" as the sum of coins and crystals earned over the study period.

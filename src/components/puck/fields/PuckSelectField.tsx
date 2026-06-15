@@ -29,6 +29,10 @@ export interface PuckSelectFieldProps {
   className?: string;
   triggerClassName?: string;
   placeholder?: string;
+  /** Popover placement relative to the trigger. */
+  contentSide?: "top" | "bottom";
+  /** Override label shown in the trigger (dropdown items unchanged). */
+  displayLabel?: string;
 }
 
 /**
@@ -44,17 +48,24 @@ export function PuckSelectField({
   className,
   triggerClassName,
   placeholder,
+  contentSide = "bottom",
+  displayLabel,
 }: PuckSelectFieldProps) {
   const storedValue = String(value ?? "");
   const selectedLabel =
-    options.find((opt) => opt.value === storedValue)?.label ?? storedValue;
+    displayLabel ??
+    options.find((opt) => opt.value === storedValue)?.label ??
+    storedValue;
 
   return (
     <Select value={storedValue} onValueChange={(next) => onChange(next ?? "")}>
-      <SelectTrigger className={cn("nexus-puck-select-trigger w-full", triggerClassName)} size="sm">
+      <SelectTrigger
+        className={cn("nexus-puck-select-trigger !w-full", triggerClassName)}
+        size="sm"
+      >
         <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
       </SelectTrigger>
-      <SelectContent className={className}>
+      <SelectContent className={className} side={contentSide}>
         {options.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}

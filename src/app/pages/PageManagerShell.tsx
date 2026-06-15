@@ -8,6 +8,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { StaticPageShell } from "@/components/ui/StaticPageShell";
+import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { EditorDefaultsPanel } from "./EditorDefaultsPanel";
 import { NewPageForm } from "./NewPageForm";
 
@@ -27,6 +29,8 @@ interface PageManagerShellProps {
   pages: PageManagerRow[];
   /** Optional notice shown above the new-page form. */
   notice?: PageManagerNotice;
+  /** Whether to show admin settings links. */
+  showAdminSettings?: boolean;
 }
 
 type ManagerTab = "pages" | "defaults";
@@ -37,46 +41,63 @@ type ManagerTab = "pages" | "defaults";
  * @param props - See {@link PageManagerShellProps}.
  * @returns Tabbed page manager UI.
  */
-export function PageManagerShell({ pages, notice }: PageManagerShellProps) {
+export function PageManagerShell({ pages, notice, showAdminSettings = false }: PageManagerShellProps) {
   const [tab, setTab] = useState<ManagerTab>("pages");
 
   return (
-    <div className="page-shell flex flex-1 flex-col gap-8 py-12">
-      <div className="flex flex-col gap-1">
-        <h1
-          style={{
-            fontSize: "1.5rem",
-            fontWeight: 700,
-            color: "var(--color-text-primary)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Page Manager
-        </h1>
-        <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>
-          Create and edit Puck-managed pages. Configure editor defaults for island mode.
-        </p>
-      </div>
+    <StaticPageShell
+      contentWidth={STATIC_ROUTE_CONTENT_WIDTH["/pages"]}
+      className="gap-8 py-12"
+    >
+      {/* Page Header wrapped in a glass-panel */}
+      <div className="glass-panel w-full rounded-lg p-6 shadow-md border border-zinc-700/20 dark:border-zinc-300/10 flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: "var(--color-text-primary)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Page Manager
+            </h1>
+            <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>
+              Create and edit Puck-managed pages. Configure editor defaults for island mode.
+            </p>
+          </div>
 
-      <div className="page-manager-tabs" role="tablist" aria-label="Page manager sections">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "pages"}
-          className={`page-manager-tabs__tab${tab === "pages" ? " page-manager-tabs__tab--active" : ""}`}
-          onClick={() => setTab("pages")}
-        >
-          Pages
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "defaults"}
-          className={`page-manager-tabs__tab${tab === "defaults" ? " page-manager-tabs__tab--active" : ""}`}
-          onClick={() => setTab("defaults")}
-        >
-          Editor Defaults
-        </button>
+          {showAdminSettings && (
+            <Link
+              href="/admin/global-layout"
+              className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors shrink-0"
+            >
+              Global Layout Editor
+            </Link>
+          )}
+        </div>
+
+        <div className="page-manager-tabs" role="tablist" aria-label="Page manager sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "pages"}
+            className={`page-manager-tabs__tab${tab === "pages" ? " page-manager-tabs__tab--active" : ""}`}
+            onClick={() => setTab("pages")}
+          >
+            Pages
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "defaults"}
+            className={`page-manager-tabs__tab${tab === "defaults" ? " page-manager-tabs__tab--active" : ""}`}
+            onClick={() => setTab("defaults")}
+          >
+            Editor Defaults
+          </button>
+        </div>
       </div>
 
       {tab === "pages" ? (
@@ -277,7 +298,7 @@ export function PageManagerShell({ pages, notice }: PageManagerShellProps) {
       ) : (
         <EditorDefaultsPanel />
       )}
-    </div>
+    </StaticPageShell>
   );
 }
 

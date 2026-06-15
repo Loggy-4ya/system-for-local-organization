@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/CarouselSlideLabelField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { formatCarouselSlideLabel } from "../lib/carouselSlideLabels";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 import {

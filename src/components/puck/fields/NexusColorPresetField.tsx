@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/NexusColorPresetField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import {
   getColorOptionsForGroup,
   normalizeColorToken,

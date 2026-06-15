@@ -3,11 +3,14 @@
 /**
  * @fileoverview Minimal collapsible chapter shell for Puck sidebar field groups.
  *
+ * Animated expand/collapse uses the same grid-accordion tokens as the Blocks drawer
+ * (see `puck-editor.css` `.nexus-field-chapter__collapse`).
+ *
  * @module src/components/puck/fields/FieldChapter
  */
 
 import { Box, Grid3x3, Palette, Settings2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { puckIcon } from "../lib/puckIcons";
 
 /** Props for a sidebar field chapter. */
@@ -26,23 +29,41 @@ export interface FieldChapterProps {
  * Compact collapsible chapter — closed by default, no borders or tree lines.
  *
  * @param props - See {@link FieldChapterProps}.
- * @returns Collapsible `<details>` section.
+ * @returns Animated collapsible chapter section.
  */
 export function FieldChapter({ title, icon, children, defaultOpen = false }: FieldChapterProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const [hydrated, setHydrated] = useState(false);
+  const panelId = useId();
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   return (
-    <details
+    <div
       className="nexus-field-chapter"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      data-open={open ? "true" : "false"}
+      {...(hydrated ? { "data-nexus-chapter-hydrated": true } : {})}
     >
-      <summary className="nexus-field-chapter__head">
+      <button
+        type="button"
+        className="nexus-field-chapter__head"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((prev) => !prev)}
+      >
         {icon ? <span className="nexus-field-chapter__icon">{icon}</span> : null}
         <span className="nexus-field-chapter__title">{title}</span>
-      </summary>
-      <div className="nexus-field-chapter__body">{children}</div>
-    </details>
+      </button>
+      <div
+        id={panelId}
+        className="nexus-field-chapter__collapse"
+        aria-hidden={!open}
+      >
+        <div className="nexus-field-chapter__body">{children}</div>
+      </div>
+    </div>
   );
 }
 

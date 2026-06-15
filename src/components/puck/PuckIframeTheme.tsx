@@ -12,10 +12,26 @@
  */
 
 import { useTheme } from "@teispace/next-themes";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
-/** DOM id used for the injected `<style>` element inside the preview iframe. */
+/** DOM id used for the injected token `<style>` element inside the preview iframe. */
 const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
+
+/** DOM id used for preview document scroll/overflow rules inside the iframe. */
+const DOCUMENT_STYLE_ID = "nexus-puck-preview-document";
+
+/** Ensures tall page content scrolls inside the preview iframe. */
+const PREVIEW_DOCUMENT_CSS = `
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+`;
 
 /**
  * Minimal Nexus semantic tokens required by Puck block inline styles.
@@ -95,12 +111,20 @@ export interface PuckIframeThemeProps {
  */
 export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThemeProps) {
   const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "light" ? "light" : "dark";
+
+  /** Sync `data-theme` before paint so iframe-contained grids read the active theme. */
+  useLayoutEffect(() => {
+    if (!iframeDoc?.documentElement) return;
+    iframeDoc.documentElement.setAttribute("data-theme", theme);
+    iframeDoc.documentElement.style.background = "transparent";
+    if (iframeDoc.body) {
+      iframeDoc.body.style.background = "transparent";
+    }
+  }, [iframeDoc, theme]);
 
   useEffect(() => {
     if (!iframeDoc?.documentElement) return;
-
-    const theme = resolvedTheme === "light" ? "light" : "dark";
-    iframeDoc.documentElement.setAttribute("data-theme", theme);
 
     let styleEl = iframeDoc.getElementById(TOKEN_STYLE_ID) as HTMLStyleElement | null;
     if (!styleEl) {
@@ -110,12 +134,21 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
       iframeDoc.head.appendChild(styleEl);
     }
 
+    let docStyleEl = iframeDoc.getElementById(DOCUMENT_STYLE_ID) as HTMLStyleElement | null;
+    if (!docStyleEl) {
+      docStyleEl = iframeDoc.createElement("style");
+      docStyleEl.id = DOCUMENT_STYLE_ID;
+      docStyleEl.textContent = PREVIEW_DOCUMENT_CSS;
+      iframeDoc.head.appendChild(docStyleEl);
+    }
+
     if (iframeDoc.body) {
       iframeDoc.body.style.color = "var(--color-text-primary)";
       iframeDoc.body.style.fontFamily = "var(--font-sans)";
       iframeDoc.body.style.margin = "0";
+      iframeDoc.body.style.background = "transparent";
     }
-  }, [iframeDoc, resolvedTheme]);
+  }, [iframeDoc, theme]);
 
   return <>{children}</>;
 }

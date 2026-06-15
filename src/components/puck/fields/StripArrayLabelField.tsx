@@ -9,7 +9,7 @@
  * @module src/components/puck/fields/StripArrayLabelField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 import {
   parseArrayIndexFromFieldName,

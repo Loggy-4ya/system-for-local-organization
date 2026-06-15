@@ -10,24 +10,24 @@
  */
 
 import React from "react";
-import { LAYOUT_GAP_OPTIONS } from "../../lib/fieldOptionLabels";
+import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
+import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
+import { GRID_COLUMN_OPTIONS, LAYOUT_GAP_OPTIONS } from "../../lib/fieldOptionLabels";
+import { resolveSpacingDimension } from "../../lib/resolveSpacingDimension";
+
+const GAP_DEFAULTS = { preset: "md", custom: "16px" };
 
 export const NexusGrid = {
   label: "Grid Layout",
   fields: {
-    columns: {
-      type: "select" as const,
-      label: "Grid Columns (1-12)",
-      options: Array.from({ length: 12 }, (_, i) => ({
-        label: `${i + 1} Column${i > 0 ? "s" : ""}`,
-        value: String(i + 1),
-      })),
-    },
-    gap: {
-      type: "select" as const,
+    columns: createSteppedSliderField("Grid Columns", GRID_COLUMN_OPTIONS),
+    gap: createPresetDimensionPuckField({
       label: "Gap Size",
-      options: [...LAYOUT_GAP_OPTIONS],
-    },
+      options: LAYOUT_GAP_OPTIONS,
+      defaultPreset: "md",
+      defaultCustom: "16px",
+      showSpacingHint: true,
+    }),
     content: {
       type: "slot" as const,
       label: "Grid Items",
@@ -36,37 +36,39 @@ export const NexusGrid = {
   },
   defaultProps: {
     columns: "12" as const,
-    gap: "medium" as const,
+    gap: { preset: "md", custom: "16px" },
   },
   render({
     columns,
     gap,
     content: Content,
+    puck,
   }: {
     columns: string;
-    gap: "none" | "small" | "medium" | "large";
-    content: React.ComponentType<{ style?: React.CSSProperties }>;
+    gap: unknown;
+    content: React.ComponentType<{
+      className?: string;
+      style?: React.CSSProperties;
+      minEmptyHeight?: number | string;
+    }>;
+    puck?: { isEditing?: boolean };
   }) {
-    const gapStyles = {
-      none: "0px",
-      small: "var(--spacing-sm)",
-      medium: "var(--spacing-md)",
-      large: "var(--spacing-lg)",
-    };
-
     const cols = parseInt(columns, 10) || 12;
+    const resolvedGap = resolveSpacingDimension(gap, GAP_DEFAULTS);
 
     return (
-      <div style={{ width: "100%", padding: "var(--spacing-sm) 0" }}>
-        <Content
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            gap: gapStyles[gap] || gapStyles.medium,
-            width: "100%",
-          }}
-        />
-      </div>
+      <Content
+        className="nexus-grid"
+        minEmptyHeight={puck?.isEditing ? 120 : undefined}
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoRows: "min-content",
+          alignItems: "start",
+          gap: resolvedGap,
+          width: "100%",
+        }}
+      />
     );
   },
 };

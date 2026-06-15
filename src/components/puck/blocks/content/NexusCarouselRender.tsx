@@ -10,44 +10,55 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { Settings2 } from "lucide-react";
-import { useGetPuck } from "@measured/puck";
+import { Pause, Play, Settings2 } from "lucide-react";
+import { useGetPuck } from "@puckeditor/core";
 import { useNexusPuck, usePuckPreviewMode } from "../../lib/useNexusPuck";
 import { selectPuckComponentById } from "../../lib/selectPuckComponentById";
+import { syncPuckComponentOverlay, syncPuckOverlaysInRoot } from "../../lib/puckOverlaySync";
+import type { PuckOverlaySyncStore } from "../../lib/puckOverlaySync";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
 import {
   resolveCarouselBorderRadius,
-  resolveCarouselHeight,
   resolveCarouselMinEmptyHeightPx,
+  resolveCarouselEffectiveHeight,
   CAROUSEL_AUTO_MIN_HEIGHT_PX,
 } from "../../fields/CarouselDimensionFields";
 import { cn } from "@/lib/utils";
+import { CarouselSlideMediaProvider } from "../../CarouselSlideMediaContext";
 import { usePuckOverlayPortalRef } from "../../lib/usePuckOverlayPortal";
 import { useStripActiveIndex } from "../../lib/useStripActiveIndex";
 import { usePuckArrayOpenStripSync } from "../../lib/usePuckArrayOpenStripSync";
 import {
-  resolveCarouselEmblaScrollOptions,
-  resolveCarouselScrollSnapCount,
+  resolveCarouselNavScrollStep,
+  resolveCarouselPagePlan,
   resolveEditScrollSnapForSlide,
-  resolveFirstSlideIndexForPage,
-  resolvePageIndexForSlide,
+  resolvePageIndexForSnap,
+  resolveLoopSnapDirection,
   resolveVisibleSlideCountAtWidth,
-} from "../../lib/carouselEmblaOptions";
+  AUTO_SLIDES_PER_VIEW_BREAKPOINTS,
+  type CarouselPagePlan,
+} from "../../lib/carouselPagination";
+import {
+  resolveCarouselEmblaScrollOptions,
+  resolveCarouselEmblaMotionOptions,
+  scrollEngineToSnap,
+} from "../../lib/carouselEngine";
+import { useCarouselNavController } from "../../lib/useCarouselNavController";
 import {
   CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
+  NEXUS_CAROUSEL_FILL_ATTR,
   measureFillSlideComponentHeight,
 } from "../../lib/carouselMediaFill";
 
@@ -76,6 +87,8 @@ export interface NexusCarouselRenderProps {
   slides: CarouselSlide[];
   height: string;
   heightCustom?: string;
+  maxHeight?: string;
+  maxHeightCustom?: string;
   borderRadius: string;
   borderRadiusCustom?: string;
   autoplay: "on" | "off";
@@ -92,13 +105,53 @@ export interface NexusCarouselRenderProps {
 interface NexusCarouselBodyProps extends NexusCarouselRenderProps {
   editLayoutMode: boolean;
   controlsPortalRef: (node: HTMLElement | null) => void;
-  syncPuckOverlay: () => void;
+  /** Puck store accessor for overlay re-sync (editor only). */
+  getPuck?: any;
   onSelectCarousel?: () => void;
 }
 
 /** No-op portal ref for published / static render (outside Puck editor). */
 function useNoopPortalRef() {
   return useCallback((_node: HTMLElement | null) => undefined, []);
+}
+
+/**
+ * Measure CSS grid content height from intrinsic layout (ignores parent stretch).
+ *
+ * @param grid - Grid drop-zone root (`.nexus-grid`).
+ * @returns Pixel height spanning all grid rows.
+ */
+function measureGridLayoutHeight(grid: HTMLElement): number {
+  const saved = {
+    height: grid.style.height,
+    minHeight: grid.style.minHeight,
+  };
+  grid.style.height = "auto";
+  grid.style.minHeight = "0";
+
+  const childSaves: Array<{ el: HTMLElement; height: string; minHeight: string }> = [];
+  for (const child of grid.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    childSaves.push({
+      el: child,
+      height: child.style.height,
+      minHeight: child.style.minHeight,
+    });
+    child.style.height = "auto";
+    child.style.minHeight = "0";
+  }
+
+  void grid.offsetHeight;
+  const measured = grid.getBoundingClientRect().height;
+
+  grid.style.height = saved.height;
+  grid.style.minHeight = saved.minHeight;
+  childSaves.forEach(({ el, height, minHeight }) => {
+    el.style.height = height;
+    el.style.minHeight = minHeight;
+  });
+
+  return measured;
 }
 
 /**
@@ -131,7 +184,15 @@ function measureSlideNaturalHeight(
   let fillHeight = 0;
 
   components.forEach((component) => {
-    const fillRoot = component.querySelector<HTMLElement>(`.${CAROUSEL_SLIDE_MEDIA_FILL_CLASS}`);
+    const grid = component.querySelector<HTMLElement>(".nexus-grid");
+    if (grid) {
+      flowHeight = Math.max(flowHeight, measureGridLayoutHeight(grid));
+      return;
+    }
+
+    const fillRoot = component.querySelector<HTMLElement>(
+      `.${CAROUSEL_SLIDE_MEDIA_FILL_CLASS}, [${NEXUS_CAROUSEL_FILL_ATTR}="true"]`,
+    );
     if (fillRoot) {
       fillHeight = Math.max(
         fillHeight,
@@ -144,6 +205,28 @@ function measureSlideNaturalHeight(
   });
 
   return Math.max(floorPx, flowHeight, fillHeight);
+}
+
+/**
+ * Whether a slide contains only fill-slide media blocks (no grid or in-flow stacks).
+ *
+ * @param slide - Carousel slide root element.
+ * @returns True when every Puck block in the slide is carousel fill media.
+ */
+function slideContainsOnlyFillMedia(slide: HTMLElement): boolean {
+  const dropzone = slide.querySelector<HTMLElement>("[data-puck-dropzone]");
+  if (!dropzone) return false;
+
+  const components = dropzone.querySelectorAll<HTMLElement>("[data-puck-component]");
+  if (components.length === 0) return false;
+
+  return Array.from(components).every((component) =>
+    Boolean(
+      component.querySelector(
+        `.${CAROUSEL_SLIDE_MEDIA_FILL_CLASS}, [${NEXUS_CAROUSEL_FILL_ATTR}="true"]`,
+      ),
+    ),
+  );
 }
 
 /**
@@ -233,11 +316,16 @@ interface CarouselControlsProps {
   onNext: () => void;
   onGoTo: (index: number) => void;
   controlsPortalRef: (node: HTMLElement | null) => void;
-  useEmblaButtons?: boolean;
-  /** Whether dots represent individual slides or scroll snap pages. */
-  dotUnit?: "slide" | "page";
   /** When set, renders a gear button under the next arrow (edit mode). */
   onSelectCarousel?: () => void;
+  /** Whether dots/arrows represent pages (multi-slide) or individual slides. */
+  navUnit?: "slide" | "page";
+  /** When true, renders a top-right pause/play toggle for autoplay. */
+  showAutoplayToggle?: boolean;
+  /** Whether autoplay is currently paused by the viewer. */
+  isAutoplayPaused?: boolean;
+  /** Toggles autoplay pause state. */
+  onToggleAutoplayPause?: () => void;
 }
 
 /**
@@ -256,77 +344,78 @@ function CarouselControls({
   onNext,
   onGoTo,
   controlsPortalRef,
-  useEmblaButtons = false,
-  dotUnit = "page",
+  navUnit = "page",
   onSelectCarousel,
+  showAutoplayToggle = false,
+  isAutoplayPaused = false,
+  onToggleAutoplayPause,
 }: CarouselControlsProps) {
   const hasCarouselControls =
     showNavigation && (showArrows === "yes" || showDots === "yes");
 
-  if (!hasCarouselControls) return null;
+  if (!hasCarouselControls && !showAutoplayToggle) return null;
 
   return (
     <div ref={controlsPortalRef} className="nexus-carousel__controls">
+      {showAutoplayToggle && onToggleAutoplayPause ? (
+        <button
+          type="button"
+          className="nexus-carousel__autoplay-toggle"
+          aria-label={isAutoplayPaused ? "Resume carousel" : "Pause carousel"}
+          aria-pressed={isAutoplayPaused}
+          title={isAutoplayPaused ? "Resume carousel" : "Pause carousel"}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleAutoplayPause();
+          }}
+        >
+          {isAutoplayPaused ? (
+            <Play size={16} aria-hidden />
+          ) : (
+            <Pause size={16} aria-hidden />
+          )}
+        </button>
+      ) : null}
+
       {showArrows === "yes" && showNavigation ? (
-        useEmblaButtons ? (
-          <>
-            <CarouselPrevious
-              variant="outline"
-              size="icon"
-              className={cn(
-                "nexus-carousel__arrow nexus-carousel__arrow--prev",
-                "left-3 top-1/2 -translate-y-1/2 border-border bg-background/70",
-              )}
-            />
-            <CarouselNext
-              variant="outline"
-              size="icon"
-              className={cn(
-                "nexus-carousel__arrow nexus-carousel__arrow--next",
-                "right-3 top-1/2 -translate-y-1/2 border-border bg-background/70",
-              )}
-            />
-          </>
-        ) : (
-          <>
+        <>
+          <button
+            type="button"
+            className="nexus-carousel__arrow nexus-carousel__arrow--prev"
+            aria-label={navUnit === "slide" ? "Previous slide" : "Previous page"}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPrev();
+            }}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="nexus-carousel__arrow nexus-carousel__arrow--next"
+            aria-label={navUnit === "slide" ? "Next slide" : "Next page"}
+            onClick={(event) => {
+              event.stopPropagation();
+              onNext();
+            }}
+          >
+            ›
+          </button>
+          {onSelectCarousel ? (
             <button
               type="button"
-              className="nexus-carousel__arrow nexus-carousel__arrow--prev"
-              aria-label="Previous slide"
+              className="nexus-carousel__edit-select"
+              aria-label="Carousel settings"
+              title="Carousel settings"
               onClick={(event) => {
                 event.stopPropagation();
-                onPrev();
+                onSelectCarousel();
               }}
             >
-              ‹
+              <Settings2 size={16} aria-hidden />
             </button>
-            <button
-              type="button"
-              className="nexus-carousel__arrow nexus-carousel__arrow--next"
-              aria-label="Next slide"
-              onClick={(event) => {
-                event.stopPropagation();
-                onNext();
-              }}
-            >
-              ›
-            </button>
-            {onSelectCarousel ? (
-              <button
-                type="button"
-                className="nexus-carousel__edit-select"
-                aria-label="Carousel settings"
-                title="Carousel settings"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectCarousel();
-                }}
-              >
-                <Settings2 size={16} aria-hidden />
-              </button>
-            ) : null}
-          </>
-        )
+          ) : null}
+        </>
       ) : null}
 
       {showDots === "yes" && showNavigation && pageCount > 1 ? (
@@ -343,7 +432,7 @@ function CarouselControls({
               }
               aria-selected={idx === activeIndex}
               aria-label={
-                dotUnit === "slide" ? `Go to slide ${idx + 1}` : `Go to page ${idx + 1}`
+                navUnit === "slide" ? `Go to slide ${idx + 1}` : `Go to page ${idx + 1}`
               }
               onClick={(event) => {
                 event.stopPropagation();
@@ -358,6 +447,16 @@ function CarouselControls({
 }
 
 /**
+ * Whether a canvas drag is active on the preview document (read from DOM).
+ *
+ * @param root - Carousel root element in the preview iframe.
+ * @returns True while Puck canvas drag is in flight.
+ */
+function isPreviewCanvasDragActive(root: HTMLElement | null): boolean {
+  return Boolean(root?.ownerDocument?.documentElement.hasAttribute("data-puck-dragging"));
+}
+
+/**
  * Shared carousel body — used by both Puck editor and static {@link Render} output.
  *
  * @param props - Carousel configuration and mode flags.
@@ -368,6 +467,8 @@ function NexusCarouselBody({
   slides,
   height,
   heightCustom,
+  maxHeight,
+  maxHeightCustom,
   borderRadius,
   borderRadiusCustom,
   autoplay,
@@ -379,11 +480,21 @@ function NexusCarouselBody({
   editorActiveIndex,
   editLayoutMode,
   controlsPortalRef,
-  syncPuckOverlay,
+  getPuck,
   onSelectCarousel,
 }: NexusCarouselBodyProps) {
   const count = slides.length;
   const rootRef = useRef<HTMLDivElement>(null);
+
+  /** Re-measure nested Puck selection overlays after slide layout changes. */
+  const syncPuckOverlay = useCallback(() => {
+    if (!editLayoutMode || !getPuck) return;
+    const store = getPuck();
+    requestAnimationFrame(() => {
+      syncPuckOverlaysInRoot(store, rootRef.current);
+      syncPuckComponentOverlay(store, id);
+    });
+  }, [editLayoutMode, getPuck, id]);
 
   const [activeSlideIndex, setActiveSlideIndex] = useStripActiveIndex(
     id,
@@ -397,31 +508,84 @@ function NexusCarouselBody({
   activeSlideIndexRef.current = activeSlideIndex;
   /** Dedupes redundant programmatic edit scrolls within the same frame. */
   const lastEditScrollRef = useRef<{ slideIndex: number; snap: number } | null>(null);
+  /** Latest page plan for stable Embla handlers (avoids re-subscribing on width changes). */
+  const pagePlanRef = useRef<CarouselPagePlan>({
+    slideCount: 0,
+    standardPages: [{ leadingSnap: 0, visibleIndices: [0] }],
+    remainderPages: null,
+    hasDualCycle: false,
+    pages: [{ leadingSnap: 0, visibleIndices: [0] }],
+    pageCount: 1,
+    visibleCount: 1,
+    interactivePageCount: 1,
+    canPaginate: false,
+  });
+  const editNavContextRef = useRef({
+    editLayoutMode: false,
+    editStaticFit: false,
+    multiSlideEditWysiwyg: false,
+    singleSlideEditView: false,
+  });
 
   const [api, setApi] = useState<CarouselApi>();
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth : 1024,
+  const [viewportWidth, setViewportWidth] = useState(0);
+  /** Viewer-only pause for autoplay — not persisted to Puck props. */
+  const [isAutoplayPaused, setIsAutoplayPaused] = useState(false);
+  const navScrollStep = resolveCarouselNavScrollStep(editLayoutMode, scrollStep);
+  /** Published SSR starts at width 0 — assume desktop so nav matches hydrated layout. */
+  const paginationViewportWidth =
+    !editLayoutMode && viewportWidth <= 0
+      ? AUTO_SLIDES_PER_VIEW_BREAKPOINTS.desktop
+      : viewportWidth;
+  const pagePlan = useMemo(
+    () => resolveCarouselPagePlan(count, slidesPerView, navScrollStep, paginationViewportWidth),
+    [count, navScrollStep, slidesPerView, paginationViewportWidth],
   );
+  pagePlanRef.current = pagePlan;
+  const editPageCount = pagePlan.pageCount;
   const singleSlideEditView =
     editLayoutMode &&
-    (slidesPerView === "1" || (slidesPerView === "auto" && viewportWidth < 768));
+    (slidesPerView === "1" ||
+      (slidesPerView === "auto" &&
+        viewportWidth > 0 &&
+        resolveVisibleSlideCountAtWidth("auto", viewportWidth) === 1));
   /** Multi-slide edit — WYSIWYG layout with CSS-pinned track when all slides fit. */
   const multiSlideEditWysiwyg = editLayoutMode && !singleSlideEditView;
-  const [scrollSnapCount, setScrollSnapCount] = useState(() =>
-    resolveCarouselScrollSnapCount(count, slidesPerView ?? "auto", scrollStep ?? "1", viewportWidth),
+  const effectiveHeight = resolveCarouselEffectiveHeight(
+    height,
+    heightCustom,
+    maxHeight,
+    maxHeightCustom,
   );
-
-  const resolvedHeight = resolveCarouselHeight(height, heightCustom);
+  const resolvedHeight =
+    effectiveHeight.mode === "fixed" ? effectiveHeight.height : undefined;
+  const resolvedMaxHeight =
+    effectiveHeight.mode === "auto-capped" ? effectiveHeight.maxHeight : undefined;
   const resolvedBorderRadius = resolveCarouselBorderRadius(borderRadius, borderRadiusCustom);
-  const hasFixedHeight = Boolean(resolvedHeight);
+  const hasFixedHeight = effectiveHeight.mode === "fixed";
+  const hasMaxHeightCap = effectiveHeight.mode === "auto-capped";
+  const maxHeightCapPx = resolvedMaxHeight
+    ? resolveCarouselMinEmptyHeightPx(resolvedMaxHeight, Number.MAX_SAFE_INTEGER)
+    : undefined;
   const autoMinHeightPx = hasFixedHeight
     ? resolveCarouselMinEmptyHeightPx(resolvedHeight, CAROUSEL_AUTO_MIN_HEIGHT_PX)
     : CAROUSEL_AUTO_MIN_HEIGHT_PX;
 
   const slideSpvClass = resolveSlidesPerViewClass(slidesPerView);
   const useSingleFrame = slidesPerView === "1";
-  const emblaScroll = resolveCarouselEmblaScrollOptions(scrollStep, slidesPerView);
+  const emblaScroll = resolveCarouselEmblaScrollOptions();
+  const emblaMotion = useMemo(
+    () => resolveCarouselEmblaMotionOptions(!editLayoutMode),
+    [editLayoutMode],
+  );
+  const emblaBreakpoints = useMemo(
+    () => ({
+      ...emblaScroll.breakpoints,
+      ...emblaMotion.breakpoints,
+    }),
+    [emblaMotion.breakpoints, emblaScroll.breakpoints],
+  );
 
   const carouselSizeStyle: CSSProperties = {
     ...(useSingleFrame ? { borderRadius: resolvedBorderRadius } : undefined),
@@ -435,54 +599,87 @@ function NexusCarouselBody({
       : {
           ["--nexus-carousel-auto-min-height" as string]: `${autoMinHeightPx}px`,
         }),
+    ...(resolvedMaxHeight
+      ? {
+          ["--nexus-carousel-max-height" as string]: resolvedMaxHeight,
+          maxHeight: resolvedMaxHeight,
+        }
+      : undefined),
   };
 
-  const goToSnap = useCallback(
-    (snapIndex: number) => {
-      if (!api) return;
-      api.scrollTo(snapIndex);
-    },
-    [api],
-  );
-
-  const estimatedSnapCount = resolveCarouselScrollSnapCount(
-    count,
+  const visibleSlideCount = resolveVisibleSlideCountAtWidth(
     slidesPerView,
-    scrollStep,
-    viewportWidth,
+    paginationViewportWidth,
   );
-  const pageCount = editLayoutMode
-    ? estimatedSnapCount
-    : Math.max(scrollSnapCount, estimatedSnapCount);
-  const visibleSlideCount = resolveVisibleSlideCountAtWidth(slidesPerView, viewportWidth);
   const allSlidesFitInView = count <= visibleSlideCount;
   /** All slides visible at once — lock Embla transform so drop zones stay on screen. */
   const editStaticFit = multiSlideEditWysiwyg && allSlidesFitInView;
-  const emblaLoop = !editLayoutMode && pageCount > 1;
+  /** Multi-slide track flush to container when every slide fits (no loop trailing gutter). */
+  const staticFit = !useSingleFrame && allSlidesFitInView;
+  const canPaginate = pagePlan.canPaginate;
+  /** Embla loop only in interactive/published — edit avoids clone nodes that break Puck slots. */
+  const emblaLoop = canPaginate && !editLayoutMode;
+  const emblaContainScroll = emblaLoop ? false : ("trimSnaps" as const);
+
+  const nav = useCarouselNavController({
+    engine: api,
+    pagePlan,
+    slideCount: count,
+    loop: emblaLoop,
+    canPaginate,
+    navScrollStep,
+    slidesPerView,
+    viewportWidth,
+    interactive: !editLayoutMode,
+  });
+
+  const {
+    pageIndex: navPageIndex,
+    pageCount: navPageCount,
+    goNext: navGoNext,
+    goPrev: navGoPrev,
+    goToDot: navGoToDot,
+    reset: resetNav,
+  } = nav;
+
+  /** Stable ref for Embla handlers — avoid re-subscribing when controller object identity changes. */
+  const navRef = useRef(nav);
+  navRef.current = nav;
+
+  const pageCount = !editLayoutMode && canPaginate ? navPageCount : editPageCount;
+
+  editNavContextRef.current = {
+    editLayoutMode,
+    editStaticFit,
+    multiSlideEditWysiwyg,
+    singleSlideEditView,
+  };
 
   const scrollToEditPage = useCallback(
     (pageIndex: number, slideIndex: number) => {
       if (!api || count === 0 || editStaticFit) return;
 
-      const maxPage = Math.max(0, pageCount - 1);
+      const maxPage = Math.max(0, editPageCount - 1);
       const clampedPage = Math.min(Math.max(0, pageIndex), maxPage);
 
       if (singleSlideEditView) {
         return;
       }
 
+      const leadingSnap = pagePlan.pages[clampedPage]?.leadingSnap ?? 0;
+
       if (
         lastEditScrollRef.current?.slideIndex === slideIndex &&
-        lastEditScrollRef.current?.snap === clampedPage &&
-        api.selectedScrollSnap() === clampedPage
+        lastEditScrollRef.current?.snap === leadingSnap &&
+        api.selectedScrollSnap() === leadingSnap
       ) {
         return;
       }
 
-      api.scrollTo(clampedPage, true);
-      lastEditScrollRef.current = { slideIndex, snap: clampedPage };
+      api.scrollTo(leadingSnap, true);
+      lastEditScrollRef.current = { slideIndex, snap: leadingSnap };
     },
-    [api, count, editStaticFit, pageCount, singleSlideEditView],
+    [api, count, editStaticFit, editPageCount, pagePlan.pages, singleSlideEditView],
   );
 
   const scrollToEditSlide = useCallback(
@@ -493,7 +690,7 @@ function NexusCarouselBody({
         slideIndex,
         count,
         slidesPerView,
-        scrollStep,
+        navScrollStep,
         viewportWidth,
         singleSlideEditView,
       );
@@ -503,7 +700,7 @@ function NexusCarouselBody({
       api,
       count,
       editStaticFit,
-      scrollStep,
+      navScrollStep,
       scrollToEditPage,
       singleSlideEditView,
       slidesPerView,
@@ -511,17 +708,27 @@ function NexusCarouselBody({
     ],
   );
 
+  const goToSnap = useCallback(
+    (snapIndex: number, options?: { jump?: boolean; direction?: -1 | 0 | 1 }) => {
+      if (!api) return;
+      scrollEngineToSnap(api, snapIndex, {
+        jump: options?.jump ?? false,
+        direction: options?.direction ?? 0,
+      });
+    },
+    [api],
+  );
+
   const goToPage = useCallback(
-    (pageIndex: number) => {
-      const maxPage = Math.max(0, pageCount - 1);
+    (pageIndex: number, loopNavDirection?: -1 | 1) => {
+      if (!editLayoutMode && api && canPaginate) {
+        navGoToDot(pageIndex);
+        return;
+      }
+
+      const maxPage = Math.max(0, editPageCount - 1);
       const clampedPage = Math.min(Math.max(0, pageIndex), maxPage);
-      const slideIndex = resolveFirstSlideIndexForPage(
-        clampedPage,
-        count,
-        slidesPerView,
-        scrollStep,
-        viewportWidth,
-      );
+      const slideIndex = pagePlan.pages[clampedPage]?.leadingSnap ?? 0;
 
       if (editLayoutMode) {
         setActiveSlideIndex(slideIndex);
@@ -531,119 +738,159 @@ function NexusCarouselBody({
         return;
       }
 
-      goToSnap(clampedPage);
+      const targetSnap = pagePlan.pages[clampedPage]?.leadingSnap ?? 0;
+
+      if (emblaLoop && api) {
+        const direction =
+          loopNavDirection ??
+          resolveLoopSnapDirection(api.selectedScrollSnap(), targetSnap, count);
+        goToSnap(targetSnap, { direction });
+        return;
+      }
+
+      goToSnap(targetSnap);
     },
     [
+      api,
+      canPaginate,
       count,
       editLayoutMode,
+      editPageCount,
       editStaticFit,
+      emblaLoop,
       goToSnap,
-      pageCount,
-      scrollStep,
+      navGoToDot,
+      pagePlan.pages,
       scrollToEditPage,
       setActiveSlideIndex,
       singleSlideEditView,
-      slidesPerView,
-      viewportWidth,
     ],
   );
 
   const goToPrev = useCallback(() => {
-    if (editLayoutMode) {
-      if (editStaticFit || singleSlideEditView) {
-        setActiveSlideIndex(((activeSlideIndex - 1) % count + count) % count);
-        return;
-      }
-
-      const currentPage =
-        api?.selectedScrollSnap() ??
-        resolvePageIndexForSlide(
-          activeSlideIndex,
-          count,
-          slidesPerView,
-          scrollStep,
-          viewportWidth,
-        );
-      if (currentPage > 0) {
-        goToPage(currentPage - 1);
-      }
+    if (editLayoutMode && (editStaticFit || singleSlideEditView)) {
+      setActiveSlideIndex(((activeSlideIndex - 1) % count + count) % count);
       return;
     }
 
-    if (!api) return;
+    if (!editLayoutMode && api && canPaginate) {
+      navGoPrev();
+      return;
+    }
 
-    api.scrollPrev();
+    if (!api && !editLayoutMode) return;
+
+    const snapIndex =
+      editLayoutMode && !api
+        ? activeSlideIndex
+        : (api?.selectedScrollSnap() ?? carouselIndex);
+    const currentPage = resolvePageIndexForSnap(
+      snapIndex,
+      count,
+      slidesPerView,
+      navScrollStep,
+      viewportWidth,
+    );
+
+    if (currentPage > 0) {
+      goToPage(currentPage - 1);
+    }
   }, [
     activeSlideIndex,
     api,
+    canPaginate,
+    carouselIndex,
     count,
     editLayoutMode,
     editStaticFit,
     goToPage,
-    scrollStep,
+    navGoPrev,
     setActiveSlideIndex,
     singleSlideEditView,
     slidesPerView,
+    navScrollStep,
     viewportWidth,
   ]);
 
   const goToNext = useCallback(() => {
-    if (editLayoutMode) {
-      if (editStaticFit || singleSlideEditView) {
-        setActiveSlideIndex((activeSlideIndex + 1) % count);
-        return;
-      }
-
-      const currentPage =
-        api?.selectedScrollSnap() ??
-        resolvePageIndexForSlide(
-          activeSlideIndex,
-          count,
-          slidesPerView,
-          scrollStep,
-          viewportWidth,
-        );
-      const maxPage = Math.max(0, pageCount - 1);
-      if (currentPage < maxPage) {
-        goToPage(currentPage + 1);
-      }
+    if (editLayoutMode && (editStaticFit || singleSlideEditView)) {
+      setActiveSlideIndex((activeSlideIndex + 1) % count);
       return;
     }
 
-    if (!api) return;
+    if (!editLayoutMode && api && canPaginate) {
+      navGoNext();
+      return;
+    }
 
-    api.scrollNext();
+    if (!api && !editLayoutMode) return;
+
+    const snapIndex =
+      editLayoutMode && !api
+        ? activeSlideIndex
+        : (api?.selectedScrollSnap() ?? carouselIndex);
+    const currentPage = resolvePageIndexForSnap(
+      snapIndex,
+      count,
+      slidesPerView,
+      navScrollStep,
+      viewportWidth,
+    );
+    const maxPage = Math.max(0, editPageCount - 1);
+
+    if (currentPage < maxPage) {
+      goToPage(currentPage + 1);
+    }
   }, [
     activeSlideIndex,
     api,
+    canPaginate,
+    carouselIndex,
     count,
     editLayoutMode,
+    editPageCount,
     editStaticFit,
     goToPage,
-    pageCount,
-    scrollStep,
+    navGoNext,
     setActiveSlideIndex,
     singleSlideEditView,
     slidesPerView,
+    navScrollStep,
     viewportWidth,
   ]);
+
+  useEffect(() => {
+    if (!api || editLayoutMode || count === 0) return;
+    resetNav();
+    api.scrollTo(0, true);
+  }, [api, count, editLayoutMode, resetNav, navScrollStep, slidesPerView]);
 
   useEffect(() => {
     if (!api) return undefined;
 
     const onSelect = () => {
-      setCarouselIndex(api.selectedScrollSnap());
+      const snap = api.selectedScrollSnap();
+      setCarouselIndex(snap);
+
+      if (navRef.current.shouldSkipSnapSync()) return;
+
+      navRef.current.syncFromSnap(snap);
+    };
+
+    const onSettle = () => {
+      navRef.current.onSettle();
+      navRef.current.syncFromSnap(api.selectedScrollSnap());
     };
 
     const onReInit = () => {
-      setScrollSnapCount(api.scrollSnapList().length);
       setCarouselIndex(api.selectedScrollSnap());
 
-      if (editLayoutMode && editStaticFit) {
+      const ctx = editNavContextRef.current;
+      if (ctx.editLayoutMode && ctx.editStaticFit) {
         return;
       }
 
-      if (editLayoutMode && multiSlideEditWysiwyg && !singleSlideEditView) {
+      if (ctx.editLayoutMode && ctx.multiSlideEditWysiwyg && !ctx.singleSlideEditView) {
         lastEditScrollRef.current = null;
         scrollToEditSlide(activeSlideIndexRef.current);
       }
@@ -651,24 +898,24 @@ function NexusCarouselBody({
 
     onReInit();
     api.on("select", onSelect);
+    api.on("settle", onSettle);
     api.on("reInit", onReInit);
 
     return () => {
       api.off("select", onSelect);
+      api.off("settle", onSettle);
       api.off("reInit", onReInit);
     };
   }, [
     api,
-    editLayoutMode,
-    editStaticFit,
-    multiSlideEditWysiwyg,
     scrollToEditSlide,
-    singleSlideEditView,
   ]);
 
   /** Edit mode: sidebar / strip selection scrolls to the page that contains the active slide. */
   useLayoutEffect(() => {
     if (!api || !editLayoutMode || count === 0) return;
+
+    if (isPreviewCanvasDragActive(rootRef.current)) return;
 
     if (singleSlideEditView || editStaticFit) {
       return;
@@ -678,12 +925,13 @@ function NexusCarouselBody({
       activeSlideIndex,
       count,
       slidesPerView,
-      scrollStep,
+      navScrollStep,
       viewportWidth,
       singleSlideEditView,
     );
+    const expectedLeadingSnap = pagePlan.pages[expectedPage]?.leadingSnap ?? 0;
 
-    if (api.selectedScrollSnap() === expectedPage) {
+    if (api.selectedScrollSnap() === expectedLeadingSnap) {
       return;
     }
 
@@ -694,7 +942,7 @@ function NexusCarouselBody({
     count,
     editLayoutMode,
     editStaticFit,
-    scrollStep,
+    navScrollStep,
     scrollToEditPage,
     singleSlideEditView,
     slidesPerView,
@@ -704,7 +952,7 @@ function NexusCarouselBody({
   /** Reset scroll dedupe when slide count or layout preset changes. */
   useEffect(() => {
     lastEditScrollRef.current = null;
-  }, [count, scrollStep, slidesPerView, viewportWidth]);
+  }, [count, navScrollStep, slidesPerView, viewportWidth]);
 
   /** Clamp when slides are removed or settings change. */
   useEffect(() => {
@@ -728,14 +976,14 @@ function NexusCarouselBody({
     previousSlideCountRef.current = count;
   }, [count, editLayoutMode, id, setActiveSlideIndex]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || typeof window === "undefined") return undefined;
 
     const syncViewportWidth = () => {
       const width = root.getBoundingClientRect().width;
       if (width > 0) {
-        setViewportWidth(width);
+        setViewportWidth((prev) => (prev === width ? prev : width));
       }
     };
 
@@ -743,27 +991,20 @@ function NexusCarouselBody({
 
     const observer = new ResizeObserver(syncViewportWidth);
     observer.observe(root);
-    window.addEventListener("resize", syncViewportWidth);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", syncViewportWidth);
     };
-  }, []);
-
-  useEffect(() => {
-    if (api) return;
-    setScrollSnapCount(
-      resolveCarouselScrollSnapCount(count, slidesPerView, scrollStep, viewportWidth),
-    );
-  }, [api, count, scrollStep, slidesPerView, viewportWidth]);
+  }, [count, slidesPerView]);
 
   useEffect(() => {
     if (!api) return;
     api.reInit({
       loop: emblaLoop,
+      containScroll: emblaContainScroll,
       slidesToScroll: emblaScroll.slidesToScroll,
-      breakpoints: emblaScroll.breakpoints,
+      breakpoints: emblaBreakpoints,
+      duration: emblaMotion.duration,
     });
     requestAnimationFrame(() => {
       if (editStaticFit) {
@@ -778,21 +1019,49 @@ function NexusCarouselBody({
     api,
     editLayoutMode,
     editStaticFit,
+    emblaContainScroll,
     emblaLoop,
-    emblaScroll,
+    emblaBreakpoints,
+    emblaMotion.duration,
     multiSlideEditWysiwyg,
-    scrollStep,
+    navScrollStep,
     scrollToEditSlide,
     singleSlideEditView,
     slidesPerView,
   ]);
 
   useEffect(() => {
-    if (editLayoutMode || autoplay !== "on" || count <= 1 || !api) return undefined;
+    if (autoplay !== "on") {
+      setIsAutoplayPaused(false);
+    }
+  }, [autoplay]);
+
+  useEffect(() => {
+    if (
+      editLayoutMode ||
+      autoplay !== "on" ||
+      isAutoplayPaused ||
+      !api ||
+      !pagePlan.canPaginate
+    ) {
+      return undefined;
+    }
     const ms = Math.min(30, Math.max(2, intervalSeconds || 5)) * 1000;
-    const timer = window.setInterval(() => api.scrollNext(), ms);
+    const timer = window.setInterval(() => goToNext(), ms);
     return () => window.clearInterval(timer);
-  }, [autoplay, count, editLayoutMode, intervalSeconds, api]);
+  }, [
+    autoplay,
+    editLayoutMode,
+    goToNext,
+    intervalSeconds,
+    isAutoplayPaused,
+    api,
+    pagePlan.canPaginate,
+  ]);
+
+  const handleToggleAutoplayPause = useCallback(() => {
+    setIsAutoplayPaused((prev) => !prev);
+  }, []);
 
   useLayoutEffect(() => {
     if (!editLayoutMode) return;
@@ -805,6 +1074,7 @@ function NexusCarouselBody({
 
     if (!editLayoutMode) {
       root.style.removeProperty("--nexus-carousel-edit-height");
+      root.classList.remove("nexus-carousel--has-grid-slide");
       return undefined;
     }
 
@@ -813,6 +1083,37 @@ function NexusCarouselBody({
 
     const syncEditTrackHeight = () => {
       if (!rootRef.current) return;
+      if (isPreviewCanvasDragActive(rootRef.current)) return;
+
+      const slideEls = rootRef.current.querySelectorAll<HTMLElement>(".nexus-carousel__slide");
+      const hasGridSlide = Array.from(slideEls).some((slide) =>
+        Boolean(slide.querySelector(".nexus-grid")),
+      );
+
+      if (hasGridSlide) {
+        rootRef.current.classList.add("nexus-carousel--has-grid-slide");
+        rootRef.current.classList.remove("nexus-carousel--all-fill-only");
+        rootRef.current.classList.remove("nexus-carousel--edit-height-sync");
+        rootRef.current.style.removeProperty("--nexus-carousel-edit-height");
+        syncPuckOverlay();
+        return;
+      }
+
+      rootRef.current.classList.remove("nexus-carousel--has-grid-slide");
+
+      const slides = Array.from(slideEls);
+      const allFillOnly =
+        slides.length > 0 && slides.every((slide) => slideContainsOnlyFillMedia(slide));
+
+      if (allFillOnly) {
+        rootRef.current.classList.add("nexus-carousel--all-fill-only");
+        rootRef.current.classList.remove("nexus-carousel--edit-height-sync");
+        rootRef.current.style.removeProperty("--nexus-carousel-edit-height");
+        syncPuckOverlay();
+        return;
+      }
+
+      rootRef.current.classList.remove("nexus-carousel--all-fill-only");
 
       const rootWidth = rootRef.current.getBoundingClientRect().width;
       const visibleSlideCount = Math.max(
@@ -823,19 +1124,23 @@ function NexusCarouselBody({
         ? rootWidth
         : rootWidth / visibleSlideCount;
 
-      const slideEls = rootRef.current.querySelectorAll<HTMLElement>(".nexus-carousel__slide");
-      let maxHeight = autoMinHeightPx;
+      let measuredMaxHeight = autoMinHeightPx;
       slideEls.forEach((slide) => {
-        maxHeight = Math.max(
-          maxHeight,
+        measuredMaxHeight = Math.max(
+          measuredMaxHeight,
           measureSlideNaturalHeight(slide, autoMinHeightPx, fallbackFillWidthPx),
         );
       });
 
-      if (maxHeight === lastSyncedHeight) return;
-      lastSyncedHeight = maxHeight;
+      if (maxHeightCapPx !== undefined && Number.isFinite(maxHeightCapPx)) {
+        measuredMaxHeight = Math.min(measuredMaxHeight, maxHeightCapPx);
+      }
 
-      rootRef.current.style.setProperty("--nexus-carousel-edit-height", `${maxHeight}px`);
+      if (measuredMaxHeight === lastSyncedHeight) return;
+      lastSyncedHeight = measuredMaxHeight;
+
+      rootRef.current.classList.add("nexus-carousel--edit-height-sync");
+      rootRef.current.style.setProperty("--nexus-carousel-edit-height", `${measuredMaxHeight}px`);
       syncPuckOverlay();
     };
 
@@ -848,7 +1153,7 @@ function NexusCarouselBody({
 
     const observer = new ResizeObserver(scheduleSyncEditTrackHeight);
     observer.observe(root);
-    root.querySelectorAll(".nexus-carousel__slide, [data-puck-dropzone]").forEach((node) => {
+    root.querySelectorAll(".nexus-carousel__slide").forEach((node) => {
       observer.observe(node);
     });
 
@@ -857,6 +1162,7 @@ function NexusCarouselBody({
       observer.disconnect();
     };
   }, [
+    maxHeightCapPx,
     autoMinHeightPx,
     count,
     editLayoutMode,
@@ -875,9 +1181,14 @@ function NexusCarouselBody({
   const handleSlideActivate = useCallback(
     (slideIndex: number, event: ReactMouseEvent<HTMLDivElement>) => {
       if (!editLayoutMode) return;
+      if (isPreviewCanvasDragActive(rootRef.current)) return;
 
       const target = event.target as HTMLElement;
-      if (target.closest(".nexus-carousel__arrow, .nexus-carousel__dot, .nexus-carousel__edit-select")) {
+      if (
+        target.closest(
+          ".nexus-carousel__arrow, .nexus-carousel__dot, .nexus-carousel__edit-select, .nexus-carousel__autoplay-toggle",
+        )
+      ) {
         return;
       }
 
@@ -912,7 +1223,13 @@ function NexusCarouselBody({
       const target = event.target as HTMLElement;
       if (target.closest("[data-puck-overlay-portal]")) return;
       if (target.closest(".nexus-carousel__edit-select")) return;
-      if (target.closest(".nexus-carousel__arrow, .nexus-carousel__dot")) return;
+      if (
+        target.closest(
+          ".nexus-carousel__arrow, .nexus-carousel__dot, .nexus-carousel__autoplay-toggle",
+        )
+      ) {
+        return;
+      }
 
       const nestedComponent = target.closest("[data-puck-component]");
       const carouselComponent = rootRef.current?.closest("[data-puck-component]");
@@ -942,22 +1259,26 @@ function NexusCarouselBody({
     );
   }
 
-  const showNavigation = count > 1;
+  const showNavigation = editLayoutMode ? count > 1 : canPaginate;
   const hasCarouselControls =
     showNavigation && (showArrows === "yes" || showDots === "yes");
-  const controlsIndex = editLayoutMode
-    ? editStaticFit || singleSlideEditView || !api
-      ? singleSlideEditView
-        ? activeSlideIndex
-        : resolvePageIndexForSlide(
-            activeSlideIndex,
-            count,
-            slidesPerView,
-            scrollStep,
-            viewportWidth,
-          )
-      : carouselIndex
-    : carouselIndex;
+  const showAutoplayToggle =
+    autoplay === "on" && !editLayoutMode && canPaginate && count > 1;
+  const showControlsShell = hasCarouselControls || showAutoplayToggle;
+  const leadingSnapIndex =
+    editLayoutMode && (singleSlideEditView || editStaticFit || !api)
+      ? activeSlideIndex
+      : carouselIndex;
+  const controlsIndex =
+    !editLayoutMode && canPaginate
+      ? navPageIndex
+      : resolvePageIndexForSnap(
+          leadingSnapIndex,
+          count,
+          slidesPerView,
+          navScrollStep,
+          paginationViewportWidth,
+        );
 
   return (
     <div
@@ -967,11 +1288,15 @@ function NexusCarouselBody({
         slideSpvClass,
         useSingleFrame ? "nexus-carousel--single-frame" : "nexus-carousel--multi-slide",
         editLayoutMode ? "nexus-carousel--edit" : "nexus-carousel--interactive",
+        emblaLoop && "nexus-carousel--loop",
+        !emblaLoop && "nexus-carousel--no-loop",
         singleSlideEditView && "nexus-carousel--edit-single-slide",
         editStaticFit && "nexus-carousel--edit-static-fit",
+        staticFit && "nexus-carousel--static-fit",
         multiSlideEditWysiwyg && "nexus-carousel--edit-wysiwyg",
         editLayoutMode && hasCarouselControls && "nexus-carousel--edit-nav",
         hasFixedHeight && "nexus-carousel--fixed-height",
+        hasMaxHeightCap && "nexus-carousel--max-height",
       )}
       style={carouselSizeStyle}
       aria-roledescription="carousel"
@@ -979,15 +1304,16 @@ function NexusCarouselBody({
       onClick={handleCarouselShellClick}
     >
       <Carousel
-        key={editLayoutMode ? `${slidesPerView}-${scrollStep}-${count}` : undefined}
+        key={`${editLayoutMode ? "edit" : "iview"}-${slidesPerView}-${navScrollStep}-${count}`}
         setApi={setApi}
         opts={{
           loop: emblaLoop,
           align: "start",
-          containScroll: "trimSnaps",
+          containScroll: emblaContainScroll,
           watchDrag: !editLayoutMode,
           slidesToScroll: emblaScroll.slidesToScroll,
-          breakpoints: emblaScroll.breakpoints,
+          breakpoints: emblaBreakpoints,
+          duration: emblaMotion.duration,
         }}
         className={cn(
           "nexus-carousel__viewport w-full",
@@ -1001,7 +1327,7 @@ function NexusCarouselBody({
       >
         <CarouselContent
           className={cn(
-            "ml-0",
+            "ml-0 flex flex-nowrap",
             (hasFixedHeight || editLayoutMode) && "items-stretch",
             hasFixedHeight && "nexus-carousel__track--fixed h-full",
             editLayoutMode && "nexus-carousel__track--edit",
@@ -1031,30 +1357,34 @@ function NexusCarouselBody({
                   aria-hidden={singleSlideEditView ? idx !== activeSlideIndex : undefined}
                   onClick={editLayoutMode ? (event) => handleSlideActivate(idx, event) : undefined}
                 >
-                  {renderSlideContent(slide.content, editLayoutMode, autoMinHeightPx)}
+                  <CarouselSlideMediaProvider>
+                    {renderSlideContent(slide.content, editLayoutMode, autoMinHeightPx)}
+                  </CarouselSlideMediaProvider>
                 </div>
               </CarouselItem>
             );
           })}
         </CarouselContent>
-
-        {hasCarouselControls ? (
-          <CarouselControls
-            showArrows={showArrows}
-            showDots={showDots}
-            showNavigation={showNavigation}
-            activeIndex={controlsIndex}
-            pageCount={pageCount}
-            onPrev={goToPrev}
-            onNext={goToNext}
-            onGoTo={goToPage}
-            controlsPortalRef={controlsPortalRef}
-            useEmblaButtons={Boolean(api) && !editLayoutMode}
-            dotUnit="page"
-            onSelectCarousel={editLayoutMode ? onSelectCarousel : undefined}
-          />
-        ) : null}
       </Carousel>
+
+      {showControlsShell ? (
+        <CarouselControls
+          showArrows={showArrows}
+          showDots={showDots}
+          showNavigation={showNavigation}
+          activeIndex={controlsIndex}
+          pageCount={pageCount}
+          onPrev={goToPrev}
+          onNext={goToNext}
+          onGoTo={goToPage}
+          controlsPortalRef={controlsPortalRef}
+          navUnit={pageCount === count ? "slide" : "page"}
+          onSelectCarousel={editLayoutMode ? onSelectCarousel : undefined}
+          showAutoplayToggle={showAutoplayToggle}
+          isAutoplayPaused={isAutoplayPaused}
+          onToggleAutoplayPause={handleToggleAutoplayPause}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1073,18 +1403,6 @@ function NexusCarouselEditorShell(props: NexusCarouselRenderProps) {
     editLayoutMode && (props.slides?.length ?? 0) > 1,
   );
 
-  const syncPuckOverlay = useCallback(() => {
-    const componentId = props.id;
-    if (!editLayoutMode || !componentId) return;
-
-    requestAnimationFrame(() => {
-      const store = getPuck() as {
-        nodes?: { nodes: Record<string, { methods?: { sync?: () => void } } | undefined> };
-      };
-      store.nodes?.nodes[componentId]?.methods?.sync?.();
-    });
-  }, [editLayoutMode, getPuck, props.id]);
-
   const selectCarousel = useCallback(() => {
     selectPuckComponentById(getPuck(), props.id);
   }, [getPuck, props.id]);
@@ -1096,7 +1414,7 @@ function NexusCarouselEditorShell(props: NexusCarouselRenderProps) {
       {...props}
       editLayoutMode={editLayoutMode}
       controlsPortalRef={controlsPortalRef}
-      syncPuckOverlay={syncPuckOverlay}
+      getPuck={getPuck}
       onSelectCarousel={selectCarousel}
     />
   );
@@ -1116,7 +1434,6 @@ function NexusCarouselView(props: NexusCarouselRenderProps) {
       {...props}
       editLayoutMode={false}
       controlsPortalRef={controlsPortalRef}
-      syncPuckOverlay={() => undefined}
     />
   );
 }

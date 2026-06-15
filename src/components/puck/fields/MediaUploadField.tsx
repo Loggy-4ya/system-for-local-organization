@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/MediaUploadField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { useCallback, useRef, useState } from "react";
 import { uploadMediaFile, type MediaAccept } from "../lib/mediaUpload";
 

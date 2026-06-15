@@ -6,9 +6,7 @@
  *  - `POST /api/puck`            — save (upsert) Puck layout data for a page path.
  *
  * Both endpoints connect to MongoDB via the shared `connectDB` helper and use
- * the `Page` Mongoose model. Saving is only permitted when the request
- * includes a valid NEXTAUTH_SECRET bearer token (Phase 2 will replace this with
- * full NextAuth session validation).
+ * the `Page` Mongoose model. Saving requires a valid session or legacy bearer token.
  *
  * @module src/app/api/puck/route
  */
@@ -17,25 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import Page, { type PuckData } from "@shared/models/Page";
 import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Verify a basic bearer token guard.
- *
- * Dev bypass: when `NEXTAUTH_SECRET` is not configured, all saves are
- * permitted so the editor works out of the box without auth setup.
- * Phase 2 will replace this with a full NextAuth session check.
- *
- * @param req - Incoming Next.js request.
- * @returns `true` if the request is authorised.
- */
-function isAuthorised(req: NextRequest): boolean {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) return true;
-  const auth = req.headers.get("Authorization") ?? "";
-  return auth === `Bearer ${secret}`;
-}
+import { isApiAuthorised } from "@/lib/authGuards";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -118,7 +98,7 @@ function validateAndNormalizePath(rawPath: string): string | null {
  * @returns `{ ok: true }` on success, or an error payload.
  */
 export async function POST(req: NextRequest) {
-  if (!isAuthorised(req)) {
+  if (!(await isApiAuthorised(req))) {
     return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
   }
 

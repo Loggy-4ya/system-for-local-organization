@@ -4,7 +4,7 @@
  * @module src/components/puck/lib/useStripArrayIndexSync
  */
 
-import { useGetPuck } from "@measured/puck";
+import { useGetPuck } from "@puckeditor/core";
 import { useCallback, useEffect } from "react";
 import { setStripActiveIndex } from "./stripEditorState";
 

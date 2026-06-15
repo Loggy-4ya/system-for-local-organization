@@ -140,7 +140,8 @@ const { appState } = usePuck();
 | `NexusVideoRender.tsx` | `usePuckPreviewMode()` |
 | `EditorModeToggle.tsx` | `useNexusPuck(s => s.appState.ui.previewMode)`, `useNexusPuck(s => s.dispatch)` |
 | `TiptapField.tsx` | `useNexusPuck(s => s.selectedItem)` |
-| `PageTitleEditor.tsx` | `useNexusPuck(s => root title)`, `useGetPuck()` on commit |
+| `PageHeaderLabel.tsx` | `useSyncExternalStore(subscribePageMetadataDraft, getPageMetadataDraft)` — no Puck subscription |
+| `PageTitleEditor.tsx` | *(deprecated, not mounted)* `useNexusPuck(s => root title)`, `useGetPuck()` on commit |
 
 **Rule:** Any block `render` function inside the Puck iframe must not use bare `usePuck()`.
 
@@ -156,6 +157,8 @@ Custom sidebar fields call Puck `onChange` → `replace` → canvas re-render. D
 
 | Field type | Pattern | Commit trigger |
 |------------|---------|----------------|
+| Page title | `PageSettingsFieldGroup.tsx` | Blur/Enter only; keystrokes update `editorPageMetadataStore` only |
+| Page slug | `PageSettingsFieldGroup.tsx` | Blur/Enter only; keystrokes update `editorPageMetadataStore` only |
 | Rich text | `TiptapField.tsx` | 400ms debounce + blur flush |
 | Array item labels (tabs/carousel) | `StripArrayLabelField` | 400ms debounce + blur; syncs `editorActiveIndex` on mount/focus |
 | Custom spacing / dimensions | `CustomDimensionInput` via `SpacingFieldGroup`, `CarouselDimensionFields` | Blur only (`textDebounceMs: 0`) |
@@ -183,6 +186,16 @@ const { draft, onTextChange, onTextBlur, onTextFocus } = useDeferredFieldCommit(
 1. Keep local `draft` state while focused.
 2. Call Puck `onChange` only on blur, Enter, debounce timeout, or pointer-up (sliders).
 3. Sync draft from external `value` when not focused (`isFocusedRef` guard in hook).
+
+### Header metadata draft store
+
+**Files:** [`editorPageMetadataStore.ts`](../../src/components/puck/lib/editorPageMetadataStore.ts), [`PageHeaderLabel.tsx`](../../src/components/puck/PageHeaderLabel.tsx)
+
+Sidebar title/slug inputs must update the Puck header label live without calling Puck `onChange` on every keystroke (which would rerender the canvas). Pattern:
+
+1. `initPageMetadataDraft()` in `PuckClient.buildEditorData()` seeds the store from MongoDB/page settings.
+2. `PageSettingsFieldGroup` calls `setPageMetadataDraft()` on every keystroke; Puck `onChange` only on blur via `useDeferredFieldCommit`.
+3. `PageHeaderLabel` subscribes with `useSyncExternalStore` and portals into `[class*="PuckHeader-title"]`.
 
 ---
 

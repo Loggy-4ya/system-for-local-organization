@@ -8,7 +8,7 @@
  * @module src/components/puck/fields/AccentPresetField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import {
   normalizeColorToken,
   PAGE_HUE_OPTIONS,

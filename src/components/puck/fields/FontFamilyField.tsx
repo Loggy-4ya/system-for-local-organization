@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/FontFamilyField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { FONT_FAMILY_OPTIONS, type FontFamilyToken } from "../lib/nexusTypography";
 import { PuckSelectField } from "./PuckSelectField";
 

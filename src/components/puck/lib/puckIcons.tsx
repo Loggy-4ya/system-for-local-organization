@@ -24,7 +24,6 @@ import {
   Link2,
   List,
   MessageSquareQuote,
-  Minus,
   MousePointerClick,
   Newspaper,
   PanelTop,
@@ -45,7 +44,7 @@ const ICON_SIZE = 14;
 const ICON_STROKE = 1.75;
 
 /**
- * Render a Lucide icon at the standard Puck sidebar size.
+ * Render a Lucide icon at the standard Puck sidebar size (14px — see `.ai/docs/icon_sizes.md`).
  *
  * @param Icon - Lucide icon component.
  * @returns Sized SVG element.
@@ -64,7 +63,6 @@ export const COMPONENT_ICONS: Record<string, LucideIcon> = {
   NexusHeading: Heading1,
   NexusText: FileText,
   NexusImage: Image,
-  NexusDivider: Minus,
   NexusQuote: Quote,
   NexusVideo: Video,
   NexusAccordion: ChevronDown,

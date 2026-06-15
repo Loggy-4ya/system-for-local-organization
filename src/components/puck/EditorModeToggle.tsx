@@ -8,6 +8,7 @@
  * @module src/components/puck/EditorModeToggle
  */
 
+import { MousePointerClick, Pencil } from "lucide-react";
 import { useNexusPuck } from "./lib/useNexusPuck";
 
 /** Props for the editor mode toggle button. */
@@ -38,15 +39,28 @@ export function EditorModeToggle({
     });
   };
 
+  const label = isInteractive ? "Edit" : "Interactive";
+  const hint = isInteractive
+    ? "Switch to Edit mode (Ctrl+I)"
+    : "Switch to Interactive mode (Ctrl+I)";
+
   return (
     <button
       type="button"
       className={className}
       onClick={handleToggle}
-      title={isInteractive ? "Switch to Edit mode (Ctrl+I)" : "Switch to Interactive mode (Ctrl+I)"}
+      title={hint}
+      aria-label={hint}
       aria-pressed={isInteractive}
     >
-      {isInteractive ? "Edit" : "Interactive"}
+      <span className="nexus-mode-toggle__icon" aria-hidden="true">
+        {isInteractive ? (
+          <Pencil size={14} strokeWidth={2.25} />
+        ) : (
+          <MousePointerClick size={14} strokeWidth={2.25} />
+        )}
+      </span>
+      <span className="nexus-mode-toggle__label">{label}</span>
     </button>
   );
 }

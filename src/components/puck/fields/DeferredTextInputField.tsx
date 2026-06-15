@@ -8,7 +8,7 @@
  * @module src/components/puck/fields/DeferredTextInputField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 
 /** Props passed by Puck to custom text field renderers. */

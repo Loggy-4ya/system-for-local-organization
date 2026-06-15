@@ -3,23 +3,46 @@
 /**
  * @fileoverview Puck block for bulleted or numbered Lists.
  *
- * Renders a list of items with customizable list styles, reorderable items,
- * and vertical positioning presets.
+ * Renders a list of items with customizable list styles, Puck array reorder UI,
+ * and spacing between items via design-system tokens.
  *
  * @module src/components/puck/blocks/content/NexusList
  */
 
-import { ListItemsField } from "../../fields/ListItemsField";
-import { ListPositionField, type ListPositionValue } from "../../fields/ListPositionField";
+import { ListItemLabelField } from "../../fields/ListItemLabelField";
+import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
 import { LIST_ITEM_SPACING_OPTIONS } from "../../lib/fieldOptionLabels";
+import {
+  ensureListItemLabels,
+  formatListItemLabel,
+} from "../../lib/listItemLabels";
+import { resolveSpacingDimension } from "../../lib/resolveSpacingDimension";
+
+/** Default empty list item — label filled by `ensureListItemLabels` on insert. */
+const emptyListItem = { label: "", text: "" };
+
+const ITEM_SPACING_DEFAULTS = { preset: "md", custom: "8px" };
 
 export const NexusList = {
   label: "List",
   fields: {
     items: {
-      type: "custom" as const,
+      type: "array" as const,
       label: "List Items",
-      render: ListItemsField as never,
+      getItemSummary: (item: { label?: string }, index?: number) =>
+        item.label?.trim() || formatListItemLabel(index ?? 0),
+      arrayFields: {
+        label: {
+          type: "custom" as const,
+          label: "Item",
+          render: ListItemLabelField as never,
+        },
+        text: {
+          type: "text" as const,
+          label: "Text",
+        },
+      },
+      defaultItemProps: emptyListItem,
     },
     listType: {
       type: "radio" as const,
@@ -29,67 +52,76 @@ export const NexusList = {
         { label: "Numbered", value: "number" },
       ],
     },
-    itemSpacing: {
-      type: "radio" as const,
+    itemSpacing: createPresetDimensionPuckField({
       label: "Item Spacing",
-      options: [...LIST_ITEM_SPACING_OPTIONS],
-    },
-    listPosition: {
-      type: "custom" as const,
-      label: "Vertical Position",
-      render: ListPositionField as never,
-    },
+      options: LIST_ITEM_SPACING_OPTIONS,
+      defaultPreset: "md",
+      defaultCustom: "8px",
+      legacyMap: { sm: "sm", md: "md" },
+      showSpacingHint: true,
+    }),
   },
   defaultProps: {
     items: [
-      { text: "First item in the list" },
-      { text: "Second item in the list" },
-      { text: "Third item in the list" },
+      { label: formatListItemLabel(0), text: "" },
+      { label: formatListItemLabel(1), text: "" },
+      { label: formatListItemLabel(2), text: "" },
     ],
     listType: "bullet" as const,
-    itemSpacing: "md" as const,
-    listPosition: {
-      marginTop: "none",
-      marginBottom: "none",
-    } satisfies ListPositionValue,
+    itemSpacing: { preset: "md", custom: "8px" },
+  },
+  resolveData: (
+    { props }: { props: { items?: Array<{ label?: string; text?: string }> } },
+    params: {
+      trigger: "insert" | "replace" | "load" | "move" | "force";
+    },
+  ) => {
+    const shouldEnsureLabels =
+      params.trigger === "load" || params.trigger === "insert";
+
+    if (!shouldEnsureLabels) {
+      return { props };
+    }
+
+    return {
+      props: {
+        ...props,
+        items: ensureListItemLabels(props.items),
+      },
+    };
   },
   render({
     items,
     listType,
     itemSpacing,
   }: {
-    items: Array<{ text: string }>;
+    items?: Array<{ label?: string; text?: string }>;
     listType: "bullet" | "number";
-    itemSpacing: "sm" | "md";
+    itemSpacing: unknown;
   }) {
     const Tag = listType === "number" ? "ol" : "ul";
+    const resolvedItems =
+      items?.filter((item) => item && typeof item.text === "string").length
+        ? items
+        : [{ text: "" }];
 
-    const itemGap = itemSpacing === "sm" ? "4px" : "8px";
+    const itemGap = resolveSpacingDimension(itemSpacing, ITEM_SPACING_DEFAULTS, {
+      sm: "sm",
+      md: "md",
+    });
+    const listClassName = listType === "number" ? "nexus-list nexus-list--ordered" : "nexus-list";
 
     return (
-      <Tag
-        style={{
-          margin: 0,
-          paddingLeft: "24px",
-          textAlign: "left",
-          color: "var(--color-text-primary)",
-          listStyleType: listType === "number" ? "decimal" : "disc",
-          listStylePosition: "outside",
-          fontSize: "14px",
-          lineHeight: 1.5,
-          width: "100%",
-          boxSizing: "border-box",
-        }}
-      >
-        {items.map((item, idx) => (
+      <Tag className={listClassName}>
+        {resolvedItems.map((item, idx) => (
           <li
             key={idx}
+            className="nexus-list__item"
             style={{
-              color: "var(--color-text-primary)",
-              marginBottom: idx < items.length - 1 ? itemGap : undefined,
+              marginBottom: idx < resolvedItems.length - 1 ? itemGap : undefined,
             }}
           >
-            {item.text || "List Item"}
+            {item.text?.trim() || "List item"}
           </li>
         ))}
       </Tag>

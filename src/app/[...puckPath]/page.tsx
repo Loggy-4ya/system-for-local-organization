@@ -16,7 +16,9 @@
 import { notFound, redirect } from "next/navigation";
 import connectDB    from "@shared/lib/db";
 import Page         from "@shared/models/Page";
-import type { Data } from "@measured/puck";
+import type { Data } from "@puckeditor/core";
+import { auth } from "@/auth";
+import { shouldShowPageEditFab } from "@/lib/pageEditAccess";
 import { PuckClient } from "./client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,5 +91,17 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
     notFound();
   }
 
-  return <PuckClient path={path} data={data} pageTitle={pageTitle} isEditing={isEditing} />;
+  const session = await auth();
+  const showPageEditFab = shouldShowPageEditFab(session, path, isEditing);
+
+  return (
+    <PuckClient
+      key={path}
+      path={path}
+      data={data}
+      pageTitle={pageTitle}
+      isEditing={isEditing}
+      showPageEditFab={showPageEditFab}
+    />
+  );
 }

@@ -10,9 +10,19 @@
  */
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { BUTTON_SIZE_OPTIONS } from "../../lib/fieldOptionLabels";
+import {
+  BUTTON_SIZE_OPTIONS,
+  RADIUS_EXTENDED_SELECT_OPTIONS,
+} from "../../lib/fieldOptionLabels";
+import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
+import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
 import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
+import {
+  normalizePresetDimensionValue,
+  presetValuesFromOptions,
+  resolvePresetDimension,
+} from "../../lib/resolvePresetDimension";
 
 /** Puck variant keys mapped to Shadcn button variants. */
 const VARIANT_MAP: Record<
@@ -33,6 +43,9 @@ const SIZE_MAP: Record<"sm" | "md" | "lg", NonNullable<VariantProps<typeof butto
   lg: "lg",
 };
 
+const RADIUS_PRESET_VALUES = presetValuesFromOptions(RADIUS_EXTENDED_SELECT_OPTIONS);
+const RADIUS_DEFAULTS = { preset: "var(--radius-md)", custom: "var(--radius-md)" };
+
 export const NexusButton = {
   label: "Button",
   fields: {
@@ -51,11 +64,7 @@ export const NexusButton = {
         { label: "Danger (Red)", value: "danger" },
       ],
     },
-    size: {
-      type: "radio" as const,
-      label: "Size",
-      options: [...BUTTON_SIZE_OPTIONS],
-    },
+    size: createSteppedSliderField("Size", BUTTON_SIZE_OPTIONS),
     fullWidth: {
       type: "radio" as const,
       label: "Full Width",
@@ -64,16 +73,12 @@ export const NexusButton = {
         { label: "Yes", value: "yes" },
       ],
     },
-    borderRadius: {
-      type: "select" as const,
+    borderRadius: createPresetDimensionPuckField({
       label: "Border Radius",
-      options: [
-        { label: "Small (4px)", value: "var(--radius-sm)" },
-        { label: "Medium (8px)", value: "var(--radius-md)" },
-        { label: "Large (12px)", value: "var(--radius-lg)" },
-        { label: "Full (Pill)", value: "var(--radius-full)" },
-      ],
-    },
+      options: RADIUS_EXTENDED_SELECT_OPTIONS,
+      defaultPreset: "var(--radius-md)",
+      defaultCustom: "var(--radius-md)",
+    }),
     icon: {
       type: "select" as const,
       label: "Icon (Optional)",
@@ -105,7 +110,7 @@ export const NexusButton = {
     variant: "primary" as const,
     size: "md" as const,
     fullWidth: "no" as const,
-    borderRadius: "var(--radius-md)" as const,
+    borderRadius: { preset: "var(--radius-md)", custom: "var(--radius-md)" },
     icon: "",
     iconPosition: "right" as const,
     href: "",
@@ -124,18 +129,37 @@ export const NexusButton = {
     variant: "primary" | "secondary" | "ghost" | "success" | "danger";
     size: "sm" | "md" | "lg";
     fullWidth: "no" | "yes";
-    borderRadius: string;
+    borderRadius: unknown;
     icon?: string;
     iconPosition: "left" | "right";
     href?: string;
   }) {
     const shadcnVariant = VARIANT_MAP[variant];
-    const shadcnSize = SIZE_MAP[size];
+    const shadcnSize = SIZE_MAP[size] ?? "default";
+    const radiusNorm = normalizePresetDimensionValue(
+      borderRadius,
+      undefined,
+      RADIUS_PRESET_VALUES,
+      RADIUS_DEFAULTS,
+    );
+    const radiusMap = Object.fromEntries(
+      RADIUS_EXTENDED_SELECT_OPTIONS.filter((opt) => opt.value !== "custom").map((opt) => [
+        opt.value,
+        opt.value,
+      ]),
+    );
     const className = cn(
       buttonVariants({ variant: shadcnVariant, size: shadcnSize }),
       fullWidth === "yes" && "w-full",
     );
-    const style = { borderRadius: borderRadius || "var(--radius-md)" };
+    const style = {
+      borderRadius: resolvePresetDimension(
+        radiusNorm.preset,
+        radiusNorm.custom,
+        radiusMap,
+        "var(--radius-md)",
+      ),
+    };
 
     const content = (
       <>

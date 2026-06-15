@@ -18,10 +18,11 @@
  * @module src/components/background/InfiniteGrid
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
+import { loadGridIcon } from "./infiniteGridIconLoader";
 
 // ── Engine configuration ─────────────────────────────────────────────────────
 
@@ -54,7 +55,8 @@ interface EngineOptions {
 }
 
 const DARK_THEME_OPTIONS: EngineOptions = {
-  iconSrc: BRAND.logo,
+  /** Glyph-only asset — `logo.svg` embeds CSS + hidden JPEG that WebKit skips on canvas. */
+  iconSrc: BRAND.logoGrid,
   cellGridSize: 150,
   iconScaleSize: 109,
   speedX: 0.15,
@@ -69,8 +71,8 @@ const DARK_THEME_OPTIONS: EngineOptions = {
     { offset: 0.7, color: "rgba(11, 15, 25, 0.28)" },
     { offset: 0.9, color: "rgba(11, 15, 25, 0.58)" },
   ],
-  cursorSpotInnerPercent: 0,
-  cursorSpotOuterPercent: 22,
+  cursorSpotInnerPercent: 2,
+  cursorSpotOuterPercent: 14,
 };
 
 /** Light theme — glyph-only asset, richer blue tint for clearer logo marks. */
@@ -90,15 +92,64 @@ const LIGHT_THEME_OPTIONS: EngineOptions = {
     { offset: 0.7, color: "rgba(248, 250, 252, 0.18)" },
     { offset: 0.9, color: "rgba(226, 232, 240, 0.32)" },
   ],
-  cursorSpotInnerPercent: 0,
-  cursorSpotOuterPercent: 22,
+  cursorSpotInnerPercent: 2,
+  cursorSpotOuterPercent: 14,
+};
+
+/**
+ * Desktop blur mirror — pattern-only canvas (no {@link drawSurfaceBase}) so CSS blur
+ * does not smear an opaque fill into fog. Tune filter/opacity/mask, not surface paint.
+ */
+const BLUR_LAYER_TUNING = {
+  /** CSS `filter: blur()` radius — was 8px (heavy wash); 5px keeps icon halos readable. */
+  filterPx: 5,
+  /** Composited opacity on `#canvas-blurred` — was 1.0 via `--cursor-active`. */
+  cssOpacity: 0.58,
+  /** Pattern alpha multiplier vs sharp layer — lowers smeared tint between grid marks. */
+  patternOpacityScale: 0.72,
+  /** Slight overscale hides blur fringe (matches `.ai/docs/assets/background/index.html`). */
+  scale: 1.02,
+} as const;
+
+/**
+ * Coarse-pointer (phone/tablet) tuning — smaller marks, slightly faster drift.
+ * Applied on top of theme defaults when `(pointer: coarse)` matches.
+ */
+const TOUCH_ENGINE_OVERRIDES: Pick<
+  EngineOptions,
+  "cellGridSize" | "iconScaleSize" | "speedX" | "speedY"
+> = {
+  cellGridSize: 108,
+  iconScaleSize: 79,
+  speedX: 0.19,
+  speedY: 0.19,
 };
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
 /** Optional overrides for the InfiniteGrid engine configuration. */
 export interface InfiniteGridProps extends Partial<EngineOptions> {
+  /** When true, grid is clipped to a parent (Puck preview canvas). */
   isContained?: boolean;
+  /**
+   * When true, freezes the tile grid offset — no RAF scroll loop. Cursor ambient blur,
+   * vignette (full-page), and pointer tracking stay active.
+   */
+  isStatic?: boolean;
+  /** DOM id for the wrapper element; defaults to `nexus-bg` (layout-level grid). */
+  wrapperId?: string;
+  /** When true, tags the wrapper for desktop Puck canvas scrollport layering. */
+  scrollportLayer?: boolean;
+}
+
+/**
+ * Resolve whether the active theme is light from {@link useTheme} `resolvedTheme`.
+ *
+ * @param resolvedTheme - Theme string from `@teispace/next-themes`.
+ * @returns True when the grid should use light-theme paint options.
+ */
+function resolveIsLightTheme(resolvedTheme: string | undefined): boolean {
+  return resolvedTheme === "light";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -106,24 +157,55 @@ export interface InfiniteGridProps extends Partial<EngineOptions> {
 /**
  * InfiniteGrid background canvas component.
  *
- * Renders as a `position:fixed` (or `absolute` if contained) layer with `z-index:-1` so it
- * stays behind all page content.
+ * Renders as a `position:fixed` (or `absolute` if contained) layer at `z-index:0` so it
+ * stays behind page content (DOM order + content wrapper `z-index:1`). Avoids `z-index:-1`,
+ * which WebKit paints behind `<body>` background on iOS Safari.
  *
  * @param props - Optional engine configuration overrides and containment flag.
  * @returns JSX containing the wrapper div and two canvas elements, or null if hidden.
  */
-export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProps) {
+export function InfiniteGrid({
+  isContained = false,
+  isStatic = false,
+  wrapperId = "nexus-bg",
+  scrollportLayer = false,
+  ...props
+}: InfiniteGridProps) {
   const pathname = usePathname();
   const { resolvedTheme } = useTheme();
-  const themeDefaults =
-    resolvedTheme === "light" ? LIGHT_THEME_OPTIONS : DARK_THEME_OPTIONS;
-  const options: EngineOptions = { ...themeDefaults, ...props };
+  const isLightTheme = resolveIsLightTheme(resolvedTheme);
+  const themeDefaults = isLightTheme ? LIGHT_THEME_OPTIONS : DARK_THEME_OPTIONS;
+  /** Coarse pointer — smaller tiles + faster scroll on phones. */
+  const [isTouchLayout, setIsTouchLayout] = useState(false);
+  const options: EngineOptions = {
+    ...themeDefaults,
+    ...(isTouchLayout ? TOUCH_ENGINE_OVERRIDES : {}),
+    ...props,
+  };
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const sharpRef   = useRef<HTMLCanvasElement>(null);
   const blurredRef = useRef<HTMLCanvasElement>(null);
+  /** Live theme flag — read during RAF so surface paint tracks toggles before effect restart. */
+  const isLightThemeRef = useRef(isLightTheme);
+  isLightThemeRef.current = isLightTheme;
+  /** Blur + mask on canvas breaks compositing on iOS — sharp layer only on touch. */
+  const [showBlurLayer, setShowBlurLayer] = useState(true);
+  const showCursorBlurLayer = showBlurLayer;
 
-  /** Hide the global instance on editor routes; contained copies inside PageRoot stay active. */
+  useEffect(() => {
+    const coarseMq = window.matchMedia("(pointer: coarse)");
+    const updatePointerMode = () => {
+      const touch = coarseMq.matches;
+      setShowBlurLayer(!touch);
+      setIsTouchLayout(touch);
+    };
+    updatePointerMode();
+    coarseMq.addEventListener("change", updatePointerMode);
+    return () => coarseMq.removeEventListener("change", updatePointerMode);
+  }, []);
+
+  /** Hide layout grid on editor routes; contained `InfiniteGrid` in `PageRoot` paints the canvas only. */
   const isHidden =
     !isContained && (pathname === "/edit" || pathname.endsWith("/edit"));
 
@@ -231,16 +313,83 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
       applyMaskPosition(e.clientX, e.clientY);
     }
 
-    /** Sync canvas pixel buffers to the wrapper element size. */
-    function syncResolution() {
-      const rect = safeWrapper.getBoundingClientRect();
-      const w = Math.max(1, rect.width);
-      const h = Math.max(1, rect.height);
+    let lastSyncedWidth = 0;
+    let lastSyncedHeight = 0;
+    let syncRafId: number | null = null;
+    let syncDebounceId: ReturnType<typeof setTimeout> | null = null;
+    let dpr = 1;
 
-      safeCanvasS.width = w;
-      safeCanvasS.height = h;
-      safeCanvasB.width = w;
-      safeCanvasB.height = h;
+    /**
+     * Read drawable CSS pixels for the grid wrapper.
+     * Full-page grid uses viewport metrics — iOS often reports 0×0 on fixed `inset:0` rects.
+     */
+    function readWrapperCssSize() {
+      const rect = safeWrapper.getBoundingClientRect();
+      const vv = ownerWindow.visualViewport;
+
+      const w = Math.round(
+        rect.width > 1
+          ? rect.width
+          : vv?.width ?? ownerWindow.innerWidth
+      );
+      const h = Math.round(
+        rect.height > 1
+          ? rect.height
+          : vv?.height ?? ownerWindow.innerHeight
+      );
+
+      return {
+        w: Math.max(1, w),
+        h: Math.max(1, h),
+      };
+    }
+
+    /** Sync canvas pixel buffers to the wrapper element size (device-pixel aware). */
+    function syncResolution() {
+      const { w, h } = readWrapperCssSize();
+      dpr = Math.min(ownerWindow.devicePixelRatio || 1, 2);
+      const bitmapW = Math.max(1, Math.round(w * dpr));
+      const bitmapH = Math.max(1, Math.round(h * dpr));
+
+      if (bitmapW === lastSyncedWidth && bitmapH === lastSyncedHeight) {
+        return;
+      }
+
+      lastSyncedWidth = bitmapW;
+      lastSyncedHeight = bitmapH;
+      safeCanvasS.width = bitmapW;
+      safeCanvasS.height = bitmapH;
+      safeCanvasB.width = bitmapW;
+      safeCanvasB.height = bitmapH;
+      safeCtxS.setTransform(dpr, 0, 0, dpr, 0, 0);
+      safeCtxB.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    /** Batch / debounce resize work — contained grids skip per-frame canvas clears during sidebar drag. */
+    function scheduleSyncResolution() {
+      if (isStatic) {
+        if (syncDebounceId !== null) clearTimeout(syncDebounceId);
+        syncDebounceId = setTimeout(() => {
+          syncDebounceId = null;
+          paintOnce();
+        }, 140);
+        return;
+      }
+
+      if (isContained) {
+        if (syncDebounceId !== null) clearTimeout(syncDebounceId);
+        syncDebounceId = setTimeout(() => {
+          syncDebounceId = null;
+          syncResolution();
+        }, 140);
+        return;
+      }
+
+      if (syncRafId !== null) return;
+      syncRafId = ownerWindow.requestAnimationFrame(() => {
+        syncRafId = null;
+        syncResolution();
+      });
     }
 
     /** Build the repeating tile pattern from the loaded icon image. */
@@ -291,8 +440,7 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
      * Called once per frame after the tile pattern is composited.
      */
     function drawVignette() {
-      const w  = safeCanvasS.width;
-      const h  = safeCanvasS.height;
+      const { w, h } = readWrapperCssSize();
       const cx = w / 2;
       const cy = h / 2;
       const r  = Math.max(w, h) * options.maxRadiusMultiplier;
@@ -308,46 +456,112 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
       safeCtxS.restore();
     }
 
-    /** Main animation loop — runs on every frame. */
-    function tick() {
-      safeCtxS.clearRect(0, 0, safeCanvasS.width, safeCanvasS.height);
-      safeCtxB.clearRect(0, 0, safeCanvasB.width, safeCanvasB.height);
+    /**
+     * Paint the theme surface under the tile grid so body can stay transparent.
+     * Uses `resolvedTheme` from React — not `data-theme` on the document — so
+     * repaints stay in sync when ThemeProvider updates the DOM in a parent effect.
+     */
+    function drawSurfaceBase(ctx: CanvasRenderingContext2D) {
+      const { w, h } = readWrapperCssSize();
+      ctx.save();
+      ctx.fillStyle = isLightThemeRef.current ? "#f8fafc" : "#0f1729";
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
 
-      if (gridPattern) {
-        offsetX = (offsetX + options.speedX) % options.cellGridSize;
-        offsetY = (offsetY + options.speedY) % options.cellGridSize;
+    /** Whether `CanvasPattern.setTransform` is available (iOS < 16.4 lacks it). */
+    const supportsPatternSetTransform =
+      typeof CanvasPattern !== "undefined" &&
+      "setTransform" in CanvasPattern.prototype;
 
+    /**
+     * Fill a canvas layer with the scrolling tile pattern.
+     *
+     * @param ctx - Target 2D context.
+     * @param w - Drawable width in canvas pixels.
+     * @param h - Drawable height in canvas pixels.
+     */
+    function fillPatternLayer(
+      ctx: CanvasRenderingContext2D,
+      w: number,
+      h: number,
+      opacityScale = 1
+    ) {
+      if (!gridPattern) return;
+
+      ctx.save();
+      ctx.globalAlpha = options.globalOpacity * opacityScale;
+      ctx.fillStyle = gridPattern;
+
+      if (supportsPatternSetTransform) {
         const mat = new DOMMatrix();
         mat.translateSelf(offsetX, offsetY);
         gridPattern.setTransform(mat);
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        ctx.translate(offsetX, offsetY);
+        ctx.fillRect(
+          -offsetX,
+          -offsetY,
+          w + options.cellGridSize,
+          h + options.cellGridSize
+        );
+      }
 
-        // Sharp layer
-        safeCtxS.save();
-        safeCtxS.globalAlpha = options.globalOpacity;
-        safeCtxS.fillStyle   = gridPattern;
-        safeCtxS.fillRect(0, 0, safeCanvasS.width, safeCanvasS.height);
-        safeCtxS.restore();
+      ctx.restore();
+    }
 
-        // Static center vignette only on the full-page grid — it duplicates the cursor glow in Puck.
+    /** Paint one frame — shared by animated and static modes. */
+    function paintFrame() {
+      const { w, h } = readWrapperCssSize();
+
+      safeCtxS.setTransform(dpr, 0, 0, dpr, 0, 0);
+      safeCtxB.setTransform(dpr, 0, 0, dpr, 0, 0);
+      safeCtxS.clearRect(0, 0, w, h);
+      safeCtxB.clearRect(0, 0, w, h);
+
+      drawSurfaceBase(safeCtxS);
+      // Blur layer stays pattern-only — solid fill + CSS blur reads as heavy fog (Puck editor).
+
+      if (gridPattern) {
+        if (!isStatic) {
+          offsetX = (offsetX + options.speedX) % options.cellGridSize;
+          offsetY = (offsetY + options.speedY) % options.cellGridSize;
+        }
+
+        fillPatternLayer(safeCtxS, w, h);
+
         if (!isContained) {
           drawVignette();
         }
 
-        // Blurred mirror layer
-        safeCtxB.save();
-        safeCtxB.globalAlpha = options.globalOpacity;
-        safeCtxB.fillStyle   = gridPattern;
-        safeCtxB.fillRect(0, 0, safeCanvasB.width, safeCanvasB.height);
-        safeCtxB.restore();
+        fillPatternLayer(
+          safeCtxB,
+          w,
+          h,
+          BLUR_LAYER_TUNING.patternOpacityScale
+        );
       }
+    }
 
+    /** Main animation loop — runs on every frame. */
+    function tick() {
+      paintFrame();
       animFrameId = requestAnimationFrame(tick);
+    }
+
+    /** Static editor preview — repaint after layout without a RAF loop. */
+    function paintOnce() {
+      syncResolution();
+      paintFrame();
     }
 
     // ── Bootstrap ────────────────────────────────────────────────────────────
     syncResolution();
 
-    ownerWindow.addEventListener("resize", syncResolution);
+    ownerWindow.addEventListener("resize", scheduleSyncResolution);
+    ownerWindow.visualViewport?.addEventListener("resize", scheduleSyncResolution);
+    ownerWindow.visualViewport?.addEventListener("scroll", scheduleSyncResolution);
 
     if (inPuckPreviewIframe && parentWindow) {
       ownerDocument.addEventListener("pointermove", onPointerMoveInside, {
@@ -363,7 +577,7 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
     }
 
     /** Keep wrapper metrics in sync when the preview scrolls. */
-    const onScroll = () => syncResolution();
+    const onScroll = () => scheduleSyncResolution();
     ownerDocument.addEventListener("scroll", onScroll, { passive: true, capture: true });
     parentWindow?.document.addEventListener("scroll", onScroll, {
       passive: true,
@@ -373,42 +587,37 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => {
-        syncResolution();
+        scheduleSyncResolution();
       });
       resizeObserver.observe(safeWrapper);
     }
 
-    /**
-     * Load the grid icon, falling back to the full logo if the light-theme asset
-     * is missing or fails XML validation in the browser.
-     *
-     * @param src - Primary icon URL.
-     * @param fallback - Secondary URL when primary fails.
-     */
-    function loadIcon(src: string, fallback: string) {
-      const img = new Image();
-      img.onload = () => {
-        buildPattern(img);
-        tick();
-      };
-      img.onerror = () => {
-        if (src !== fallback) {
-          loadIcon(fallback, fallback);
-          return;
-        }
-        console.error("[InfiniteGrid] Failed to load icon:", src);
-      };
-      img.src = src;
-    }
+    let cancelled = false;
 
-    const fallbackSrc =
-      options.iconSrc === BRAND.logoGrid ? BRAND.logo : options.iconSrc;
-    loadIcon(options.iconSrc, fallbackSrc);
+    const fallbackSrc = BRAND.logoGrid;
+    loadGridIcon(options.iconSrc, fallbackSrc)
+      .then((img) => {
+        if (cancelled) return;
+        buildPattern(img);
+        if (isStatic) {
+          paintOnce();
+        } else {
+          tick();
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[InfiniteGrid] Failed to load icon:", error);
+      });
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
     return () => {
+      cancelled = true;
       if (animFrameId !== null) cancelAnimationFrame(animFrameId);
-      ownerWindow.removeEventListener("resize", syncResolution);
+      if (syncRafId !== null) ownerWindow.cancelAnimationFrame(syncRafId);
+      if (syncDebounceId !== null) clearTimeout(syncDebounceId);
+      ownerWindow.removeEventListener("resize", scheduleSyncResolution);
+      ownerWindow.visualViewport?.removeEventListener("resize", scheduleSyncResolution);
+      ownerWindow.visualViewport?.removeEventListener("scroll", scheduleSyncResolution);
       if (inPuckPreviewIframe && parentWindow) {
         ownerDocument.removeEventListener("pointermove", onPointerMoveInside);
         parentWindow.removeEventListener("pointermove", onPointerMoveParent);
@@ -419,7 +628,7 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
       parentWindow?.document.removeEventListener("scroll", onScroll, true);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [isContained, isHidden, resolvedTheme]);
+  }, [isContained, isHidden, isStatic, isLightTheme, isTouchLayout, resolvedTheme]);
 
   if (isHidden) {
     return null;
@@ -430,39 +639,67 @@ export function InfiniteGrid({ isContained = false, ...props }: InfiniteGridProp
   return (
     <div
       ref={wrapperRef}
-      id="nexus-bg"
+      id={wrapperId}
+      data-nexus-scrollport-grid={scrollportLayer ? "" : undefined}
+      data-nexus-grid-static={isStatic ? "" : undefined}
       aria-hidden="true"
       style={{
         position: isContained ? "absolute" : "fixed",
         inset: 0,
-        zIndex: -1,
+        ...(isContained
+          ? {}
+          : {
+              width: "100vw",
+              height: "100dvh",
+              minHeight: "100vh",
+            }),
+        zIndex: 0,
         pointerEvents: "none",
         overflow: "hidden",
+        transform: "translateZ(0)",
+        WebkitTransform: "translateZ(0)",
+        willChange: "transform",
+        backfaceVisibility: "hidden",
         ["--mouse-x" as string]: "50%",
         ["--mouse-y" as string]: "50%",
-        ["--cursor-active" as string]: "1",
       }}
     >
       {/* Layer 1 — sharp tile grid + vignette */}
       <canvas
         ref={sharpRef}
         id="canvas-sharp"
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-      />
-
-      {/* Layer 2 — blurred mirror, masked by cursor proximity */}
-      <canvas
-        ref={blurredRef}
-        id="canvas-blurred"
         style={{
           position: "absolute",
           inset: 0,
           width: "100%",
           height: "100%",
-          filter: "blur(8px)",
-          opacity: "var(--cursor-active, 1)",
-          maskImage: spotMask,
-          WebkitMaskImage: spotMask,
+          pointerEvents: "none",
+          touchAction: "none",
+        }}
+      />
+
+      {/* Layer 2 — blurred mirror, masked by cursor proximity (desktop pointer only) */}
+      <canvas
+        ref={blurredRef}
+        id="canvas-blurred"
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          touchAction: "none",
+          display: showCursorBlurLayer ? "block" : "none",
+          filter: showCursorBlurLayer
+            ? `blur(${BLUR_LAYER_TUNING.filterPx}px)`
+            : "none",
+          opacity: showCursorBlurLayer ? BLUR_LAYER_TUNING.cssOpacity : 0,
+          transform: showCursorBlurLayer
+            ? `scale(${BLUR_LAYER_TUNING.scale})`
+            : "none",
+          maskImage: showCursorBlurLayer ? spotMask : "none",
+          WebkitMaskImage: showCursorBlurLayer ? spotMask : "none",
         }}
       />
     </div>

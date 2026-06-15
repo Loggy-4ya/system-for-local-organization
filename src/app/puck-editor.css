@@ -1,23 +1,519 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    Puck Editor Custom Styles — Project Nexus
-   Makes the editor canvas transparent so the InfiniteGrid background shows through.
+   Clears Puck's opaque preview/canvas defaults so InfiniteGrid can paint the editor.
+   Desktop (≥901px): scrollport grid on canvas shell; inner scrollport scrolls page content.
+   Compact (≤900px): contained grid in PageRoot inside the preview iframe.
    Syncs Puck chrome colours with the site light/dark theme.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* Force canvas/preview containers transparent so InfiniteGrid shows through */
+/* Enables smooth interpolation when compact panel height animates via CSS variable. */
+@property --nexus-mobile-panel-height {
+  syntax: "<length-percentage>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* Preview shell — transparent; grid paints inside the preview iframe (all breakpoints). */
 [class*="Puck__canvas"],
 [class*="Puck__preview"],
 [class*="Puck__page"],
 [class*="puck-canvas"],
 [class*="puck-preview"],
-[class*="PuckCanvas"] {
+.Puck [class*="PuckCanvas-inner"],
+.Puck [class*="PuckCanvas-root"],
+.Puck [class*="PuckPreview"],
+.Puck [class*="PuckPreview-frame"],
+.Puck [class*="PuckPreview-frame"] iframe,
+iframe#preview-frame {
   background-color: transparent !important;
   background-image: none !important;
 }
 
-/* Ensure the active dropzones and outlines remain highly visible */
-[class*="Puck__dropzone"] {
+/*
+ * All Puck canvas shells — desktop bordered panel and mobile fullScreen.
+ * Opaque Puck defaults cleared; do not paint a second grid on the scrollport.
+ */
+.Puck [class*="PuckCanvas--fullScreen"],
+.Puck
+  [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+    [class*="PuckCanvas-root"]
+  ):not([class*="PuckCanvas-loader"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/*
+ * Canvas containment — Puck defaults (PuckCanvas-inner min-width 288px,
+ * PuckCanvas-root min-width 321px, overflow:auto) let centered zoomed previews
+ * bleed under the left Blocks/Outline panel when the editor column shrinks.
+ */
+.Puck [class*="PuckLayout-inner"] {
+  min-width: 0;
+}
+
+/* Outer canvas shell only — [class*="PuckCanvas"] also matches controls/inner/root */
+.Puck
+  [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+    [class*="PuckCanvas-root"]
+  ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"]) {
+  min-width: 0;
+}
+
+.Puck [class*="PuckCanvas-inner"] {
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+.Puck [class*="PuckCanvas-root"] {
+  min-width: 0 !important;
+  outline: none !important;
+}
+
+.Puck [class*="PuckPreview-frame"] {
+  max-width: 100%;
+}
+
+/* Sidebars and plugin rail stay above any residual canvas bleed */
+.Puck [class*="Sidebar--left"],
+.Puck [class*="Sidebar--right"],
+.Puck [class*="PuckLayout-nav"] {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  /* Bottom rail must stay above the slide-up panel during height animations. */
+  .Puck [class*="PuckLayout-nav"] {
+    z-index: 2;
+  }
+}
+
+/*
+ * Desktop grid — editor column must absorb leftover width between sidebars.
+ * Puck core sets --puck-frame-width to minmax(266px, auto) (PuckLayout-mounted,
+ * ≥458px) and auto (≥766px), which sizes the canvas track to preview content.
+ * Use direct-child selectors on PuckLayout (not descendant chains) so rules match
+ * the real DOM: PuckLayout modifiers → PuckLayout-inner.
+ */
+@media (min-width: 901px) {
+  .Puck {
+    overflow-x: hidden !important;
+  }
+
+  .Puck [class*="PuckLayout"]:not([class*="PuckLayout-inner"]) > [class*="PuckLayout-inner"],
+  .Puck [class*="PuckLayout-inner"] {
+    --puck-frame-width: minmax(0, 1fr) !important;
+    width: 100%;
+  }
+
+  /* PuckLayout-mounted (no double-dash) also sets minmax(266px, auto) — beat it */
+  .Puck [class*="PuckLayout-mounted"] > [class*="PuckLayout-inner"],
+  .Puck [class*="PuckLayout--mounted"] > [class*="PuckLayout-inner"] {
+    --puck-frame-width: minmax(0, 1fr) !important;
+  }
+
+  /* Visibility-aware editor track — always `1fr`; side columns collapse to 0 when hidden. */
+  .Puck [class*="PuckLayout-inner"] {
+    --nexus-grid-left-width: 0px;
+    --nexus-grid-right-width: 0px;
+    --puck-frame-width: minmax(0, 1fr) !important;
+    grid-template-areas: "header header header header" "sidenav left editor right" !important;
+    grid-template-columns:
+      var(--puck-side-nav-width)
+      var(--nexus-grid-left-width)
+      minmax(0, 1fr)
+      var(--nexus-grid-right-width) !important;
+    grid-template-rows: min-content auto !important;
+  }
+
+  .Puck
+    [class*="PuckLayout"]:not([class*="PuckLayout-inner"])[class*="PuckLayout--leftSideBarVisible"]
+    > [class*="PuckLayout-inner"] {
+    --nexus-grid-left-width: var(--puck-left-side-bar-width);
+  }
+
+  .Puck
+    [class*="PuckLayout"]:not([class*="PuckLayout-inner"])[class*="PuckLayout--rightSideBarVisible"]
+    > [class*="PuckLayout-inner"] {
+    --nexus-grid-right-width: var(--puck-right-side-bar-width);
+  }
+
+  /* Sidebars and canvas must fill their grid tracks (no dead column space). */
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"] {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .Puck [class*="Sidebar--left"]:not([class*="Sidebar--isVisible"]),
+  .Puck [class*="Sidebar--right"]:not([class*="Sidebar--isVisible"]) {
+    max-width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    width: 0 !important;
+  }
+
+  .Puck [class*="Sidebar--left"]:not([class*="Sidebar--isVisible"]) + [class*="Sidebar-resizeHandle"],
+  .Puck [class*="Sidebar--right"]:not([class*="Sidebar--isVisible"]) + [class*="Sidebar-resizeHandle"] {
+    display: none !important;
+    width: 0 !important;
+  }
+
+  /* Puck canvas — shell scrolls (default); inner is the zoom frame; preview scrolls in iframe. */
+  .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"]) {
+    align-self: stretch;
+    background: var(--nexus-editor-panel-bg) !important;
+    grid-area: editor;
+    justify-self: stretch;
+    max-width: none !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    position: relative;
+    width: 100% !important;
+  }
+
+  .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"])
+    > [data-nexus-scrollport-grid] {
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .Puck [class*="PuckCanvas-inner"] {
+    background: transparent !important;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    height: 100% !important;
+    justify-content: stretch !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+  }
+
+  .Puck [class*="PuckCanvas-inner"] > [class*="PuckCanvas-root"],
+  .Puck [class*="PuckCanvas-inner"] > #puck-canvas-root {
+    max-width: 100% !important;
+  }
+
+  /* Full-width preset — preview root spans the inner frame (Puck sets width: 100%). */
+  .Puck[data-nexus-viewport-full-width] [class*="PuckCanvas-inner"] {
+    justify-content: stretch !important;
+    align-items: stretch !important;
+  }
+
+  .Puck[data-nexus-viewport-full-width] [class*="PuckCanvas-inner"] > [class*="PuckCanvas-root"],
+  .Puck[data-nexus-viewport-full-width] [class*="PuckCanvas-inner"] > #puck-canvas-root {
+    left: 0 !important;
+    margin-inline: 0 !important;
+    max-width: 100% !important;
+    right: auto !important;
+    width: 100% !important;
+  }
+
+  .Puck [class*="PuckPreview-frame"] {
+    border-radius: var(--radius-md);
+    display: block;
+    height: 100%;
+    outline: none !important;
+    overflow: hidden;
+    width: 100%;
+  }
+}
+
+/* ── Editor layout panels (glass island chrome) ─────────────────────────────── */
+.Puck {
+  --nexus-editor-panel-gap: 4px;
+  --nexus-editor-panel-radius: var(--radius-lg);
+  --nexus-editor-panel-border: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 85%, transparent);
+  --nexus-editor-panel-bg: color-mix(in srgb, var(--puck-color-white) 96%, transparent);
+  --nexus-editor-panel-shadow: 0 8px 24px -4px color-mix(in srgb, var(--puck-color-black) 10%, transparent);
+  --nexus-canvas-chrome-border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
+}
+
+[data-theme="dark"] .Puck {
+  --nexus-editor-panel-border: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 92%, transparent);
+  --nexus-editor-panel-bg: color-mix(in srgb, var(--puck-color-grey-12) 94%, transparent);
+  --nexus-editor-panel-shadow: 0 8px 24px -4px color-mix(in srgb, #000 32%, transparent);
+}
+
+/** Shared rounded panel shell — desktop plugin rail, sidebars, canvas. */
+@media (min-width: 901px) {
+  .Puck [class*="PuckLayout-inner"] {
+    background-color: transparent !important;
+    box-sizing: border-box;
+    gap: var(--nexus-editor-panel-gap);
+    padding: var(--nexus-editor-panel-gap);
+  }
+
+  .Puck [class*="PuckLayout-nav"],
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"] {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--nexus-editor-panel-bg) !important;
+    border: var(--nexus-editor-panel-border) !important;
+    border-radius: var(--nexus-editor-panel-radius) !important;
+    box-shadow: var(--nexus-editor-panel-shadow);
+    box-sizing: border-box;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Canvas shell — bordered frame; Puck shell scroll + inner zoom frame. */
+  .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]) {
+    backdrop-filter: none !important;
+    border: var(--nexus-canvas-chrome-border) !important;
+    border-radius: var(--nexus-editor-panel-radius) !important;
+    box-shadow: none;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    padding: 0 !important;
+    position: relative;
+    width: 100%;
+  }
+
+  .Puck [class*="PuckCanvas-root"],
+  .Puck #puck-canvas-root {
+    max-width: 100% !important;
+  }
+
+  .Puck [class*="PuckPreview"],
+  .Puck [class*="PuckPreview-frame"],
+  .Puck [class*="PuckPreview-frame"] iframe {
+    max-width: 100% !important;
+  }
+
+  .Puck [class*="PuckCanvas-controls"]:not([class*="PuckCanvas--fullScreen"]) {
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 2;
+  }
+
+  /* Puck flat dividers — panel borders replace inline rules */
+  .Puck [class*="PuckLayout-nav"] {
+    border-top: var(--nexus-editor-panel-border) !important;
+    border-right: var(--nexus-editor-panel-border) !important;
+  }
+
+  .Puck [class*="Sidebar--left"] {
+    border-block-start: var(--nexus-editor-panel-border) !important;
+    border-inline-end: var(--nexus-editor-panel-border) !important;
+    border-inline-start: none !important;
+  }
+
+  .Puck [class*="Sidebar--right"] {
+    border-block-start: var(--nexus-editor-panel-border) !important;
+    border-inline-end: none !important;
+    border-inline-start: var(--nexus-editor-panel-border) !important;
+  }
+}
+
+/** Mobile — bottom plugin rail + slide-up panel; full-bleed (no panel borders). */
+@media (max-width: 900px) {
+  .Puck [class*="PuckLayout-inner"] {
+    box-sizing: border-box;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .Puck [class*="PuckLayout-nav"] {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--nexus-editor-panel-bg) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    box-sizing: border-box;
+    margin-inline: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .Puck [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--nexus-editor-panel-bg) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]) {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* ── Sidebar open/close motion ─────────────────────────────────────────────── */
+.Puck {
+  --nexus-sidebar-transition-duration: 280ms;
+  --nexus-sidebar-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nexus-drawer-accordion-duration: 240ms;
+  --nexus-drawer-accordion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 901px) {
+  .Puck [class*="PuckLayout-inner"] {
+    transition: grid-template-columns var(--nexus-sidebar-transition-duration)
+      var(--nexus-sidebar-transition-ease) !important;
+  }
+
+  .Puck [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    --nexus-sidebar-slide-offset: -10px;
+    animation: nexus-sidebar-open var(--nexus-sidebar-transition-duration)
+      var(--nexus-sidebar-transition-ease) both;
+  }
+
+  .Puck [class*="Sidebar--right"][class*="Sidebar--isVisible"] {
+    --nexus-sidebar-slide-offset: 10px;
+    animation: nexus-sidebar-open var(--nexus-sidebar-transition-duration)
+      var(--nexus-sidebar-transition-ease) both;
+  }
+}
+
+@keyframes nexus-sidebar-open {
+  from {
+    opacity: 0;
+    transform: translateX(var(--nexus-sidebar-slide-offset, -10px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .Puck [class*="PuckLayout-inner"] {
+    transition:
+      --nexus-mobile-panel-height var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease) !important;
+  }
+}
+
+html[data-nexus-sidebar-resizing] .Puck [class*="PuckLayout-inner"],
+html[data-nexus-panel-resizing] .Puck [class*="PuckLayout-inner"] {
+  transition: none !important;
+}
+
+/* Isolate editor layout while the compact panel height animates */
+html[data-nexus-panel-layout-mutating] .Puck [class*="PuckCanvas_"]:not([class*="PuckCanvas--fullScreen"]) {
+  contain: layout style paint;
+}
+
+/* Blocks drawer categories — smooth expand/collapse */
+.Puck [class*="ComponentList-content"] {
+  display: grid !important;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease);
+}
+
+.Puck [class*="ComponentList--isExpanded"] > [class*="ComponentList-content"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.Puck [class*="ComponentList-content"] > [class*="Drawer"] {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.Puck [class*="ComponentList-titleIcon"] {
+  transition: transform var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease);
+}
+
+.Puck [class*="ComponentList--isExpanded"] [class*="ComponentList-titleIcon"] {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .Puck [class*="PuckLayout-inner"],
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"],
+  .Puck [class*="ComponentList-content"],
+  .Puck [class*="ComponentList-titleIcon"],
+  .Puck [class*="PuckLayout-header"],
+  .Puck .nexus-puck-header-shell,
+  .Puck .nexus-field-chapter__collapse,
+  .Puck .nexus-field-chapter__head::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Sidebar drag — freeze preview root layout; Puck auto-zoom otherwise emits NaN height + flicker */
+html[data-nexus-sidebar-resizing] #puck-canvas-root {
+  transition: none !important;
+}
+
+html[data-nexus-sidebar-resizing] .Puck [class*="PuckCanvas-root"],
+html[data-nexus-sidebar-resizing] .Puck [class*="PuckPreview-frame"],
+html[data-nexus-sidebar-resizing] .Puck [class*="PuckCanvas-inner"],
+html[data-nexus-sidebar-resizing] .Puck [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+    [class*="PuckCanvas-root"]
+  ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"]) {
+  transition: none !important;
+}
+
+/* Compact panel height mutations — freeze preview root like sidebar drag */
+html[data-nexus-panel-layout-mutating] #puck-canvas-root,
+html[data-nexus-panel-resizing] #puck-canvas-root,
+html[data-nexus-panel-opening] #puck-canvas-root,
+html[data-nexus-panel-closing] #puck-canvas-root,
+html[data-nexus-panel-expanding] #puck-canvas-root,
+html[data-nexus-panel-collapsing] #puck-canvas-root {
+  transition: none !important;
+}
+
+html[data-nexus-panel-layout-mutating] .Puck [class*="PuckCanvas-root"],
+html[data-nexus-panel-layout-mutating] .Puck [class*="PuckPreview-frame"],
+html[data-nexus-panel-layout-mutating] .Puck [class*="PuckCanvas-inner"],
+html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-root"],
+html[data-nexus-panel-resizing] .Puck [class*="PuckPreview-frame"],
+html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
+  transition: none !important;
+}
+
+/* Ensure the active dropzones and outlines remain highly visible (except carousel slots — overlay-only) */
+[class*="Puck__dropzone"]:not(.nexus-carousel__dropzone) {
   outline: 1px dashed var(--color-accent-user) !important;
+}
+
+.nexus-carousel--edit [class*="Puck__dropzone"],
+.nexus-carousel--edit [class*="DropZone"] {
+  outline: none !important;
 }
 
 /* ── Puck chrome: dark theme alignment ─────────────────────────────────────── */
@@ -119,40 +615,61 @@
   color: var(--puck-color-black) !important;
 }
 
-/* ── Left sidebar: subtle scrollbar, stable width ─────────────────────────── */
+/* ── Sidebars: thin scrollbar; no stable gutter (lines must reach the edge) ─── */
 .Puck [class*="Sidebar--left"],
 .Puck [class*="Sidebar--right"] {
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--puck-color-grey-08) 50%, transparent) transparent;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
 }
 
-@media (min-width: 1024px) {
-  .Puck [class*="Sidebar--left"] {
-    min-width: 280px;
-  }
-
-  .Puck [class*="Sidebar--right"] {
-    min-width: 320px;
-  }
-}
-
-.Puck [class*="Sidebar"]::-webkit-scrollbar {
+.Puck [class*="Sidebar--left"]::-webkit-scrollbar,
+.Puck [class*="Sidebar--right"]::-webkit-scrollbar {
   width: 6px;
 }
 
-.Puck [class*="Sidebar"]::-webkit-scrollbar-track {
+.Puck [class*="Sidebar--left"]::-webkit-scrollbar-track,
+.Puck [class*="Sidebar--right"]::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.Puck [class*="Sidebar"]::-webkit-scrollbar-thumb {
+.Puck [class*="Sidebar--left"]::-webkit-scrollbar-thumb,
+.Puck [class*="Sidebar--right"]::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--puck-color-grey-08) 45%, transparent);
   border-radius: 999px;
 }
 
-.Puck [class*="Sidebar"]::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--puck-color-grey-08) 65%, transparent);
+/* Fields / page settings — section dividers span full panel width */
+.Puck [class*="Sidebar--right"] [class*="SidebarSection-title"] {
+  box-sizing: border-box;
+  margin-inline: 0;
+  width: 100%;
 }
+
+.Puck [class*="Sidebar--right"] [class*="FieldsPlugin"],
+.Puck [class*="Sidebar--right"] [class*="FieldsPlugin-header"] {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Suppress Puck's flat sidebar dividers — Nexus panel shell owns borders (≥901px). */
+@media (min-width: 766px) {
+  .Puck [class*="Sidebar--left"] {
+    border-block-start: none !important;
+    border-inline-end: none !important;
+  }
+
+  .Puck [class*="Sidebar--right"] {
+    border-block-start: none !important;
+    border-inline-start: none !important;
+  }
+}
+
+/*
+ * Sidebar width limits are enforced on grid tracks via NexusSidebarWidthClamp
+ * (Puck ui + puck-sidebar-widths localStorage). Element-level min/max widths
+ * must not be narrower than the track or dead strips appear beside the canvas.
+ */
 
 /* Components panel — gap below section title before first category */
 .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > [class*="ComponentList"]:first-child {
@@ -243,7 +760,9 @@
 
 .nexus-puck-select-trigger {
   width: 100%;
+  height: 42px;
   min-height: 42px;
+  max-height: 42px;
   background-color: var(--puck-color-white);
   border-color: var(--puck-color-grey-09);
   color: var(--puck-color-black);
@@ -263,7 +782,7 @@
 
 /* ── Dark theme: Puck native selects (chevron, not zigzag tile) ─────────── */
 [data-theme="dark"] .Puck select[class*="Input-input"],
-[data-theme="dark"] .Puck select {
+[data-theme="dark"] .Puck select:not([class*="ViewportControls-zoomSelect"]) {
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--puck-color-grey-11) !important;
@@ -276,7 +795,7 @@
 }
 
 [data-theme="dark"] .Puck select[class*="Input-input"]:hover:not([disabled]),
-[data-theme="dark"] .Puck select:hover:not([disabled]) {
+[data-theme="dark"] .Puck select:not([class*="ViewportControls-zoomSelect"]):hover:not([disabled]) {
   background-color: var(--puck-color-grey-10) !important;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0'><polygon points='0,0 100,0 50,50'/></svg>") !important;
 }
@@ -368,26 +887,26 @@
 
 /* ── Compact sidebar field chapters ───────────────────────────────────────── */
 .nexus-field-chapter {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .nexus-field-chapter__head {
   align-items: center;
+  background: transparent;
+  border: none;
   color: var(--puck-color-grey-07);
   cursor: pointer;
   display: flex;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
   gap: 8px;
   letter-spacing: 0.03em;
-  list-style: none;
   padding: 6px 0;
+  text-align: left;
   text-transform: uppercase;
   user-select: none;
-}
-
-.nexus-field-chapter__head::-webkit-details-marker {
-  display: none;
+  width: 100%;
 }
 
 .nexus-field-chapter__icon {
@@ -413,16 +932,41 @@
   font-size: 14px;
   font-weight: 400;
   line-height: 1;
+  transition: opacity calc(var(--nexus-drawer-accordion-duration) - 40ms)
+    var(--nexus-drawer-accordion-ease);
 }
 
-.nexus-field-chapter[open] > .nexus-field-chapter__head::after {
+.nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head::after {
   content: "−";
+}
+
+.nexus-field-chapter__collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease);
+}
+
+.nexus-field-chapter[data-open="true"] > .nexus-field-chapter__collapse {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nexus-field-chapter:not([data-nexus-chapter-hydrated]) .nexus-field-chapter__collapse {
+  transition: none;
 }
 
 .nexus-field-chapter__body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
   padding-bottom: 6px;
 }
 
@@ -440,10 +984,162 @@
   text-transform: uppercase;
 }
 
+.nexus-field-subfield__label {
+  color: var(--puck-color-grey-07);
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+/* Preset + custom dimension fields inside block chapters */
+.nexus-sidebar-field .nexus-field-grid__cell,
+.nexus-carousel-size-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.nexus-sidebar-field .nexus-field-grid__custom-row:not([hidden]),
+.nexus-carousel-size-fields .nexus-field-grid__custom-row:not([hidden]) {
+  margin-top: 4px;
+}
+
+.nexus-sidebar-field .nexus-field-grid__custom[hidden] {
+  display: none;
+}
+
+.nexus-sidebar-field .nexus-stepped-slider {
+  margin-top: 0;
+}
+
+/* ── Stepped slider (carousel slides visible / scroll step) ───────────────── */
+.nexus-stepped-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.nexus-stepped-slider__head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.nexus-stepped-slider__value {
+  color: var(--puck-color-grey-08);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.nexus-stepped-slider [data-slot="slider"] {
+  padding: 0 2px;
+}
+
+.nexus-stepped-slider__ticks {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+
+.nexus-stepped-slider__tick {
+  background: transparent;
+  border: none;
+  color: var(--puck-color-grey-08);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  padding: 2px 0;
+  text-align: center;
+  word-break: break-word;
+}
+
+.nexus-stepped-slider__tick--active {
+  color: var(--puck-color-black);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .nexus-stepped-slider__tick--active {
+  color: var(--puck-color-black);
+}
+
+/* Uniform vertical rhythm for every sidebar field row */
+.nexus-sidebar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  width: 100%;
+}
+
+.nexus-field-chapter__body > .nexus-field-category > .nexus-sidebar-field + .nexus-sidebar-field,
+.nexus-field-chapter__body > .nexus-sidebar-field + .nexus-sidebar-field {
+  margin-top: 0;
+}
+
+.nexus-field-chapter__body .nexus-sidebar-field [class*="Field"],
+.nexus-field-chapter__body .nexus-sidebar-field [class*="FieldLabel"] {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+/* Top-level Puck fields — one FieldChapter per field (same rhythm as block settings). */
+.Puck [class*="Fields-fields"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.Puck [class*="Fields-fields"] > [class*="Field"] {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.Puck [class*="Fields-fields"] > [class*="Field"] + [class*="Field"],
+.Puck [class*="Fields"] > [class*="Field"] + [class*="Field"] {
+  border-top: 1px solid var(--puck-color-grey-09);
+  margin-top: 0;
+}
+
+/* Belt-and-suspenders when a conditional custom field still mounts an empty shell. */
+.Puck [class*="Fields-fields"] > [class*="Field"]:empty {
+  border: none !important;
+  display: none !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+/* Nested chapters inside a single custom field (legacy / combined groups). */
+.nexus-field-chapter + .nexus-field-chapter {
+  border-top: 1px solid var(--puck-color-grey-09);
+  margin-top: 0;
+}
+
+.nexus-carousel-size-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .nexus-field-grid {
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+}
+
+/** Single-column field grid — every control spans full sidebar width. */
+.nexus-field-grid--stack {
+  grid-template-columns: 1fr;
 }
 
 .nexus-field-grid__cell {
@@ -451,6 +1147,7 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  width: 100%;
 }
 
 .nexus-field-grid__cell--wide {
@@ -466,13 +1163,14 @@
   background: var(--puck-color-white);
   border: 1px solid var(--puck-color-grey-09);
   border-radius: 4px;
+  box-sizing: border-box;
   color: var(--puck-color-black);
   font-family: inherit;
   font-size: 14px;
+  height: 42px;
   min-height: 42px;
-  padding: 12px 15px;
+  padding: 0 12px;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .nexus-color-row {
@@ -490,23 +1188,31 @@
 }
 
 .nexus-segmented {
-  display: flex;
+  display: grid;
   gap: 4px;
+  grid-template-columns: repeat(var(--nexus-segmented-cols, 2), minmax(0, 1fr));
   width: 100%;
 }
 
 .nexus-segmented__btn {
+  align-items: center;
   background: var(--puck-color-grey-11);
   border: 1px solid var(--puck-color-grey-09);
   border-radius: 4px;
+  box-sizing: border-box;
   color: var(--puck-color-black);
   cursor: pointer;
-  flex: 1;
+  display: flex;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
+  justify-content: center;
+  line-height: 1.25;
   min-height: 42px;
-  padding: 0 16px;
+  min-width: 0;
+  padding: 6px 6px;
+  text-align: center;
+  word-break: break-word;
 }
 
 .nexus-segmented__btn--active {
@@ -594,8 +1300,10 @@
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
-  min-height: 34px;
-  padding: 6px 12px;
+  gap: 6px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
   transition: opacity 0.15s ease;
 }
 
@@ -609,21 +1317,35 @@
   color: var(--puck-color-black);
 }
 
+.nexus-mode-toggle__icon {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  line-height: 0;
+}
+
+.nexus-mode-toggle__label {
+  white-space: nowrap;
+}
+
 /* ── Spacing custom numeric + unit row ── */
 .nexus-field-grid__custom-row {
-  align-items: stretch;
+  align-items: center;
   display: grid;
   gap: 6px;
   grid-template-columns: 1fr auto;
 }
 
 .nexus-field-grid__custom--number {
+  height: 42px;
   min-height: 42px;
   min-width: 0;
 }
 
 .nexus-field-grid__custom-row .nexus-puck-select-trigger {
-  height: 100%;
+  height: 42px;
+  max-height: 42px;
   min-height: 42px;
 }
 
@@ -818,6 +1540,62 @@
   z-index: 2;
 }
 
+/* Grid layout — edit-mode drop zones (preview renders in Puck iframe, no `.Puck` ancestor) */
+.nexus-grid[data-puck-dropzone],
+.nexus-grid-item[data-puck-dropzone] {
+  padding: 12px;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.nexus-carousel__slide .nexus-grid[data-puck-dropzone],
+.nexus-carousel__slide .nexus-grid-item[data-puck-dropzone] {
+  min-height: 0;
+  padding: 0;
+}
+
+/* Empty grid cells — modest edit target without participating in carousel height loop */
+.nexus-grid-item[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  min-height: 80px;
+}
+
+.nexus-carousel__slide .nexus-grid-item[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  min-height: 64px;
+}
+
+.nexus-grid[data-puck-dropzone]:not([class*="DropZone--hasChildren"]),
+.nexus-grid-item[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  outline: 1px dashed color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  outline-offset: -1px;
+}
+
+/* Empty grid container — edit drop target outside carousel slides */
+.nexus-grid[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  min-height: 120px;
+}
+
+.nexus-carousel__slide .nexus-grid[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  min-height: 0;
+}
+
+.nexus-grid-item[data-puck-dropzone][class*="DropZone--isDestination"],
+.nexus-grid-item[data-puck-dropzone][class*="DropZone--hoveringOverArea"],
+.nexus-grid-item[data-puck-dropzone][class*="DropZone--isAreaSelected"],
+.nexus-grid[data-puck-dropzone][class*="DropZone--isDestination"],
+.nexus-grid[data-puck-dropzone][class*="DropZone--hoveringOverArea"],
+.nexus-grid[data-puck-dropzone][class*="DropZone--isAreaSelected"] {
+  outline: 2px dashed var(--color-accent-user) !important;
+  outline-offset: -1px;
+}
+
+.nexus-grid-item [data-puck-dropzone] > [data-puck-component],
+.nexus-grid-item[data-puck-dropzone] > [data-puck-component] {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Carousel edit mode — Embla track; tallest slide sets row height, all slides stretch to match.
    Selectors omit `.Puck` because the preview canvas renders inside Puck's iframe (no `.Puck` ancestor). */
 .nexus-carousel--edit {
@@ -841,6 +1619,7 @@
 
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport {
   min-height: var(--nexus-carousel-edit-height, var(--nexus-carousel-auto-min-height, 240px));
+  max-height: var(--nexus-carousel-max-height, none);
   overflow: hidden;
   scrollbar-width: none;
 }
@@ -868,10 +1647,42 @@
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex,
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__track--edit {
   min-height: var(--nexus-carousel-edit-height, var(--nexus-carousel-auto-min-height, 240px));
+  max-height: var(--nexus-carousel-max-height, none);
 }
 
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
   align-items: stretch;
+}
+
+/* Multi-slide edit — per-slide height from content (no stretch gap / ghost append band) */
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  [data-slot="carousel-content"]
+  > .flex {
+  align-items: flex-start !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  [data-slot="carousel-item"] {
+  align-self: flex-start !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"]),
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) {
+  height: auto !important;
+}
+
+/* Multi-slide content-sized layout — drop viewport min-height floor (prevents band below slides) */
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  .nexus-carousel__viewport,
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  [data-slot="carousel-content"]
+  > .flex,
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+  .nexus-carousel__track--edit {
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"] {
@@ -896,7 +1707,7 @@
   min-height: var(--nexus-carousel-auto-min-height, 240px);
 }
 
-.nexus-carousel--edit .nexus-carousel__slide-dropzone-shell {
+.nexus-carousel--edit .nexus-carousel__slide-dropzone-shell:not(:has(.nexus-grid)) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -905,12 +1716,24 @@
   width: 100%;
 }
 
-.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) .nexus-carousel__slide-dropzone-shell {
+.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-grid) .nexus-carousel__slide-dropzone-shell {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.nexus-carousel--edit.nexus-carousel--fixed-height
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  .nexus-carousel__slide-dropzone-shell {
+  flex: 1 1 auto !important;
   height: 100%;
   min-height: 100%;
 }
 
-.nexus-carousel--edit .nexus-carousel__slide .nexus-video,
+.nexus-carousel--edit .nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill,
 .nexus-carousel--edit .nexus-carousel__slide .nexus-image--fill-slide {
   cursor: pointer;
 }
@@ -921,7 +1744,7 @@
 
 /* Dot clearance — skip bottom padding when slide content fills the card (e.g. video) */
 .nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__dropzone[data-puck-dropzone],
-.nexus-carousel--edit.nexus-carousel--edit-nav [data-puck-dropzone] {
+.nexus-carousel--edit.nexus-carousel--edit-nav [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
   padding-bottom: 40px !important;
 }
 
@@ -934,7 +1757,28 @@
   padding-bottom: 0 !important;
 }
 
-/* Edit controls overlay the viewport so they align with multi-slide layout */
+/* Edit controls overlay the carousel root so they stay fixed while slides scroll */
+.nexus-carousel--edit.nexus-carousel--edit-nav > .nexus-carousel__controls,
+.nexus-carousel--edit.nexus-carousel--edit-nav > .nexus-carousel__controls[data-puck-overlay-portal] {
+  inset: 0;
+  pointer-events: none !important;
+  position: absolute;
+  z-index: 3;
+}
+
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  > .nexus-carousel__controls
+  .nexus-carousel__arrow,
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  > .nexus-carousel__controls
+  .nexus-carousel__dot,
+.nexus-carousel--edit.nexus-carousel--edit-nav
+  > .nexus-carousel__controls
+  .nexus-carousel__edit-select {
+  pointer-events: auto !important;
+}
+
+/* Legacy selector — controls previously lived inside the Embla viewport */
 .nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__viewport > .nexus-carousel__controls,
 .nexus-carousel--edit.nexus-carousel--edit-nav .nexus-carousel__viewport > .nexus-carousel__controls[data-puck-overlay-portal] {
   inset: 0;
@@ -1008,11 +1852,36 @@
   z-index: 1;
 }
 
-/* Empty slide drop zones — keep dashed Puck target visible */
+/* Empty slide drop zones — keep dashed Puck target visible (outline suppressed below) */
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height)
   [data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
   flex: 1 1 auto !important;
   min-height: var(--nexus-carousel-auto-min-height, 240px) !important;
+}
+
+/* Carousel edit — Puck drop-zone chrome is overlay-only; hide live dashed slots + append hitboxes */
+.nexus-carousel--edit [data-puck-dropzone],
+.nexus-carousel--edit [data-puck-dropzone] [class*="DropZone-hitbox"],
+.nexus-carousel--edit [class*="DropZone--isDestination"],
+.nexus-carousel--edit [class*="DropZone--hoveringOverArea"],
+.nexus-carousel--edit [class*="DropZone--isAreaSelected"] {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.nexus-carousel--edit [data-puck-dropzone] [class*="DropZone-hitbox"] {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone],
+html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone] [class*="DropZone-hitbox"] {
+  background: transparent !important;
+  background-image: none !important;
+  outline: none !important;
 }
 
 /* Drop zones fill the slide card; blocks stay content-sized, append area keeps remaining height */
@@ -1028,20 +1897,62 @@
   width: 100%;
 }
 
-.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--hasChildren"] {
+.nexus-carousel--edit [data-puck-dropzone][class*="DropZone--hasChildren"]:not(:has(.nexus-carousel__slide-media-fill)) {
   flex: 1 1 auto !important;
-  height: 100% !important;
+  height: auto !important;
   min-height: 0 !important;
-  overflow: hidden;
+  overflow: visible !important;
 }
 
-.nexus-carousel--edit [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)) {
+/* Occupied fill-media slots — content-sized; no dashed drop-zone chrome */
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel--edit:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has([data-nexus-carousel-fill="true"]) {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  outline: none !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.nexus-carousel--edit
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has([data-nexus-carousel-fill="true"])
+  > [data-puck-component],
+.nexus-carousel--edit
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has(.nexus-carousel__slide-media-fill)
+  > [data-puck-component] {
+  display: block !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  width: 100%;
+}
+
+.nexus-carousel--edit
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has([data-nexus-carousel-fill="true"])
+  > [data-puck-component]
+  > div,
+.nexus-carousel--edit
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:has([data-nexus-carousel-fill="true"])
+  > [data-puck-component]
+  > div
+  > div {
+  height: auto !important;
+  min-height: 0 !important;
+  width: 100%;
+}
+
+.nexus-carousel--edit [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)):not(:has([data-nexus-carousel-fill="true"])) {
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
 }
 
-.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) [data-puck-dropzone] {
+.nexus-carousel--edit.nexus-carousel--fixed-height
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone] {
   flex: 1 1 auto !important;
   height: 100%;
   min-height: var(--nexus-carousel-auto-min-height, 240px) !important;
@@ -1088,29 +1999,34 @@
   pointer-events: none !important;
 }
 
-.nexus-carousel__slide .nexus-video,
-.nexus-carousel__slide .nexus-video__frame,
-.nexus-carousel__slide .nexus-video__media,
-.nexus-carousel__slide .nexus-video img.nexus-video__media,
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill,
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill .nexus-video__frame,
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill .nexus-media-cover__embed,
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill .nexus-media-cover__media,
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill img.nexus-media-cover__media,
 .nexus-carousel__slide .nexus-image--fill-slide,
 .nexus-carousel__slide .nexus-image--fill-slide .nexus-image__frame,
-.nexus-carousel__slide .nexus-image--fill-slide .nexus-image__media {
+.nexus-carousel__slide .nexus-image--fill-slide .nexus-media-cover__media {
   pointer-events: auto !important;
 }
 
 .nexus-video--interactive iframe,
+.nexus-video--interactive .nexus-media-cover__embed,
 .nexus-video--interactive video {
   pointer-events: auto !important;
 }
 
 .nexus-carousel--interactive .nexus-carousel__arrow,
 .nexus-carousel--interactive .nexus-carousel__dot,
+.nexus-carousel--interactive .nexus-carousel__dots,
+.nexus-carousel--interactive .nexus-carousel__autoplay-toggle,
 .nexus-carousel--edit .nexus-carousel__arrow,
 .nexus-carousel--edit .nexus-carousel__dot,
 .nexus-carousel--edit .nexus-carousel__edit-select,
 .nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__arrow,
 .nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__dot,
-.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__edit-select {
+.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__edit-select,
+.nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__autoplay-toggle {
   pointer-events: auto !important;
   z-index: 40;
 }
@@ -1129,34 +2045,259 @@
   width: 40px !important;
 }
 
-.nexus-carousel--interactive .nexus-carousel__dropzone[data-puck-dropzone],
-.nexus-carousel--interactive [data-puck-dropzone] {
+.nexus-carousel--interactive
+  .nexus-carousel__dropzone[data-puck-dropzone]:not(:has(.nexus-carousel__slide-media-fill)),
+.nexus-carousel--interactive
+  [data-puck-dropzone]:not(:has(.nexus-carousel__slide-media-fill)) {
   position: relative;
   z-index: 2;
 }
 
 .nexus-video__edit-badge {
-  background: color-mix(in srgb, var(--color-bg-surface) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-surface) 88%, transparent);
+  backdrop-filter: blur(4px);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-size: 11px;
   left: 50%;
-  padding: 4px 10px;
+  line-height: 1.35;
+  max-width: calc(100% - 16px);
+  padding: 5px 10px;
   pointer-events: none;
   position: absolute;
+  text-align: center;
   top: 50%;
   transform: translate(-50%, -50%);
   white-space: nowrap;
   z-index: 2;
 }
 
-.nexus-carousel__slide .nexus-video__edit-badge {
-  bottom: 8px;
-  left: auto;
-  right: 8px;
-  top: auto;
-  transform: none;
+.nexus-video--edit {
+  padding-block: 0 !important;
+}
+
+/* ── Canvas drag — slot drop targets (reparenting + full-container highlights) ─ */
+.nexus-section__dropzone[data-puck-dropzone],
+.nexus-columns__dropzone[data-puck-dropzone] {
+  box-sizing: border-box;
+  min-height: 120px;
+  position: relative;
+  width: 100%;
+  z-index: 2;
+}
+
+.nexus-section__dropzone[data-puck-dropzone]:not([class*="DropZone--hasChildren"]),
+.nexus-columns__dropzone[data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  outline: 1px dashed color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  outline-offset: -1px;
+}
+
+[data-puck-dragging] .nexus-grid[data-puck-dropzone],
+[data-puck-dragging] .nexus-grid-item[data-puck-dropzone],
+[data-puck-dragging] .nexus-carousel__dropzone[data-puck-dropzone],
+[data-puck-dragging] .nexus-tabs__dropzone[data-puck-dropzone],
+[data-puck-dragging] .nexus-section__dropzone[data-puck-dropzone],
+[data-puck-dragging] .nexus-columns__dropzone[data-puck-dropzone] {
+  box-sizing: border-box;
+}
+
+[data-puck-dragging] [data-puck-dropzone] {
+  pointer-events: auto !important;
+}
+
+/*
+ * Collapse live drop-zone layout chrome while dragging — nested empty slots must not
+ * each grow min-height (stacked dashed "footprints"). Preview feedback is overlay-only.
+ */
+html[data-puck-dragging] [data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  background: transparent !important;
+  background-image: none !important;
+  min-height: 0 !important;
+  outline: none !important;
+}
+
+html[data-puck-dragging] [data-puck-dropzone][class*="DropZone--isDestination"],
+html[data-puck-dragging] [data-puck-dropzone][class*="DropZone--hoveringOverArea"],
+html[data-puck-dragging] [data-puck-dropzone][class*="DropZone--isAreaSelected"] {
+  background: transparent !important;
+  background-image: none !important;
+  outline: none !important;
+}
+
+html[data-puck-dragging] [class*="DropZone-hitbox"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html[data-puck-dragging] .nexus-carousel--edit:not(.nexus-carousel--fixed-height) [data-puck-dropzone],
+html[data-puck-dragging] .nexus-carousel--edit:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+html[data-puck-dragging] .nexus-carousel--edit .nexus-carousel__slide-dropzone-shell {
+  min-height: 0 !important;
+}
+
+html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
+  min-height: 0 !important;
+}
+
+[data-puck-dragging] [data-puck-dropzone] > [data-puck-component]:not([data-dnd-dragging]) {
+  pointer-events: none !important;
+}
+
+[data-puck-dragging]
+  [data-puck-dropzone]
+  [data-puck-component]:not([data-dnd-dragging])
+  iframe,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  [data-puck-component]:not([data-dnd-dragging])
+  video,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  .nexus-video__poster,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  .nexus-carousel__controls,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  .nexus-carousel__arrow,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  .nexus-carousel__dot,
+[data-puck-dragging]
+  [data-puck-dropzone]
+  .nexus-carousel__edit-select {
+  pointer-events: none !important;
+}
+
+[data-puck-dragging] .nexus-carousel--edit .nexus-carousel__slide--inactive-edit {
+  opacity: 1;
+  pointer-events: auto !important;
+}
+
+[data-puck-dragging] .nexus-carousel--edit .nexus-carousel__slide--inactive-edit [data-puck-dropzone] {
+  pointer-events: auto !important;
+}
+
+[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone] {
+  overflow: visible !important;
+}
+
+[data-puck-dragging]
+  .nexus-grid-item[data-puck-dropzone]
+  [class*="DropZone-hitbox"],
+[data-puck-dragging]
+  .nexus-grid[data-puck-dropzone]
+  [class*="DropZone-hitbox"],
+[data-puck-dragging]
+  .nexus-carousel__dropzone[data-puck-dropzone]
+  [class*="DropZone-hitbox"],
+[data-puck-dragging]
+  .nexus-tabs__dropzone[data-puck-dropzone]
+  [class*="DropZone-hitbox"],
+[data-puck-dragging]
+  .nexus-section__dropzone[data-puck-dropzone]
+  [class*="DropZone-hitbox"],
+[data-puck-dragging]
+  .nexus-columns__dropzone[data-puck-dropzone]
+  [class*="DropZone-hitbox"] {
+  bottom: 0 !important;
+  height: 100% !important;
+  top: auto !important;
+  z-index: 3;
+}
+
+/* Canvas drag — overlay drop previews (no layout mutation on live drop zones) */
+#nexus-canvas-drop-overlay {
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 25;
+}
+
+html[data-puck-dragging] [data-puck-component] {
+  touch-action: none;
+}
+
+html[data-puck-dragging] [data-puck-dropzone] {
+  touch-action: none;
+}
+
+.nexus-canvas-drop-overlay__zone {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, transparent);
+  box-sizing: border-box;
+  outline: 2px dashed color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  outline-offset: -2px;
+  pointer-events: none;
+  position: fixed;
+}
+
+.nexus-canvas-drop-overlay__ghost {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, transparent);
+  box-sizing: border-box;
+  outline: 2px dashed var(--color-accent-user);
+  outline-offset: -2px;
+  pointer-events: none;
+  position: fixed;
+}
+
+/*
+ * Glass panels use translucent color-mix + backdrop-filter. While a block is
+ * dragged over siblings (e.g. News Card over Video Player), underlying media
+ * posters bleed through the ghost — see canvas drag smoke with glass blocks.
+ */
+[data-puck-dragging] [data-puck-component][data-dnd-dragging] {
+  isolation: isolate;
+  pointer-events: none !important;
+  position: relative;
+  z-index: 20;
+}
+
+/* Carousel — hide in-place drag source so only the overlay ghost shows (no "island") */
+html[data-puck-dragging] .nexus-carousel__slide [data-puck-component][data-dnd-dragging] {
+  min-height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+html[data-puck-dragging] .nexus-carousel__slide:has([data-puck-component][data-dnd-dragging]) {
+  min-height: 0 !important;
+}
+
+html[data-puck-dragging]
+  .nexus-carousel__slide:has([data-puck-component][data-dnd-dragging])
+  .nexus-carousel__slide-dropzone-shell {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+html[data-puck-dragging] .nexus-carousel__slide [data-puck-dropzone]:has([data-puck-component][data-dnd-dragging]) {
+  min-height: 0 !important;
+}
+
+/* Suppress Puck live destination chrome inside carousels — Nexus overlay is the only preview */
+html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="DropZone--isDestination"],
+html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="DropZone--hoveringOverArea"],
+html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="DropZone--isAreaSelected"] {
+  box-shadow: none !important;
+  min-height: 0 !important;
+  outline: none !important;
+}
+
+[data-puck-dragging] [data-puck-component] .glass-panel,
+[data-puck-dragging] [data-puck-component].glass-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: var(--color-bg-panel) !important;
+}
+
+[data-puck-dragging] [data-puck-component] .glass-elevated,
+[data-puck-dragging] [data-puck-component].glass-elevated {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: var(--color-bg-elevated) !important;
 }
 
 /* ── Page Settings (root sidebar) ───────────────────────────────────────── */
@@ -1229,3 +2370,2107 @@
   margin: 6px 0 0;
 }
 
+/* ── Unified Puck editor header (SiteHeaderBar shell) ─────────────────────── */
+.Puck [class*="PuckLayout-header"] {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-puck-header-shell {
+  box-sizing: border-box;
+  max-width: none;
+  padding: env(safe-area-inset-top, 0px) 0 0;
+  width: 100%;
+}
+
+.nexus-puck-header-shell__inner {
+  max-width: none;
+  width: 100%;
+}
+
+.nexus-puck-header-bar {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+/* Match site glass-panel island — full-width bar with rounded corners + gutter inset */
+.nexus-puck-header-bar.glass-panel,
+.nexus-puck-header-bar.site-header-bar {
+  border-radius: var(--radius-lg);
+}
+
+.nexus-puck-header-bar__row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-puck-header-bar__logo {
+  flex-shrink: 0;
+}
+
+.nexus-puck-header-bar__puck {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+/* Strip Puck default header chrome — toolbar lives inside the glass bar */
+.nexus-puck-header-bar__puck > [class*="PuckHeader"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  flex: 1 1 auto;
+  margin: 0 !important;
+  max-width: none !important;
+  min-width: 0;
+  padding: 0 !important;
+  width: 100%;
+}
+
+/* Puck reserves 67px for the plugin rail — Nexus logo replaces that inset */
+@media (min-width: 638px) {
+  .nexus-puck-header-bar__puck > [class*="PuckHeader"] {
+    padding-left: 0 !important;
+  }
+
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    border-left: none !important;
+  }
+}
+
+.nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+  align-items: center !important;
+  border: none !important;
+  box-sizing: border-box;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 0 !important;
+  width: 100%;
+}
+
+@media (min-width: 901px) {
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    display: grid !important;
+    grid-template-areas: "left middle right";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+  }
+
+  .nexus-puck-header-bar__puck [class*="PuckHeader-toggle"] {
+    grid-area: left;
+    justify-self: start;
+  }
+
+  .nexus-puck-header-bar__puck [class*="PuckHeader-title"] {
+    grid-area: middle;
+    justify-self: center;
+    width: 100%;
+  }
+
+  .nexus-puck-header-bar__puck [class*="PuckHeader-tools"] {
+    grid-area: right;
+    justify-content: flex-end;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .nexus-puck-header-bar__puck [class*="MenuBar"] {
+    width: 100%;
+  }
+
+  .nexus-puck-header-bar__puck [class*="MenuBar-inner"] {
+    align-items: center;
+    display: flex !important;
+    flex-wrap: nowrap;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .nexus-puck-header-bar__puck [class*="MenuBar-history"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-shrink: 0;
+    gap: 12px;
+    justify-content: space-between;
+    margin-right: 0;
+    max-width: 88px;
+    min-width: 72px;
+  }
+}
+
+@media (max-width: 900px) {
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 901px) {
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    border-left: none !important;
+  }
+
+  .Puck [class*="PuckHeader-toggle"] {
+    align-items: center;
+    display: flex !important;
+    flex: 0 0 auto;
+    padding-top: 0;
+  }
+
+  .Puck [class*="PuckHeader-leftSideBarToggle"],
+  .Puck [class*="PuckHeader-rightSideBarToggle"] {
+    display: block !important;
+  }
+}
+
+.nexus-puck-header-bar__puck [class*="PuckHeader-title"] {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.nexus-puck-header-bar__puck [class*="PuckHeader-tools"] {
+  align-items: center;
+  background: transparent !important;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Puck MenuBar defaults to white panel chrome — flatten into the glass header bar */
+.nexus-puck-header-bar__puck [class*="MenuBar"],
+.nexus-puck-header-bar__puck [class*="MenuBar-inner"],
+.nexus-puck-header-bar__puck [class*="MenuBar-history"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Shared editor header toolbar button sizing ───────────────────────────── */
+.nexus-editor-header-btn {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+/* Puck header row — center all toolbar chips on one baseline */
+.Puck [class*="PuckHeader-inner"] {
+  align-items: center !important;
+}
+
+.Puck [class*="PuckHeader-tools"] {
+  align-items: center;
+  background: transparent !important;
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.Puck [class*="MenuBar"] {
+  align-items: center;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  display: flex;
+}
+
+.Puck [class*="MenuBar-inner"] {
+  align-items: center;
+  background: transparent !important;
+}
+
+/* Puck built-in header controls — match Nexus toolbar height */
+.Puck [class*="PuckHeader"] [class*="Button--primary"] {
+  align-items: center;
+  align-self: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  gap: 6px;
+  height: 36px !important;
+  justify-content: center;
+  letter-spacing: normal !important;
+  line-height: 1 !important;
+  max-height: 36px !important;
+  min-height: 36px !important;
+  padding-block: 0 !important;
+  padding-inline: 12px !important;
+  border-radius: var(--radius-sm) !important;
+  width: max-content;
+}
+
+.Puck [class*="PuckHeader"] [class*="Button--primary"] > [class*="Button-icon"] {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: auto;
+  justify-content: center;
+  line-height: 0;
+  margin: 0 !important;
+  min-height: 0;
+  padding: 0 !important;
+  width: auto;
+}
+
+.Puck [class*="PuckHeader"] [class*="Button--primary"] > [class*="Button-icon"] svg {
+  display: block;
+}
+
+.Puck [class*="PuckHeader"] [class*="IconButton"] {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0;
+  width: 36px;
+}
+
+/* ── Nexus header chrome (Puck headerActions override) ─────────────────────── */
+.nexus-puck-header-actions {
+  display: inline-flex;
+  align-items: center;
+  background: transparent !important;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  line-height: 1;
+  margin-right: 0;
+  min-width: 0;
+}
+
+.nexus-puck-header-actions__error {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  max-width: min(240px, 40vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-puck-header-actions__pages-link {
+  font-size: 12px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nexus-puck-header-actions__pages-icon {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.nexus-publish-btn {
+  align-items: center;
+  background: var(--puck-color-azure-04);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  color: var(--puck-color-white);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.nexus-publish-btn:hover:not(:disabled) {
+  background: var(--puck-color-azure-03);
+}
+
+.nexus-publish-btn:active:not(:disabled) {
+  background: var(--puck-color-azure-02);
+}
+
+.nexus-publish-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.nexus-publish-btn__icon {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.nexus-publish-btn__icon--spin {
+  animation: nexus-publish-btn-spin 0.8s linear infinite;
+}
+
+@keyframes nexus-publish-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nexus-publish-btn__label {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-publish-btn__icon--spin {
+    animation: none;
+  }
+}
+
+.nexus-puck-header-actions__pages-link.nexus-editor-header-btn,
+.nexus-mode-toggle.nexus-editor-header-btn {
+  height: 36px;
+  min-height: 36px;
+}
+
+.nexus-puck-header-actions__theme {
+  flex-shrink: 0;
+}
+
+.nexus-puck-header-actions__toggles {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Puck header page title + slug label (portal) ─────────────────────────── */
+.Puck [class*="PuckHeader-title"] {
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 901px) {
+  .Puck [class*="PuckHeader-title"] {
+    max-width: min(480px, 100%);
+  }
+}
+
+.nexus-page-header-label {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.nexus-page-header-label__title,
+.nexus-page-header-label__slug {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  display: inline-flex;
+  font-size: 12px;
+  height: 32px;
+  max-width: 100%;
+  min-height: 32px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-page-header-label__title {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.nexus-page-header-label__slug {
+  color: var(--color-accent-user);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/*
+ * Narrow desktop header (901–1023px) — keep title flexible and tools at natural width.
+ */
+@media (min-width: 901px) and (max-width: 1023px) {
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    gap: 8px;
+  }
+
+  .Puck [class*="PuckHeader-title"] {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .Puck [class*="PuckHeader-tools"] {
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .Puck [class*="MenuBar-inner"] {
+    flex-wrap: nowrap;
+    gap: 4px 8px;
+  }
+
+  .nexus-page-header-label {
+    flex-wrap: nowrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .nexus-page-header-label__title {
+    flex: 1 1 auto;
+    max-width: 58%;
+  }
+
+  .nexus-page-header-label__slug {
+    flex: 0 1 auto;
+    max-width: 42%;
+  }
+
+  .nexus-puck-header-actions {
+    gap: 4px;
+    margin-right: 0;
+  }
+
+  .nexus-puck-header-actions__pages-link {
+    padding-inline: 8px;
+  }
+}
+
+.nexus-publish-btn--icon-only {
+  gap: 0 !important;
+  min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  padding-inline: 0 !important;
+  width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+}
+
+/* Tight narrow-desktop band — icon-only header chips */
+@media (min-width: 901px) and (max-width: 1023px) {
+  .nexus-puck-header-actions__pages-label,
+  .nexus-mode-toggle__label {
+    display: none !important;
+  }
+
+  .nexus-puck-header-actions__pages-link,
+  .nexus-mode-toggle.nexus-editor-header-btn,
+  .nexus-publish-btn {
+    gap: 0;
+    justify-content: center;
+    min-width: 36px;
+    padding-inline: 0 !important;
+    width: 36px;
+  }
+}
+
+/* ── Compact editor (≤900px — bottom rail + full-screen canvas) ───────────── */
+@media (max-width: 900px) {
+  .Puck {
+    /* Gap from canvas bottom edge — nav is outside the canvas grid area */
+    --nexus-viewport-island-gap: 6px;
+    --nexus-sidebar-transition-duration: 400ms;
+    --nexus-mobile-panel-min-height: 160px;
+    --nexus-mobile-panel-max-height: min(60vh, 480px);
+    --nexus-mobile-panel-height: 30%;
+    /* Bottom plugin rail + compact toolbar controls */
+    --nexus-compact-nav-item-height: 36px;
+    --nexus-compact-nav-label-size: 9px;
+    --nexus-compact-nav-icon-size: 16px;
+    --nexus-compact-nav-indicator: 2px;
+    --nexus-compact-toolbar-btn-height: 30px;
+    --nexus-compact-viewport-btn-size: 30px;
+    --nexus-compact-viewport-fab-size: 36px;
+  }
+
+  /* Plugin panel open — float viewport island just above the panel seam */
+  .Puck [class*="PuckLayout--leftSideBarVisible"] {
+    --nexus-viewport-island-gap: 10px;
+  }
+
+  /*
+   * Puck core switches to desktop grid at min-width: 638px. Nexus compact mode
+   * extends to 900px — undo desktop grid/columns and restore mobile stack layout.
+   */
+  .Puck [class*="PuckLayout-inner"] {
+    --puck-side-nav-width: min-content !important;
+    grid-template-areas: "header" "editor" "left" "right" "sidenav" !important;
+    grid-template-columns: var(--puck-frame-width) !important;
+    grid-template-rows: min-content auto 0 0 var(--puck-side-nav-width) !important;
+  }
+
+  .Puck
+    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-inner"] {
+    grid-template-columns: var(--puck-frame-width) !important;
+    grid-template-rows: 0 auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
+  }
+
+  /* Close — restore header row while the panel height eases to 0. */
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-inner"] {
+    grid-template-rows: min-content auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
+  }
+
+  .Puck
+    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"][class*="PuckLayout--isExpanded"]
+    [class*="PuckLayout-inner"] {
+    grid-template-rows: 0 auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
+  }
+
+  .Puck
+    [class*="PuckLayout--mobilePanelHeightMinContent"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-inner"],
+  .Puck
+    [class*="PuckLayout--mobilePanelHeightMinContent"][class*="PuckLayout--leftSideBarVisible"][class*="PuckLayout--isExpanded"]
+    [class*="PuckLayout-inner"] {
+    grid-template-columns: var(--puck-frame-width) !important;
+    grid-template-rows: min-content auto min-content 0 var(--puck-side-nav-width) !important;
+  }
+
+  html[data-nexus-panel-layout-mutating] .Puck [class*="PuckLayout-inner"],
+  html[data-nexus-panel-opening] .Puck [class*="PuckLayout-inner"],
+  html[data-nexus-panel-closing] .Puck [class*="PuckLayout-inner"],
+  html[data-nexus-panel-expanding] .Puck [class*="PuckLayout-inner"],
+  html[data-nexus-panel-collapsing] .Puck [class*="PuckLayout-inner"] {
+    overflow: hidden;
+  }
+
+  /* Compact header — collapse shell height + fade/slide in sync with the panel row. */
+  .Puck [class*="PuckLayout-header"] {
+    align-self: stretch;
+    grid-area: header;
+    min-height: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .nexus-puck-header-shell {
+    contain: layout style;
+    max-height: 120px;
+    min-height: 0;
+    overflow: hidden;
+    transition:
+      max-height var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease);
+  }
+
+  .nexus-puck-header-shell__inner,
+  .Puck [class*="PuckLayout-header"] [class*="PuckHeader"] {
+    opacity: 1;
+    transform: translateY(0);
+    transform-origin: top center;
+    transition:
+      opacity var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease),
+      transform var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease);
+  }
+
+  /*
+   * Plugin panel open — ease header out while the panel row grows; pointer-events
+   * off so the viewport island toolbar stays tappable during the transition.
+   */
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell {
+    max-height: 0;
+  }
+
+  /* Collapse the header grid cell — min-content row left a static strip above the panel. */
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-header"] {
+    height: 0 !important;
+    margin: 0 !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell__inner,
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckHeader"] {
+    opacity: 0;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-8px);
+  }
+
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-header"] {
+    height: auto !important;
+    max-height: none !important;
+    pointer-events: auto !important;
+  }
+
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell {
+    max-height: 120px;
+  }
+
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell__inner,
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckHeader"] {
+    opacity: 1;
+    pointer-events: auto !important;
+    transform: translateY(0);
+  }
+
+  .Puck [class*="PuckLayout-nav"] {
+    border-right: 0 !important;
+    border-top: 1px solid var(--puck-color-grey-09) !important;
+    width: 100%;
+  }
+
+  .Puck [class*="PuckHeader"] {
+    padding-left: 0 !important;
+  }
+
+  /* Compact single-row header — logo left, toolbar right; hide page title/slug */
+  .nexus-puck-header-bar {
+    padding: 6px 10px;
+  }
+
+  .nexus-puck-header-shell {
+    padding: env(safe-area-inset-top, 0px) 0 0;
+  }
+
+  .nexus-puck-header-bar__row {
+    gap: 6px;
+  }
+
+  .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
+    gap: 4px;
+    justify-content: flex-end;
+  }
+
+  .Puck [class*="PuckHeader-toggle"] {
+    display: none !important;
+  }
+
+  .Puck [class*="PuckHeader-title"] {
+    display: none !important;
+  }
+
+  .Puck [class*="PuckHeader-tools"] {
+    flex: 1 1 auto;
+    gap: 4px;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  /*
+   * Puck ≤638px drops MenuBar with position:absolute under the title row; Nexus
+   * compact extends to 900px — keep toolbar in normal flow on one row.
+   */
+  .Puck [class*="PuckHeader-menuButton"] {
+    display: none !important;
+  }
+
+  .Puck [class*="MenuBar"] {
+    background: transparent !important;
+    border-bottom: none !important;
+    display: flex !important;
+    flex: 0 0 auto;
+    left: auto !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    width: auto !important;
+  }
+
+  .Puck [class*="MenuBar-inner"] {
+    align-items: center;
+    display: flex !important;
+    flex-wrap: nowrap;
+    gap: 4px;
+    justify-content: flex-end;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .Puck [class*="MenuBar-inner"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nexus-puck-header-actions {
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-right: 0;
+  }
+
+  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
+    height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    min-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    width: 44px !important;
+  }
+
+  .Puck [class*="PuckHeader-rightSideBarToggle"],
+  .Puck [class*="PuckHeader-leftSideBarToggle"] {
+    display: none !important;
+  }
+
+  .Puck [class*="PuckHeader"] [class*="Button--primary"],
+  .Puck [class*="PuckHeader"] [class*="IconButton"],
+  .nexus-editor-header-btn {
+    height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    max-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    min-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  }
+
+  .Puck [class*="PuckHeader"] [class*="IconButton"] {
+    min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  }
+
+  .nexus-puck-header-actions__pages-label,
+  .nexus-mode-toggle__label {
+    display: none !important;
+  }
+
+  .nexus-puck-header-actions__pages-link,
+  .nexus-mode-toggle.nexus-editor-header-btn,
+  .nexus-publish-btn {
+    gap: 0;
+    justify-content: center;
+    min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    padding-inline: 0 !important;
+    width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  }
+
+  .nexus-puck-header-actions__pages-link {
+    font-size: 11px;
+    height: var(--nexus-compact-toolbar-btn-height, 36px);
+    min-height: var(--nexus-compact-toolbar-btn-height, 36px);
+    padding: 0;
+  }
+
+  .nexus-puck-header-actions__error {
+    max-width: min(160px, 35vw);
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .Puck [class*="Nav-list"] {
+    flex-direction: row !important;
+    padding-top: 0 !important;
+  }
+
+  .Puck [class*="NavItem--desktopOnly"] {
+    display: none !important;
+  }
+
+  .Puck [class*="NavItem--mobileOnly"] {
+    display: block !important;
+  }
+
+  .Puck [class*="NavItem-link"] {
+    border-bottom: var(--nexus-compact-nav-indicator, 4px) solid transparent !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-top: var(--nexus-compact-nav-indicator, 4px) solid transparent !important;
+    flex-direction: column !important;
+  }
+
+  .Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
+    background-color: color-mix(
+      in srgb,
+      var(--puck-color-azure-04) 14%,
+      var(--puck-color-grey-12)
+    ) !important;
+    border-right-color: transparent !important;
+    border-top-color: var(--puck-color-azure-04) !important;
+    color: var(--puck-color-azure-04) !important;
+  }
+
+  /* Plugin rail — bottom dock on phones */
+  .Puck [class*="PuckLayout-nav"] {
+    width: 100%;
+  }
+
+  .Puck [class*="PuckLayout-nav"] [class*="Nav_"] {
+    align-items: stretch;
+    justify-content: stretch;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    width: 100%;
+  }
+
+  .Puck [class*="Nav-list"] {
+    display: flex;
+    flex: 1 1 0;
+    gap: 0 !important;
+    justify-content: space-evenly;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .Puck [class*="NavItem"] {
+    align-items: stretch;
+    display: flex;
+    flex: 1 1 0;
+    justify-content: center;
+    max-width: none;
+    min-width: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .Puck [class*="NavItem"]:first-of-type,
+  .Puck [class*="NavItem"]:last-of-type {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .Puck [class*="NavItem-link"] {
+    align-items: center;
+    align-self: stretch;
+    box-sizing: border-box;
+    display: flex !important;
+    height: 100%;
+    justify-content: center;
+    margin-inline: 0;
+    max-width: none;
+    min-height: var(--nexus-compact-nav-item-height, 36px);
+    min-width: 0;
+    padding-block: 1px;
+    text-align: center;
+    touch-action: manipulation;
+    width: 100% !important;
+  }
+
+  .Puck [class*="NavItem-linkLabel"] {
+    font-size: var(--nexus-compact-nav-label-size, 11px);
+    line-height: 1.2;
+    text-align: center;
+    width: 100%;
+  }
+
+  .Puck [class*="NavItem-linkIcon"] {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+  }
+
+  .Puck [class*="NavItem-linkIcon"] svg {
+    height: var(--nexus-compact-nav-icon-size, 20px);
+    width: var(--nexus-compact-nav-icon-size, 20px);
+  }
+
+  .Puck [class*="Nav-mobileActions"] {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+    padding: 4px 10px;
+  }
+
+  /* Plugin panel above bottom rail — clip content to the animating grid row */
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"] {
+    padding-bottom: 0;
+  }
+
+  /* Plugin panel above bottom rail — clip shell to the same height token as the grid row */
+  .Puck [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    align-self: end;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--nexus-editor-panel-bg) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    box-sizing: border-box;
+    display: flex !important;
+    flex-direction: column !important;
+    grid-area: left;
+    justify-content: flex-start;
+    min-height: 0 !important;
+    overflow: clip !important;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+  }
+
+  .Puck
+    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    height: var(--nexus-mobile-panel-height) !important;
+    max-height: var(--nexus-mobile-panel-height) !important;
+  }
+
+  html[data-nexus-panel-layout-mutating]
+    .Puck
+    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    will-change: height;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-mobile-panel-resize-host,
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-title"],
+  .Puck [class*="Sidebar--left"] [class*="FieldsPlugin-header"] {
+    flex-shrink: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-body"],
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  .Puck [class*="Sidebar--left"] [class*="Drawer"],
+  .Puck [class*="Sidebar--left"] .nexus-outline-plugin {
+    flex: 1 1 auto;
+    max-height: 100%;
+    min-height: 0 !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* While the grid row eases, freeze inner scroll — skip during live drag so content tracks height. */
+  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="Drawer"],
+  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] .nexus-outline-plugin,
+  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"] {
+    overflow: hidden !important;
+    pointer-events: none;
+  }
+
+  .Puck [class*="PuckLayout-nav"] {
+    flex-shrink: 0;
+    isolation: isolate;
+    z-index: 2;
+  }
+
+  .nexus-mobile-panel-resize-host {
+    align-items: center;
+    box-sizing: border-box;
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    padding: 6px 16px;
+    position: relative;
+    touch-action: none;
+    transition: opacity 160ms ease;
+    width: 100%;
+    z-index: 3;
+  }
+
+  /* Hide the drag pill while height eases — it reappears flush with the panel top edge. */
+  html[data-nexus-panel-opening] .nexus-mobile-panel-resize-host,
+  html[data-nexus-panel-closing] .nexus-mobile-panel-resize-host,
+  html[data-nexus-panel-expanding] .nexus-mobile-panel-resize-host,
+  html[data-nexus-panel-collapsing] .nexus-mobile-panel-resize-host {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nexus-mobile-panel-resize-handle {
+    align-items: center;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    bottom: 0;
+    cursor: row-resize;
+    display: flex;
+    justify-content: center;
+    left: 0;
+    margin: 0;
+    min-height: 0;
+    padding: 0;
+    position: absolute;
+    right: 0;
+    top: -14px;
+    touch-action: none;
+    width: 100%;
+  }
+
+  .nexus-mobile-panel-resize-handle::before {
+    background: color-mix(in srgb, var(--puck-color-grey-08) 55%, transparent);
+    border-radius: 999px;
+    content: "";
+    display: block;
+    flex-shrink: 0;
+    height: 4px;
+    transition: background 0.15s ease;
+    width: min(72px, 42%);
+  }
+
+  .nexus-mobile-panel-resize-handle:hover::before,
+  .nexus-mobile-panel-resize-handle:focus-visible::before,
+  .nexus-mobile-panel-resize-handle:active::before {
+    background: color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-08));
+  }
+
+  .nexus-mobile-panel-resize-handle:focus-visible {
+    outline: none;
+  }
+
+  /* Instant grid tracking while dragging panel height — gestures use native CSS transition */
+  html[data-nexus-panel-resizing] .Puck [class*="PuckLayout-inner"] {
+    transition: none !important;
+  }
+
+  /* Maximize button replaced by nav tab double-click gesture */
+  .Puck [class*="Nav-mobileActions"] {
+    display: none !important;
+  }
+}
+
+/* Dark theme — plugin rail + fields panel (0.21) */
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] {
+  background: var(--puck-color-grey-12) !important;
+  color: var(--puck-color-black) !important;
+}
+
+[data-theme="dark"] .Puck [class*="FieldsPlugin-header"] {
+  background: var(--puck-color-grey-11) !important;
+  border-color: var(--puck-color-grey-09) !important;
+  color: var(--puck-color-black) !important;
+}
+
+[data-theme="dark"] .Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
+  background-color: var(--puck-color-azure-11) !important;
+  color: var(--puck-color-azure-04) !important;
+}
+
+[data-theme="dark"] .Puck [class*="NavItem"]:not([class*="NavItem--active"]) > [class*="NavItem-link"]:hover {
+  background-color: var(--puck-color-azure-11) !important;
+  color: var(--puck-color-azure-04) !important;
+}
+
+/* ── Outline plugin — draggable tree ───────────────────────────────────────── */
+.nexus-outline-plugin {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nexus-outline-tree {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  min-height: 100%;
+  position: relative;
+}
+
+.nexus-outline-drop-slot {
+  flex-shrink: 0;
+  min-height: 0;
+  position: relative;
+  transition: min-height 0.12s ease;
+}
+
+.nexus-outline-drop-slot--dormant {
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nexus-outline-drop-slot--active {
+  min-height: 8px;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.nexus-outline-drop-slot--target {
+  min-height: 10px;
+}
+
+.nexus-outline-drop-slot__line {
+  background: color-mix(in srgb, var(--color-accent-user) 75%, transparent);
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+  display: block;
+  height: 2px;
+  left: 8px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.nexus-outline-zone__item-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-outline-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  pointer-events: none;
+  transition: grid-template-rows 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nexus-outline-children--open {
+  grid-template-rows: 1fr;
+  pointer-events: auto;
+}
+
+.nexus-outline-children__inner {
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nexus-outline-children--open .nexus-outline-children__inner {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nexus-outline-zone {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.nexus-outline-zone--root {
+  flex: 1;
+  min-height: 100%;
+}
+
+.nexus-outline-zone--root > .nexus-outline-zone__list {
+  flex: 1;
+}
+
+.nexus-outline-zone__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.nexus-outline-zone__bottom-pad {
+  margin-top: 2px;
+  min-height: 24px;
+  position: relative;
+  touch-action: none;
+}
+
+.nexus-outline-zone__bottom-pad--root {
+  flex: 1;
+  min-height: 36px;
+}
+
+.nexus-outline-zone__bottom-pad--target {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, transparent);
+  border-radius: 4px;
+  outline: 1px dashed color-mix(in srgb, var(--color-accent-user) 45%, transparent);
+}
+
+.nexus-outline-zone__bottom-pad__line {
+  background: color-mix(in srgb, var(--color-accent-user) 75%, transparent);
+  border-radius: 1px;
+  bottom: 12px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+  display: block;
+  height: 2px;
+  left: 8px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+}
+
+.nexus-outline-layer__inner--draggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nexus-outline-layer__inner--dragging {
+  cursor: grabbing;
+}
+
+body.nexus-outline-pointer-dragging .nexus-outline-plugin {
+  overflow: hidden;
+  touch-action: none;
+}
+
+body.nexus-outline-pointer-dragging {
+  touch-action: none;
+  user-select: none;
+}
+
+.nexus-outline-layer__inner--drop-before {
+  box-shadow: inset 0 2px 0 0 color-mix(in srgb, var(--color-accent-user) 70%, transparent);
+}
+
+.nexus-outline-layer__inner--drop-after {
+  box-shadow: inset 0 -2px 0 0 color-mix(in srgb, var(--color-accent-user) 70%, transparent);
+}
+
+.nexus-outline-layer__inner--drag-outdent {
+  opacity: 0.72;
+  transform: translateX(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.nexus-outline-layer__inner--drag-nest {
+  opacity: 0.72;
+  transform: translateX(6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.nexus-outline-layer__inner--nest-target {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-grey-11));
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--color-accent-user) 75%, transparent);
+}
+
+.nexus-outline-layer__inner--outdent-target {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-grey-11));
+  box-shadow: inset -2px 0 0 0 color-mix(in srgb, var(--color-accent-user) 65%, transparent);
+}
+
+.nexus-outline-layer--drop-target .nexus-outline-layer__inner {
+  border-color: color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+}
+
+.nexus-outline-zone__title {
+  align-items: center;
+  color: var(--puck-color-grey-05);
+  cursor: default;
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 6px;
+  letter-spacing: 0.04em;
+  margin: 8px 0 4px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  transition: background-color 0.15s ease, outline-color 0.15s ease;
+}
+
+.nexus-outline-zone__empty {
+  border: 1px dashed transparent;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, outline-color 0.15s ease;
+}
+
+.nexus-outline-zone__icon {
+  color: var(--puck-color-grey-06);
+  display: inline-flex;
+  line-height: 0;
+}
+
+.nexus-outline-zone__empty {
+  color: var(--puck-color-grey-06);
+  font-size: 12px;
+  list-style: none;
+  padding: 8px 12px;
+}
+
+.nexus-outline-layer {
+  list-style: none;
+}
+
+.nexus-outline-layer__inner {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-sizing: border-box;
+  display: flex;
+  gap: 2px;
+  margin: 1px 4px;
+  min-height: 28px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nexus-outline-layer__inner:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 30%, transparent);
+}
+
+.nexus-outline-layer__inner--selected {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white)) !important;
+  border-color: color-mix(in srgb, var(--color-accent-user) 45%, transparent) !important;
+}
+
+.nexus-outline-layer__inner--dragging {
+  opacity: 0.55;
+}
+
+.nexus-outline-zone__title--drop-target,
+.nexus-outline-zone__empty--drop-target {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--puck-color-white));
+  border-radius: 4px;
+  color: var(--puck-color-black);
+  outline: 1px dashed color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+}
+
+[data-theme="dark"] .nexus-outline-zone__title--drop-target,
+[data-theme="dark"] .nexus-outline-zone__empty--drop-target {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--puck-color-grey-12));
+  color: var(--puck-color-azure-04);
+}
+
+.nexus-outline-layer__handle {
+  align-items: center;
+  color: var(--puck-color-grey-06);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  line-height: 0;
+  padding: 4px 2px 4px 6px;
+  pointer-events: none;
+}
+
+.nexus-outline-layer__select {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font: inherit;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 8px 4px 0;
+  text-align: left;
+}
+
+.nexus-outline-layer__chevron {
+  color: var(--puck-color-grey-06);
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 12px;
+}
+
+.nexus-outline-layer__chevron--expanded {
+  transform: rotate(0deg);
+}
+
+.nexus-outline-layer__chevron:not(.nexus-outline-layer__chevron--expanded) {
+  transform: rotate(-90deg);
+}
+
+.nexus-outline-layer__chevron-spacer {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 12px;
+}
+
+.nexus-outline-layer__icon {
+  color: var(--puck-color-grey-05);
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.nexus-outline-layer__name {
+  color: var(--puck-color-black);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-outline-zone .nexus-outline-zone {
+  padding-left: 12px;
+}
+
+[data-theme="dark"] .nexus-outline-layer__inner:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-grey-12)) !important;
+}
+
+[data-theme="dark"] .nexus-outline-layer__inner--selected {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-grey-12)) !important;
+  color: var(--puck-color-azure-04) !important;
+}
+
+[data-theme="dark"] .nexus-outline-layer__name {
+  color: var(--puck-color-azure-04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-outline-children,
+  .nexus-outline-children__inner,
+  .nexus-outline-layer__chevron,
+  .nexus-outline-layer__inner--drag-outdent,
+  .nexus-outline-layer__inner--drag-nest {
+    transition: none;
+  }
+
+  .nexus-outline-layer__inner--drag-outdent,
+  .nexus-outline-layer__inner--drag-nest {
+    transform: none;
+  }
+
+  .nexus-outline-children__inner {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Viewport instrument island (canvas toolbar) ───────────────────────────── */
+
+@keyframes nexus-viewport-island-open {
+  from {
+    transform: translateX(-50%) translateY(12px) scale(0.92);
+  }
+
+  to {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes nexus-viewport-island-open-from-top {
+  from {
+    transform: translateX(-50%) translateY(-12px) scale(0.92);
+  }
+
+  to {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* Desktop — centered top glass pill (no panel shell — outer canvas owns the border) */
+.Puck [class*="PuckCanvas-controls"]:not([class*="PuckCanvas--fullScreen"]) {
+  backdrop-filter: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex;
+  justify-content: center;
+  padding: 4px 8px 2px;
+  pointer-events: none;
+}
+
+.Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"]) {
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border: var(--nexus-canvas-chrome-border);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"])
+  [class*="ViewportControls-actionsInner"] {
+  gap: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 8px;
+  scrollbar-width: none;
+}
+
+.Puck
+  [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"])
+  [class*="ViewportControls-actionsInner"]::-webkit-scrollbar {
+  display: none;
+}
+
+.Puck [class*="ViewportButton--isActive"] [class*="ViewportButton-inner"] {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, transparent);
+  border-radius: 999px;
+}
+
+/* Zoom % — native select hidden; NexusViewportZoomEnhancer renders flat text UI */
+.Puck [class*="ViewportControls"] [class*="ViewportControls-zoom_"] {
+  align-items: center;
+  display: flex !important;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.Puck [class*="ViewportControls"] [class*="ViewportControls-zoomSelect_"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  height: 1px !important;
+  margin: -1px !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  visibility: hidden !important;
+  white-space: nowrap !important;
+  width: 1px !important;
+}
+
+[data-theme="dark"] .Puck [class*="ViewportControls"] [class*="ViewportControls-zoomSelect_"] {
+  background: none !important;
+  background-image: none !important;
+}
+
+.nexus-viewport-zoom-enhancer {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.nexus-viewport-zoom-select__trigger {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--puck-color-black) !important;
+  font-size: var(--puck-font-size-xxxs, 11px) !important;
+  font-weight: 600 !important;
+  height: 32px !important;
+  justify-content: center !important;
+  max-height: 32px !important;
+  min-height: 32px !important;
+  min-width: 48px !important;
+  padding: 0 !important;
+  width: 48px !important;
+}
+
+.nexus-viewport-zoom-select__trigger svg,
+.nexus-viewport-zoom-select__trigger [data-slot="select-icon"] {
+  display: none !important;
+}
+
+.nexus-viewport-zoom-select__trigger [data-slot="select-value"] {
+  display: flex !important;
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.nexus-viewport-zoom-select__content {
+  z-index: 10000;
+}
+
+[data-theme="dark"] .nexus-viewport-zoom-select__trigger {
+  color: var(--puck-color-black) !important;
+}
+
+/* Zoom mount inside desktop top pill */
+.Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"])
+  [class*="ViewportControls-zoom_"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"]
+  .Puck
+  [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"]) {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 92%, transparent);
+  border: var(--nexus-canvas-chrome-border);
+  box-shadow: none;
+}
+
+/* Mobile fullScreen FAB — collapsed: round toggle; expanded: single unified pill */
+.Puck [class*="PuckCanvas--fullScreen"] [class*="PuckCanvas-controls"] {
+  display: block;
+  inset: 0;
+  isolation: isolate;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 20;
+}
+
+.Puck [class*="PuckCanvas--fullScreen"] [class*="PuckCanvas-inner"] {
+  position: relative;
+  z-index: 0;
+}
+
+.Puck [class*="ViewportControls--fullScreen"] {
+  pointer-events: auto;
+  z-index: 80;
+  align-items: center;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  bottom: var(--nexus-viewport-island-gap, 6px);
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  max-width: min(
+    100%,
+    calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))
+  );
+  overflow: hidden;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  left: auto;
+  transform: none;
+  transition:
+    bottom var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease),
+    left 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease,
+    padding 280ms ease,
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 240ms ease;
+}
+
+/*
+ * Puck 0.21 fullScreen tray slides actionsInner with translateX(42px) when expanded
+ * and padding-right: 42px for the overlapping FAB. Nexus uses one unified pill with
+ * a sibling close button — reset slide-out mechanics so preset icons are not clipped.
+ */
+.Puck [class*="ViewportControls--fullScreen"] [class*="ViewportControls-actionsInner"] {
+  margin-inline: 0 !important;
+  padding-right: 0 !important;
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-actionsInner"] {
+  justify-content: flex-start !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 4px;
+  transform: none !important;
+  transition: none !important;
+}
+
+/* Collapsed — tray hidden; only the round monitor FAB */
+.Puck
+  [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"])
+  [class*="ViewportControls-actions_"] {
+  display: none !important;
+}
+
+.Puck [class*="ViewportControls--fullScreen"] [class*="ViewportControls-toggleButton_"] {
+  color: var(--puck-color-black) !important;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.Puck [class*="ViewportControls--fullScreen"] [class*="ViewportControls-toggleButton_"] svg {
+  display: block;
+  flex-shrink: 0;
+  opacity: 1;
+}
+
+.Puck [class*="ViewportControls--fullScreen"] [class*="ViewportButton-inner_"] {
+  color: var(--puck-color-black);
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"])
+  [class*="ViewportControls-toggleButton_"] {
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-bg-base) 18%, transparent);
+  flex-shrink: 0;
+  height: var(--nexus-compact-viewport-fab-size, 44px);
+  position: relative;
+  width: var(--nexus-compact-viewport-fab-size, 44px);
+}
+
+@media (max-width: 900px) {
+  /* Hide Puck's default monitor glyph once the preset icon enhancer has rendered */
+  .Puck
+    [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"])
+    [class*="ViewportControls-toggleButton_"]:has(.nexus-viewport-toggle-icon svg)
+    > svg {
+    visibility: hidden;
+  }
+
+  .nexus-viewport-toggle-icon {
+    align-items: center;
+    color: var(--puck-color-black);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    pointer-events: none;
+    position: absolute;
+  }
+}
+
+/* Expanded — one glass shell; inner tray + close share the same pill (no double layer) */
+.Puck [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"] {
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-default) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-bg-base) 18%, transparent);
+  gap: 4px;
+  min-width: 0;
+  overflow: visible;
+  padding: 5px 10px 5px 8px;
+  width: max-content;
+}
+
+@media (max-width: 900px) {
+  .Puck [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"] {
+    animation: nexus-viewport-island-open 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    backdrop-filter: none !important;
+    background: var(--color-bg-elevated) !important;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  /* Plugin panel open — anchor expanded pill above the settings panel */
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"] {
+    animation: nexus-viewport-island-open 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    bottom: var(--nexus-viewport-island-gap, 10px);
+    top: auto;
+  }
+
+  /* Collapsed viewport FAB — bottom-right, flush above the settings panel */
+  .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"]) {
+    bottom: var(--nexus-viewport-island-gap, 10px);
+    top: auto;
+    left: auto;
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    transform: none;
+  }
+
+  .Puck
+    [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+    [class*="ViewportControls-toggleButton_"] {
+    margin-inline: 0;
+  }
+
+  .nexus-viewport-zoom-select__trigger {
+    font-size: 13px !important;
+    height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+    max-height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+    min-height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+    min-width: 48px !important;
+    width: 48px !important;
+  }
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-actions_"] {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-actionsInner"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  flex: 1;
+  gap: 2px;
+  margin: 0 !important;
+  min-width: 0;
+  padding-inline: 2px 4px !important;
+  scrollbar-width: none;
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-actionsInner"]::-webkit-scrollbar {
+  display: none;
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-toggleButton_"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  flex-shrink: 0;
+  height: var(--nexus-compact-viewport-btn-size, 36px);
+  margin-inline: 0;
+  width: var(--nexus-compact-viewport-btn-size, 36px);
+}
+
+.Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-toggleButton_"]:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent) !important;
+}
+
+[data-theme="dark"]
+  .Puck
+  [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"])
+  [class*="ViewportControls-toggleButton_"] {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 94%, transparent) !important;
+  border-color: var(--puck-color-grey-09) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, #000 24%, transparent);
+}
+
+[data-theme="dark"]
+  .Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"] {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 94%, transparent) !important;
+  border-color: var(--puck-color-grey-09) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, #000 24%, transparent);
+}
+
+[data-theme="dark"]
+  .Puck
+  [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"]
+  [class*="ViewportControls-toggleButton_"]:hover {
+  background: color-mix(in srgb, var(--puck-color-azure-03) 22%, transparent) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .Puck [class*="ViewportControls--fullScreen"],
+  .Puck [class*="ViewportControls--fullScreen"] [class*="ViewportControls-actionsInner_"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Compact editor — prevent canvas min-width overflow; compact viewport buttons */
+@media (max-width: 900px) {
+  .Puck [class*="PuckCanvas-inner"] {
+    min-width: 0;
+  }
+
+  .Puck [class*="ViewportButton-inner"] {
+    height: var(--nexus-compact-viewport-btn-size, 36px);
+    width: var(--nexus-compact-viewport-btn-size, 36px);
+  }
+}
+
+/* Small phones — tighter plugin rail + canvas toolbar (≤480px) */
+@media (max-width: 480px) {
+  .Puck {
+    --nexus-compact-nav-item-height: 28px;
+    --nexus-compact-nav-label-size: 8px;
+    --nexus-compact-nav-icon-size: 14px;
+    --nexus-compact-nav-indicator: 2px;
+    --nexus-compact-toolbar-btn-height: 26px;
+    --nexus-compact-viewport-btn-size: 26px;
+    --nexus-compact-viewport-fab-size: 32px;
+  }
+
+  .Puck [class*="NavItem-link"] {
+    gap: 1px;
+  }
+
+  .nexus-puck-header-bar__logo .site-header-bar__wordmark {
+    display: none;
+  }
+
+  .nexus-puck-header-actions__pages-link::before {
+    content: none;
+  }
+
+  .nexus-page-header-label {
+    gap: 4px;
+  }
+
+  .nexus-page-header-label__slug {
+    font-size: 9px;
+  }
+
+  .Puck [class*="ViewportControls--fullScreen"][class*="ViewportControls--isExpanded"] {
+    gap: 2px;
+    padding: 4px 8px 4px 6px;
+  }
+
+  .nexus-viewport-zoom-select__trigger {
+    font-size: 11px !important;
+    min-width: 40px !important;
+    width: 40px !important;
+  }
+
+  .nexus-segmented__btn {
+    font-size: 9px;
+    min-height: 28px;
+    padding: 2px 2px;
+  }
+}
+
+/* Ultra-narrow devices (≤360px) — tighter header + plugin rail */
+@media (max-width: 360px) {
+  .Puck {
+    --nexus-compact-toolbar-btn-height: 24px;
+    --nexus-compact-nav-item-height: 26px;
+    --nexus-compact-nav-icon-size: 13px;
+    --nexus-compact-viewport-btn-size: 24px;
+    --nexus-compact-viewport-fab-size: 28px;
+  }
+
+  .nexus-puck-header-shell {
+    padding-top: calc(4px + env(safe-area-inset-top, 0px));
+  }
+
+  .nexus-puck-header-bar {
+    padding: 4px 6px;
+  }
+
+  .nexus-puck-header-bar__row {
+    gap: 4px;
+  }
+
+  .nexus-puck-header-bar__logo .site-header-bar__logo-mark {
+    height: 20px;
+    width: 20px;
+  }
+
+  .nexus-puck-header-actions {
+    gap: 2px;
+  }
+
+  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
+    min-width: 40px !important;
+    width: 40px !important;
+  }
+
+  .Puck [class*="NavItem-linkLabel"] {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+}
+
+/* Micro viewports (≤280px) — icon-only bottom plugin rail */
+@media (max-width: 280px) {
+  .Puck {
+    --nexus-compact-toolbar-btn-height: 22px;
+    --nexus-compact-nav-item-height: 24px;
+    --nexus-compact-nav-icon-size: 12px;
+    --nexus-compact-viewport-btn-size: 22px;
+    --nexus-compact-viewport-fab-size: 26px;
+  }
+
+  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
+    min-width: 36px !important;
+    width: 36px !important;
+  }
+
+  .Puck [class*="NavItem-linkLabel"] {
+    display: none;
+  }
+
+  .Puck [class*="NavItem-link"] {
+    gap: 0;
+    padding-block: 2px;
+  }
+}
+
+/* Minimum supported width (~200px) — logo mark only, scrollable toolbar */
+@media (max-width: 240px) {
+  .Puck {
+    --nexus-compact-toolbar-btn-height: 20px;
+    --nexus-compact-nav-item-height: 22px;
+    --nexus-compact-nav-icon-size: 11px;
+    --nexus-compact-viewport-btn-size: 20px;
+    --nexus-compact-viewport-fab-size: 24px;
+  }
+
+  .nexus-puck-header-bar__logo .site-header-bar__logo-mark {
+    height: 18px;
+    width: 18px;
+  }
+
+  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
+    min-width: 32px !important;
+    width: 32px !important;
+  }
+
+  .nexus-puck-header-actions__error {
+    display: none;
+  }
+}

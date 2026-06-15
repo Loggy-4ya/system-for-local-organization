@@ -8,19 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import EditorSettings, { EDITOR_SETTINGS_ID } from "@shared/models/EditorSettings";
 import { DEFAULT_ISLAND_COMPONENTS } from "@shared/constants/editorSettings";
-
-/**
- * Verify bearer token guard (same dev bypass as `/api/puck`).
- *
- * @param req - Incoming request.
- * @returns True when authorised to mutate settings.
- */
-function isAuthorised(req: NextRequest): boolean {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) return true;
-  const auth = req.headers.get("Authorization") ?? "";
-  return auth === `Bearer ${secret}`;
-}
+import { isApiAuthorised } from "@/lib/authGuards";
 
 /**
  * Load or seed the singleton editor settings document.
@@ -69,7 +57,7 @@ export async function GET() {
  * @returns `{ ok: true }` on success.
  */
 export async function POST(req: NextRequest) {
-  if (!isAuthorised(req)) {
+  if (!(await isApiAuthorised(req))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

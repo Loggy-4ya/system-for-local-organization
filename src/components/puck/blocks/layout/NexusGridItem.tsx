@@ -4,36 +4,26 @@
  * @fileoverview Puck block for a flexible Grid Item.
  *
  * Renders as an inline grid item with customizable column and row span.
+ * The `content` slot rejects nested {@link NexusGridItem} and {@link NexusGrid}
+ * blocks so editors cannot stack grids (Grid → GridItem → Grid).
  *
  * @module src/components/puck/blocks/layout/NexusGridItem
  */
 
 import React from "react";
+import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
+import { GRID_SPAN_COL_OPTIONS, GRID_SPAN_ROW_OPTIONS } from "../../lib/fieldOptionLabels";
 
 export const NexusGridItem = {
   label: "Grid Item",
   inline: true,
   fields: {
-    spanCol: {
-      type: "select" as const,
-      label: "Column Span (1-12)",
-      options: Array.from({ length: 12 }, (_, i) => ({
-        label: `Span ${i + 1}`,
-        value: String(i + 1),
-      })),
-    },
-    spanRow: {
-      type: "select" as const,
-      label: "Row Span",
-      options: Array.from({ length: 6 }, (_, i) => ({
-        label: `Span ${i + 1}`,
-        value: String(i + 1),
-      })),
-    },
+    spanCol: createSteppedSliderField("Column Span", GRID_SPAN_COL_OPTIONS),
+    spanRow: createSteppedSliderField("Row Span", GRID_SPAN_ROW_OPTIONS),
     content: {
       type: "slot" as const,
       label: "Item Content",
-      disallow: ["NexusGridItem"],
+      disallow: ["NexusGridItem", "NexusGrid"],
     },
   },
   defaultProps: {
@@ -48,21 +38,24 @@ export const NexusGridItem = {
   }: {
     spanCol: string;
     spanRow: string;
-    content: React.ComponentType;
-    puck: { dragRef: React.Ref<any> };
+    content: React.ComponentType<{
+      ref?: React.Ref<HTMLElement>;
+      className?: string;
+      style?: React.CSSProperties;
+    }>;
+    puck: { dragRef: React.Ref<HTMLElement>; isEditing?: boolean };
   }) {
     return (
-      <div
+      <Content
         ref={puck.dragRef}
+        className="nexus-grid-item"
         style={{
           gridColumn: `span ${spanCol}`,
           gridRow: `span ${spanRow}`,
           minWidth: 0,
           width: "100%",
         }}
-      >
-        <Content />
-      </div>
+      />
     );
   },
 };

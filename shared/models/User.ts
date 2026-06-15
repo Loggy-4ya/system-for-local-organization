@@ -21,6 +21,22 @@ import mongoose, { Document, Model, Schema } from "mongoose";
  */
 export type UserRole = "Admin" | "StudentCouncil" | "Student";
 
+/**
+ * Student council title collected during registration.
+ * Distinct from RBAC {@link UserRole}.
+ */
+export type StudentTitle = "Starosta" | "Deputy" | "Neither";
+
+/**
+ * User accent colour family (maps to CSS `--accent-{family}-{shade}` tokens).
+ */
+export type AccentFamily = "blue" | "red" | "yellow" | "green" | "purple";
+
+/**
+ * User accent shade within a family.
+ */
+export type AccentShade = "soft" | "medium" | "strong";
+
 // ── Document Interface ────────────────────────────────────────────────────────
 
 /**
@@ -29,8 +45,20 @@ export type UserRole = "Admin" | "StudentCouncil" | "Student";
  * @see {@link UserSchema} for the matching Mongoose schema definition.
  */
 export interface IUser extends Document {
+  /** Primary email for credentials login and OAuth identity merge. */
+  email: string | null;
+
+  /** Timestamp when the email was verified (OAuth providers set this). */
+  emailVerified: Date | null;
+
+  /** bcrypt password hash. Null for OAuth-only accounts. Never exposed in APIs. */
+  passwordHash: string | null;
+
   /** Google OAuth2 `sub` identifier. Null until Google account is linked. */
   googleId: string | null;
+
+  /** Apple Sign In `sub` identifier. Null until Apple account is linked. */
+  appleId: string | null;
 
   /** Telegram numeric user ID. Null until Telegram account is linked. */
   telegramId: number | null;
@@ -66,6 +94,21 @@ export interface IUser extends Document {
   group: string | null;
 
   /**
+   * Student council title from registration chips (Starosta / Deputy / Neither).
+   * Distinct from RBAC {@link UserRole}.
+   */
+  studentTitle: StudentTitle | null;
+
+  /** User accent colour family for chrome theming. */
+  accentFamily: AccentFamily;
+
+  /** User accent shade within {@link accentFamily}. */
+  accentShade: AccentShade;
+
+  /** Last successful Telegram Login Widget or bot sync timestamp. */
+  lastTelegramSyncAt: Date | null;
+
+  /**
    * Accumulated gamification points.
    * Stars = sum of coins + crystals earned over the study period.
    */
@@ -95,19 +138,39 @@ export interface IUser extends Document {
  */
 const UserSchema = new Schema<IUser>(
   {
-    googleId:   { type: String, default: null, sparse: true, index: true },
-    telegramId: { type: Number, default: null, sparse: true, index: true },
-    phone:      { type: String, default: null },
-    name:       { type: String, required: true, trim: true },
-    username:   { type: String, default: null, trim: true },
-    avatar:     { type: String, default: null },
+    email:        { type: String, default: null, sparse: true, unique: true, trim: true, lowercase: true },
+    emailVerified:{ type: Date, default: null },
+    passwordHash: { type: String, default: null, select: false },
+    googleId:     { type: String, default: null, sparse: true, index: true },
+    appleId:      { type: String, default: null, sparse: true, index: true },
+    telegramId:   { type: Number, default: null, sparse: true, index: true },
+    phone:        { type: String, default: null },
+    name:         { type: String, required: true, trim: true },
+    username:     { type: String, default: null, trim: true },
+    avatar:       { type: String, default: null },
     role: {
       type: String,
       enum: ["Admin", "StudentCouncil", "Student"] satisfies UserRole[],
       default: "Student",
     },
-    specialty: { type: String, default: null, trim: true },
-    group:     { type: String, default: null, trim: true, index: true },
+    specialty:    { type: String, default: null, trim: true },
+    group:        { type: String, default: null, trim: true, index: true },
+    studentTitle: {
+      type: String,
+      enum: ["Starosta", "Deputy", "Neither"] satisfies StudentTitle[],
+      default: null,
+    },
+    accentFamily: {
+      type: String,
+      enum: ["blue", "red", "yellow", "green", "purple"] satisfies AccentFamily[],
+      default: "blue",
+    },
+    accentShade: {
+      type: String,
+      enum: ["soft", "medium", "strong"] satisfies AccentShade[],
+      default: "medium",
+    },
+    lastTelegramSyncAt: { type: Date, default: null },
     stars:     { type: Number, default: 0, min: 0 },
     warnings:  { type: Number, default: 0, min: 0, max: 3 },
   },

@@ -10,7 +10,12 @@
  */
 
 import React from "react";
+import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
 import { LAYOUT_GAP_OPTIONS } from "../../lib/fieldOptionLabels";
+import { resolveSpacingDimension } from "../../lib/resolveSpacingDimension";
+
+const GAP_DEFAULTS = { preset: "md", custom: "16px" };
+const PADDING_DEFAULTS = { preset: "none", custom: "0" };
 
 export const NexusColumns = {
   label: "2-Column Split",
@@ -26,11 +31,13 @@ export const NexusColumns = {
         { label: "30% / 70%", value: "30-70" },
       ],
     },
-    gap: {
-      type: "select" as const,
+    gap: createPresetDimensionPuckField({
       label: "Gap Size",
-      options: [...LAYOUT_GAP_OPTIONS],
-    },
+      options: LAYOUT_GAP_OPTIONS,
+      defaultPreset: "md",
+      defaultCustom: "16px",
+      showSpacingHint: true,
+    }),
     alignItems: {
       type: "select" as const,
       label: "Vertical Alignment",
@@ -41,11 +48,13 @@ export const NexusColumns = {
         { label: "Stretch", value: "stretch" },
       ],
     },
-    padding: {
-      type: "select" as const,
+    padding: createPresetDimensionPuckField({
       label: "Padding",
-      options: [...LAYOUT_GAP_OPTIONS],
-    },
+      options: LAYOUT_GAP_OPTIONS,
+      defaultPreset: "none",
+      defaultCustom: "0",
+      showSpacingHint: true,
+    }),
     backgroundOverride: {
       type: "text" as const,
       label: "Background Color/Gradient (Optional)",
@@ -61,9 +70,9 @@ export const NexusColumns = {
   },
   defaultProps: {
     ratio: "50-50" as const,
-    gap: "medium" as const,
+    gap: { preset: "md", custom: "16px" },
     alignItems: "stretch" as const,
-    padding: "none" as const,
+    padding: { preset: "none", custom: "0" },
     backgroundOverride: "",
   },
   render({
@@ -74,14 +83,22 @@ export const NexusColumns = {
     backgroundOverride,
     left: Left,
     right: Right,
+    puck,
   }: {
     ratio: "50-50" | "60-40" | "40-60" | "70-30" | "30-70";
-    gap: "none" | "small" | "medium" | "large";
+    gap: unknown;
     alignItems: "start" | "center" | "end" | "stretch";
-    padding: "none" | "small" | "medium" | "large";
+    padding: unknown;
     backgroundOverride?: string;
-    left: React.ComponentType;
-    right: React.ComponentType;
+    left: React.ComponentType<{
+      className?: string;
+      minEmptyHeight?: number | string;
+    }>;
+    right: React.ComponentType<{
+      className?: string;
+      minEmptyHeight?: number | string;
+    }>;
+    puck?: { isEditing?: boolean };
   }) {
     const ratioStyles = {
       "50-50": "1fr 1fr",
@@ -91,28 +108,24 @@ export const NexusColumns = {
       "30-70": "3fr 7fr",
     };
 
-    const gapStyles = {
-      none: "0px",
-      small: "var(--spacing-sm)",
-      medium: "var(--spacing-md)",
-      large: "var(--spacing-lg)",
-    };
+    const resolvedGap = resolveSpacingDimension(gap, GAP_DEFAULTS);
+    const resolvedPadding = resolveSpacingDimension(padding, PADDING_DEFAULTS);
 
-    const paddingStyles = {
-      none: "0",
-      small: "var(--spacing-sm)",
-      medium: "var(--spacing-md)",
-      large: "var(--spacing-lg)",
-    };
+    const columnSlotProps = puck?.isEditing
+      ? {
+          className: "nexus-columns__dropzone" as const,
+          minEmptyHeight: 120 as const,
+        }
+      : {};
 
     return (
       <div
         style={{
           display: "grid",
           gridTemplateColumns: ratioStyles[ratio] || ratioStyles["50-50"],
-          gap: gapStyles[gap] || gapStyles.medium,
+          gap: resolvedGap,
           alignItems: alignItems || "stretch",
-          padding: paddingStyles[padding] || "0",
+          padding: resolvedPadding,
           background: backgroundOverride || "transparent",
           borderRadius: backgroundOverride ? "var(--radius-lg)" : "0",
           width: "100%",
@@ -120,10 +133,10 @@ export const NexusColumns = {
         }}
       >
         <div style={{ minWidth: 0, width: "100%" }}>
-          <Left />
+          <Left {...columnSlotProps} />
         </div>
         <div style={{ minWidth: 0, width: "100%" }}>
-          <Right />
+          <Right {...columnSlotProps} />
         </div>
       </div>
     );

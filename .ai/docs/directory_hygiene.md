@@ -33,6 +33,7 @@ If any answer is “no,” place the file elsewhere or delete it.
 | **Duplicate copies** | Same `logo.svg` in `public/`, `src/app/`, and `.ai/docs/assets/` | One canonical runtime copy in `public/`; design sources stay under `.ai/docs/assets/` |
 | **API logic in UI folder** | DB query inside `src/components/ui/` | `src/app/api/` or `shared/domains/` |
 | **Misc dump folder** | `src/utils/`, `src/misc/`, `temp/` with mixed unrelated files | Split by domain into declared directories or remove |
+| **Tests in source tree** | `*.test.ts` colocated in `src/components/` or `shared/` | `tests/` mirroring the module path (see [testing.md](./testing.md)) |
 | **Docs inside source** | Feature spec `.md` in `src/app/` | `.ai/docs/features/` |
 | **Secrets / env** | `.env.local` committed under `src/` | Root `.env*.local` (gitignored) only |
 
@@ -60,6 +61,19 @@ If any answer is “no,” place the file elsewhere or delete it.
 |---------|-----------|
 | `ui/`, `puck/`, `background/` subfolders by concern | API routes, DB access, `.env` files |
 | One block per file when a Puck block grows large | Unrelated “helper” components with no shared UI role |
+| Pure logic modules under `puck/lib/` (imported by blocks) | `*.test.ts` files — place in `tests/` instead |
+
+### `tests/`
+
+**For:** Automated test suites only — no application runtime code.
+
+| Allowed | Forbidden |
+|---------|-----------|
+| `*.test.ts` files mirroring source paths (`tests/puck/lib/` ↔ `src/components/puck/lib/`) | React components, API routes, Mongoose models |
+| Imports from `@/` and `@shared/` path aliases | Duplicated production logic copied for convenience |
+| Registry entries in [testing.md](./testing.md) | Unregistered one-off scripts |
+
+See [testing.md](./testing.md) for the full registry and `npm run test:*` scripts.
 
 ### `shared/`
 
@@ -131,12 +145,14 @@ flowchart TD
     isShared{"Is it DB / domain logic\nshared across services?"}
     isStatic{"Is it served as-is\nat a URL?"}
     isDoc{"Is it architecture\nor feature documentation?"}
+    isTest{"Is it an automated\ntest suite?"}
 
     appDir["src/app/"]
     componentsDir["src/components/"]
     sharedDir["shared/"]
     publicDir["public/"]
     docsDir[".ai/docs/"]
+    testsDir["tests/"]
 
     newFile --> isRoute
     isRoute -->|yes| appDir
@@ -146,7 +162,9 @@ flowchart TD
     isShared -->|yes| sharedDir
     isShared -->|no| isStatic
     isStatic -->|yes| publicDir
-    isStatic -->|no| isDoc
+    isStatic -->|no| isTest
+    isTest -->|yes| testsDir
+    isTest -->|no| isDoc
     isDoc -->|yes| docsDir
     isDoc -->|no| reject["Stop: declare new directory\nin architecture_map.md first"]
 ```
@@ -167,6 +185,7 @@ flowchart TD
 | `background/app.js` (vanilla prototype) | `.ai/docs/assets/background/` | Design reference only |
 | `globals.css` | `src/app/globals.css` | App-wide styles, imported from root layout |
 | `figma_ui_integration.md` | `.ai/docs/features/` | Feature specification |
+| `carouselPagination.test.ts` | `tests/puck/lib/carouselPagination.test.ts` | Unit tests for carousel pagination math |
 
 ---
 

@@ -10,6 +10,7 @@
 
 import connectDB from "@shared/lib/db";
 import Page from "@shared/models/Page";
+import { auth } from "@/auth";
 import { PageManagerShell, type PageManagerNotice, type PageManagerRow } from "./PageManagerShell";
 
 /**
@@ -45,8 +46,11 @@ export default async function PagesPage({
     console.error("[PagesPage] DB error:", err);
   }
 
+  const session = await auth();
+  const showAdminSettings = session?.user?.role === "Admin";
+
   const notice: PageManagerNotice | undefined =
     error === "reserved-slug" || error === "homepage-code-only" ? error : undefined;
 
-  return <PageManagerShell pages={pages} notice={notice} />;
+  return <PageManagerShell pages={pages} notice={notice} showAdminSettings={showAdminSettings} />;
 }

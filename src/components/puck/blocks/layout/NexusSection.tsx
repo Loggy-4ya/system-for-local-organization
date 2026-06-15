@@ -10,31 +10,40 @@
  */
 
 import React from "react";
+import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
 import {
-  contentWidthContainerStyle,
-  CONTENT_WIDTH_OPTIONS,
+  SECTION_MAX_WIDTH_OPTIONS,
+  SECTION_PADDING_OPTIONS,
+} from "../../lib/fieldOptionLabels";
+import {
   DEFAULT_CONTENT_WIDTH,
-  type ContentWidthToken,
-  type LegacyContentWidth,
 } from "../../lib/contentWidthTokens";
-import { SECTION_PADDING_OPTIONS } from "../../lib/fieldOptionLabels";
+import {
+  normalizeSectionPaddingValue,
+  resolveSectionMaxWidth,
+  resolveSectionPadding,
+} from "../../lib/resolveSectionDimensions";
+import { normalizePresetDimensionValue, presetValuesFromOptions } from "../../lib/resolvePresetDimension";
+
+const MAX_WIDTH_PRESET_VALUES = presetValuesFromOptions(SECTION_MAX_WIDTH_OPTIONS);
 
 export const NexusSection = {
   label: "Section Container",
   fields: {
-    maxWidth: {
-      type: "select" as const,
+    maxWidth: createPresetDimensionPuckField({
       label: "Max Width",
-      options: CONTENT_WIDTH_OPTIONS.map((opt) => ({
-        label: opt.label,
-        value: opt.value,
-      })),
-    },
-    padding: {
-      type: "select" as const,
+      options: SECTION_MAX_WIDTH_OPTIONS,
+      defaultPreset: DEFAULT_CONTENT_WIDTH,
+      defaultCustom: "1200px",
+      legacyMap: { contained: "lg", narrow: "sm" },
+    }),
+    padding: createPresetDimensionPuckField({
       label: "Padding",
-      options: [...SECTION_PADDING_OPTIONS],
-    },
+      options: SECTION_PADDING_OPTIONS,
+      defaultPreset: "md",
+      defaultCustom: "var(--spacing-lg) var(--spacing-md)",
+      legacyMap: { small: "sm", normal: "md", large: "lg" },
+    }),
     backgroundOverride: {
       type: "text" as const,
       label: "Background Color/Gradient (Optional)",
@@ -65,8 +74,8 @@ export const NexusSection = {
     },
   },
   defaultProps: {
-    maxWidth: DEFAULT_CONTENT_WIDTH,
-    padding: "normal" as const,
+    maxWidth: { preset: DEFAULT_CONTENT_WIDTH, custom: "1200px" },
+    padding: { preset: "md", custom: "var(--spacing-lg) var(--spacing-md)" },
     backgroundOverride: "",
     textColor: "",
     borderTop: "none" as const,
@@ -80,23 +89,29 @@ export const NexusSection = {
     borderTop,
     borderBottom,
     content: Content,
+    puck,
   }: {
-    maxWidth: ContentWidthToken | LegacyContentWidth;
-    padding: "none" | "small" | "normal" | "large";
+    maxWidth: unknown;
+    padding: unknown;
     backgroundOverride?: string;
     textColor?: string;
     borderTop: "none" | "thin";
     borderBottom: "none" | "thin";
-    content: React.ComponentType;
+    content: React.ComponentType<{
+      className?: string;
+      minEmptyHeight?: number | string;
+    }>;
+    puck?: { isEditing?: boolean };
   }) {
-    const paddingStyles = {
-      none: "0",
-      small: "var(--spacing-sm) var(--spacing-md)",
-      normal: "var(--spacing-lg) var(--spacing-md)",
-      large: "var(--spacing-2xl) var(--spacing-md)",
-    };
-
-    const widthStyle = contentWidthContainerStyle(maxWidth);
+    const maxWidthNorm = normalizePresetDimensionValue(
+      maxWidth,
+      undefined,
+      MAX_WIDTH_PRESET_VALUES,
+      { preset: DEFAULT_CONTENT_WIDTH, custom: "1200px" },
+      { contained: "lg", narrow: "sm" },
+    );
+    const resolvedMaxWidth = resolveSectionMaxWidth(maxWidthNorm, maxWidthNorm.custom);
+    const resolvedPadding = resolveSectionPadding(padding);
 
     const borderStyle = "1px solid var(--color-border-default)";
 
@@ -111,13 +126,18 @@ export const NexusSection = {
       >
         <div
           style={{
-            ...widthStyle,
-            padding: paddingStyles[padding] || paddingStyles.normal,
+            maxWidth: resolvedMaxWidth,
+            width: "100%",
+            marginInline: resolvedMaxWidth === "100%" ? "0" : "auto",
+            padding: resolvedPadding,
             color: textColor || "inherit",
             boxSizing: "border-box",
           }}
         >
-          <Content />
+          <Content
+            className={puck?.isEditing ? "nexus-section__dropzone" : undefined}
+            minEmptyHeight={puck?.isEditing ? 120 : undefined}
+          />
         </div>
       </section>
     );

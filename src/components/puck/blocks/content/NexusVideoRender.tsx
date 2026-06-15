@@ -3,19 +3,38 @@
 /**
  * @fileoverview Video player render with editor-safe embed pointer handling.
  *
+ * Tests: `tests/puck/lib/blockRenderVisibility.test.ts` — `npm run test:block-render-visibility`
+ *
  * @module src/components/puck/blocks/content/NexusVideoRender
  */
 
-import { useGetPuck } from "@measured/puck";
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useGetPuck } from "@puckeditor/core";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { cn } from "@/lib/utils";
-import { selectPuckComponentById } from "../../lib/selectPuckComponentById";
+import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
+import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
+import {
+  EMBED_PROVIDER_ASPECT_RATIO,
+  extractYouTubeId,
+  getVideoEmbedUrl,
+  resolveVideoDisplayAspectRatio,
+} from "../../lib/embedMedia";
 import {
   CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
+  NEXUS_CAROUSEL_FILL_ATTR,
+  carouselFillAspectRatioStyle,
   resolveCarouselMediaFill,
   type CarouselMediaFillMode,
 } from "../../lib/carouselMediaFill";
+import { mediaFitToObjectFit, normalizeMediaFitMode, type MediaFitMode } from "../../lib/mediaFitMode";
+import { selectPuckComponentById } from "../../lib/selectPuckComponentById";
+import {
+  syncPuckComponentOverlayAfterLayout,
+} from "../../lib/puckOverlaySync";
+import {
+  resolveMediaAspectRatioNumeric,
+  ratioToMediaAspectAttr,
+} from "../../lib/mediaAspectRatio";
 import { usePuckPreviewMode } from "../../lib/useNexusPuck";
 import {
   CONTENT_WIDTH_MAP,
@@ -27,66 +46,27 @@ import {
 export interface NexusVideoRenderProps {
   id?: string;
   url: string;
-  aspectRatio: "16-9" | "4-3" | "1-1";
+  aspectRatioPreset: string;
+  aspectRatioCustom?: string;
   width: string;
   customWidth?: string;
-  maxWidth: ContentWidthToken | "none";
+  maxWidth: ContentWidthToken | "none" | "custom";
+  maxWidthCustom?: string;
   align: "left" | "center" | "right";
   autoplay: "no" | "yes";
   controls: "yes" | "no";
+  carouselFill?: CarouselMediaFillMode;
+  mediaFit?: MediaFitMode;
   puck?: { isEditing?: boolean };
 }
 
-/**
- * Extract embed URL for YouTube or Vimeo sources.
- *
- * @param videoUrl - Raw video URL from sidebar.
- * @param autoplay - Autoplay flag.
- * @param controls - Show native controls flag.
- * @returns Embed URL or empty string for direct file URLs.
- */
-function getEmbedUrl(
-  videoUrl: string,
-  autoplay: "no" | "yes",
-  controls: "yes" | "no",
-): string {
-  if (!videoUrl) return "";
-
-  const ytMatch = videoUrl.match(
-    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
-  );
-  if (ytMatch) {
-    return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=${autoplay === "yes" ? "1" : "0"}&mute=${autoplay === "yes" ? "1" : "0"}&controls=${controls === "yes" ? "1" : "0"}`;
-  }
-
-  const vimeoMatch = videoUrl.match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/i);
-  if (vimeoMatch) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=${autoplay === "yes" ? "1" : "0"}&muted=${autoplay === "yes" ? "1" : "0"}`;
-  }
-
-  return "";
+/** Internal props for shared video body (editor + published). */
+interface NexusVideoBodyProps extends NexusVideoRenderProps {
+  editLayoutMode: boolean;
+  onSelectInCarousel?: () => void;
+  /** Re-measure Puck selection overlay after carousel fill layout changes. */
+  syncSelectionOverlay?: () => void;
 }
-
-/**
- * Extract a YouTube video id from a watch or share URL.
- *
- * @param videoUrl - Raw video URL from sidebar.
- * @returns Eleven-character id or null.
- */
-function extractYouTubeId(videoUrl: string): string | null {
-  if (!videoUrl) return null;
-  const match = videoUrl.match(
-    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
-  );
-  return match?.[1] ?? null;
-}
-
-/** Numeric aspect ratios for Shadcn AspectRatio. */
-const ASPECT_RATIOS: Record<NexusVideoRenderProps["aspectRatio"], number> = {
-  "16-9": 16 / 9,
-  "4-3": 4 / 3,
-  "1-1": 1,
-};
 
 const ALIGN_MAP = {
   left: "flex-start",
@@ -113,53 +93,137 @@ function resolveVideoWidth(width: string, customWidth?: string): string {
 }
 
 /**
- * Resolve max-width cap from token.
+ * Resolve max-width cap from token or custom CSS.
  *
- * @param maxWidth - Max width token or none.
+ * @param maxWidth - Max width token, none, or custom.
+ * @param maxWidthCustom - Custom CSS when maxWidth is `custom`.
  * @returns CSS max-width or undefined.
  */
-function resolveMaxWidth(maxWidth: NexusVideoRenderProps["maxWidth"]): string | undefined {
+function resolveMaxWidth(
+  maxWidth: NexusVideoRenderProps["maxWidth"],
+  maxWidthCustom?: string,
+): string | undefined {
   if (maxWidth === "none") return undefined;
-  return CONTENT_WIDTH_MAP[maxWidth];
+  if (maxWidth === "custom") {
+    const trimmed = maxWidthCustom?.trim();
+    return trimmed || CONTENT_WIDTH_MAP.lg;
+  }
+  return CONTENT_WIDTH_MAP[maxWidth as ContentWidthToken];
 }
 
 /**
- * Video player — embeds are non-interactive in edit layout mode so Puck overlays work.
+ * Shared video body — no Puck store hooks (safe inside `<Render>` and carousel slots).
  *
- * @param props - Video configuration and Puck edit context.
+ * @param props - Video configuration and layout flags.
  * @returns Video player UI.
  */
-export function NexusVideoRender({
+function NexusVideoBody({
   id,
   url,
-  aspectRatio,
+  aspectRatioPreset,
+  aspectRatioCustom,
   width,
   customWidth,
   maxWidth,
+  maxWidthCustom,
   align,
   autoplay,
   controls,
-  puck,
-}: NexusVideoRenderProps) {
-  const previewMode = usePuckPreviewMode();
-  const isInteractivePreview = previewMode === "interactive";
-  const isEditing = puck?.isEditing ?? false;
-  const editLayoutMode = isEditing && !isInteractivePreview;
-  const getPuck = useGetPuck();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [fillSlide, setFillSlide] = useState(false);
+  carouselFill = "auto",
+  mediaFit = "cover",
+  editLayoutMode,
+  onSelectInCarousel,
+  syncSelectionOverlay,
+}: NexusVideoBodyProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
+  const inCarouselSlide = useCarouselSlideMedia();
+  const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide, layoutRoot);
+  const youTubeId = extractYouTubeId(url);
+  const [youTubePosterUrl, setYouTubePosterUrl] = useState<string | null>(() =>
+    editLayoutMode && youTubeId
+      ? `https://img.youtube.com/vi/${youTubeId}/hqdefault.jpg`
+      : null,
+  );
+
+  /** Capture mount for composite-layout detection inside grid cells. */
+  const assignRootRef = useCallback((node: HTMLDivElement | null) => {
+    rootRef.current = node;
+    setLayoutRoot(node);
+  }, []);
 
   useLayoutEffect(() => {
-    const root = rootRef.current;
-    setFillSlide(Boolean(root?.closest(".nexus-carousel__slide")));
-  }, [url, aspectRatio]);
+    if (!fillSlide) {
+      return undefined;
+    }
 
-  const embedUrl = getEmbedUrl(url, autoplay, controls);
-  const youTubeId = extractYouTubeId(url);
-  const ratio = ASPECT_RATIOS[aspectRatio] ?? 16 / 9;
+    const slide = rootRef.current?.closest<HTMLElement>(".nexus-carousel__slide");
+    if (!slide) {
+      return undefined;
+    }
+
+    const ratio = resolveVideoDisplayAspectRatio(
+      url,
+      aspectRatioPreset,
+      aspectRatioCustom,
+      resolveMediaAspectRatioNumeric,
+    );
+
+    slide.style.setProperty("--nexus-media-aspect-ratio", String(ratio));
+
+    return () => {
+      slide.style.removeProperty("--nexus-media-aspect-ratio");
+    };
+  }, [fillSlide, url, aspectRatioPreset, aspectRatioCustom]);
+
+  /** Re-measure Puck selection overlay after fill media settles (fixes half-height blue frame). */
+  useLayoutEffect(() => {
+    if (!editLayoutMode || !fillSlide || !syncSelectionOverlay) return;
+    syncSelectionOverlay();
+  }, [editLayoutMode, fillSlide, syncSelectionOverlay, layoutRoot, url, youTubePosterUrl]);
+
+  /** Preload max-res YouTube art; fall back to hqdefault when maxres is missing. */
+  useEffect(() => {
+    if (!editLayoutMode || !youTubeId) {
+      setYouTubePosterUrl(null);
+      return;
+    }
+
+    const maxRes = `https://img.youtube.com/vi/${youTubeId}/maxresdefault.jpg`;
+    const hqDefault = `https://img.youtube.com/vi/${youTubeId}/hqdefault.jpg`;
+    setYouTubePosterUrl(maxRes);
+
+    let cancelled = false;
+    const probe = new Image();
+
+    probe.onload = () => {
+      if (cancelled) return;
+      setYouTubePosterUrl(probe.naturalWidth > 120 ? maxRes : hqDefault);
+    };
+    probe.onerror = () => {
+      if (!cancelled) setYouTubePosterUrl(hqDefault);
+    };
+    probe.src = maxRes;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editLayoutMode, youTubeId, url]);
+
+  const fit = normalizeMediaFitMode(mediaFit);
+  const objectFit = mediaFitToObjectFit(fit);
+  const embedUrl = getVideoEmbedUrl(url, autoplay, controls);
+  const ratio = resolveVideoDisplayAspectRatio(
+    url,
+    aspectRatioPreset,
+    aspectRatioCustom,
+    resolveMediaAspectRatioNumeric,
+  );
+  const embedAspect = embedUrl ? EMBED_PROVIDER_ASPECT_RATIO : ratio;
+  const mediaAspectAttr = ratioToMediaAspectAttr(ratio);
   const mediaPointerEvents = editLayoutMode ? "none" : "auto";
   const resolvedWidth = resolveVideoWidth(width, customWidth);
-  const resolvedMaxWidth = resolveMaxWidth(maxWidth);
+  const resolvedMaxWidth = resolveMaxWidth(maxWidth, maxWidthCustom);
 
   /**
    * Open video settings when clicked inside a carousel slide.
@@ -168,12 +232,12 @@ export function NexusVideoRender({
    */
   const handleClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
-      if (!editLayoutMode || !id) return;
+      if (!editLayoutMode || !onSelectInCarousel) return;
       if (!rootRef.current?.closest(".nexus-carousel__slide")) return;
       event.stopPropagation();
-      selectPuckComponentById(getPuck(), id);
+      onSelectInCarousel();
     },
-    [editLayoutMode, getPuck, id],
+    [editLayoutMode, onSelectInCarousel],
   );
 
   const rootClass = cn(
@@ -182,26 +246,35 @@ export function NexusVideoRender({
     fillSlide && CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
   );
 
+  const fillAspectStyle = carouselFillAspectRatioStyle(ratio);
+
   const rootStyle: CSSProperties = fillSlide
-    ? { width: "100%" }
-    : {
+    ? {
         width: "100%",
-        padding: "var(--spacing-sm) 0",
+        ...fillAspectStyle,
+        ["--nexus-media-object-fit" as string]: objectFit,
+      }
+    : {
         display: "flex",
         justifyContent: ALIGN_MAP[align] ?? "center",
+        alignItems: "flex-start",
+        padding: editLayoutMode ? 0 : "var(--spacing-sm) 0",
+        width: "100%",
+        ["--nexus-media-object-fit" as string]: objectFit,
       };
 
   const frameStyle: CSSProperties = fillSlide
     ? {
         width: "100%",
         maxWidth: "none",
-        height: "100%",
+        aspectRatio: ratio,
         boxSizing: "border-box",
       }
     : {
         width: resolvedWidth,
         maxWidth: resolvedMaxWidth ?? "100%",
         boxSizing: "border-box",
+        ...(editLayoutMode ? { lineHeight: 0 } : {}),
       };
 
   const renderMedia = () => {
@@ -214,13 +287,18 @@ export function NexusVideoRender({
       );
     }
 
-    if (editLayoutMode && youTubeId) {
+    if (editLayoutMode && youTubeId && youTubePosterUrl) {
       return (
-        <img
-          src={`https://img.youtube.com/vi/${youTubeId}/hqdefault.jpg`}
-          alt="Video preview"
-          className="nexus-video__media absolute inset-0 h-full w-full object-cover"
-          draggable={false}
+        <div
+          className="nexus-video__poster"
+          role="img"
+          aria-label="Video preview"
+          style={{
+            backgroundImage: `url("${youTubePosterUrl}")`,
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: fit === "contain" ? "contain" : "cover",
+          }}
         />
       );
     }
@@ -233,7 +311,7 @@ export function NexusVideoRender({
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          className="nexus-video__media absolute inset-0 h-full w-full"
+          className="nexus-media-cover__embed"
           style={{ pointerEvents: mediaPointerEvents }}
         />
       );
@@ -246,32 +324,45 @@ export function NexusVideoRender({
         autoPlay={autoplay === "yes"}
         muted={autoplay === "yes"}
         preload="metadata"
-        className="nexus-video__media absolute inset-0 h-full w-full object-cover"
+        className="nexus-media-cover__media"
         style={{ pointerEvents: mediaPointerEvents }}
       />
     );
   };
 
+  const mediaFrame = (
+    <CoverMediaFrame
+      fit={fit}
+      embedAspect={embedUrl ? embedAspect : undefined}
+      className="absolute inset-0 h-full w-full"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    >
+      {renderMedia()}
+    </CoverMediaFrame>
+  );
+
   const editBadge =
     editLayoutMode && url ? (
-      <span className="nexus-video__edit-badge">Video — use Interactive mode to play</span>
+      <span className="nexus-video__edit-badge">Play in Interactive mode</span>
     ) : null;
 
   if (fillSlide) {
     return (
       <div
-        ref={rootRef}
+        ref={assignRootRef}
         className={rootClass}
         style={rootStyle}
         onClick={handleClick}
-        data-nexus-media-aspect={aspectRatio.replace("-", "/")}
+        data-nexus-media-aspect={mediaAspectAttr}
+        {...(fillSlide ? { [NEXUS_CAROUSEL_FILL_ATTR]: "true" as const } : {})}
       >
         <div
           className={cn(
-            "nexus-video__frame nexus-video__frame--fill-slide overflow-hidden bg-muted",
+            "nexus-video__frame nexus-video__frame--fill-slide relative overflow-hidden bg-muted",
           )}
+          style={frameStyle}
         >
-          {renderMedia()}
+          {mediaFrame}
           {editBadge}
         </div>
       </div>
@@ -280,23 +371,77 @@ export function NexusVideoRender({
 
   return (
     <div
-      ref={rootRef}
+      ref={assignRootRef}
       className={rootClass}
       style={rootStyle}
       onClick={handleClick}
     >
       <div
         className={cn(
-          "nexus-video__frame overflow-hidden rounded-lg border border-border bg-muted",
+          "nexus-video__frame relative overflow-hidden rounded-lg border border-border bg-muted",
         )}
-        style={frameStyle}
+        style={{ ...frameStyle, aspectRatio: ratio }}
       >
-        <AspectRatio ratio={ratio}>{renderMedia()}</AspectRatio>
+        {mediaFrame}
 
         {editBadge}
       </div>
     </div>
   );
+}
+
+/**
+ * Puck editor shell — subscribes to Puck store hooks (must render inside `<Puck>`).
+ *
+ * @param props - Video configuration from the block render.
+ * @returns Video player with edit/interactive preview behavior.
+ */
+function NexusVideoEditorShell(props: NexusVideoRenderProps) {
+  const previewMode = usePuckPreviewMode();
+  const editLayoutMode = previewMode !== "interactive";
+  const getPuck = useGetPuck();
+
+  const onSelectInCarousel = useCallback(() => {
+    if (!props.id) return;
+    selectPuckComponentById(getPuck(), props.id);
+  }, [getPuck, props.id]);
+
+  const syncSelectionOverlay = useCallback(() => {
+    syncPuckComponentOverlayAfterLayout(getPuck(), props.id);
+  }, [getPuck, props.id]);
+
+  return (
+    <NexusVideoBody
+      {...props}
+      editLayoutMode={editLayoutMode}
+      onSelectInCarousel={onSelectInCarousel}
+      syncSelectionOverlay={syncSelectionOverlay}
+    />
+  );
+}
+
+/**
+ * Published / static video — no Puck store hooks (safe inside `<Render>`).
+ *
+ * @param props - Video configuration from the block render.
+ * @returns Interactive video player for the public site.
+ */
+function NexusVideoView(props: NexusVideoRenderProps) {
+  return <NexusVideoBody {...props} editLayoutMode={false} />;
+}
+
+/**
+ * Video player entry — routes to editor or static render based on Puck context.
+ *
+ * @param props - Video configuration and Puck edit context.
+ * @returns Video player UI.
+ */
+export function NexusVideoRender(props: NexusVideoRenderProps) {
+  if (props.puck?.isEditing) {
+    return <NexusVideoEditorShell {...props} />;
+  }
+
+  return <NexusVideoView {...props} />;
 }
 
 export default NexusVideoRender;

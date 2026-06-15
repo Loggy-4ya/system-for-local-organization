@@ -2,6 +2,12 @@
   "plugins": {
     "figma": {
       "enabled": true
+    },
+    "browse": {
+      "enabled": true
+    },
+    "mongodb": {
+      "enabled": true
     }
   }
 }

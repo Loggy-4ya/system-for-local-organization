@@ -6,8 +6,9 @@
  * @module src/app/[...puckPath]/PuckEditorShell
  */
 
-import { Puck } from "@measured/puck";
-import "@measured/puck/puck.css";
+import "@/lib/safePointerCaptureInstall";
+import { Puck, blocksPlugin, fieldsPlugin } from "@puckeditor/core";
+import "@puckeditor/core/puck.css";
 import "../puck-editor.css";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
@@ -16,9 +17,13 @@ import {
   fetchReservedPagePaths,
   validatePageSlug,
 } from "@/components/puck/lib/pageSlugValidation";
+import { NEXUS_EDITOR_VIEWPORTS } from "@/components/puck/lib/resolveAutoViewport";
+import { nexusOutlinePlugin } from "@/components/puck/nexusOutlinePlugin";
+import { usePuckMobileEditorChrome } from "@/components/puck/usePuckMobileEditorChrome";
+import { NexusEditorCanvasProvider } from "@/components/puck/NexusEditorCanvasContext";
 import { PuckEditorErrorProvider } from "@/components/puck/PuckEditorErrorContext";
 import { PUCK_EDITOR_OVERRIDES } from "@/components/puck/puckEditorOverrides";
-import type { Data } from "@measured/puck";
+import type { Data } from "@puckeditor/core";
 import { useCallback, useState } from "react";
 
 /** Props for the client-only Puck editor shell. */
@@ -85,6 +90,7 @@ export function PuckEditorShell({
   onPublished,
 }: PuckEditorShellProps) {
   const [error, setError] = useState<string | null>(null);
+  const isCompactEditor = usePuckMobileEditorChrome();
 
   const handlePublish = useCallback(
     async (nextData: Data) => {
@@ -153,15 +159,20 @@ export function PuckEditorShell({
   );
 
   return (
-    <PuckEditorErrorProvider error={error}>
-      <Puck
-        key={puckMountKey}
-        config={puckConfig}
-        data={initialEditorData}
-        onChange={onEditorDataChange}
-        onPublish={handlePublish}
-        overrides={PUCK_EDITOR_OVERRIDES}
-      />
+    <PuckEditorErrorProvider error={error} onPublish={handlePublish}>
+      <NexusEditorCanvasProvider>
+        <Puck
+          key={`${path}-${puckMountKey}-${isCompactEditor ? "compact" : "desktop"}`}
+          config={puckConfig}
+          data={initialEditorData}
+          onChange={onEditorDataChange}
+          onPublish={handlePublish}
+          overrides={PUCK_EDITOR_OVERRIDES}
+          plugins={[blocksPlugin(), nexusOutlinePlugin(), fieldsPlugin()]}
+          viewports={NEXUS_EDITOR_VIEWPORTS}
+          _experimentalFullScreenCanvas={isCompactEditor}
+        />
+      </NexusEditorCanvasProvider>
     </PuckEditorErrorProvider>
   );
 }

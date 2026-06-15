@@ -4,7 +4,7 @@
  * @module src/components/puck/lib/usePuckOverlayPortal
  */
 
-import { registerOverlayPortal } from "@measured/puck";
+import { registerOverlayPortal } from "@puckeditor/core";
 import { useCallback, useEffect, useRef } from "react";
 
 /**

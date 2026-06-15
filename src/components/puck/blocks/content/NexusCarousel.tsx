@@ -13,6 +13,7 @@ import {
 import { NexusCarouselRender, type NexusCarouselRenderProps } from "./NexusCarouselRender";
 import { CarouselSizeFieldGroup } from "../../fields/CarouselDimensionFields";
 import { CarouselSlideLabelField } from "../../fields/CarouselSlideLabelField";
+import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
 import {
   CAROUSEL_SCROLL_STEP_OPTIONS,
   CAROUSEL_SLIDES_PER_VIEW_OPTIONS,
@@ -32,6 +33,8 @@ interface CarouselRenderProps {
   carouselSize?: CarouselSizeSettings;
   height?: string;
   heightCustom?: string;
+  maxHeight?: string;
+  maxHeightCustom?: string;
   borderRadius?: string;
   borderRadiusCustom?: string;
   autoplay: "off" | "on";
@@ -122,16 +125,8 @@ export const NexusCarousel = {
         { label: "Hide", value: "no" },
       ],
     },
-    slidesPerView: {
-      type: "radio" as const,
-      label: "Slides Visible",
-      options: [...CAROUSEL_SLIDES_PER_VIEW_OPTIONS],
-    },
-    scrollStep: {
-      type: "radio" as const,
-      label: "Scroll Step",
-      options: [...CAROUSEL_SCROLL_STEP_OPTIONS],
-    },
+    slidesPerView: createSteppedSliderField("Slides Visible", CAROUSEL_SLIDES_PER_VIEW_OPTIONS),
+    scrollStep: createSteppedSliderField("Scroll Step", CAROUSEL_SCROLL_STEP_OPTIONS),
     editorActiveIndex: {
       type: "number" as const,
       label: "Editor Active Slide",
@@ -148,6 +143,8 @@ export const NexusCarousel = {
     carouselSize: {
       height: "auto" as const,
       heightCustom: "360px",
+      maxHeight: "auto" as const,
+      maxHeightCustom: "640px",
       borderRadius: "var(--radius-md)" as const,
       borderRadiusCustom: "var(--radius-md)",
     },
@@ -206,6 +203,8 @@ export const NexusCarousel = {
         puck={props.puck}
         height={size.height}
         heightCustom={size.heightCustom}
+        maxHeight={size.maxHeight}
+        maxHeightCustom={size.maxHeightCustom}
         borderRadius={size.borderRadius}
         borderRadiusCustom={size.borderRadiusCustom}
       />

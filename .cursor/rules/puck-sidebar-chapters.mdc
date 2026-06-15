@@ -1,0 +1,43 @@
+---
+description: Puck sidebar settings chapters — FieldChapter pattern for all blocks and page root fields
+globs:
+  - src/components/puck/blocks/**
+  - src/components/puck/fields/**
+  - src/components/puck/lib/blockFieldChapter*.tsx
+  - src/components/puck/config.tsx
+alwaysApply: false
+---
+
+# Puck Sidebar Settings Chapters
+
+When creating or editing Puck blocks, custom fields, or sidebar settings:
+
+## Mandatory shell
+
+1. **Use `FieldChapter`** for every collapsible settings group — directly, via `BlockFieldChapterGroup`, or through `withFieldChapters()`.
+2. **Do not** add raw `<details>`, Shadcn `Accordion`, or one-off collapse wrappers in block/field files. Animation lives in `FieldChapter.tsx` + `puck-editor.css` (`.nexus-field-chapter__collapse`).
+3. **Page root parity:** Register `pageSettings`, `pageLayout`, and `pageBackground` as separate Puck `custom` fields, each rendering `FieldChapter` — not a combined appearance group.
+
+## New Content / Layout blocks
+
+1. Define flat fields on the block export in `src/components/puck/blocks/`.
+2. Register sidebar chapters in `src/components/puck/lib/blockFieldChapterConfigs.tsx` — not inline in the block file.
+3. Wire in `config.tsx` via `shellBlock()` (with spacing/island shell) or `chapterOnlyBlock()` (inline grid items).
+4. Keep top-level arrays/slots (`content`, `slides`, `tabs`, …) in `topLevelFieldKeys` — always visible, not inside chapters.
+5. Use `defaultOpen: false` unless a chapter must be visible on select (existing pattern: `NexusGrid` / `NexusGridItem` layout chapters).
+
+## Spacing and dividers
+
+- Wrap chapter sub-fields in `.nexus-sidebar-field` (see `BlockFieldChapterGroup.tsx`).
+- Adjacent Puck `Field` rows use `border-top` dividers from `puck-editor.css` — do not add parallel divider logic.
+- Conditional chapters: omit via `resolveChapterFieldVisibility()` / `visibleWhenFlat` in chapter config — do not render empty shells.
+
+## Reference files
+
+| File | Role |
+|------|------|
+| `src/components/puck/fields/FieldChapter.tsx` | Canonical animated chapter shell |
+| `src/components/puck/fields/BlockFieldChapterGroup.tsx` | Chapter + Puck `AutoField` renderer |
+| `src/components/puck/lib/blockFieldChapters.tsx` | `withFieldChapters()`, prop flatten/nest |
+| `src/components/puck/lib/blockFieldChapterConfigs.tsx` | Per-block chapter layouts |
+| `src/app/puck-editor.css` | `.nexus-field-chapter*` accordion tokens |

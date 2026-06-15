@@ -1,11 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@teispace/next-themes";
 import { getTheme, getThemeScript } from "@teispace/next-themes/server";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
-import { GlobalHeader } from "@/components/ui/GlobalHeader";
+import { HeaderSessionBridge } from "@/components/ui/HeaderSessionBridge";
+import { FooterSessionBridge } from "@/components/ui/FooterSessionBridge";
+import { SessionProvider } from "@/components/auth/SessionProvider";
 import { SITE_ICONS } from "@/lib/assets";
+import { NEXUS_THEME_OPTIONS } from "@/lib/resolveStoredThemeIsDark";
+import { seedAdminUser } from "@shared/lib/seedAdminUser";
 import "./globals.css";
 
 /** Shared theme configuration — kept in sync between layout script and provider. */
@@ -44,6 +49,13 @@ export const metadata: Metadata = {
   icons: SITE_ICONS,
 };
 
+/** Mobile viewport — required for correct tap targets on real devices. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 /**
  * @fileoverview Root Next.js layout for Project Nexus.
  *
@@ -58,15 +70,30 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const initialTheme = await getTheme({ themes: THEME_CONFIG.themes });
+  // Seed the Admin user on layout load (first page access)
+  // Run asynchronously on the background to prevent blocking layout SSR
+  seedAdminUser().catch((err) => console.error("[RootLayout] Seeding error:", err));
+
+  const headerStore = await headers();
+  const initialTheme =
+    (await getTheme({
+      themes: [...NEXUS_THEME_OPTIONS],
+      headers: headerStore,
+    })) ?? undefined;
   const themeScript = getThemeScript({
     ...THEME_CONFIG,
     initialTheme: initialTheme ?? undefined,
   });
 
+  /** Brave / wallet extensions may assign to `window.ethereum` before injection completes. */
+  const walletProviderShim = `(function(){try{if(typeof window!=="undefined"&&!window.ethereum){window.ethereum={selectedAddress:void 0}}}catch(e){}})();`;
+
   return (
     <html lang="en" className={fontVariables} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="flex min-h-dvh flex-col touch-manipulation" suppressHydrationWarning>
+        <Script id="nexus-wallet-shim" strategy="beforeInteractive">
+          {walletProviderShim}
+        </Script>
         {/*
           beforeInteractive: Next.js injects this before hydration (React 19 rejects
           raw <script> in component trees). Pair with ThemeProvider noScript below.
@@ -80,13 +107,18 @@ export default async function RootLayout({
           noScript
           disableTransitionOnChange={false}
         >
-          {/* Fixed full-viewport background — persists across route changes */}
-          <InfiniteGrid />
-          {/* Global header — persists across all routes */}
-          <GlobalHeader />
-          <main className="flex flex-1 flex-col">
-            {children}
-          </main>
+          <SessionProvider>
+            {/* Fixed full-viewport background — persists across route changes */}
+            <InfiniteGrid />
+            {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}
+            <div className="nexus-page-stack relative z-1 flex min-h-dvh flex-1 flex-col">
+              <HeaderSessionBridge />
+              <main className="flex min-h-0 flex-1 flex-col">
+                {children}
+              </main>
+              <FooterSessionBridge />
+            </div>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

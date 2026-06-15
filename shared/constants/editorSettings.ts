@@ -14,7 +14,7 @@ export const DEFAULT_ISLAND_COMPONENTS: string[] = [
   "NexusText",
   "NexusList",
   "NexusButton",
-  "NexusDivider",
+  "NexusSpacer",
   "NexusQuote",
   "NexusInput",
   "NexusAvatar",

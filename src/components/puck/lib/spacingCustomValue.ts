@@ -31,16 +31,58 @@ const MIN_BY_UNIT: Record<SpacingCustomUnit, number> = {
   "%": 0,
 };
 
+/** Optional per-unit min/max overrides for custom dimension inputs. */
+export type SpacingCustomBounds = Partial<Record<SpacingCustomUnit, number>>;
+
+/** Clamp overrides passed to parse/format helpers. */
+export interface SpacingCustomClampOptions {
+  minByUnit?: SpacingCustomBounds;
+  maxByUnit?: SpacingCustomBounds;
+}
+
+/**
+ * Resolve minimum bound for a unit, with optional field-level override.
+ *
+ * @param unit - CSS unit.
+ * @param bounds - Optional per-field clamp overrides.
+ * @returns Minimum numeric bound.
+ */
+export function resolveSpacingCustomMin(
+  unit: SpacingCustomUnit,
+  bounds?: SpacingCustomClampOptions,
+): number {
+  return bounds?.minByUnit?.[unit] ?? MIN_BY_UNIT[unit];
+}
+
+/**
+ * Resolve maximum bound for a unit, with optional field-level override.
+ *
+ * @param unit - CSS unit.
+ * @param bounds - Optional per-field clamp overrides.
+ * @returns Maximum numeric bound.
+ */
+export function resolveSpacingCustomMax(
+  unit: SpacingCustomUnit,
+  bounds?: SpacingCustomClampOptions,
+): number {
+  return bounds?.maxByUnit?.[unit] ?? MAX_BY_UNIT[unit];
+}
+
 /**
  * Clamp a numeric amount to safe bounds for the given unit.
  *
  * @param amount - Raw numeric input.
  * @param unit - CSS unit.
+ * @param bounds - Optional per-field clamp overrides.
  * @returns Clamped amount.
  */
-export function clampSpacingAmount(amount: number, unit: SpacingCustomUnit): number {
-  const min = MIN_BY_UNIT[unit];
-  const max = MAX_BY_UNIT[unit];
+export function clampSpacingAmount(
+  amount: number,
+  unit: SpacingCustomUnit,
+  bounds?: SpacingCustomClampOptions,
+): number {
+  const min = resolveSpacingCustomMin(unit, bounds);
+  const max = resolveSpacingCustomMax(unit, bounds);
   if (Number.isNaN(amount)) return min;
   return Math.min(max, Math.max(min, amount));
 }
@@ -51,7 +93,10 @@ export function clampSpacingAmount(amount: number, unit: SpacingCustomUnit): num
  * @param raw - Value from Puck props (e.g. `24px`, `1.5rem`).
  * @returns Parsed value or defaults.
  */
-export function parseSpacingCustom(raw: string | undefined): ParsedSpacingCustom {
+export function parseSpacingCustom(
+  raw: string | undefined,
+  bounds?: SpacingCustomClampOptions,
+): ParsedSpacingCustom {
   if (!raw || typeof raw !== "string") {
     return { amount: 16, unit: "px" };
   }
@@ -63,7 +108,7 @@ export function parseSpacingCustom(raw: string | undefined): ParsedSpacingCustom
   }
 
   const unit = match[2] as SpacingCustomUnit;
-  const amount = clampSpacingAmount(parseFloat(match[1]), unit);
+  const amount = clampSpacingAmount(parseFloat(match[1]), unit, bounds);
   return { amount, unit };
 }
 
@@ -74,9 +119,13 @@ export function parseSpacingCustom(raw: string | undefined): ParsedSpacingCustom
  * @param unit - CSS unit.
  * @returns Safe CSS length (e.g. `24px`).
  */
-export function formatSpacingCustom(amount: number, unit: SpacingCustomUnit): string {
+export function formatSpacingCustom(
+  amount: number,
+  unit: SpacingCustomUnit,
+  bounds?: SpacingCustomClampOptions,
+): string {
   const safeUnit = UNIT_PATTERN.test(unit) ? unit : "px";
-  const safeAmount = clampSpacingAmount(amount, safeUnit);
+  const safeAmount = clampSpacingAmount(amount, safeUnit, bounds);
   const rounded = safeUnit === "px" ? Math.round(safeAmount) : Math.round(safeAmount * 100) / 100;
   return `${rounded}${safeUnit}`;
 }
@@ -85,8 +134,12 @@ export function formatSpacingCustom(amount: number, unit: SpacingCustomUnit): st
  * Return the max allowed value for a unit (for UI hints).
  *
  * @param unit - CSS unit.
+ * @param bounds - Optional per-field clamp overrides.
  * @returns Maximum numeric bound.
  */
-export function getSpacingCustomMax(unit: SpacingCustomUnit): number {
-  return MAX_BY_UNIT[unit];
+export function getSpacingCustomMax(
+  unit: SpacingCustomUnit,
+  bounds?: SpacingCustomClampOptions,
+): number {
+  return resolveSpacingCustomMax(unit, bounds);
 }

@@ -15,7 +15,7 @@
 
   /* ── Spacing tokens (Nexus/Spacing) ──────────────────────────────────────── */
   --spacing-xs:  4px;
-  --spacing-sm:  8px;
+  --spacing-sm:  8px; /* default top/bottom margin for root-level Puck blocks (SM token) */
   --spacing-md:  16px;
   --spacing-lg:  24px;
   --spacing-xl:  32px;
@@ -31,6 +31,14 @@
 
   /* Horizontal/vertical inset so page content reveals the InfiniteGrid background */
   --page-content-gutter: clamp(12px, 3vw, 24px);
+  --site-mobile-menu-duration: 320ms;
+  --site-mobile-menu-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --site-nav-accordion-duration: 240ms;
+  --site-nav-accordion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --site-chrome-icon-size: 18px; /* See .ai/docs/icon_sizes.md */
+
+  /* Fixed global header — main content offset (72px bar + safe area) */
+  --site-header-offset: calc(72px + env(safe-area-inset-top, 0px));
 
   /* ── Border-radius tokens (Nexus/Radius) ─────────────────────────────────── */
   --radius-sm:  4px;
@@ -108,6 +116,11 @@
   --border: var(--color-border-default);
   --input: var(--color-border-default);
   --ring: var(--color-accent-user);
+
+  /* Scrollbar — quiet thumb, transparent track (dark default) */
+  --scrollbar-thumb: color-mix(in srgb, var(--color-text-secondary) 24%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-secondary) 38%, transparent);
+  --scrollbar-track: transparent;
 }
 
 @theme inline {
@@ -167,6 +180,9 @@
   --border: var(--color-border-default);
   --input: var(--color-border-default);
   --ring: var(--color-accent-user);
+
+  --scrollbar-thumb: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-secondary) 44%, transparent);
 }
 
 /* ── Global base styles ─────────────────────────────────────────────────────── */
@@ -176,31 +192,64 @@
 
 html {
   height: 100%;
+  background-color: transparent;
 }
 
 body {
+  isolation: isolate;
   min-height: 100%;
-  background-color: var(--color-bg-surface);
+  /* Transparent — InfiniteGrid paints the surface color on canvas (iOS stacking). */
+  background-color: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Glass Panel utility ─────────────────────────────────────────────────── */
+/* ── Global scrollbar — quiet thumb, transparent track (site-wide) ──────────── */
+* {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+/* Page content stack sits above #nexus-bg (z-index:1 in layout). */
+.nexus-page-stack {
+  background: transparent;
+  min-height: 100dvh;
+}
+
+/* ── Glass Panel utility — solid opaque surface (no grid bleed-through) ─── */
 .glass-panel {
-  background-color: color-mix(in srgb, var(--color-bg-panel) 94%, transparent);
+  background-color: var(--color-bg-panel);
   border: 1px solid var(--color-border-default);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border-radius: var(--radius-lg);
 }
 
 /* Elevated variant — brighter surface for cards above the panel layer */
 .glass-elevated {
-  background-color: color-mix(in srgb, var(--color-bg-elevated) 90%, transparent);
+  background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border-default);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
 }
 
@@ -227,12 +276,112 @@ body {
   color: var(--color-warning);
 }
 
-/* ── Contained page shell ─────────────────────────────────────────────────── */
+.badge-warning {
+  background-color: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 60%, transparent);
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.badge-success {
+  background-color: color-mix(in srgb, var(--color-success) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 50%, transparent);
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+/* ── Form Alerts ─────────────────────────────────────────────────────────── */
+.form-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 6px);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.form-alert--error {
+  background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+  color: var(--color-danger);
+}
+
+.form-alert--success {
+  background-color: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  color: var(--color-success);
+}
+
+.form-alert--info {
+  background-color: color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+  color: var(--color-accent-user);
+}
+
+
+.accent-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background-color: color-mix(in srgb, var(--color-accent-user) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 60%, transparent);
+  color: var(--color-accent-user);
+}
+
+/* ── Contained page shell — gutter outside, content matches header/footer inner width */
 .page-shell {
+  box-sizing: border-box;
+  padding-inline: var(--page-content-gutter);
   width: 100%;
-  max-width: var(--content-width-lg);
-  margin-inline: auto;
-  padding: var(--page-content-gutter);
+}
+
+/* ── Puck page edit FAB — published viewer only (Admin / Student Council) ─ */
+.nexus-page-edit-fab {
+  align-items: center;
+  background-color: var(--color-accent-user);
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 70%, black);
+  border-radius: var(--radius-lg);
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--color-accent-user) 45%, transparent);
+  box-sizing: border-box;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  line-height: 1;
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  position: fixed;
+  right: calc(1.25rem + env(safe-area-inset-right, 0px));
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+  z-index: 40;
+}
+
+.nexus-page-edit-fab:hover {
+  background-color: color-mix(in srgb, var(--color-accent-user) 88%, white);
+  box-shadow: 0 10px 28px -4px color-mix(in srgb, var(--color-accent-user) 55%, transparent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.nexus-page-edit-fab:focus-visible {
+  outline: 2px solid var(--color-accent-user);
+  outline-offset: 3px;
+}
+
+.nexus-page-edit-fab__icon {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 /* ── Rich body text (NexusText published output) ──────────────────────────── */
@@ -287,6 +436,29 @@ body {
   margin-bottom: 0.25em;
 }
 
+/* Puck List block — restore markers after Tailwind preflight */
+.nexus-list {
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  list-style-position: outside;
+  list-style-type: disc;
+  margin: 0;
+  padding-left: 1.5rem;
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-list--ordered {
+  list-style-type: decimal;
+}
+
+.nexus-list__item {
+  color: var(--color-text-primary);
+  display: list-item;
+}
+
 .nexus-rich-text blockquote {
   border-left: 3px solid var(--color-border-default);
   margin: 0 0 0.65em;
@@ -336,8 +508,33 @@ body {
 /* ── Carousel (NexusCarousel published output) ──────────────────────────── */
 .nexus-carousel {
   --nexus-carousel-gap: 0.75rem;
+  --nexus-carousel-control-opacity: 0.5;
+  --nexus-carousel-control-bg: color-mix(in srgb, var(--color-bg-surface) 40%, transparent);
+  --nexus-carousel-control-border: color-mix(in srgb, var(--color-border-default) 55%, transparent);
+  --nexus-carousel-control-color: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+  box-sizing: border-box;
+  container-name: nexus-carousel;
+  container-type: inline-size;
+  max-width: 100%;
+  min-width: 0;
   position: relative;
   width: 100%;
+}
+
+.nexus-carousel:hover,
+.nexus-carousel:focus-within {
+  --nexus-carousel-control-opacity: 1;
+  --nexus-carousel-control-bg: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  --nexus-carousel-control-border: var(--color-border-default);
+  --nexus-carousel-control-color: var(--color-text-primary);
+}
+
+/* Interactive/published preview — Puck block focus must not keep chrome at full strength */
+.nexus-carousel--interactive:focus-within:not(:hover) {
+  --nexus-carousel-control-opacity: 0.5;
+  --nexus-carousel-control-bg: color-mix(in srgb, var(--color-bg-surface) 40%, transparent);
+  --nexus-carousel-control-border: color-mix(in srgb, var(--color-border-default) 55%, transparent);
+  --nexus-carousel-control-color: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
 }
 
 /* Single visible slide — one framed panel */
@@ -351,7 +548,17 @@ body {
 .nexus-carousel--multi-slide {
   background: transparent;
   border: none;
-  overflow: visible;
+  overflow: hidden;
+}
+
+/* Looping interactive carousels — clip track bleed at the last→first seam */
+.nexus-carousel--interactive.nexus-carousel--loop.nexus-carousel--multi-slide {
+  overflow: hidden;
+}
+
+/* Published / interactive multi-slide — keep Embla track inside the block box */
+.nexus-carousel--interactive.nexus-carousel--multi-slide {
+  overflow: hidden;
 }
 
 /* Edit overflow carousels — clip at root so off-screen slides never paint outside the block */
@@ -382,8 +589,15 @@ body {
 }
 
 .nexus-carousel__viewport {
+  max-width: 100%;
+  min-width: 0;
   position: relative;
   width: 100%;
+}
+
+.nexus-carousel [data-slot="carousel-content"] {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport {
@@ -397,10 +611,17 @@ body {
   width: 100%;
 }
 
-/* ── Carousel slide: slot + nested blocks fill the card ── */
+/* ── Carousel slide: slot + blocks ────────────────────────────────────────
+ *
+ * Fill media layout model (React sets inline aspect-ratio on the frame):
+ *   • Default — in-flow: media root + frame are position:relative; frame height
+ *     comes from inline aspect-ratio (NexusVideoRender / NexusImageRender).
+ *   • Stretch — absolute cover only when the slide has configured fixed height
+ *     (`.nexus-carousel--fixed-height`). Edit-height-sync keeps in-flow fill media.
+ */
 .nexus-carousel__slide-dropzone-shell,
 .nexus-carousel__slide .nexus-carousel__dropzone,
-.nexus-carousel__slide [data-puck-dropzone] {
+.nexus-carousel__slide [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
   box-sizing: border-box;
   display: flex;
   flex: 1 1 auto;
@@ -411,23 +632,15 @@ body {
   width: 100%;
 }
 
-.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:has(.nexus-carousel__slide-media-fill) {
-  display: block;
-  height: 100%;
-  inset: 0;
-  max-height: 100%;
-  min-height: 0 !important;
-  overflow: hidden;
-  position: absolute;
+.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  position: relative;
   width: 100%;
-}
-
-.nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) .nexus-carousel__slide-dropzone-shell,
-.nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) [data-puck-dropzone] {
-  height: 100%;
-  min-height: 0 !important;
-  padding: 0;
-  position: static;
 }
 
 .nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
@@ -435,62 +648,363 @@ body {
 .nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
   [data-puck-dropzone] {
   flex: 1 1 auto;
-  height: 100%;
+  height: auto;
   min-height: 0;
 }
 
-.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:not(:has(.nexus-carousel__slide-media-fill)) {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
+/* Fill media — in-flow (default) */
+.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel__slide [data-puck-dropzone] > [data-puck-component]:has([data-nexus-carousel-fill="true"]) {
+  display: block;
   height: auto;
-  max-height: none;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
 
-/* Fill-slide media — anchor to `.nexus-carousel__slide`, cover the card */
-.nexus-carousel__slide .nexus-video,
-.nexus-carousel__slide .nexus-image--fill-slide,
-.nexus-video--fill-slide,
-.nexus-image--fill-slide {
-  display: block !important;
-  inset: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  position: absolute !important;
-  width: 100% !important;
+.nexus-carousel__slide .nexus-carousel__slide-media-fill,
+.nexus-carousel__slide .nexus-video--fill-slide,
+.nexus-carousel__slide .nexus-image--fill-slide {
+  display: block;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  width: 100%;
   z-index: 1;
 }
 
-.nexus-carousel__slide .nexus-video > .nexus-video__frame,
-.nexus-carousel__slide .nexus-image--fill-slide > .nexus-image__frame,
-.nexus-video--fill-slide > .nexus-video__frame,
-.nexus-video__frame--fill-slide,
-.nexus-image--fill-slide > .nexus-image__frame {
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill > .nexus-video__frame,
+.nexus-carousel__slide .nexus-image--fill-slide > .nexus-image__frame {
   border: none;
   border-radius: 0;
+  max-width: none;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.nexus-carousel__slide [data-puck-component]:has(.nexus-carousel__slide-media-fill) > div {
+  margin-block: 0 !important;
+}
+
+.nexus-carousel__slide [data-puck-component]:has(.nexus-carousel__slide-media-fill) > div > div {
+  padding-block: 0 !important;
+}
+
+.nexus-carousel__slide .nexus-video.nexus-carousel__slide-media-fill .nexus-media-cover__media,
+.nexus-carousel__slide .nexus-image--fill-slide .nexus-media-cover__media {
+  object-fit: var(--nexus-media-object-fit, cover);
+}
+
+/* Multi-slide — card height follows fill media (frame aspect-ratio from React) */
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"] > .nexus-carousel__slide {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"]),
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"])
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone],
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"])
+  [data-puck-dropzone] {
+  height: auto;
+}
+
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"])
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone],
+.nexus-carousel--multi-slide:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"])
+  [data-puck-dropzone] {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+/* Single-frame auto-height — content-sized panel */
+.nexus-carousel--single-frame:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel--single-frame:not(.nexus-carousel--fixed-height)
+  [data-slot="carousel-item"]:has(.nexus-carousel__slide-media-fill) {
+  height: auto;
+}
+
+.nexus-carousel--single-frame:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--single-frame:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone] {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--single-frame:not(.nexus-carousel--fixed-height)
+  [data-slot="carousel-item"]:has(.nexus-carousel__slide-media-fill) {
+  align-self: flex-start;
+}
+
+/* Stretch paths — absolute cover only when slide has configured fixed height */
+.nexus-carousel--fixed-height .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel--fixed-height .nexus-carousel__slide:has([data-nexus-carousel-fill="true"]) {
+  position: relative;
+}
+
+.nexus-carousel--fixed-height
+  .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill)
+  [data-puck-dropzone],
+.nexus-carousel--fixed-height
+  .nexus-carousel__slide:has([data-nexus-carousel-fill="true"])
+  [data-puck-dropzone] {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+.nexus-carousel--fixed-height
+  .nexus-carousel__slide [data-puck-dropzone]
+  > [data-puck-component]:has(.nexus-carousel__slide-media-fill),
+.nexus-carousel--fixed-height
+  .nexus-carousel__slide [data-puck-dropzone]
+  > [data-puck-component]:has([data-nexus-carousel-fill="true"]) {
   height: 100%;
   inset: 0;
-  max-width: none;
   position: absolute;
   width: 100%;
 }
 
-.nexus-carousel__slide .nexus-video [data-slot="aspect-ratio"],
-.nexus-video--fill-slide [data-slot="aspect-ratio"] {
-  aspect-ratio: unset !important;
-  height: 100% !important;
+.nexus-carousel--fixed-height .nexus-carousel__slide .nexus-carousel__slide-media-fill,
+.nexus-carousel--fixed-height .nexus-carousel__slide [data-nexus-carousel-fill="true"] {
+  aspect-ratio: unset;
+  height: 100%;
   inset: 0;
   position: absolute;
-  width: 100% !important;
+  width: 100%;
 }
 
-.nexus-carousel__slide .nexus-video__media,
-.nexus-carousel__slide .nexus-image__media {
-  object-fit: cover;
+.nexus-carousel--fixed-height .nexus-carousel__slide .nexus-video__frame--fill-slide,
+.nexus-carousel--fixed-height .nexus-carousel__slide .nexus-image--fill-slide > .nexus-image__frame {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+  width: 100%;
+}
+
+/* ── Unified media cover/contain frame (image, video, iframe) ─────────────── */
+.nexus-media-cover {
+  container-type: size;
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.nexus-media-cover:not(.absolute) {
+  position: relative;
+}
+
+.nexus-media-cover__media {
+  display: block;
+  height: 100%;
+  inset: 0;
+  min-height: 100%;
+  min-width: 100%;
+  object-fit: var(--nexus-media-object-fit, cover);
+  object-position: center;
+  position: absolute;
+  width: 100%;
+}
+
+.nexus-media-cover--contain {
+  --nexus-media-object-fit: contain;
+}
+
+.nexus-media-cover--cover {
+  --nexus-media-object-fit: cover;
+}
+
+.nexus-media-cover__embed {
+  border: 0;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  translate: -50% -50%;
+}
+
+/* Iframe cover — scale past container bounds (object-fit equivalent) */
+.nexus-media-cover--cover .nexus-media-cover__embed {
+  min-height: 100%;
+  min-width: 100%;
+}
+
+@container (aspect-ratio > 16 / 9) {
+  .nexus-media-cover--cover .nexus-media-cover__embed {
+    height: 100%;
+    min-width: 100%;
+    width: calc(100cqh * var(--nexus-embed-aspect, 1.7777777778));
+  }
+}
+
+@container (aspect-ratio <= 16 / 9) {
+  .nexus-media-cover--cover .nexus-media-cover__embed {
+    height: calc(100cqw / var(--nexus-embed-aspect, 1.7777777778));
+    min-height: 100%;
+    width: 100%;
+  }
+}
+
+/* Iframe contain — letterbox inside frame with themed bars */
+.nexus-media-cover--contain .nexus-media-cover__embed {
+  aspect-ratio: var(--nexus-embed-aspect, 1.7777777778);
+  height: auto;
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+}
+
+.nexus-video__frame .nexus-media-cover,
+.nexus-image__frame .nexus-media-cover {
+  height: 100%;
+  width: 100%;
+}
+
+.nexus-video__frame--fill-slide,
+.nexus-image__frame:has(.nexus-media-cover.absolute),
+.nexus-video__frame:has(> .nexus-media-cover) {
+  position: relative;
+}
+
+.nexus-video__frame--fill-slide .nexus-media-cover,
+.nexus-image__frame .nexus-media-cover.absolute,
+.nexus-video__frame > .nexus-media-cover {
+  inset: 0;
+  position: absolute;
+}
+
+.nexus-video__frame:not(:has(.nexus-media-cover)) .nexus-video__media,
+.nexus-image__frame:not(:has(.nexus-media-cover)) .nexus-image__media {
+  object-fit: var(--nexus-media-object-fit, cover);
+}
+
+/* Video frame — flush cover (Tailwind preflight `img { height: auto }` leaves letterbox voids) */
+.nexus-video--edit {
+  padding-block: 0;
+}
+
+.nexus-video__frame {
+  font-size: 0;
+  line-height: 0;
+}
+
+.nexus-video__poster {
+  inset: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.nexus-video__frame > .nexus-media-cover--cover img.nexus-media-cover__media,
+.nexus-video__frame > .nexus-media-cover--cover video.nexus-media-cover__media {
+  height: auto !important;
+  left: 50%;
+  max-width: none;
+  min-height: 100%;
+  min-width: 100%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: auto !important;
+}
+
+/* Composite slide layouts (grid in carousel) — content-driven sizing, no stretch loop */
+.nexus-carousel__slide .nexus-grid,
+.nexus-carousel__slide .nexus-grid[data-puck-dropzone],
+.nexus-carousel__slide .nexus-grid-item,
+.nexus-carousel__slide .nexus-grid-item[data-puck-dropzone] {
+  align-self: start;
+  display: grid;
+  flex: none !important;
+  height: auto !important;
+  max-height: none;
+  min-height: 0 !important;
+  padding: 0;
+  width: 100%;
+}
+
+.nexus-carousel__slide .nexus-grid-item,
+.nexus-carousel__slide .nexus-grid-item[data-puck-dropzone] {
+  display: block;
+}
+
+.nexus-carousel__slide .nexus-grid {
+  align-items: start;
+}
+
+.nexus-carousel--edit .nexus-carousel__slide:has(.nexus-grid) .nexus-carousel__slide-dropzone-shell {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+/* Grid slides — disable edit-height stretch sync (class toggled in NexusCarouselRender) */
+.nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport,
+.nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex,
+.nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) .nexus-carousel__track--edit {
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--edit.nexus-carousel--has-grid-slide [data-slot="carousel-item"] {
+  align-self: start;
+  height: auto;
+}
+
+.nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide {
+  flex: 0 0 auto;
+  height: auto;
+  overflow: visible;
+}
+
+[data-puck-dragging] .nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide {
+  overflow: visible;
+}
+
+[data-puck-dragging]
+  .nexus-carousel__slide
+  .nexus-grid-item[data-puck-dropzone],
+[data-puck-dragging]
+  .nexus-carousel__slide
+  .nexus-grid[data-puck-dropzone] {
+  overflow: visible;
+}
+
+.nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide-dropzone-shell {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 /* Multi-slide track — gap and flex-basis per slides-per-view preset */
@@ -505,21 +1019,46 @@ body {
 }
 
 /*
- * Loop-safe slide spacing — padding-left + negative track margin (not flex gap).
- * Flex `gap` is omitted at the Embla loop seam between the last and first slide.
- * `width: calc(100% + gap)` balances the negative margin so the row fills the viewport.
+ * Loop-safe slide spacing — padding-right + negative track margin-right (Embla guide).
+ * Avoids flex `gap` and the old padding-left + width:calc() pattern, which left
+ * extra track width at the end and showed a void between the last and first slide.
  */
 .nexus-carousel--spv-2 [data-slot="carousel-content"] > .flex,
 .nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex {
   gap: 0;
-  margin-left: calc(-1 * var(--nexus-carousel-gap));
-  width: calc(100% + var(--nexus-carousel-gap));
+  margin-right: calc(-1 * var(--nexus-carousel-gap));
 }
 
 .nexus-carousel--spv-2 [data-slot="carousel-item"],
 .nexus-carousel--spv-3 [data-slot="carousel-item"] {
-  padding-left: var(--nexus-carousel-gap);
+  box-sizing: border-box;
+  padding-right: var(--nexus-carousel-gap);
+  padding-left: 0;
   min-width: 0;
+}
+
+/*
+ * When every slide fits in the viewport, drop the trailing loop gutter so the
+ * track aligns flush with the content edge (last slide had extra padding-right).
+ */
+.nexus-carousel--static-fit.nexus-carousel--spv-2 [data-slot="carousel-content"] > .flex,
+.nexus-carousel--static-fit.nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex {
+  margin-right: 0;
+}
+
+.nexus-carousel--static-fit.nexus-carousel--spv-2 [data-slot="carousel-item"]:last-child,
+.nexus-carousel--static-fit.nexus-carousel--spv-3 [data-slot="carousel-item"]:last-child {
+  padding-right: 0;
+}
+
+@container nexus-carousel (min-width: 640px) {
+  .nexus-carousel--static-fit.nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
+    margin-right: 0;
+  }
+
+  .nexus-carousel--static-fit.nexus-carousel--spv-auto [data-slot="carousel-item"]:last-child {
+    padding-right: 0;
+  }
 }
 
 .nexus-carousel--spv-2 [data-slot="carousel-item"] {
@@ -528,8 +1067,43 @@ body {
 }
 
 .nexus-carousel--spv-3 [data-slot="carousel-item"] {
-  flex: 0 0 calc(100% / 3) !important;
-  max-width: calc(100% / 3);
+  flex: 0 0 33.3334% !important;
+  max-width: 33.3334%;
+}
+
+/*
+ * Non-loop carousels (edit + non-paginated interactive) — flex gap instead of
+ * padding-right on every item (which leaves a trailing void when > visible count).
+ */
+.nexus-carousel--no-loop.nexus-carousel--spv-2 [data-slot="carousel-content"] > .flex,
+.nexus-carousel--no-loop.nexus-carousel--spv-3 [data-slot="carousel-content"] > .flex {
+  gap: var(--nexus-carousel-gap);
+  margin-right: 0 !important;
+}
+
+.nexus-carousel--no-loop.nexus-carousel--spv-2 [data-slot="carousel-item"] {
+  flex: 0 0 calc((100% - var(--nexus-carousel-gap)) / 2) !important;
+  max-width: calc((100% - var(--nexus-carousel-gap)) / 2);
+  padding-right: 0 !important;
+}
+
+.nexus-carousel--no-loop.nexus-carousel--spv-3 [data-slot="carousel-item"] {
+  flex: 0 0 calc((100% - 2 * var(--nexus-carousel-gap)) / 3) !important;
+  max-width: calc((100% - 2 * var(--nexus-carousel-gap)) / 3);
+  padding-right: 0 !important;
+}
+
+@container nexus-carousel (min-width: 640px) {
+  .nexus-carousel--no-loop.nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
+    gap: var(--nexus-carousel-gap);
+    margin-right: 0 !important;
+  }
+
+  .nexus-carousel--no-loop.nexus-carousel--spv-auto [data-slot="carousel-item"] {
+    flex: 0 0 calc((100% - 2 * var(--nexus-carousel-gap)) / 3) !important;
+    max-width: calc((100% - 2 * var(--nexus-carousel-gap)) / 3);
+    padding-right: 0 !important;
+  }
 }
 
 .nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
@@ -542,23 +1116,25 @@ body {
   min-width: 0;
 }
 
-@media (min-width: 768px) {
+/* Auto slides-per-view — container queries match carouselPagination width breakpoints */
+@container nexus-carousel (min-width: 640px) {
   .nexus-carousel--spv-auto [data-slot="carousel-content"] > .flex {
-    margin-left: calc(-1 * var(--nexus-carousel-gap));
-    width: calc(100% + var(--nexus-carousel-gap));
+    margin-right: calc(-1 * var(--nexus-carousel-gap));
   }
 
   .nexus-carousel--spv-auto [data-slot="carousel-item"] {
-    padding-left: var(--nexus-carousel-gap);
+    box-sizing: border-box;
+    padding-right: var(--nexus-carousel-gap);
+    padding-left: 0;
     flex: 0 0 50% !important;
     max-width: 50%;
   }
 }
 
-@media (min-width: 1024px) {
+@container nexus-carousel (min-width: 1024px) {
   .nexus-carousel--spv-auto [data-slot="carousel-item"] {
-    flex: 0 0 calc(100% / 3) !important;
-    max-width: calc(100% / 3);
+    flex: 0 0 33.3334% !important;
+    max-width: 33.3334%;
   }
 }
 
@@ -582,15 +1158,27 @@ body {
   min-height: var(--nexus-carousel-auto-min-height, 240px);
 }
 
-/* Auto-height carousels — empty drop zones keep a usable minimum */
+/* Auto-height carousels — empty drop zones keep a usable minimum (restored when drag ends) */
 .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
-.nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone] {
+.nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
   min-height: var(--nexus-carousel-auto-min-height, 240px);
   box-sizing: border-box;
 }
 
+html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) .nexus-carousel__dropzone[data-puck-dropzone],
+html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
+  min-height: 0 !important;
+}
+
 .nexus-carousel:not(.nexus-carousel--fixed-height)
-  [data-puck-dropzone][class*="DropZone--hasChildren"]:not(:has(.nexus-carousel__slide-media-fill)) {
+  [data-puck-dropzone]:has([data-nexus-carousel-fill="true"]),
+.nexus-carousel:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone]:has(.nexus-carousel__slide-media-fill) {
+  min-height: 0 !important;
+}
+
+.nexus-carousel:not(.nexus-carousel--fixed-height)
+  [data-puck-dropzone][class*="DropZone--hasChildren"]:not(:has(.nexus-carousel__slide-media-fill)):not(:has([data-nexus-carousel-fill="true"])) {
   height: auto;
   min-height: 0;
 }
@@ -619,6 +1207,20 @@ body {
 .nexus-carousel--fixed-height .nexus-carousel__dropzone[data-puck-dropzone] {
   flex: 1 1 auto;
   width: 100%;
+}
+
+/* Max-height cap — applies when min height is auto and a max is configured */
+.nexus-carousel--max-height {
+  max-height: var(--nexus-carousel-max-height);
+  overflow: hidden;
+}
+
+.nexus-carousel--max-height .nexus-carousel__viewport,
+.nexus-carousel--max-height [data-slot="carousel-content"],
+.nexus-carousel--max-height [data-slot="carousel-item"],
+.nexus-carousel--max-height .nexus-carousel__slide {
+  max-height: var(--nexus-carousel-max-height);
+  overflow: hidden;
 }
 
 .nexus-carousel__image {
@@ -666,12 +1268,26 @@ body {
   text-decoration: none;
 }
 
+.nexus-carousel > .nexus-carousel__controls {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.nexus-carousel > .nexus-carousel__controls .nexus-carousel__arrow,
+.nexus-carousel > .nexus-carousel__controls .nexus-carousel__dot,
+.nexus-carousel > .nexus-carousel__controls .nexus-carousel__edit-select,
+.nexus-carousel > .nexus-carousel__controls .nexus-carousel__autoplay-toggle {
+  pointer-events: auto;
+}
+
 .nexus-carousel__arrow {
   align-items: center;
-  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
-  border: 1px solid var(--color-border-default);
+  background: var(--nexus-carousel-control-bg);
+  border: 1px solid var(--nexus-carousel-control-border);
   border-radius: var(--radius-full);
-  color: var(--color-text-primary);
+  color: var(--nexus-carousel-control-color);
   cursor: pointer;
   display: flex;
   font-size: 22px;
@@ -680,12 +1296,26 @@ body {
   line-height: 1;
   min-height: 44px;
   min-width: 44px;
+  opacity: var(--nexus-carousel-control-opacity);
   position: absolute;
   top: 50%;
   touch-action: manipulation;
   transform: translateY(-50%);
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
   width: 40px;
   z-index: 2;
+}
+
+.nexus-carousel__arrow:hover,
+.nexus-carousel__arrow:focus-visible {
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+  opacity: 1;
 }
 
 /* Invisible expanded hit target beyond the visible circle */
@@ -706,11 +1336,11 @@ body {
 
 .nexus-carousel__edit-select {
   align-items: center;
-  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
-  border: 1px solid var(--color-border-default);
+  background: var(--nexus-carousel-control-bg);
+  border: 1px solid var(--nexus-carousel-control-border);
   border-radius: var(--radius-full);
   bottom: 10px;
-  color: var(--color-text-primary);
+  color: var(--nexus-carousel-control-color);
   cursor: pointer;
   display: inline-flex;
   height: 40px;
@@ -718,18 +1348,71 @@ body {
   line-height: 0;
   min-height: 44px;
   min-width: 44px;
+  opacity: var(--nexus-carousel-control-opacity);
   padding: 0;
   pointer-events: auto;
   position: absolute;
   right: 12px;
   touch-action: manipulation;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
   width: 40px;
   z-index: 2;
 }
 
-.nexus-carousel__edit-select:hover {
+.nexus-carousel__edit-select:hover,
+.nexus-carousel__edit-select:focus-visible {
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
   border-color: var(--color-accent-user);
   color: var(--color-text-primary);
+  opacity: 1;
+}
+
+.nexus-carousel__autoplay-toggle {
+  align-items: center;
+  background: var(--nexus-carousel-control-bg);
+  border: 1px solid var(--nexus-carousel-control-border);
+  border-radius: var(--radius-full);
+  color: var(--nexus-carousel-control-color);
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  line-height: 0;
+  min-height: 44px;
+  min-width: 44px;
+  opacity: var(--nexus-carousel-control-opacity);
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  touch-action: manipulation;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+  width: 40px;
+  z-index: 2;
+}
+
+.nexus-carousel__autoplay-toggle::before {
+  border-radius: inherit;
+  content: "";
+  inset: -10px;
+  position: absolute;
+}
+
+.nexus-carousel__autoplay-toggle:hover,
+.nexus-carousel__autoplay-toggle:focus-visible {
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  border-color: var(--color-accent-user);
+  color: var(--color-text-primary);
+  opacity: 1;
 }
 
 .nexus-carousel__dots {
@@ -738,13 +1421,31 @@ body {
   gap: 2px;
   justify-content: center;
   left: 0;
+  opacity: var(--nexus-carousel-control-opacity);
   position: absolute;
   right: 0;
+  transition: opacity 0.2s ease;
   z-index: 2;
 }
 
-.nexus-carousel__dot {
+.nexus-carousel__dots:hover,
+.nexus-carousel__dots:focus-within {
+  opacity: 1;
+}
+
+.nexus-carousel__dot:focus-visible {
   background: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  background-clip: content-box;
+  opacity: 1;
+}
+
+.nexus-carousel__dot--active:focus-visible {
+  background: var(--color-accent-user);
+  background-clip: content-box;
+}
+
+.nexus-carousel__dot {
+  background: color-mix(in srgb, var(--color-text-primary) 28%, transparent);
   background-clip: content-box;
   border: none;
   border-radius: var(--radius-full);
@@ -758,6 +1459,12 @@ body {
 }
 
 .nexus-carousel__dot--active {
+  background: color-mix(in srgb, var(--color-accent-user) 72%, transparent);
+  background-clip: content-box;
+}
+
+.nexus-carousel:hover .nexus-carousel__dot--active,
+.nexus-carousel:focus-within .nexus-carousel__dot--active {
   background: var(--color-accent-user);
   background-clip: content-box;
 }
@@ -862,27 +1569,120 @@ body {
   padding: 8px 0;
 }
 
+.nexus-carousel--interactive [data-slot="carousel-content"] > .flex {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 .nexus-carousel--interactive .nexus-carousel__arrow,
-.nexus-carousel--interactive .nexus-carousel__dot {
+.nexus-carousel--interactive .nexus-carousel__dot,
+.nexus-carousel--interactive .nexus-carousel__dots,
+.nexus-carousel--interactive .nexus-carousel__autoplay-toggle {
   pointer-events: auto;
 }
 
-/* ── Responsive site header ─────────────────────────────────────────────── */
-.site-header-slot {
+/* Background canvas must never steal touches (iOS Safari ignores parent pointer-events on <canvas>). */
+#nexus-bg {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  z-index: 0;
+}
+
+#nexus-bg,
+#nexus-bg canvas {
+  pointer-events: none !important;
+  touch-action: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Global layout shell (header + footer share width with page content) ─── */
+
+.global-layout-header-slot,
+.global-layout-footer-slot,
+.global-layout-page-content-slot {
+  box-sizing: border-box;
+  padding-inline: var(--page-content-gutter);
+  width: 100%;
+}
+
+.global-layout-footer-slot {
+  padding-top: var(--spacing-sm);
+}
+
+.global-layout-width-band {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.global-layout-header-slot {
   align-items: center;
   display: flex;
+  isolation: isolate;
   justify-content: center;
+  left: 0;
   min-height: 72px;
-  padding: 8px clamp(12px, 3vw, 24px);
+  padding-top: env(safe-area-inset-top, 0px);
+  pointer-events: auto;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1001;
+}
+
+.site-header-spacer {
+  flex-shrink: 0;
+  height: var(--site-header-offset);
+  pointer-events: none;
+  width: 100%;
+}
+
+.site-header-bar-root {
   position: relative;
   width: 100%;
-  z-index: 10;
 }
 
 .site-header-bar {
   border-radius: var(--radius-lg);
   padding: 10px 12px;
+  position: relative;
   width: 100%;
+  z-index: 2;
+}
+
+@media (max-width: 1023px) {
+  .site-header-bar,
+  .site-header-mobile-menu,
+  .site-header-mobile-panel {
+    background-color: var(--color-bg-panel);
+  }
+
+  .site-header-bar__logo {
+    min-height: 44px;
+  }
+
+  .site-header-bar__logo-mark {
+    height: 36px;
+    width: 36px;
+  }
+
+  .site-header-bar__logo-mark-image {
+    height: 20px;
+    width: 20px;
+  }
+
+  .site-header-bar__wordmark {
+    font-size: 15px;
+  }
+
+  .site-header-bar__theme-toggle,
+  .site-header-bar__avatar,
+  .site-header-bar__signin {
+    display: none !important;
+  }
 }
 
 .site-header-bar__main {
@@ -918,14 +1718,136 @@ body {
   width: 24px;
 }
 
+.site-header-bar__logo-mark-image {
+  filter: brightness(0) invert(1);
+  height: 1rem;
+  width: 1rem;
+}
+
 .site-header-bar__wordmark {
+  align-items: center;
   color: var(--color-text-primary);
+  display: inline-flex;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .site-header-bar__nav {
   display: none;
+}
+
+.site-header-bar__nav-zones {
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.site-header-bar__nav-zones--dense {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+}
+
+.site-header-bar--dense-nav {
+  padding-block: 0.75rem;
+}
+
+.site-header-bar__top-row {
+  width: 100%;
+}
+
+.site-header-bar__nav-grid-row {
+  display: flex;
+  width: 100%;
+}
+
+.site-header-bar__nav-grid-row--start {
+  justify-content: flex-start;
+}
+
+.site-header-bar__nav-grid-row--center {
+  justify-content: center;
+}
+
+.site-header-bar__nav-grid-row--end {
+  justify-content: flex-end;
+}
+
+.site-header-bar__nav-grid {
+  display: grid;
+  gap: var(--site-header-nav-gap, 1rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.25rem), 1fr));
+  max-width: 100%;
+  width: 100%;
+}
+
+.site-header-bar__nav-grid-row--center .site-header-bar__nav-grid,
+.site-header-bar__nav-grid-row--end .site-header-bar__nav-grid {
+  width: fit-content;
+}
+
+.site-header-bar__nav-grid-row--end .site-header-bar__nav-grid {
+  margin-inline-start: auto;
+}
+
+.site-header-bar__nav-grid > .site-header-bar__nav-category,
+.site-header-bar__nav-grid > li {
+  min-width: 0;
+}
+
+.site-header-bar__nav-grid .site-header-bar__nav-trigger {
+  justify-content: center;
+  max-width: 100%;
+  width: 100%;
+}
+
+.site-header-bar__nav-grid .site-header-bar__nav-link {
+  justify-content: center;
+  width: 100%;
+}
+
+.site-header-bar__nav-grid .site-header-bar__nav-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-header-bar__nav-zone {
+  list-style: none;
+}
+
+.site-header-bar__nav-zone-grid {
+  align-content: center;
+  align-items: center;
+  display: grid;
+  gap: var(--site-header-nav-gap, 1rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.5rem), max-content));
+}
+
+.site-header-bar__nav-zone--center.site-header-bar__nav-zone-grid {
+  justify-content: center;
+  justify-items: center;
+}
+
+.site-header-bar__nav-zone--end.site-header-bar__nav-zone-grid {
+  justify-content: end;
+  justify-items: end;
+}
+
+.site-header-bar__nav-zone--start {
+  flex: 0 1 auto;
+}
+
+.site-header-bar__nav-zone--center {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.site-header-bar__nav-zone--end {
+  flex: 0 1 auto;
 }
 
 .site-header-bar__nav-list {
@@ -935,10 +1857,57 @@ body {
 }
 
 .site-header-bar__nav-link {
+  align-items: center;
   color: var(--color-text-secondary);
+  display: inline-flex;
   font-size: 13px;
+  line-height: 1;
   text-decoration: none;
   transition: color 0.15s ease;
+}
+
+.site-header-bar__nav-link svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.site-chrome-icon {
+  block-size: var(--site-chrome-icon-size);
+  flex-shrink: 0;
+  inline-size: var(--site-chrome-icon-size);
+}
+
+.site-header-bar__nav-link-icon,
+.site-header-bar__nav-category-icon,
+.site-header-bar__nav-dropdown-icon-wrap,
+.site-header-mobile-menu__link-icon,
+.site-header-mobile-menu__category-icon,
+.site-footer-bar__social-icon {
+  align-items: center;
+  block-size: var(--site-chrome-icon-size);
+  display: inline-flex;
+  flex-shrink: 0;
+  inline-size: var(--site-chrome-icon-size);
+  justify-content: center;
+  line-height: 0;
+}
+
+.site-footer-bar__grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .site-footer-bar__grid {
+    grid-template-columns: minmax(0, 1.35fr) repeat(var(--site-footer-link-columns, 2), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-footer-bar__grid {
+    gap: 2.5rem;
+  }
 }
 
 .site-header-bar__nav-link--active {
@@ -946,11 +1915,157 @@ body {
   font-weight: 500;
 }
 
+.site-header-bar__nav-link-icon {
+  color: var(--color-accent-user);
+  opacity: 0.92;
+}
+
+.site-header-bar__nav-category {
+  align-items: center;
+  display: flex;
+  list-style: none;
+}
+
+.site-header-bar__nav-category-icon {
+  color: var(--color-accent-user);
+  opacity: 0.92;
+}
+
+.site-header-bar__nav-category-icon svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.site-header-bar__nav-trigger {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 13px;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  vertical-align: middle;
+}
+
+.site-header-bar__nav-trigger-label {
+  display: block;
+  line-height: 1;
+}
+
+.site-header-bar__nav-trigger:hover,
+.site-header-bar__nav-trigger[data-popup-open] {
+  color: var(--color-text-primary);
+}
+
+.site-header-bar__nav-trigger--active {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.site-header-bar__nav-trigger--button {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--color-bg-elevated));
+  border-radius: var(--radius-md);
+  color: var(--color-accent-user);
+  font-weight: 500;
+  gap: 6px;
+  padding: 4px 10px;
+}
+
+.site-header-bar__nav-trigger--button:hover,
+.site-header-bar__nav-trigger--button[data-popup-open] {
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+}
+
+.site-header-bar__nav-trigger-chevron {
+  block-size: 14px;
+  display: block;
+  flex-shrink: 0;
+  inline-size: 14px;
+  opacity: 0.72;
+  transition: transform var(--site-nav-accordion-duration) var(--site-nav-accordion-ease);
+}
+
+.site-header-bar__nav-trigger[data-popup-open] .site-header-bar__nav-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+.site-header-bar__nav-dropdown {
+  background: var(--color-bg-panel);
+  border: 2px solid color-mix(in srgb, var(--color-accent-user) 38%, var(--color-border-default));
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent-user) 10%, transparent),
+    0 10px 28px -6px rgba(0, 0, 0, 0.32);
+  color: var(--color-text-primary);
+  min-width: 240px;
+  width: auto !important;
+}
+
+.site-header-bar__nav-dropdown-item {
+  align-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: flex;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.site-header-bar__nav-dropdown-item:hover,
+.site-header-bar__nav-dropdown-item:focus-visible {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--color-bg-elevated));
+  color: var(--color-text-primary);
+}
+
+.site-header-bar__nav-dropdown-item--active {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.site-header-bar__nav-dropdown-item--button {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+  font-weight: 500;
+}
+
+.site-header-bar__nav-dropdown-item--button:hover,
+.site-header-bar__nav-dropdown-item--button:focus-visible {
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+}
+
+.site-header-bar__nav-dropdown-icon {
+  color: inherit;
+  opacity: 0.88;
+}
+
+.site-header-bar__nav-dropdown-icon-wrap {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
 .site-header-bar__actions {
   align-items: center;
   display: flex;
   flex-shrink: 0;
   gap: 8px;
+  position: relative;
+  z-index: 3;
+}
+
+.site-header-bar__actions > * {
+  align-self: center;
 }
 
 .site-header-bar__preview-badge {
@@ -971,16 +2086,204 @@ body {
   text-decoration: none;
 }
 
+.site-header-bar__cta,
+.site-header-bar__signin {
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.site-header-bar__cta-icon,
+.site-header-bar__signin-icon {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.site-header-bar__cta-label,
+.site-header-bar__signin-label {
+  white-space: nowrap;
+}
+
 .site-header-bar__theme-toggle {
   flex-shrink: 0;
 }
 
+.site-header-bar__theme-toggle.nexus-theme-toggle {
+  height: 28px;
+  min-height: 28px;
+  min-width: 44px;
+  width: 44px;
+}
+
+/* ── Square-rounded theme toggle (site header + Puck editor) ──────────────── */
+.nexus-theme-toggle {
+  align-items: stretch;
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: stretch;
+  min-height: 44px;
+  min-width: 56px;
+  overflow: hidden;
+  padding: 0;
+  pointer-events: auto;
+  position: relative;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  width: 56px;
+  z-index: 3;
+}
+
+/* iOS Safari — decorative track/knob must not intercept taps meant for the <button>. */
+.nexus-theme-toggle * {
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .nexus-theme-toggle:hover {
+    border-color: color-mix(in srgb, var(--color-accent-user) 45%, var(--color-border-default));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  }
+}
+
+.nexus-theme-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-user);
+  outline-offset: 2px;
+}
+
+.nexus-theme-toggle__track {
+  background: color-mix(in srgb, var(--color-bg-cell) 88%, var(--color-border-default));
+  border-radius: 0;
+  box-sizing: border-box;
+  display: block;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.nexus-theme-toggle__pocket {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  opacity: 0.42;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 50%;
+  z-index: 1;
+}
+
+.nexus-theme-toggle__pocket--sun {
+  color: var(--color-accent-user);
+  left: 0;
+}
+
+.nexus-theme-toggle__pocket--moon {
+  right: 0;
+}
+
+/* Light mode — knob left: sun on knob, moon ghost on right pocket */
+.nexus-theme-toggle[aria-checked="false"] .nexus-theme-toggle__pocket--sun {
+  opacity: 0;
+}
+
+.nexus-theme-toggle[aria-checked="false"] .nexus-theme-toggle__pocket--moon {
+  opacity: 0.5;
+}
+
+/* Dark mode — knob right: moon on knob, sun ghost on left pocket */
+.nexus-theme-toggle[aria-checked="true"] .nexus-theme-toggle__pocket--sun {
+  opacity: 0.5;
+}
+
+.nexus-theme-toggle[aria-checked="true"] .nexus-theme-toggle__pocket--moon {
+  opacity: 0;
+}
+
+.nexus-theme-toggle__knob {
+  align-items: center;
+  background: var(--color-bg-elevated);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: var(--color-accent-user);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 50%;
+  z-index: 2;
+}
+
+.nexus-theme-toggle__knob-icon {
+  flex-shrink: 0;
+}
+
+.nexus-theme-toggle[aria-checked="true"] .nexus-theme-toggle__knob {
+  color: var(--color-text-primary);
+}
+
+.nexus-theme-toggle__knob--dark {
+  border-radius: 0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0;
+  transform: translateX(100%);
+}
+
+.nexus-theme-toggle__knob--light {
+  border-radius: calc(var(--radius-sm) - 1px) 0 0 calc(var(--radius-sm) - 1px);
+  transform: translateX(0);
+}
+
+.nexus-theme-toggle.nexus-editor-header-btn {
+  flex-shrink: 0;
+  height: 36px;
+  min-height: 36px;
+  min-width: 52px;
+  padding: 0;
+  width: 52px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-theme-toggle__pocket,
+  .nexus-theme-toggle__knob {
+    transition: none;
+  }
+
+  .site-header-mobile-backdrop,
+  .site-header-mobile-panel {
+    transition: none;
+  }
+}
+
 .site-header-bar__avatar {
+  align-items: center;
   border: 2px solid var(--color-accent-user);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  display: inline-flex;
   flex-shrink: 0;
   height: 28px;
+  justify-content: center;
   overflow: hidden;
+  text-decoration: none;
   width: 28px;
 }
 
@@ -999,15 +2302,439 @@ body {
 }
 
 .site-header-bar__menu-btn {
+  align-items: center;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: min(var(--radius-md), 10px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 44px;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  pointer-events: auto;
+  position: relative;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  width: 44px;
+  z-index: 3;
+}
+
+.site-header-bar__menu-btn * {
+  pointer-events: none;
+}
+
+.site-header-bar__menu-btn:focus-visible {
+  outline: 2px solid var(--color-accent-user);
+  outline-offset: 2px;
+}
+
+/* Native mobile menu — works without JavaScript (iOS Safari). */
+.site-header-mobile-details {
+  display: inline-flex;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+
+.site-header-mobile-details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.site-header-mobile-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.site-header-mobile-backdrop {
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity var(--site-mobile-menu-duration) var(--site-mobile-menu-ease);
+}
+
+.site-header-mobile-backdrop--open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.site-header-mobile-panel {
+  border-radius: 0;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  height: 100svh;
+  max-height: none;
+  overflow: hidden;
+  position: fixed;
+  right: 0;
+  top: 0;
+  transform: translateX(100%);
+  transition: transform var(--site-mobile-menu-duration) var(--site-mobile-menu-ease);
+  width: min(20rem, calc(100vw - 3rem));
+  will-change: transform;
+  z-index: 1100;
+}
+
+.site-header-mobile-panel--open {
+  transform: translateX(0);
+}
+
+.site-header-mobile-panel__inner {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.site-header-mobile-panel__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.site-header-mobile-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-header-mobile-menu__link {
+  align-items: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: row;
+  font-size: 14px;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.site-header-mobile-menu__link-icon {
+  color: var(--color-accent-user);
+  opacity: 0.92;
+}
+
+.site-header-mobile-menu__link-label {
+  flex: 1;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.site-header-mobile-menu__link-badge {
+  background: var(--color-accent-user);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  height: 6px;
+  margin-left: auto;
+  width: 6px;
+}
+
+.site-header-mobile-menu__link--active,
+.site-header-mobile-menu__link:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  color: var(--color-text-primary);
+}
+
+.site-header-mobile-menu__link--active {
+  font-weight: 600;
+}
+
+.site-header-mobile-menu__category {
+  margin-bottom: 2px;
+}
+
+.site-header-mobile-menu__category:first-child {
+  margin-top: 0;
+}
+
+.site-header-mobile-menu__category:last-child {
+  margin-bottom: 0;
+}
+
+.site-header-mobile-menu__category-head {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  padding: 8px 12px;
+  text-align: left;
+  text-transform: uppercase;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  width: 100%;
+}
+
+.site-header-mobile-menu__category-head:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--color-bg-elevated));
+  color: var(--color-text-primary);
+}
+
+.site-header-mobile-menu__category-head--active {
+  color: var(--color-text-primary);
+}
+
+.site-header-mobile-menu__category-head--button {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+  font-weight: 700;
+  text-transform: none;
+}
+
+.site-header-mobile-menu__category-head--button:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+}
+
+.site-header-mobile-menu__category-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-header-mobile-menu__category-icon {
+  color: var(--color-accent-user);
+  opacity: 0.92;
+}
+
+.site-header-mobile-menu__category-chevron {
+  flex-shrink: 0;
+  height: 14px;
+  opacity: 0.72;
+  transition: transform var(--site-nav-accordion-duration) var(--site-nav-accordion-ease);
+  width: 14px;
+}
+
+.site-header-mobile-menu__category[data-open="true"] .site-header-mobile-menu__category-chevron {
+  transform: rotate(180deg);
+}
+
+.site-header-mobile-menu__category-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows var(--site-nav-accordion-duration) var(--site-nav-accordion-ease),
+    opacity calc(var(--site-nav-accordion-duration) - 40ms) var(--site-nav-accordion-ease);
+}
+
+.site-header-mobile-menu__category[data-open="true"] > .site-header-mobile-menu__category-collapse {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.site-header-mobile-menu__category:not([data-site-nav-hydrated]) .site-header-mobile-menu__category-collapse {
+  transition: none;
+}
+
+.site-header-mobile-menu__category-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.site-header-mobile-menu__actions {
+  border-top: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.site-header-mobile-menu__meta-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 6px 8px;
+}
+
+.site-header-mobile-menu__meta-label {
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.site-header-mobile-menu__theme-toggle {
   flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
+.site-header-mobile-menu__theme-toggle.nexus-theme-toggle {
+  border-radius: var(--radius-md);
+  height: 36px;
+  min-height: 36px;
+  min-width: 68px;
+  width: 68px;
+}
+
+.site-header-mobile-menu__theme-toggle .nexus-theme-toggle__knob--dark {
+  border-radius: 0 calc(var(--radius-md) - 2px) calc(var(--radius-md) - 2px) 0;
+}
+
+.site-header-mobile-menu__theme-toggle .nexus-theme-toggle__knob--light {
+  border-radius: calc(var(--radius-md) - 2px) 0 0 calc(var(--radius-md) - 2px);
+}
+
+.site-header-mobile-menu__account-card {
+  align-items: center;
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color 0.15s ease;
+  width: 100%;
+}
+
+.site-header-mobile-menu__account-card:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, transparent);
+}
+
+.site-header-mobile-menu__account-avatar {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 18%, var(--color-bg-elevated));
+  border-radius: var(--radius-full);
+  color: var(--color-accent-user);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  overflow: hidden;
+  width: 32px;
+}
+
+.site-header-mobile-menu__account-avatar-img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.site-header-mobile-menu__account-avatar-fallback {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--color-bg-elevated));
+  color: var(--color-accent-user);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.site-header-mobile-menu__account-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.site-header-mobile-menu__account-name {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-header-mobile-menu__account-email {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-header-mobile-menu__account-chevron {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.site-header-mobile-menu__cta {
+  align-items: center;
+  background: var(--color-accent-user);
+  border-radius: var(--radius-md);
+  color: #fff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.site-header-mobile-menu__cta-icon {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.site-header-mobile-menu__auth-link {
+  align-items: center;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 500;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+@media (min-width: 1024px) {
   .site-header-bar__nav {
     display: block;
   }
 
+  .site-header-bar__nav-zones {
+    display: flex;
+  }
+
   .site-header-bar__nav-list {
+    align-items: center;
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
@@ -1015,6 +2742,11 @@ body {
 
   .site-header-bar__cta {
     display: inline-flex;
+  }
+
+  .site-header-mobile-details,
+  .site-header-bar__menu-btn--mobile-only {
+    display: none !important;
   }
 }
 
@@ -1109,3 +2841,79 @@ body {
   accent-color: var(--color-accent-user);
 }
 
+/* ── Ultra-narrow site header (down to ~200px) ───────────────────────────── */
+@media (max-width: 360px) {
+  .global-layout-header-slot {
+    min-height: 56px;
+    padding-inline: 4px;
+  }
+
+  .site-header-bar {
+    padding: 6px 8px;
+  }
+
+  .site-header-bar__wordmark {
+    display: none;
+  }
+
+  .site-header-bar__actions {
+    gap: 4px;
+  }
+
+  .site-header-bar__avatar {
+    height: 24px;
+    width: 24px;
+  }
+
+  .site-header-bar__menu-btn {
+    height: 32px;
+    min-height: 32px;
+    min-width: 32px;
+    width: 32px;
+  }
+}
+
+@media (max-width: 280px) {
+  .site-header-bar__logo-mark {
+    height: 20px;
+    width: 20px;
+  }
+
+  .site-header-bar__menu-btn {
+    height: 28px;
+    min-height: 28px;
+    min-width: 28px;
+    width: 28px;
+  }
+}
+
+@media (max-width: 240px) {
+  .global-layout-header-slot {
+    min-height: 48px;
+    padding-inline: 2px;
+  }
+
+  .site-header-bar {
+    padding: 4px 6px;
+  }
+
+  .site-header-bar__logo {
+    gap: 4px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 520px) {
+  .site-header-bar__cta-label,
+  .site-header-bar__signin-label {
+    display: none;
+  }
+
+  .site-header-bar__cta,
+  .site-header-bar__signin {
+    justify-content: center;
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0;
+    width: 32px;
+  }
+}

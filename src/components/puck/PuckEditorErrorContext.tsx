@@ -1,31 +1,54 @@
 "use client";
 
 /**
- * @fileoverview Publish error context for Puck header chrome without unstable overrides.
+ * @fileoverview Publish error and handler context for Puck header chrome.
  *
  * @module src/components/puck/PuckEditorErrorContext
  */
 
+import type { Data } from "@puckeditor/core";
 import { createContext, useContext, type ReactNode } from "react";
 
-const PuckEditorErrorContext = createContext<string | null>(null);
+/** Publish handler wired from {@link PuckEditorShell}. */
+export type PuckEditorPublishHandler = (data: Data) => void | Promise<void>;
+
+/** Shared editor-shell context for header chrome. */
+interface PuckEditorShellContextValue {
+  /** Current publish validation or API error message. */
+  error: string | null;
+  /** Publish handler from the mounted `<Puck onPublish={…}>` shell. */
+  onPublish: PuckEditorPublishHandler | null;
+}
+
+const PuckEditorShellContext = createContext<PuckEditorShellContextValue>({
+  error: null,
+  onPublish: null,
+});
 
 /** Props for {@link PuckEditorErrorProvider}. */
 export interface PuckEditorErrorProviderProps {
   /** Current publish validation or API error message. */
   error: string | null;
+  /** Publish handler invoked by {@link NexusPublishButton}. */
+  onPublish: PuckEditorPublishHandler;
   children: ReactNode;
 }
 
 /**
- * Supplies publish error text to stable Puck header override components.
+ * Supplies publish error text and handler to stable Puck header overrides.
  *
- * @param props - Error message and children.
+ * @param props - Error message, publish handler, and children.
  * @returns Context provider.
  */
-export function PuckEditorErrorProvider({ error, children }: PuckEditorErrorProviderProps) {
+export function PuckEditorErrorProvider({
+  error,
+  onPublish,
+  children,
+}: PuckEditorErrorProviderProps) {
   return (
-    <PuckEditorErrorContext.Provider value={error}>{children}</PuckEditorErrorContext.Provider>
+    <PuckEditorShellContext.Provider value={{ error, onPublish }}>
+      {children}
+    </PuckEditorShellContext.Provider>
   );
 }
 
@@ -35,5 +58,14 @@ export function PuckEditorErrorProvider({ error, children }: PuckEditorErrorProv
  * @returns Error message or null.
  */
 export function usePuckEditorError(): string | null {
-  return useContext(PuckEditorErrorContext);
+  return useContext(PuckEditorShellContext).error;
+}
+
+/**
+ * Read the shell publish handler for the custom header publish button.
+ *
+ * @returns Publish handler or null before the shell mounts.
+ */
+export function usePuckEditorPublish(): PuckEditorPublishHandler | null {
+  return useContext(PuckEditorShellContext).onPublish;
 }

@@ -9,5 +9,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Ensure dependencies exist, then start dev server
-CMD ["sh", "-c", "if [ ! -d \"node_modules\" ]; then npm ci; fi && npm run dev"]
+# Reinstall when lockfile changes, core packages are missing, or install is incomplete.
+CMD ["sh", "-c", "if [ ! -f node_modules/.bin/next ] || [ ! -d node_modules/vaul ] || [ ! -d node_modules/@puckeditor/core ] || [ package-lock.json -nt node_modules/.install-stamp ]; then npm ci && touch node_modules/.install-stamp; fi && npm run dev"]

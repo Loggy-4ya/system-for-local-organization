@@ -14,7 +14,7 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 /**
  * The minimal Puck data envelope required for serialisation.
- * Full Puck typings are defined by `@measured/puck`.
+ * Full Puck typings are defined by `@puckeditor/core`.
  */
 export interface PuckData {
   /** Ordered array of block instances placed on the page canvas. */

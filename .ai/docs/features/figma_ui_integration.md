@@ -93,6 +93,15 @@ Primitives `accent/{family}/{300|400|500}` in `Nexus/Primitives` are the source 
 | `color/danger` | `VariableID:10:10` |
 | `color/success` | `VariableID:10:11` |
 
+### Icon sizes (Lucide)
+
+Code ↔ Figma mapping for nav and editor icons: [icon_sizes.md](../icon_sizes.md).
+
+| Context | Figma target | Code token |
+|---------|--------------|------------|
+| Site header/footer nav & social | 18×18px, stroke 2.25 | `SITE_CHROME_ICON_SIZE`, `--site-chrome-icon-size` |
+| Puck editor sidebar / fields | 14×14px, stroke 1.75 | `puckIcon()` in `puckIcons.tsx` |
+
 ---
 
 ## 2. Page & Frame Registry
@@ -245,7 +254,7 @@ Review and approval interface for student submissions:
 | `Section` | `NexusSection` | Layout | — | Implemented |
 | `Grid` | `NexusGrid` | Layout | — | Implemented |
 | `Columns` | `NexusColumns` | Layout | — | Implemented |
-| `Spacer` | `NexusSpacer` | Layout | — | Implemented |
+| `Spacer` / `Divider` | `NexusSpacer` *(Spacer & Divider)* | Layout | — | Implemented (merged; style presets for space, line, section break) |
 | `Sidebar/Admin` | `AdminSidebar` | Sidebar | `138:42` | Planned (Phase 3) |
 | `NavItem` | `NexusNavItem` | Navigation | `137:25` | Planned (Phase 3) |
 | `SegmentedControl` | `NexusSegmentedControl` | Navigation | `137:20` | Planned (Phase 3) |

@@ -6,25 +6,33 @@
  * @module src/app/[...puckPath]/client
  */
 
+import "@/lib/safePointerCaptureInstall";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
-import { ensureIslandOnEligibleBlocks, applyIslandDefaultsOnInsert } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
+import { ensurePageRootChapterProps } from "@/components/puck/lib/pageRootFieldProps";
+import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
 import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
 import { normalizeCarouselSlides } from "@/components/puck/lib/puckDataTree";
 import { setEditorPagePath } from "@/components/puck/lib/editorPagePathRef";
+import {
+  initPageMetadataDraft,
+  setPageMetadataSnapshot,
+  type PageMetadataDraft,
+} from "@/components/puck/lib/editorPageMetadataStore";
 import {
   editorIslandSettingsRef,
   resolveEffectiveIslandComponents,
   setEditorIslandDefaultComponents,
 } from "@/components/puck/lib/editorIslandSettings";
-import { Render } from "@measured/puck";
-import { installSafePointerCapture } from "@/lib/safePointerCapture";
-import type { Data } from "@measured/puck";
+import { Render } from "@puckeditor/core";
+import type { Data } from "@puckeditor/core";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { PageEditFab } from "@/components/puck/PageEditFab";
+import { SiteLoader } from "@/components/ui/SiteLoader";
+import { StaticPageShell } from "@/components/ui/StaticPageShell";
+import { DEFAULT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-installSafePointerCapture();
 
 /** Puck editor loaded only on the client to avoid hydration mismatches. */
 const PuckEditorShell = dynamic(
@@ -45,30 +53,17 @@ interface PuckClientProps {
   pageTitle: string;
   /** When true, renders the full Puck editor. Otherwise renders `<Render>`. */
   isEditing: boolean;
+  /** When true, show the floating edit control on published Puck pages. */
+  showPageEditFab?: boolean;
 }
 
 /**
- * Minimal placeholder shown while the client-only Puck bundle loads.
+ * Placeholder shown while the client-only Puck bundle loads.
  *
- * @returns Loading skeleton for the editor chrome.
+ * @returns Centered site loader for the editor chrome.
  */
 function PuckEditorLoading() {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        color: "var(--color-text-secondary)",
-        fontSize: 14,
-      }}
-      aria-busy="true"
-      aria-label="Loading page editor"
-    >
-      Loading editor…
-    </div>
-  );
+  return <SiteLoader label="Loading editor…" className="min-h-screen" />;
 }
 
 /**
@@ -87,9 +82,13 @@ function pathToSlug(pagePath: string): string {
  * @param data - Loaded Puck payload.
  * @param title - MongoDB page title fallback.
  * @param pagePath - MongoDB page path key.
- * @returns Initial editor data object.
+ * @returns Initial editor data and header metadata draft.
  */
-function buildEditorData(data: Data | null, title: string, pagePath: string): Data {
+function buildEditorData(
+  data: Data | null,
+  title: string,
+  pagePath: string,
+): { editorData: Data; metadata: PageMetadataDraft } {
   const withContent = withDefaultEditorContent(data);
   const withCarousel = normalizeCarouselSlides(withContent);
   const withIsland = ensureIslandOnEligibleBlocks(withCarousel, {
@@ -112,13 +111,20 @@ function buildEditorData(data: Data | null, title: string, pagePath: string): Da
   };
 
   return {
-    ...withIsland,
-    root: {
-      ...(withIsland.root ?? {}),
-      props: {
-        ...existingProps,
-        pageSettings,
-      } as Record<string, unknown>,
+    editorData: {
+      ...withIsland,
+      root: {
+        ...(withIsland.root ?? {}),
+        props: ensurePageRootChapterProps({
+          ...existingProps,
+          pageSettings,
+        }) as Record<string, unknown>,
+      },
+    },
+    metadata: {
+      title: pageSettings.title,
+      slug: pageSettings.slug,
+      slugLocked: pageSettings.slugLocked ?? false,
     },
   };
 }
@@ -142,12 +148,20 @@ function buildViewData(payload: Data | null): Data | null {
  * @param props - See {@link PuckClientProps}.
  * @returns JSX for the Puck editor or the Puck render view.
  */
-export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps) {
+export function PuckClient({
+  path,
+  data,
+  pageTitle,
+  isEditing,
+  showPageEditFab = false,
+}: PuckClientProps) {
   const router = useRouter();
   setEditorPagePath(path);
-  const [initialEditorData, setInitialEditorData] = useState<Data>(() =>
-    buildEditorData(data, pageTitle, path),
-  );
+  const [initialEditorData, setInitialEditorData] = useState<Data>(() => {
+    const { editorData, metadata } = buildEditorData(data, pageTitle, path);
+    setPageMetadataSnapshot(metadata);
+    return editorData;
+  });
   const [puckMountKey, setPuckMountKey] = useState(0);
   const latestDataRef = useRef(initialEditorData);
   const skipServerSyncRef = useRef(true);
@@ -182,18 +196,15 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
       return;
     }
 
-    const next = buildEditorData(data, pageTitle, path);
+    const { editorData: next, metadata } = buildEditorData(data, pageTitle, path);
     latestDataRef.current = next;
     setInitialEditorData(next);
+    initPageMetadataDraft(metadata);
     setPuckMountKey((key) => key + 1);
   }, [data, pageTitle, path, isEditing]);
 
   const handleEditorDataChange = useCallback((nextData: Data) => {
-    const prev = latestDataRef.current;
-    const patched = applyIslandDefaultsOnInsert(prev, nextData, {
-      islandDefaultComponents: resolveEffectiveIslandComponents(),
-    });
-    latestDataRef.current = patched;
+    latestDataRef.current = nextData;
   }, []);
 
   const handlePublished = useCallback(
@@ -225,22 +236,23 @@ export function PuckClient({ path, data, pageTitle, isEditing }: PuckClientProps
 
   if (!data || !viewData) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 200,
-          color: "var(--color-text-secondary)",
-          fontSize: 14,
-        }}
+      <StaticPageShell
+        contentWidth={DEFAULT_CONTENT_WIDTH}
+        className="items-center justify-center py-16"
       >
-        This page has no content yet.
-      </div>
+        <p className="m-0 text-sm text-(--color-text-secondary)">
+          This page has no content yet.
+        </p>
+      </StaticPageShell>
     );
   }
 
-  return <Render config={puckConfig} data={viewData} />;
+  return (
+    <>
+      <Render config={puckConfig} data={viewData} />
+      {showPageEditFab ? <PageEditFab pagePath={path} /> : null}
+    </>
+  );
 }
 
 export default PuckClient;

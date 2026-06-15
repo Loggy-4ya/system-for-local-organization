@@ -3,12 +3,16 @@
 /**
  * @fileoverview Page title and URL slug controls for Puck PageRoot sidebar.
  *
+ * Title and slug drafts update {@link editorPageMetadataStore} on every keystroke
+ * for the live header label; Puck `onChange` commits happen on blur only.
+ *
  * @module src/components/puck/fields/PageSettingsFieldGroup
  */
 
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 import { FieldChapter, SettingsIcon } from "./FieldChapter";
 import { editorPagePathRef } from "../lib/editorPagePathRef";
+import { setPageMetadataDraft } from "../lib/editorPageMetadataStore";
 import {
   fetchReservedPagePaths,
   validatePageSlug,
@@ -54,6 +58,20 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   const isHomepageSlug = settings.slugLocked || editorPagePathRef.currentPath === "/";
 
   const {
+    draft: titleDraft,
+    onTextChange: onTitleDraftChange,
+    onTextFocus: onTitleFocus,
+    onTextBlur: onTitleBlur,
+    commit: commitTitle,
+  } = useDeferredFieldCommit({
+    value: settings.title,
+    onChange: (next) => {
+      onChangeRef.current({ ...settingsRef.current, title: next });
+    },
+    textDebounceMs: 0,
+  });
+
+  const {
     draft: slugDraft,
     onTextChange: onSlugDraftChange,
     onTextFocus: onSlugFocus,
@@ -66,6 +84,14 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     },
     textDebounceMs: 0,
   });
+
+  useEffect(() => {
+    setPageMetadataDraft({
+      title: settings.title,
+      slug: settings.slug,
+      slugLocked: isHomepageSlug,
+    });
+  }, [settings.title, settings.slug, isHomepageSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,10 +119,6 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   const previewSlug = isHomepageSlug
     ? ""
     : slugValidation.slugSegment || "(homepage)";
-
-  const set = (patch: Partial<PageSettingsValue>) => {
-    onChange({ ...settings, ...patch });
-  };
 
   const handleSlugPaste = (event: ClipboardEvent<HTMLInputElement>) => {
     const pasted = event.clipboardData.getData("text").trim();
@@ -126,8 +148,23 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
         <input
           type="text"
           className="nexus-puck-input"
-          value={settings.title}
-          onChange={(e) => set({ title: e.target.value })}
+          value={titleDraft}
+          onChange={(e) => {
+            const next = e.target.value;
+            onTitleDraftChange(next);
+            setPageMetadataDraft({ title: next.trim() || "Untitled Page" });
+          }}
+          onFocus={onTitleFocus}
+          onBlur={() => {
+            onTitleBlur();
+            commitTitle();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
           placeholder="Untitled Page"
         />
       </div>
@@ -160,7 +197,9 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
                 value={slugDraft}
                 onChange={(e) => {
                   setPasteError(null);
-                  onSlugDraftChange(e.target.value);
+                  const next = e.target.value;
+                  onSlugDraftChange(next);
+                  setPageMetadataDraft({ slug: next });
                 }}
                 onFocus={onSlugFocus}
                 onBlur={() => {

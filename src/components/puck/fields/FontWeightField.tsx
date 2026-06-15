@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/FontWeightField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { FONT_WEIGHT_OPTIONS, type FontWeightToken } from "../lib/nexusTypography";
 import { PuckSelectField } from "./PuckSelectField";
 

@@ -7,7 +7,7 @@
  * @module src/components/puck/lib/useNexusPuck
  */
 
-import { createUsePuck } from "@measured/puck";
+import { createUsePuck } from "@puckeditor/core";
 
 /** Typed Puck selector hook for Nexus blocks and chrome. */
 export const useNexusPuck = createUsePuck();

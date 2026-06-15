@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 /**
  * @fileoverview Full-width segmented button group for Puck sidebar fields.
  *
@@ -12,6 +14,8 @@
 export interface SegmentedOption<T extends string = string> {
   label: string;
   value: T;
+  /** Optional longer tooltip (defaults to `label`). */
+  title?: string;
 }
 
 /** Props for {@link SegmentedControl}. */
@@ -38,8 +42,16 @@ export function SegmentedControl<T extends string = string>({
   onChange,
   ariaLabel,
 }: SegmentedControlProps<T>) {
+  /** Four options use a 2×2 grid so cells stay equal width/height in narrow sidebars. */
+  const gridCols = options.length >= 4 ? 2 : Math.max(options.length, 1);
+
   return (
-    <div className="nexus-segmented" role="toolbar" aria-label={ariaLabel}>
+    <div
+      className="nexus-segmented"
+      role="toolbar"
+      aria-label={ariaLabel}
+      style={{ "--nexus-segmented-cols": gridCols } as CSSProperties}
+    >
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -50,6 +62,7 @@ export function SegmentedControl<T extends string = string>({
               : "nexus-segmented__btn"
           }
           aria-pressed={value === opt.value}
+          title={opt.title ?? opt.label}
           onClick={() => onChange(opt.value)}
         >
           {opt.label}

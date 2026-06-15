@@ -8,12 +8,15 @@
  * @module src/components/puck/fields/CustomDimensionInput
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
 import {
   formatSpacingCustom,
   getSpacingCustomMax,
   parseSpacingCustom,
+  resolveSpacingCustomMin,
+  type SpacingCustomBounds,
+  type SpacingCustomClampOptions,
   type SpacingCustomUnit,
 } from "../lib/spacingCustomValue";
 import { PuckSelectField } from "./PuckSelectField";
@@ -33,6 +36,10 @@ export interface CustomDimensionInputProps {
   ariaLabel?: string;
   /** Allowed CSS units (defaults to px / rem / em). */
   units?: SpacingCustomUnit[];
+  /** Optional per-unit maximum overrides (defaults to spacing field limits). */
+  maxByUnit?: SpacingCustomBounds;
+  /** Optional per-unit minimum overrides (defaults to spacing field limits). */
+  minByUnit?: SpacingCustomBounds;
 }
 
 /**
@@ -47,8 +54,14 @@ export function CustomDimensionInput({
   hidden = false,
   ariaLabel = "Custom dimension value",
   units = DEFAULT_DIMENSION_UNITS,
+  maxByUnit,
+  minByUnit,
 }: CustomDimensionInputProps) {
-  const parsed = parseSpacingCustom(value);
+  const clampOptions = useMemo<SpacingCustomClampOptions>(
+    () => ({ maxByUnit, minByUnit }),
+    [maxByUnit, minByUnit],
+  );
+  const parsed = parseSpacingCustom(value, clampOptions);
   const [unit, setUnit] = useState<SpacingCustomUnit>(
     units.includes(parsed.unit) ? parsed.unit : units[0],
   );
@@ -59,27 +72,28 @@ export function CustomDimensionInput({
     onChange: (nextAmount) => {
       const numeric = parseFloat(nextAmount);
       if (Number.isNaN(numeric)) return;
-      onChange(formatSpacingCustom(numeric, unit));
+      onChange(formatSpacingCustom(numeric, unit, clampOptions));
     },
     textDebounceMs: 0,
   });
 
   useEffect(() => {
-    const next = parseSpacingCustom(value);
+    const next = parseSpacingCustom(value, clampOptions);
     setUnit(units.includes(next.unit) ? next.unit : units[0]);
-  }, [units, value]);
+  }, [clampOptions, units, value]);
 
   const handleUnitChange = useCallback(
     (nextUnit: SpacingCustomUnit) => {
       setUnit(nextUnit);
       const numeric = parseFloat(amount);
       const safe = Number.isNaN(numeric) ? 0 : numeric;
-      onChange(formatSpacingCustom(safe, nextUnit));
+      onChange(formatSpacingCustom(safe, nextUnit, clampOptions));
     },
-    [amount, onChange],
+    [amount, clampOptions, onChange],
   );
 
-  const max = getSpacingCustomMax(unit);
+  const min = resolveSpacingCustomMin(unit, clampOptions);
+  const max = getSpacingCustomMax(unit, clampOptions);
 
   return (
     <div
@@ -90,7 +104,7 @@ export function CustomDimensionInput({
       <input
         type="number"
         className="nexus-field-grid__custom nexus-field-grid__custom--number"
-        min={0}
+        min={min}
         max={max}
         step={unit === "px" ? 1 : 0.1}
         value={amount}

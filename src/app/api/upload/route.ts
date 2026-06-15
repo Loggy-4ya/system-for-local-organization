@@ -9,19 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
-
-/**
- * Verify a basic bearer token guard.
- *
- * @param req - Incoming Next.js request.
- * @returns `true` when the request is authorised.
- */
-function isAuthorised(req: NextRequest): boolean {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) return true;
-  const auth = req.headers.get("Authorization") ?? "";
-  return auth === `Bearer ${secret}`;
-}
+import { isApiAuthorised } from "@/lib/authGuards";
 
 /** Maximum upload size per media category in bytes. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -34,7 +22,7 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
  * @returns JSON `{ url }` on success, or an error payload.
  */
 export async function POST(req: NextRequest) {
-  if (!isAuthorised(req)) {
+  if (!(await isApiAuthorised(req))) {
     return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
   }
 

@@ -14,8 +14,11 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `public/icons/` | Browser favicon and app icons | `favicon.ico`, future `apple-icon.png` | Logos, UI illustrations |
 | `public/brand/` | Brand marks used in UI | `logo.svg` | Favicons, unrelated stock assets |
 | `public/uploads/` | User-uploaded images and media | Uploaded files | Brand marks, static icons |
-| `.ai/docs/` | Living architectural truth and feature specs | Markdown specs, roadmap, structure maps | Application runtime code |
+| `tests/` | Automated unit/integration test suites only | `*.test.ts` mirroring source tree (`tests/puck/lib/`, …) | Application runtime code, React components, fixtures unrelated to a registered suite |
+| `.ai/docs/` | Living architectural truth and feature specs | Markdown specs, roadmap, structure maps, [testing.md](./testing.md) test registry | Application runtime code |
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
+| `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
+| `.cursor/rules/` | File-targeted Cursor agent rules (`.mdc`) | Puck sidebar chapter policy, file-specific constraints | Runtime `.ts` / `.tsx`, tests |
 | `docker-compose.yml` | Container orchestration for stateless services | Service definitions, env wiring | Application logic |
 
 ## `src/` Sub-directories
@@ -23,27 +26,48 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | Path | Purpose | Status |
 |------|---------|--------|
 | `src/app/` | App Router routes, root layout, API handlers | Active |
+| `src/app/loading.tsx` | Root Suspense fallback — `SiteLoader` over layout InfiniteGrid | Active |
 | `src/app/layout.tsx` | Root layout: Inter font, ThemeProvider, InfiniteGrid, GlobalHeader | Active |
-| `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.) | Active |
+| `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.); spacing scale (`--spacing-sm` = default root-level Puck block vertical margin) | Active |
 | `src/lib/utils.ts` | Shadcn `cn()` helper (`clsx` + `tailwind-merge`) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
+| `src/app/admin/global-layout/` | Admin Global Layout Editor page | Active |
 | `src/app/api/puck/` | REST API for loading/saving Puck page layouts to MongoDB | Active |
 | `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
+| `src/app/api/global-layout/` | REST API for global layout settings | Active |
 | `src/app/api/upload/` | REST API for uploading image/video files to `public/uploads/` | Active |
 | `src/app/(marketing)/` | Hardcoded landing and public marketing pages (excluded from Puck) | Planned |
 | `src/app/(dashboard)/` | Hardcoded admin dashboard shell (excluded from Puck) | Planned |
-| `src/app/(auth)/` | Authentication flows (login, student registration) | Planned |
+| `src/app/(auth)/` | Authentication flows (`/login`, `/signup`) | Active |
+| `src/app/(profile)/` | User profile dashboard (`/profile`) and settings (`/profile/settings`) | Active |
+| `src/app/api/auth/` | Auth.js handler, register, Telegram verify | Active |
+| `src/app/api/profile/` | PATCH user profile (session-required) | Active |
+| `src/auth.ts` | Auth.js configuration (providers, callbacks, session) | Active |
+| `src/auth.config.ts` | Edge-safe Auth.js config for middleware | Active |
+| `src/middleware.ts` | Route protection for `/profile/*`, `/admin/*`; `Accept-CH` for theme hints | Active |
+| `src/lib/resolveStoredThemeIsDark.ts` | SSR helper — resolves dark/light from theme cookie + color-scheme client hint | Active |
+| `src/components/auth/` | Auth UI: `AuthShell`, OAuth row, role chips, forms | Active |
+| `src/components/profile/` | Profile dashboard and settings components | Active |
+| `src/components/global-layout/` | Global Layout editor components (Header, Footer, Preview, IconPicker) | Active |
 | `src/components/` | Reusable UI primitives bound to design tokens | Active |
-| `src/components/background/` | `InfiniteGrid` dual-canvas client component; light theme uses `logo-grid.svg` (no stroke rings) | Active |
-| `src/components/ui/` | Shared UI: Shadcn/Base UI primitives (`button`, `card`, `carousel`, `accordion`, `select`, `command`, `dialog`), `GlobalHeader`, `SiteHeaderBar`, `ThemeProvider` | Active |
+| `src/components/background/` | `InfiniteGrid` dual-canvas client component (`isContained` + `isStatic` freezes scroll only); `infiniteGridIconLoader.ts` for WebKit-safe SVG rasterization; `logo-grid.svg` for both themes; `z-index:0` stacking | Active |
+| `src/components/ui/` | Shared UI: Shadcn/Base UI primitives (`button`, `card`, `carousel`, `accordion`, `select`, `command`, `dialog`, `drawer`, `spinner`), `SiteLoader`, `GlobalHeader`, `SiteHeaderBar`, `ThemeProvider` | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
-| `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
-| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active |
-| `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`), `EditorHeaderChrome.tsx` | Active |
-| `src/lib/` | App-local utilities and constants (no React, no routes) | Active |
+| `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `CoverMediaFrame`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
+| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
+| `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`) | Active |
+| `src/lib/` | App-local utilities and constants (no React, no routes) — includes `dragAutoScrollLogic.ts`, `useDragAutoScroll.ts` | Active |
+
+## `tests/` Sub-directories
+
+| Path | Purpose | Status |
+|------|---------|--------|
+| `tests/puck/lib/` | Unit tests for `src/components/puck/lib/` pure logic modules | Active |
+| `tests/shared/domains/` | Unit tests for shared domains (global layout validation) | Active |
+| `tests/shared/validation/` | Unit tests for shared validation schemas | Active |
 
 ## `shared/` Sub-directories
 
@@ -53,8 +77,13 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/models/User.ts` | Unified User schema (cross-platform auth, RBAC, gamification) | Active |
 | `shared/models/Page.ts` | Puck page layout schema (path → puckData) | Active |
 | `shared/models/EditorSettings.ts` | Singleton Puck editor settings (`islandDefaultComponents`) | Active |
+| `shared/models/GlobalLayout.ts` | Singleton Global Layout configuration model | Active |
 | `shared/constants/editorSettings.ts` | Client-safe editor settings seed constants | Active |
-| `shared/domains/` | Consolidated domain engines (one file per domain) | Planned |
+| `shared/constants/globalLayout.ts` | Global Layout seed constants and whitelists | Active |
+| `shared/domains/` | Consolidated domain engines (one file per domain) | Active |
+| `shared/domains/AuthDomain.ts` | Auth registration, OAuth merge, Telegram verify, profile mutations | Active |
+| `shared/domains/GlobalLayoutDomain.ts` | Global Layout load, seed, validate, and update domain engine | Active |
+| `shared/validation/` | Centralized Zod validation schemas and format utilities | Active |
 
 ## `.ai/docs/` Sub-directories
 
@@ -64,9 +93,11 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/puck_editor.md` | Puck Editor overhaul and block specifications | Markdown spec | — |
 | `.ai/docs/features/puck_editor_enhancements.md` | Editor UI/UX refinements (fields, path bug, spacing) | Markdown spec | — |
 | `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
+| `.ai/docs/features/global_layout.md` | Global Layout feature specification | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |
+| `.ai/docs/icon_sizes.md` | Canonical Lucide icon size tiers (site chrome 18px, Puck sidebar 14px, compact rail) | Size tokens, helpers, surface map | Application code |
 | `.ai/docs/roadmap.md` | Master progress tracker | Status lists, phase notes | Unrelated notes, scratch dumps |
 
 ## Design ↔ Code Bridge

@@ -6,7 +6,7 @@
  * @module src/components/puck/blocks/content/NexusTabsRender
  */
 
-import { type ComponentType, type CSSProperties } from "react";
+import { useCallback, type ComponentType, type CSSProperties } from "react";
 import { usePuckPreviewMode } from "../../lib/useNexusPuck";
 import { cn } from "@/lib/utils";
 import { usePuckOverlayPortalRef } from "../../lib/usePuckOverlayPortal";
@@ -36,6 +36,14 @@ export interface NexusTabsRenderProps {
   size: "sm" | "md";
   accentColor?: string;
   puck?: { isEditing?: boolean };
+}
+
+/** Internal props for shared tabs body (editor + published). */
+interface NexusTabsBodyProps extends NexusTabsRenderProps {
+  editLayoutMode: boolean;
+  activeIndex: number;
+  setActiveIndex: (index: number) => void;
+  stripPortalRef: (node: HTMLElement | null) => void;
 }
 
 const SIZE_STYLES = {
@@ -80,37 +88,21 @@ function renderTabPanel(
 }
 
 /**
- * Render tab strip + panels. Edit mode keeps all panel slots mounted; inactive panels are hidden.
+ * Shared tabs body — no Puck store hooks (safe inside `<Render>`).
  *
- * @param props - Tab configuration and slot components.
+ * @param props - Tab configuration, active index, and layout flags.
  * @returns Tabs UI.
  */
-export function NexusTabsRender({
-  id,
+function NexusTabsBody({
   tabs,
-  defaultActiveIndex,
-  editorActiveIndex,
   align,
   size,
   accentColor,
-  puck,
-}: NexusTabsRenderProps) {
-  const previewMode = usePuckPreviewMode();
-  const isInteractivePreview = previewMode === "interactive";
-  const isEditing = puck?.isEditing ?? false;
-  const editLayoutMode = isEditing && !isInteractivePreview;
-
-  const stripPortalRef = usePuckOverlayPortalRef(isEditing);
-
-  const [activeIndex, setActiveIndex] = useStripActiveIndex(
-    id,
-    defaultActiveIndex,
-    tabs.length,
-    editorActiveIndex,
-  );
-
-  usePuckArrayOpenStripSync(id, "tabs", editLayoutMode);
-
+  editLayoutMode,
+  activeIndex,
+  setActiveIndex,
+  stripPortalRef,
+}: NexusTabsBodyProps) {
   const activeBg = accentColor || "var(--color-accent-user)";
 
   if (!tabs.length) {
@@ -195,6 +187,83 @@ export function NexusTabsRender({
       </div>
     </div>
   );
+}
+
+/**
+ * Puck editor shell — subscribes to Puck store hooks (must render inside `<Puck>`).
+ *
+ * @param props - Tab configuration from the block render.
+ * @returns Tabs with edit/interactive preview behavior.
+ */
+function NexusTabsEditorShell(props: NexusTabsRenderProps) {
+  const previewMode = usePuckPreviewMode();
+  const editLayoutMode = previewMode !== "interactive";
+
+  const stripPortalRef = usePuckOverlayPortalRef(true);
+
+  const [activeIndex, setActiveIndex] = useStripActiveIndex(
+    props.id,
+    props.defaultActiveIndex,
+    props.tabs.length,
+    props.editorActiveIndex,
+  );
+
+  usePuckArrayOpenStripSync(props.id, "tabs", editLayoutMode);
+
+  return (
+    <NexusTabsBody
+      {...props}
+      editLayoutMode={editLayoutMode}
+      activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
+      stripPortalRef={stripPortalRef}
+    />
+  );
+}
+
+/** No-op portal ref for published / static render (outside Puck editor). */
+function useNoopPortalRef() {
+  return useCallback((_node: HTMLElement | null) => undefined, []);
+}
+
+/**
+ * Published / static tabs — no Puck store hooks (safe inside `<Render>`).
+ *
+ * @param props - Tab configuration from the block render.
+ * @returns Tabs UI for the public site.
+ */
+function NexusTabsView(props: NexusTabsRenderProps) {
+  const stripPortalRef = useNoopPortalRef();
+
+  const [activeIndex, setActiveIndex] = useStripActiveIndex(
+    undefined,
+    props.defaultActiveIndex,
+    props.tabs.length,
+  );
+
+  return (
+    <NexusTabsBody
+      {...props}
+      editLayoutMode={false}
+      activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
+      stripPortalRef={stripPortalRef}
+    />
+  );
+}
+
+/**
+ * Tabs entry — routes to editor or static render based on Puck context.
+ *
+ * @param props - Tab configuration and Puck edit context.
+ * @returns Tabs UI.
+ */
+export function NexusTabsRender(props: NexusTabsRenderProps) {
+  if (props.puck?.isEditing) {
+    return <NexusTabsEditorShell {...props} />;
+  }
+
+  return <NexusTabsView {...props} />;
 }
 
 export default NexusTabsRender;

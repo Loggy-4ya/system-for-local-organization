@@ -6,7 +6,7 @@
  * @module src/components/puck/fields/TiptapField
  */
 
-import { FieldLabel } from "@measured/puck";
+import { FieldLabel } from "@puckeditor/core";
 import { useNexusPuck } from "../lib/useNexusPuck";
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";

@@ -8,6 +8,7 @@
 
 import { NexusTabsRender } from "./NexusTabsRender";
 import { TAB_SIZE_OPTIONS } from "../../lib/fieldOptionLabels";
+import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
 import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
 
 /** Default empty tab with slot array for Puck inline data model. */
@@ -52,11 +53,7 @@ export const NexusTabs = {
         { label: "Right", value: "right" },
       ],
     },
-    size: {
-      type: "radio" as const,
-      label: "Size",
-      options: [...TAB_SIZE_OPTIONS],
-    },
+    size: createSteppedSliderField("Size", TAB_SIZE_OPTIONS),
     accentColor: {
       type: "text" as const,
       label: "Active Tab Color (optional css color)",

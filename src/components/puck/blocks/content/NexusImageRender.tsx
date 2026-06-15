@@ -6,7 +6,7 @@
  * @module src/components/puck/blocks/content/NexusImageRender
  */
 
-import { useGetPuck } from "@measured/puck";
+import { useGetPuck } from "@puckeditor/core";
 import {
   useCallback,
   useLayoutEffect,
@@ -15,14 +15,23 @@ import {
   type CSSProperties,
   type MouseEvent,
 } from "react";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { cn } from "@/lib/utils";
+import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
+import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
+import { syncPuckComponentOverlayAfterLayout } from "../../lib/puckOverlaySync";
 import {
   CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
+  NEXUS_CAROUSEL_FILL_ATTR,
+  carouselFillAspectRatioStyle,
   resolveCarouselMediaFill,
   type CarouselMediaFillMode,
 } from "../../lib/carouselMediaFill";
+import { mediaFitToObjectFit, normalizeMediaFitMode, type MediaFitMode } from "../../lib/mediaFitMode";
 import { selectPuckComponentById } from "../../lib/selectPuckComponentById";
+import {
+  resolveMediaAspectRatioNumeric,
+  ratioToMediaAspectAttr,
+} from "../../lib/mediaAspectRatio";
 import { usePuckPreviewMode } from "../../lib/useNexusPuck";
 
 /** Props for {@link NexusImageRender}. */
@@ -36,7 +45,17 @@ export interface NexusImageRenderProps {
   borderRadius: string;
   shadowDepth: string;
   carouselFill?: CarouselMediaFillMode;
+  mediaFit?: MediaFitMode;
+  aspectRatioPreset?: string;
+  aspectRatioCustom?: string;
   puck?: { isEditing?: boolean };
+}
+
+/** Internal props for shared image body (editor + published). */
+interface NexusImageBodyProps extends NexusImageRenderProps {
+  editLayoutMode: boolean;
+  onSelectInCarousel?: () => void;
+  syncSelectionOverlay?: () => void;
 }
 
 const ALIGN_MAP = {
@@ -46,12 +65,12 @@ const ALIGN_MAP = {
 } as const;
 
 /**
- * Image block — supports natural aspect framing or full slide fill in carousels.
+ * Shared image body — no Puck store hooks (safe inside `<Render>` and carousel slots).
  *
- * @param props - Image configuration and Puck edit context.
+ * @param props - Image configuration and layout flags.
  * @returns Image UI.
  */
-export function NexusImageRender({
+function NexusImageBody({
   id,
   image,
   alt,
@@ -61,21 +80,54 @@ export function NexusImageRender({
   borderRadius,
   shadowDepth,
   carouselFill = "auto",
-  puck,
-}: NexusImageRenderProps) {
-  const previewMode = usePuckPreviewMode();
-  const isEditing = puck?.isEditing ?? false;
-  const editLayoutMode = isEditing && previewMode !== "interactive";
-  const getPuck = useGetPuck();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [inCarouselSlide, setInCarouselSlide] = useState(false);
+  mediaFit = "cover",
+  aspectRatioPreset = "16-9",
+  aspectRatioCustom = "16/9",
+  editLayoutMode,
+  onSelectInCarousel,
+  syncSelectionOverlay,
+}: NexusImageBodyProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
+  const inCarouselSlide = useCarouselSlideMedia();
+  const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide, layoutRoot);
 
+  const assignRootRef = useCallback((node: HTMLDivElement | null) => {
+    rootRef.current = node;
+    setLayoutRoot(node);
+  }, []);
+
+  /** Propagate aspect ratio to the slide shell so drop-zone `aspect-ratio` can read it. */
   useLayoutEffect(() => {
     const root = rootRef.current;
-    setInCarouselSlide(Boolean(root?.closest(".nexus-carousel__slide")));
-  }, [image, height, width, carouselFill]);
+    if (!root || !fillSlide) {
+      return undefined;
+    }
 
-  const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide);
+    const slide = root.closest<HTMLElement>(".nexus-carousel__slide");
+    if (!slide) {
+      return undefined;
+    }
+
+    const ratio = resolveMediaAspectRatioNumeric(aspectRatioPreset, aspectRatioCustom);
+    slide.style.setProperty("--nexus-media-aspect-ratio", String(ratio));
+
+    return () => {
+      slide.style.removeProperty("--nexus-media-aspect-ratio");
+    };
+  }, [fillSlide, aspectRatioPreset, aspectRatioCustom]);
+
+  useLayoutEffect(() => {
+    if (!editLayoutMode || !fillSlide || !syncSelectionOverlay) return;
+    syncSelectionOverlay();
+  }, [editLayoutMode, fillSlide, syncSelectionOverlay, layoutRoot, image]);
+
+  const fit = normalizeMediaFitMode(mediaFit);
+  const objectFit = mediaFitToObjectFit(fit);
+  const aspectRatio = resolveMediaAspectRatioNumeric(aspectRatioPreset, aspectRatioCustom);
+  const mediaAspectAttr = ratioToMediaAspectAttr(aspectRatio);
+  const fillAspectStyle = carouselFillAspectRatioStyle(aspectRatio);
+
   const useAspectFrame = !fillSlide && (height === "auto" || !height);
 
   /**
@@ -85,11 +137,11 @@ export function NexusImageRender({
    */
   const handleClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
-      if (!editLayoutMode || !id || !fillSlide) return;
+      if (!editLayoutMode || !onSelectInCarousel || !fillSlide) return;
       event.stopPropagation();
-      selectPuckComponentById(getPuck(), id);
+      onSelectInCarousel();
     },
-    [editLayoutMode, fillSlide, getPuck, id],
+    [editLayoutMode, fillSlide, onSelectInCarousel],
   );
 
   const rootClass = cn(
@@ -99,23 +151,29 @@ export function NexusImageRender({
   );
 
   const rootStyle: CSSProperties = fillSlide
-    ? { width: "100%" }
+    ? {
+        width: "100%",
+        ...fillAspectStyle,
+        ["--nexus-media-object-fit" as string]: objectFit,
+      }
     : {
         display: "flex",
         justifyContent: ALIGN_MAP[align] ?? "center",
         padding: "var(--spacing-sm) 0",
         width: "100%",
+        ["--nexus-media-object-fit" as string]: objectFit,
       };
 
   const frameStyle: CSSProperties = fillSlide
     ? {
         width: "100%",
-        height: "100%",
+        aspectRatio,
         boxSizing: "border-box",
       }
     : {
         width: width || "100%",
         maxWidth: "100%",
+        ...(height && height !== "auto" ? { height, minHeight: height } : {}),
         borderRadius: borderRadius || "0px",
         boxShadow: shadowDepth || "none",
       };
@@ -132,64 +190,119 @@ export function NexusImageRender({
     <img
       src={image}
       alt={alt}
-      className="nexus-image__media absolute inset-0 h-full w-full object-cover"
+      className="nexus-media-cover__media"
       draggable={false}
     />
   );
 
+  const mediaContent = image ? renderImage() : renderEmpty();
+
   if (fillSlide) {
     return (
       <div
-        ref={rootRef}
+        ref={assignRootRef}
         className={rootClass}
         style={rootStyle}
         onClick={handleClick}
-        data-nexus-media-aspect="16/9"
+        data-nexus-media-aspect={mediaAspectAttr}
+        {...(fillSlide ? { [NEXUS_CAROUSEL_FILL_ATTR]: "true" as const } : {})}
       >
-        <div className={cn("nexus-image__frame overflow-hidden bg-muted")} style={frameStyle}>
-          {image ? renderImage() : renderEmpty()}
+        <div className={cn("nexus-image__frame relative overflow-hidden bg-muted")} style={frameStyle}>
+          <CoverMediaFrame fit={fit} className="absolute inset-0 h-full w-full">
+            {mediaContent}
+          </CoverMediaFrame>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={rootRef} className={rootClass} style={rootStyle}>
+    <div ref={assignRootRef} className={rootClass} style={rootStyle}>
       {image ? (
         useAspectFrame ? (
-          <AspectRatio
-            ratio={16 / 9}
+          <div
+            className="relative overflow-hidden bg-muted"
+            style={{ ...frameStyle, aspectRatio }}
+          >
+            <CoverMediaFrame fit={fit} className="absolute inset-0 h-full w-full">
+              {renderImage()}
+            </CoverMediaFrame>
+          </div>
+        ) : (
+          <CoverMediaFrame
+            fit={fit}
+            style={{ ...frameStyle, position: "relative" }}
             className="overflow-hidden bg-muted"
-            style={frameStyle}
           >
             {renderImage()}
-          </AspectRatio>
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={alt}
-            style={{
-              width: width || "100%",
-              height: height || "auto",
-              maxWidth: "100%",
-              borderRadius: borderRadius || "0px",
-              boxShadow: shadowDepth || "none",
-              objectFit: "cover",
-            }}
-          />
+          </CoverMediaFrame>
         )
       ) : (
-        <AspectRatio
-          ratio={16 / 9}
-          className="flex items-center justify-center border border-dashed border-border bg-muted text-muted-foreground"
-          style={frameStyle}
+        <div
+          className="relative flex items-center justify-center overflow-hidden border border-dashed border-border bg-muted text-muted-foreground"
+          style={{ ...frameStyle, aspectRatio }}
         >
-          {renderEmpty()}
-        </AspectRatio>
+          <CoverMediaFrame fit={fit} className="absolute inset-0 h-full w-full">
+            {renderEmpty()}
+          </CoverMediaFrame>
+        </div>
       )}
     </div>
   );
+}
+
+/**
+ * Puck editor shell — subscribes to Puck store hooks (must render inside `<Puck>`).
+ *
+ * @param props - Image configuration from the block render.
+ * @returns Image block with edit/interactive preview behavior.
+ */
+function NexusImageEditorShell(props: NexusImageRenderProps) {
+  const previewMode = usePuckPreviewMode();
+  const editLayoutMode = previewMode !== "interactive";
+  const getPuck = useGetPuck();
+
+  const onSelectInCarousel = useCallback(() => {
+    if (!props.id) return;
+    selectPuckComponentById(getPuck(), props.id);
+  }, [getPuck, props.id]);
+
+  const syncSelectionOverlay = useCallback(() => {
+    syncPuckComponentOverlayAfterLayout(getPuck(), props.id);
+  }, [getPuck, props.id]);
+
+  return (
+    <NexusImageBody
+      {...props}
+      editLayoutMode={editLayoutMode}
+      onSelectInCarousel={onSelectInCarousel}
+      syncSelectionOverlay={syncSelectionOverlay}
+    />
+  );
+}
+
+/**
+ * Published / static image — no Puck store hooks (safe inside `<Render>`).
+ *
+ * @param props - Image configuration from the block render.
+ * @returns Image UI for the public site.
+ */
+function NexusImageView(props: NexusImageRenderProps) {
+  return <NexusImageBody {...props} editLayoutMode={false} />;
+}
+
+/**
+ * Image block entry — routes to editor or static render based on Puck context.
+ *
+ * @param props - Image configuration and Puck edit context.
+ * @returns Image UI.
+ */
+export function NexusImageRender(props: NexusImageRenderProps) {
+  if (props.puck?.isEditing) {
+    return <NexusImageEditorShell {...props} />;
+  }
+
+  return <NexusImageView {...props} />;
 }
 
 export default NexusImageRender;

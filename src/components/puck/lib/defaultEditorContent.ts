@@ -4,7 +4,7 @@
  * @module src/components/puck/lib/defaultEditorContent
  */
 
-import type { Data } from "@measured/puck";
+import type { Data } from "@puckeditor/core";
 import { ISLAND_DEFAULTS, SPACING_DEFAULTS } from "./spacingFields";
 
 /** Shared spacing defaults for starter child blocks (no island — parent section owns the shell). */

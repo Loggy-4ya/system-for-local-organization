@@ -4,6 +4,9 @@
  * @module src/components/puck/lib/richTextContent
  */
 
+/** DOM node type for elements (`Node.ELEMENT_NODE`). */
+const ELEMENT_NODE = 1;
+
 /** Tags allowed in stored/rendered rich text (StarterKit + links). */
 const ALLOWED_TAGS = new Set([
   "p",
@@ -49,9 +52,72 @@ export function isSafeHref(href: string): boolean {
 }
 
 /**
+ * Sanitize HTML on the server without DOM APIs (matches browser allowlist output).
+ *
+ * @param html - Raw HTML fragment.
+ * @returns Sanitized HTML string.
+ */
+function sanitizeRichTextHtmlServer(html: string): string {
+  let out = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, "");
+
+  out = out.replace(/<\/?([a-z][a-z0-9]*)\b([^>]*)>/gi, (full, rawTag, rawAttrs) => {
+    const tag = rawTag.toLowerCase();
+    const isClose = full.startsWith("</");
+
+    if (isClose) {
+      return ALLOWED_TAGS.has(tag) ? `</${tag}>` : "";
+    }
+
+    if (!ALLOWED_TAGS.has(tag)) {
+      return "";
+    }
+
+    const attrs = rawAttrs ?? "";
+
+    if (tag === "a") {
+      const hrefMatch = /href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+      const href = (hrefMatch?.[2] || hrefMatch?.[3] || hrefMatch?.[4] || "").trim();
+      if (!isSafeHref(href)) {
+        return "";
+      }
+
+      const isExternal =
+        href.startsWith("http://") ||
+        href.startsWith("https://") ||
+        href.startsWith("mailto:") ||
+        href.startsWith("tel:");
+      const target = isExternal ? " target=\"_blank\"" : "";
+      const rel = isExternal ? " rel=\"noopener noreferrer\"" : "";
+      const safeHref = href.replace(/"/g, "&quot;");
+      return `<a href="${safeHref}" class="nexus-rich-text__link"${target}${rel}>`;
+    }
+
+    if (tag === "br") {
+      return "<br>";
+    }
+
+    return `<${tag}>`;
+  });
+
+  return out.trim();
+}
+
+/**
+ * Parse HTML into a body element for sanitization (browser only).
+ *
+ * @param html - Raw HTML fragment.
+ * @returns Document body containing the fragment.
+ */
+function parseRichTextBody(html: string): HTMLElement {
+  return new DOMParser().parseFromString(html, "text/html").body;
+}
+
+/**
  * Strip disallowed tags and event-handler attributes from HTML.
  *
- * Uses DOMParser in the browser; falls back to plain-text escape on the server.
+ * Uses DOMParser in the browser; a matching string sanitizer during SSR (no linkedom).
  *
  * @param html - Raw HTML from Tiptap or legacy content.
  * @returns Sanitized HTML string.
@@ -63,12 +129,10 @@ export function sanitizeRichTextHtml(html: string): string {
   if (!trimmed) return "";
 
   if (typeof DOMParser === "undefined") {
-    return escapePlainText(trimmed);
+    return sanitizeRichTextHtmlServer(trimmed);
   }
 
-  const doc = new DOMParser().parseFromString(trimmed, "text/html");
-  const body = doc.body;
-
+  const body = parseRichTextBody(trimmed);
   sanitizeNode(body);
 
   return body.innerHTML.trim();
@@ -131,7 +195,7 @@ function sanitizeNode(node: Node): void {
   const children = Array.from(node.childNodes);
 
   for (const child of children) {
-    if (child.nodeType === Node.ELEMENT_NODE) {
+    if (child.nodeType === ELEMENT_NODE) {
       const el = child as HTMLElement;
       const tag = el.tagName.toLowerCase();
 

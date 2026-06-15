@@ -4,7 +4,7 @@
  * @module src/components/puck/lib/puckDataTree
  */
 
-import type { Data } from "@measured/puck";
+import type { Data } from "@puckeditor/core";
 import { isIslandActive, type BlockShellProps } from "./spacingFields";
 
 /** Minimal Puck component node shape. */
