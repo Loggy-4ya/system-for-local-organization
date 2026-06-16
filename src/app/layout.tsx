@@ -10,6 +10,7 @@ import { FooterSessionBridge } from "@/components/ui/FooterSessionBridge";
 import { SessionProvider } from "@/components/auth/SessionProvider";
 import { SITE_ICONS } from "@/lib/assets";
 import { NEXUS_THEME_OPTIONS } from "@/lib/resolveStoredThemeIsDark";
+import { auth } from "@/auth";
 import { seedAdminUser } from "@shared/lib/seedAdminUser";
 import "./globals.css";
 
@@ -85,6 +86,8 @@ export default async function RootLayout({
     initialTheme: initialTheme ?? undefined,
   });
 
+  const session = await auth();
+
   /** Brave / wallet extensions may assign to `window.ethereum` before injection completes. */
   const walletProviderShim = `(function(){try{if(typeof window!=="undefined"&&!window.ethereum){window.ethereum={selectedAddress:void 0}}}catch(e){}})();`;
 
@@ -107,7 +110,7 @@ export default async function RootLayout({
           noScript
           disableTransitionOnChange={false}
         >
-          <SessionProvider>
+          <SessionProvider session={session}>
             {/* Fixed full-viewport background — persists across route changes */}
             <InfiniteGrid />
             {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}

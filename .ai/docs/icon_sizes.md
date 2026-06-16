@@ -9,12 +9,13 @@ Central reference for Lucide glyph sizes across Nexus. **Do not hardcode one-off
 | Tier | Size | Stroke | When to use |
 |------|------|--------|-------------|
 | **Site chrome** | **18px** | **2.25** | Public header/footer nav, global layout editor whitelisted icons, layout preview |
+| **Puck editor header toolbar** | **18px** (text chips) / **16px** (icon-only squares) | **2.25** | Puck `headerActions` + MenuBar undo/redo — matches `GlobalHeader` via `--site-header-*` tokens and `siteChromeLucideProps()` |
 | **Puck editor sidebar** | **14px** | **1.75** | Puck block drawer, field chapters, sidebar category labels inside `/edit` |
 | **Puck compact rail** | **16px → 11px** (responsive) | — | Bottom plugin rail on narrow Puck editor viewports only |
 | **Editor chrome / affordances** | **12–16px** | **2–2.25** | Delete, drag handle, Add Link, Save/Reset — utility controls, not nav content |
 | **Micro UI** | **11–14px** | varies | Theme-toggle knob, chevrons, decorative indicators inside a fixed control |
 
-**Rule of thumb:** If the icon represents **navigation or social content the admin configured** (header link, category, footer social), it is **site chrome → 18px**. If it is **Puck editor chrome** (blocks drawer, field labels), use **puckIcon() → 14px**.
+**Rule of thumb:** If the icon represents **navigation or social content the admin configured** (header link, category, footer social), it is **site chrome → 18px**. If it is **Puck editor header toolbar** (Pages, Interactive, Publish), use **site chrome → 18px** in text chips and **16px** inside square icon-only controls (matches hamburger menu). If it is **Puck sidebar** chrome (blocks drawer, field labels), use **puckIcon() → 14px**.
 
 ---
 
@@ -63,6 +64,7 @@ import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideI
 | Desktop category dropdown triggers & menu items | `siteHeaderNavCategories.tsx` |
 | Mobile drawer links & category accordion heads | `siteHeaderNavCategories.tsx` |
 | Header sign-in / account fallback icons | `SiteHeaderBar.tsx` |
+| Puck editor header toolbar (Pages, Interactive, Publish, MenuBar) | `puckEditorOverrides.tsx`, `EditorModeToggle.tsx`, `NexusPublishButton.tsx` |
 | Footer social link glyphs | `SiteFooterBar.tsx` |
 | Global Layout Editor icon picker (trigger + grid) | `LucideIconPicker.tsx` |
 | Global Layout Editor flag badges (Pill / Admin only) | `HeaderNavFlagToggles.tsx` |
@@ -156,6 +158,7 @@ See [figma_ui_integration.md](./features/figma_ui_integration.md) for the broade
 When touching icons:
 
 - [ ] Is this a **configured nav/social** icon? → `siteChromeLucideProps()` + `.site-chrome-icon` (18px).
+- [ ] Is this **Puck editor header toolbar**? → `siteChromeLucideProps()` (18px text chips; 16px when icon-only square via `--site-header-icon-btn-icon-size`).
 - [ ] Is this **Puck sidebar** chrome? → `puckIcon()` (14px).
 - [ ] Is this a **button affordance** (delete, drag, save)? → 12–16px per §4; do not reuse for nav links.
 - [ ] Did you avoid inline `size={13|14|16}` in site chrome components?

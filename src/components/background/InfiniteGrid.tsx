@@ -23,6 +23,13 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
 import { loadGridIcon } from "./infiniteGridIconLoader";
+import {
+  NEXUS_SCROLLPORT_GRID_METRICS_CHANGED_EVENT,
+  isMobileScrollportGridPaintFrozen,
+  usesMobileScrollportGridViewport,
+} from "@/components/puck/lib/mobileScrollportGridFreeze";
+import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
+import { isParentMobilePreviewHeightSyncActive } from "@/components/puck/lib/mobilePanelPreviewSync";
 
 // ── Engine configuration ─────────────────────────────────────────────────────
 
@@ -205,9 +212,23 @@ export function InfiniteGrid({
     return () => coarseMq.removeEventListener("change", updatePointerMode);
   }, []);
 
-  /** Hide layout grid on editor routes; contained `InfiniteGrid` in `PageRoot` paints the canvas only. */
-  const isHidden =
-    !isContained && (pathname === "/edit" || pathname.endsWith("/edit"));
+  /** Hide layout grid when Puck editor owns the canvas (shell scrollport grid). */
+  const onEditRoute = pathname === "/edit" || pathname.endsWith("/edit");
+  const [puckEditorMounted, setPuckEditorMounted] = useState(false);
+
+  useEffect(() => {
+    if (isContained) return;
+
+    const sync = () => setPuckEditorMounted(Boolean(document.querySelector(".Puck")));
+    sync();
+
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [isContained]);
+
+  const isHidden = !isContained && (onEditRoute || puckEditorMounted);
 
   useEffect(() => {
     if (isHidden || !wrapperRef.current) return;
@@ -344,8 +365,33 @@ export function InfiniteGrid({
       };
     }
 
+    /**
+     * Drawable size for pattern fill — during panel ease use last bitmap dims so tiles are
+     * CSS-scaled with the wrapper instead of re-rasterized every frame.
+     */
+    function readPaintCssSize() {
+      if (
+        scrollportLayer &&
+        isMobileScrollportGridPaintFrozen() &&
+        lastSyncedWidth > 0 &&
+        lastSyncedHeight > 0
+      ) {
+        const scale = dpr || Math.min(ownerWindow.devicePixelRatio || 1, 2);
+        return {
+          w: Math.max(1, Math.round(lastSyncedWidth / scale)),
+          h: Math.max(1, Math.round(lastSyncedHeight / scale)),
+        };
+      }
+
+      return readWrapperCssSize();
+    }
+
     /** Sync canvas pixel buffers to the wrapper element size (device-pixel aware). */
     function syncResolution() {
+      if (scrollportLayer && isMobileScrollportGridPaintFrozen()) {
+        return;
+      }
+
       const { w, h } = readWrapperCssSize();
       dpr = Math.min(ownerWindow.devicePixelRatio || 1, 2);
       const bitmapW = Math.max(1, Math.round(w * dpr));
@@ -367,6 +413,10 @@ export function InfiniteGrid({
 
     /** Batch / debounce resize work — contained grids skip per-frame canvas clears during sidebar drag. */
     function scheduleSyncResolution() {
+      if (scrollportLayer && isMobileScrollportGridPaintFrozen()) {
+        return;
+      }
+
       if (isStatic) {
         if (syncDebounceId !== null) clearTimeout(syncDebounceId);
         syncDebounceId = setTimeout(() => {
@@ -377,6 +427,25 @@ export function InfiniteGrid({
       }
 
       if (isContained) {
+        const parentDoc =
+          inPuckPreviewIframe && parentWindow ? parentWindow.document : null;
+        if (
+          isParentMobilePreviewHeightSyncActive(parentDoc) &&
+          !(scrollportLayer && usesMobileScrollportGridViewport())
+        ) {
+          if (syncRafId !== null) return;
+          syncRafId = ownerWindow.requestAnimationFrame(() => {
+            syncRafId = null;
+            syncResolution();
+            if (isStatic) {
+              paintOnce();
+            } else {
+              paintFrame();
+            }
+          });
+          return;
+        }
+
         if (syncDebounceId !== null) clearTimeout(syncDebounceId);
         syncDebounceId = setTimeout(() => {
           syncDebounceId = null;
@@ -513,7 +582,7 @@ export function InfiniteGrid({
 
     /** Paint one frame — shared by animated and static modes. */
     function paintFrame() {
-      const { w, h } = readWrapperCssSize();
+      const { w, h } = readPaintCssSize();
 
       safeCtxS.setTransform(dpr, 0, 0, dpr, 0, 0);
       safeCtxB.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -562,6 +631,32 @@ export function InfiniteGrid({
     ownerWindow.addEventListener("resize", scheduleSyncResolution);
     ownerWindow.visualViewport?.addEventListener("resize", scheduleSyncResolution);
     ownerWindow.visualViewport?.addEventListener("scroll", scheduleSyncResolution);
+
+    const onScrollportMetricsChanged = () => {
+      if (!scrollportLayer || !usesMobileScrollportGridViewport()) return;
+      if (isMobileScrollportGridPaintFrozen()) return;
+      syncResolution();
+      if (isStatic) {
+        paintOnce();
+      } else {
+        paintFrame();
+      }
+    };
+    ownerWindow.addEventListener(
+      NEXUS_SCROLLPORT_GRID_METRICS_CHANGED_EVENT,
+      onScrollportMetricsChanged,
+    );
+
+    const onPanelLayoutSettled = () => {
+      if (!scrollportLayer || !usesMobileScrollportGridViewport()) return;
+      syncResolution();
+      if (isStatic) {
+        paintOnce();
+      } else {
+        paintFrame();
+      }
+    };
+    ownerWindow.addEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, onPanelLayoutSettled);
 
     if (inPuckPreviewIframe && parentWindow) {
       ownerDocument.addEventListener("pointermove", onPointerMoveInside, {
@@ -618,6 +713,11 @@ export function InfiniteGrid({
       ownerWindow.removeEventListener("resize", scheduleSyncResolution);
       ownerWindow.visualViewport?.removeEventListener("resize", scheduleSyncResolution);
       ownerWindow.visualViewport?.removeEventListener("scroll", scheduleSyncResolution);
+      ownerWindow.removeEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, onPanelLayoutSettled);
+      ownerWindow.removeEventListener(
+        NEXUS_SCROLLPORT_GRID_METRICS_CHANGED_EVENT,
+        onScrollportMetricsChanged,
+      );
       if (inPuckPreviewIframe && parentWindow) {
         ownerDocument.removeEventListener("pointermove", onPointerMoveInside);
         parentWindow.removeEventListener("pointermove", onPointerMoveParent);
@@ -628,7 +728,7 @@ export function InfiniteGrid({
       parentWindow?.document.removeEventListener("scroll", onScroll, true);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [isContained, isHidden, isStatic, isLightTheme, isTouchLayout, resolvedTheme]);
+  }, [isContained, isHidden, isStatic, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
 
   if (isHidden) {
     return null;

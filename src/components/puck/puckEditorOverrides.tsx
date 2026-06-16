@@ -11,11 +11,14 @@
 
 import { FieldLabel, type Overrides } from "@puckeditor/core";
 import Link from "next/link";
-import { LayoutList } from "lucide-react";
+import { GripVertical, LayoutList } from "lucide-react";
+import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
 import { EditorModeToggle } from "@/components/puck/EditorModeToggle";
+import { IslandInsertDefaultsSync } from "@/components/puck/IslandInsertDefaultsSync";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { componentDrawerIcon, fieldLabelIcon } from "@/components/puck/lib/puckIcons";
+import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { PuckSwitchField } from "@/components/puck/fields/PuckSwitchField";
 import { SegmentedControl } from "@/components/puck/fields/SegmentedControl";
@@ -29,6 +32,7 @@ import { PuckAutoViewportSync } from "@/components/puck/PuckAutoViewportSync";
 import { PageHeaderLabel } from "@/components/puck/PageHeaderLabel";
 import { editorPagePathRef } from "@/components/puck/lib/editorPagePathRef";
 import { NexusMobilePanelResizer } from "@/components/puck/NexusMobilePanelResizer";
+import { NexusMobileBlocksPalettePanelDismiss } from "@/components/puck/NexusMobileBlocksPalettePanelDismiss";
 import { NexusMobileNavPanelGestures } from "@/components/puck/NexusMobileNavPanelGestures";
 import { NexusMobilePanelOpenAnimation } from "@/components/puck/NexusMobilePanelOpenAnimation";
 import { NexusSidebarWidthClamp } from "@/components/puck/NexusSidebarWidthClamp";
@@ -36,11 +40,17 @@ import { NexusMobilePanelCanvasStabilizer } from "@/components/puck/NexusMobileP
 import { NexusPuckZoomGuard } from "@/components/puck/NexusPuckZoomGuard";
 import { NexusSidebarResizeStabilizer } from "@/components/puck/NexusSidebarResizeStabilizer";
 import { NexusViewportZoomEnhancer } from "@/components/puck/NexusViewportZoomEnhancer";
+import { NexusHistoryCanvasIsland } from "@/components/puck/NexusHistoryToolbar";
 import { NexusMobileViewportToggleIcon } from "@/components/puck/NexusMobileViewportToggleIcon";
 import { NexusPublishButton } from "@/components/puck/NexusPublishButton";
 import { NexusEditorScrollportGrid } from "@/components/puck/NexusEditorScrollportGrid";
 import { NexusCanvasWheelBridge } from "@/components/puck/NexusCanvasWheelBridge";
-import { NexusCanvasDragCoordinator } from "@/components/puck/NexusCanvasDragCoordinator";
+import { NexusCompactEditorAttr } from "@/components/puck/NexusCompactEditorAttr";
+import { NexusCompactRightSidebarGuard } from "@/components/puck/NexusCompactRightSidebarGuard";
+import { NexusPreviewModeAttr } from "@/components/puck/NexusPreviewModeAttr";
+import {
+  NexusGridItemPlacementGuard,
+} from "@/components/puck/NexusGridItemPlacementGuard";
 
 /** Puck field label wrapper passed into `fieldTypes` overrides. */
 type PuckFieldLabelComponent = React.ComponentType<{
@@ -164,17 +174,24 @@ function PuckIframeOverride({
 
 /** Puck `drawerItem` override — icon + label for component drawer rows. */
 function PuckDrawerItemOverride({
-  children,
   name,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   name: string;
 }) {
+  const label = useNexusPuck((state) => {
+    const component = state.config.components[name] as { label?: string } | undefined;
+    return component?.label ?? name;
+  });
   const icon = componentDrawerIcon(name);
+
   return (
-    <div className="nexus-drawer-item">
-      {icon ? <span className="nexus-drawer-item__icon">{icon}</span> : null}
-      <span className="nexus-drawer-item__label">{children}</span>
+    <div className="nexus-plugin-panel-row nexus-plugin-panel-row--block">
+      <span className="nexus-plugin-panel-row__handle" aria-hidden>
+        <GripVertical size={12} />
+      </span>
+      {icon ? <span className="nexus-plugin-panel-row__icon">{icon}</span> : null}
+      <span className="nexus-plugin-panel-row__label">{label}</span>
     </div>
   );
 }
@@ -214,6 +231,7 @@ function PuckHeaderActionsOverride() {
 
   return (
     <span className="nexus-puck-header-actions">
+      <IslandInsertDefaultsSync />
       {error ? (
         <span className="nexus-puck-header-actions__error">{error}</span>
       ) : null}
@@ -227,9 +245,8 @@ function PuckHeaderActionsOverride() {
         title="All pages"
       >
         <LayoutList
-          className="nexus-puck-header-actions__pages-icon"
-          size={14}
-          strokeWidth={2.25}
+          className="nexus-puck-header-actions__pages-icon site-chrome-icon"
+          {...siteChromeLucideProps()}
           aria-hidden
         />
         <span className="nexus-puck-header-actions__pages-label">All Pages</span>
@@ -259,18 +276,23 @@ function PuckRootOverride({ children }: { children: React.ReactNode }) {
       {children}
       <PageHeaderLabel key={editorPagePathRef.currentPath} />
       <PuckAutoViewportSync />
+      <NexusCompactEditorAttr />
+      <NexusPreviewModeAttr />
+      <NexusCompactRightSidebarGuard />
       <NexusSidebarResizeStabilizer />
       <NexusMobilePanelCanvasStabilizer />
       <NexusPuckZoomGuard />
       <NexusSidebarWidthClamp />
       <NexusMobilePanelResizer />
       <NexusMobilePanelOpenAnimation />
+      <NexusMobileBlocksPalettePanelDismiss />
       <NexusMobileNavPanelGestures />
       <NexusViewportZoomEnhancer />
+      <NexusHistoryCanvasIsland />
       <NexusMobileViewportToggleIcon />
       <NexusEditorScrollportGrid />
       <NexusCanvasWheelBridge />
-      <NexusCanvasDragCoordinator />
+      <NexusGridItemPlacementGuard />
     </>
   );
 }

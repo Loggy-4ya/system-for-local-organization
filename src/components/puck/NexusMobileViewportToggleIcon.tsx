@@ -9,18 +9,12 @@
  * @module src/components/puck/NexusMobileViewportToggleIcon
  */
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import {
-  Expand,
-  Monitor,
-  Smartphone,
-  Tablet,
-  type LucideIcon,
-} from "lucide-react";
+import { Expand, Monitor, Smartphone, Tablet } from "lucide-react";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
 import { NEXUS_EDITOR_VIEWPORTS } from "@/components/puck/lib/resolveAutoViewport";
-import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
+import { matchesCompactEditorViewport, PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Cached toggle node for stable `useSyncExternalStore` snapshots. */
 let cachedToggleButton: HTMLButtonElement | null = null;
@@ -29,30 +23,32 @@ let cachedToggleButton: HTMLButtonElement | null = null;
  * @returns Whether the editor is in Puck's mobile chrome breakpoint.
  */
 function isMobileEditorChrome(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`).matches;
+  return matchesCompactEditorViewport();
 }
 
+/** Shared Lucide props for the collapsed viewport toggle glyph. */
+const VIEWPORT_TOGGLE_ICON_PROPS = { size: 16, strokeWidth: 2 } as const;
+
 /**
- * Map a Puck viewport width to the Lucide icon used in {@link NEXUS_EDITOR_VIEWPORTS}.
+ * Render the Lucide icon for a Puck viewport width ({@link NEXUS_EDITOR_VIEWPORTS}).
  *
  * @param width - Active viewport width from Puck UI state.
- * @returns Icon component for the preset.
+ * @returns Icon element for the preset.
  */
-function resolveViewportIconComponent(width: number | "100%"): LucideIcon {
+function renderViewportToggleIcon(width: number | "100%"): ReactNode {
   const preset =
     NEXUS_EDITOR_VIEWPORTS.find((viewport) => viewport.width === width) ??
     NEXUS_EDITOR_VIEWPORTS[0];
 
   switch (preset.icon) {
     case "Tablet":
-      return Tablet;
+      return <Tablet {...VIEWPORT_TOGGLE_ICON_PROPS} />;
     case "Monitor":
-      return Monitor;
+      return <Monitor {...VIEWPORT_TOGGLE_ICON_PROPS} />;
     case "FullWidth":
-      return Expand;
+      return <Expand {...VIEWPORT_TOGGLE_ICON_PROPS} />;
     default:
-      return Smartphone;
+      return <Smartphone {...VIEWPORT_TOGGLE_ICON_PROPS} />;
   }
 }
 
@@ -94,7 +90,7 @@ function subscribeCollapsedToggle(onStoreChange: () => void): () => void {
     attributeFilter: ["class"],
   });
 
-  const media = window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`);
+  const media = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
   media.addEventListener("change", onStoreChange);
 
   return () => {
@@ -121,11 +117,9 @@ export function NexusMobileViewportToggleIcon() {
 
   if (!toggleButton) return null;
 
-  const Icon = resolveViewportIconComponent(activeViewportWidth);
-
   return createPortal(
     <span className="nexus-viewport-toggle-icon" aria-hidden="true">
-      <Icon size={16} strokeWidth={2} />
+      {renderViewportToggleIcon(activeViewportWidth)}
     </span>,
     toggleButton,
   );

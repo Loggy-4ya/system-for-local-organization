@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * @fileoverview Vertical drag resize for the compact-mode Puck plugin panel.
+ * @fileoverview Vertical drag resize and swipe-to-dismiss for the compact-mode Puck plugin panel.
  *
  * @module src/components/puck/NexusMobilePanelResizer
  */
@@ -20,18 +20,23 @@ import {
   resetCompactPanelSidebarScroll,
   resolveLayoutInner,
   resolveLeftSidebar,
+  requestMobilePanelDismiss,
   restorePersistedPanelHeight,
   syncCompactPanelSidebarLayout,
 } from "@/components/puck/lib/mobilePanelLayout";
 import {
-  clampMobilePanelHeightPx,
+  resolveMobilePanelDragHeightPx,
+  resolveMobilePanelDragSettleHeightPx,
+  shouldDismissMobilePanelOnDragEnd,
+} from "@/components/puck/lib/mobilePanelDismissLogic";
+import {
   NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY,
   NEXUS_PANEL_RESIZING_ATTR,
   resolveMobilePanelMaxHeightPx,
 } from "@/components/puck/lib/sidebarLayoutLimits";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
 import {
-  PUCK_COMPACT_EDITOR_MAX_WIDTH,
+  PUCK_COMPACT_EDITOR_MQ,
   usePuckMobileEditorChrome,
 } from "@/components/puck/usePuckMobileEditorChrome";
 
@@ -56,7 +61,7 @@ export function NexusMobilePanelResizer() {
 
     restorePersistedPanelHeight();
 
-    const media = window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`);
+    const media = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
     const onBreakpointChange = () => restorePersistedPanelHeight();
     media.addEventListener("change", onBreakpointChange);
 
@@ -65,7 +70,6 @@ export function NexusMobilePanelResizer() {
 
   useEffect(() => {
     if (!isCompactEditor || !leftSideBarVisible) {
-      setHandleMount(null);
       return;
     }
 
@@ -146,16 +150,21 @@ export function NexusMobilePanelResizer() {
 
     if (!dragRef.current || typeof window === "undefined") return;
 
-    const { lastHeight } = dragRef.current;
+    const { lastHeight, startHeight } = dragRef.current;
     dragRef.current = null;
     document.documentElement.removeAttribute(NEXUS_PANEL_RESIZING_ATTR);
     endMobilePanelLayoutMutation();
     clearCompactPanelSidebarLayout();
     resetCompactPanelSidebarScroll();
 
-    const clamped = clampMobilePanelHeightPx(lastHeight, window.innerHeight);
-    applyMobilePanelHeight(`${clamped}px`);
-    localStorage.setItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY, String(clamped));
+    if (shouldDismissMobilePanelOnDragEnd(lastHeight, startHeight)) {
+      requestMobilePanelDismiss({ lastHeightPx: lastHeight });
+      return;
+    }
+
+    const settled = resolveMobilePanelDragSettleHeightPx(lastHeight, window.innerHeight);
+    applyMobilePanelHeight(`${settled}px`);
+    localStorage.setItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY, String(settled));
   }, []);
 
   const onPointerMove = useCallback((event: PointerEvent) => {
@@ -163,7 +172,7 @@ export function NexusMobilePanelResizer() {
     if (!drag || typeof window === "undefined") return;
 
     const delta = drag.startY - event.clientY;
-    const next = clampMobilePanelHeightPx(drag.startHeight + delta, window.innerHeight);
+    const next = resolveMobilePanelDragHeightPx(drag.startHeight, delta, window.innerHeight);
     if (next === drag.lastHeight) {
       event.preventDefault();
       return;
@@ -192,7 +201,7 @@ export function NexusMobilePanelResizer() {
       if (event.button !== 0 || typeof window === "undefined") return;
 
       const height = measureMobilePanelHeightPx();
-      if (height === undefined) return;
+      if (height === undefined || height <= 0) return;
 
       dragRef.current = {
         startY: event.clientY,
@@ -228,8 +237,8 @@ export function NexusMobilePanelResizer() {
     <button
       type="button"
       className="nexus-mobile-panel-resize-handle"
-      aria-label="Resize plugin panel"
-      title="Drag to resize panel"
+      aria-label="Resize or dismiss plugin panel"
+      title="Drag to resize; drag down to dismiss"
       onPointerDown={onPointerDown}
     />,
     handleMount,

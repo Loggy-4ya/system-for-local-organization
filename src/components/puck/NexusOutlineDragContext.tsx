@@ -10,6 +10,7 @@
  */
 
 import {
+  filterOutlineDropTargetForGridItem,
   resolveOutlineDropFromPointer,
   resolveOutlineRowDropTarget,
   resolveOutlineZoneDropTarget,
@@ -17,6 +18,7 @@ import {
   type OutlineDropPosition,
   type OutlineDropTarget,
 } from "@/components/puck/lib/outlineSortableLogic";
+import type { NexusGridItemZoneNode } from "@/components/puck/lib/nexusGridItemZonePolicy";
 import { useDragAutoScroll } from "@/lib/useDragAutoScroll";
 import {
   createContext,
@@ -79,6 +81,8 @@ export interface NexusOutlineDragProviderProps {
   children: ReactNode;
   /** Called when a drag commits to a new zone/index. */
   onCommit: (commit: OutlineDragCommit) => void;
+  /** Puck node index for grid-item destination validation. */
+  outlineNodes?: Record<string, NexusGridItemZoneNode>;
 }
 
 /**
@@ -87,7 +91,11 @@ export interface NexusOutlineDragProviderProps {
  * @param props - Provider props.
  * @returns Drag context wrapper.
  */
-export function NexusOutlineDragProvider({ children, onCommit }: NexusOutlineDragProviderProps) {
+export function NexusOutlineDragProvider({
+  children,
+  onCommit,
+  outlineNodes,
+}: NexusOutlineDragProviderProps) {
   const [dragSource, setDragSource] = useState<OutlineDragSource | null>(null);
   const [dropTarget, setDropTarget] = useState<OutlineDropTarget | null>(null);
   const [dragPointerOffsetX, setDragPointerOffsetX] = useState(0);
@@ -97,14 +105,25 @@ export function NexusOutlineDragProvider({ children, onCommit }: NexusOutlineDra
   const dragStartClientXRef = useRef(0);
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
-  const applyDropTarget = useCallback((resolved: OutlineDropTarget | null) => {
-    if (!resolved) {
-      return;
-    }
+  const applyDropTarget = useCallback(
+    (resolved: OutlineDropTarget | null, source: OutlineDragSource | null) => {
+      if (!resolved || !source) {
+        return;
+      }
 
-    dropTargetRef.current = resolved;
-    setDropTarget(resolved);
-  }, []);
+      const filtered = outlineNodes
+        ? filterOutlineDropTargetForGridItem(source, resolved, outlineNodes)
+        : resolved;
+
+      if (!filtered) {
+        return;
+      }
+
+      dropTargetRef.current = filtered;
+      setDropTarget(filtered);
+    },
+    [outlineNodes],
+  );
 
   const resolveHoverFromPointer = useCallback(
     (clientX: number, clientY: number) => {
@@ -117,7 +136,7 @@ export function NexusOutlineDragProvider({ children, onCommit }: NexusOutlineDra
 
       const offsetX = clientX - dragStartClientXRef.current;
       setDragPointerOffsetX(offsetX);
-      applyDropTarget(resolveOutlineDropFromPointer(source, clientX, clientY, offsetX));
+      applyDropTarget(resolveOutlineDropFromPointer(source, clientX, clientY, offsetX), source);
     },
     [applyDropTarget],
   );
@@ -161,7 +180,10 @@ export function NexusOutlineDragProvider({ children, onCommit }: NexusOutlineDra
         return;
       }
 
-      applyDropTarget(resolveOutlineRowDropTarget(source, targetZone, targetIndex, position));
+      applyDropTarget(
+        resolveOutlineRowDropTarget(source, targetZone, targetIndex, position),
+        source,
+      );
     },
     [applyDropTarget],
   );
@@ -173,7 +195,10 @@ export function NexusOutlineDragProvider({ children, onCommit }: NexusOutlineDra
         return;
       }
 
-      applyDropTarget(resolveOutlineZoneDropTarget(source, destinationZone, destinationIndex));
+      applyDropTarget(
+        resolveOutlineZoneDropTarget(source, destinationZone, destinationIndex),
+        source,
+      );
     },
     [applyDropTarget],
   );

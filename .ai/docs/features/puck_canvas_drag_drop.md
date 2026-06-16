@@ -1,10 +1,12 @@
 # Puck Canvas Drag-and-Drop — Slot Reparenting & Drop Highlights
 
-**Status:** `[x] Completed`
+**Status:** `[~] Disabled` — `NexusCanvasDragCoordinator` unmounted from `puckEditorOverrides.tsx` (2026-06-16). Stock Puck `@dnd-kit` drafting restored (top grab → nest inside containers; bottom grab → sibling insert). Coordinator sources remain for future rework.
 
 ---
 
 ## 1. Overview
+
+> **Runtime (2026-06-16):** The coordinator is **not mounted**. Editors use Puck's default pointer-based collision (same as `dev-crash-save`). Re-enable only after hit-testing respects grab position instead of a fixed top-anchor probe.
 
 Canvas drag-and-drop lets editors **reparent** existing blocks (e.g. move Video Player from the page root into a carousel slide or grid cell) using Puck's native `@dnd-kit` pipeline, enhanced by a Nexus **drag coordinator** when collision picks a sibling instead of a nested slot. This is separate from **Outline panel** drag ([`NexusDraggableOutline.tsx`](../../src/components/puck/NexusDraggableOutline.tsx)), which uses a custom pointer coordinator.
 
@@ -22,15 +24,17 @@ Every Puck **slot** must register a CSS marker class on the slot element in edit
 
 | Block | Slot field | CSS class on slot | Slot composition |
 |-------|-----------|-------------------|------------------|
-| Page root | `content` | `[data-puck-dropzone]` (Puck root) | — |
-| [`NexusSection`](../../src/components/puck/blocks/layout/NexusSection.tsx) | `content` | `nexus-section__dropzone` | — |
-| [`NexusColumns`](../../src/components/puck/blocks/layout/NexusColumns.tsx) | `left`, `right` | `nexus-columns__dropzone` | — |
+| Page root | `content` | `[data-puck-dropzone]` (Puck root) | `disallow: NexusGridItem` via [`NexusGridItemPlacementGuard`](../../src/components/puck/NexusGridItemPlacementGuard.tsx) (`onAction` revert) |
+| [`NexusSection`](../../src/components/puck/blocks/layout/NexusSection.tsx) | `content` | `nexus-section__dropzone` | `disallow: ["NexusGridItem"]` |
+| [`NexusColumns`](../../src/components/puck/blocks/layout/NexusColumns.tsx) | `left`, `right` | `nexus-columns__dropzone` | `disallow: ["NexusGridItem"]` |
 | [`NexusGrid`](../../src/components/puck/blocks/layout/NexusGrid.tsx) | `content` | `nexus-grid` | `allow: ["NexusGridItem"]` |
 | [`NexusGridItem`](../../src/components/puck/blocks/layout/NexusGridItem.tsx) | `content` | `nexus-grid-item` | `disallow: ["NexusGridItem", "NexusGrid"]` |
-| [`NexusCarousel`](../../src/components/puck/blocks/content/NexusCarousel.tsx) | `slides[].content` | `nexus-carousel__dropzone` | — |
-| [`NexusTabs`](../../src/components/puck/blocks/content/NexusTabs.tsx) | `tabs[].panel` | `nexus-tabs__dropzone` | — |
+| [`NexusCarousel`](../../src/components/puck/blocks/content/NexusCarousel.tsx) | `slides[].content` | `nexus-carousel__dropzone` | `disallow: ["NexusGridItem"]` |
+| [`NexusTabs`](../../src/components/puck/blocks/content/NexusTabs.tsx) | `tabs[].panel` | `nexus-tabs__dropzone` | `disallow: ["NexusGridItem"]` |
 
 Leaf blocks (Text, Video, Image, Button, List, etc.) are **drag sources only** — they inherit shared pointer-event rules during drag; no per-block DnD code is required.
+
+**Grid Item placement policy:** `NexusGridItem` is restricted to `{gridId}:content` where the parent is `NexusGrid`. See [`puck_grid_item_zone_policy.md`](puck_grid_item_zone_policy.md) for validators, enforcement layers, and how to add `disallow` on new slots.
 
 ---
 

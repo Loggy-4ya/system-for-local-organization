@@ -25,8 +25,12 @@ import {
   OUTLINE_NEST_OFFSET_PX,
   OUTLINE_OUTDENT_OFFSET_PX,
 } from "@/components/puck/lib/outlineSortableLogic";
-import { useOutlineRowPointerDrag } from "@/components/puck/lib/useOutlineRowPointerDrag";
+import {
+  isValidNexusGridItemDestinationZone,
+  NEXUS_GRID_ITEM_TYPE,
+} from "@/components/puck/lib/nexusGridItemZonePolicy";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
+import { useOutlineRowPointerDrag } from "@/components/puck/lib/useOutlineRowPointerDrag";
 
 /** Puck store private indexes exposed at runtime by `createUsePuck`. */
 interface PuckPrivateIndexes {
@@ -600,6 +604,15 @@ export function NexusDraggableOutline(): ReactNode {
 
   const handleCommit = useCallback(
     (commit: OutlineDragCommit) => {
+      const itemType = nodes?.[commit.itemId]?.data.type;
+      if (
+        itemType === NEXUS_GRID_ITEM_TYPE &&
+        nodes &&
+        !isValidNexusGridItemDestinationZone(commit.destinationZone, nodes)
+      ) {
+        return;
+      }
+
       if (commit.sourceZone === commit.destinationZone) {
         dispatch({
           type: "reorder",
@@ -621,7 +634,7 @@ export function NexusDraggableOutline(): ReactNode {
 
       void resolveDataById(commit.itemId, "move");
     },
-    [dispatch, resolveDataById],
+    [dispatch, nodes, resolveDataById],
   );
 
   const handleSelect = useCallback(
@@ -698,7 +711,7 @@ export function NexusDraggableOutline(): ReactNode {
   }
 
   return (
-    <NexusOutlineDragProvider onCommit={handleCommit}>
+    <NexusOutlineDragProvider onCommit={handleCommit} outlineNodes={nodes}>
       <OutlineTreeSurface>
         {trees.map((tree) => (
           <OutlineZoneSection

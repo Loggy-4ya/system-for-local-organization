@@ -4,9 +4,12 @@
  * @module src/components/puck/lib/mobilePanelLayout
  */
 
+import { clearMobilePreviewViewportOverrides } from "@/components/puck/lib/mobilePanelPreviewSync";
+import { recordMobileScrollportShellMetrics } from "@/components/puck/lib/mobileScrollportGridFreeze";
 import {
   clampMobilePanelHeightPx,
   NEXUS_MOBILE_PANEL_DEFAULT_HEIGHT,
+  resolveMobilePanelDefaultOpenHeightPx,
   NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY,
   NEXUS_MOBILE_PANEL_HEIGHT_VAR,
   NEXUS_MOBILE_PANEL_MIN_HEIGHT_PX,
@@ -60,7 +63,19 @@ export function resolveLeftSidebar(): HTMLElement | null {
  *
  * @param value - CSS length (`px` or `%`).
  */
+/** Attribute on `<html>` while the plugin panel row has non-zero height (settled open). */
+export const NEXUS_PANEL_ROW_OPEN_ATTR = "data-nexus-panel-row-open";
+
 export function applyMobilePanelHeight(value: string): void {
+  document.documentElement.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
+
+  const parsed = Number.parseFloat(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    document.documentElement.setAttribute(NEXUS_PANEL_ROW_OPEN_ATTR, "");
+  } else {
+    document.documentElement.removeAttribute(NEXUS_PANEL_ROW_OPEN_ATTR);
+  }
+
   const layout = resolveLayoutInner();
   if (!layout) return;
 
@@ -68,7 +83,59 @@ export function applyMobilePanelHeight(value: string): void {
   if (current === value) return;
 
   layout.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
-  document.documentElement.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
+}
+
+/**
+ * Apply panel height, retrying until the Puck layout inner grid is mounted.
+ *
+ * @param value - CSS length (`px` or `%`).
+ * @param options - Optional completion callback and attempt cap.
+ * @returns Cancel function for pending retries.
+ */
+export function scheduleMobilePanelHeightApply(
+  value: string,
+  options?: {
+    onApplied?: () => void;
+    maxAttempts?: number;
+  },
+): () => void {
+  if (typeof window === "undefined") {
+    options?.onApplied?.();
+    return () => undefined;
+  }
+
+  let attempts = 0;
+  let frameId = 0;
+  let cancelled = false;
+  const maxAttempts = options?.maxAttempts ?? 16;
+
+  const tryApply = () => {
+    if (cancelled) return;
+
+    applyMobilePanelHeight(value);
+    const layout = resolveLayoutInner();
+
+    if (layout) {
+      options?.onApplied?.();
+      return;
+    }
+
+    attempts += 1;
+    if (attempts < maxAttempts) {
+      frameId = requestAnimationFrame(tryApply);
+    } else {
+      options?.onApplied?.();
+    }
+  };
+
+  tryApply();
+
+  return () => {
+    cancelled = true;
+    if (frameId) {
+      cancelAnimationFrame(frameId);
+    }
+  };
 }
 
 /**
@@ -77,15 +144,28 @@ export function applyMobilePanelHeight(value: string): void {
  * @returns Panel height in px, or undefined when unavailable.
  */
 export function readMobilePanelHeightVarPx(): number | undefined {
+  if (typeof document === "undefined") return undefined;
+
   const layout = resolveLayoutInner();
-  if (!layout) return undefined;
 
   const raw =
-    layout.style.getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR) ||
-    getComputedStyle(layout).getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR);
+    layout?.style.getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR) ||
+    (layout ? getComputedStyle(layout).getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR) : "") ||
+    document.documentElement.style.getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR) ||
+    getComputedStyle(document.documentElement).getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR);
 
   const parsed = Number.parseFloat(raw);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+/**
+ * Whether the compact panel height token reads as fully closed (0px).
+ *
+ * @param heightPx - Parsed panel height in px.
+ * @returns True when the panel row should be treated as closed.
+ */
+export function isMobilePanelHeightClosedPx(heightPx: number | undefined): boolean {
+  return heightPx === undefined || heightPx <= 0;
 }
 
 /**
@@ -95,13 +175,33 @@ export function readMobilePanelHeightVarPx(): number | undefined {
  */
 export function measureMobilePanelHeightPx(): number | undefined {
   const fromVar = readMobilePanelHeightVarPx();
-  if (fromVar !== undefined && fromVar > 0) {
+  if (fromVar !== undefined) {
     return fromVar;
   }
 
   const sidebar = resolveLeftSidebar();
   const height = sidebar?.getBoundingClientRect().height;
-  return height && height > 0 ? height : undefined;
+  if (height === undefined || !Number.isFinite(height)) return undefined;
+  return height >= 0 ? height : undefined;
+}
+
+/**
+ * Reset persisted compact panel height to the default open height for the viewport.
+ *
+ * Used after swipe-to-dismiss so the next section-tab open animates to the default
+ * height instead of a dragged-down partial height.
+ *
+ * @param viewportHeight - Current viewport height in px.
+ */
+export function resetMobilePanelPersistedHeightToDefault(viewportHeight?: number): void {
+  if (typeof localStorage === "undefined") return;
+
+  const viewport =
+    viewportHeight ?? (typeof window !== "undefined" ? window.innerHeight : undefined);
+  if (viewport === undefined) return;
+
+  const defaultPx = resolveMobilePanelDefaultOpenHeightPx(viewport);
+  localStorage.setItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY, String(defaultPx));
 }
 
 /**
@@ -179,11 +279,37 @@ export const NEXUS_PANEL_CLOSING_ATTR = "data-nexus-panel-closing";
 /** Attribute on `<html>` while the compact plugin panel open animation runs. */
 export const NEXUS_PANEL_OPENING_ATTR = "data-nexus-panel-opening";
 
+/** Attribute on `<html>` while the canvas reflows after panel close (matches height animation). */
+export const NEXUS_PANEL_CLOSE_SETTLING_ATTR = "data-nexus-panel-close-settling";
+
 /** Attribute on `<html>` while the active nav tab expand animation runs. */
 export const NEXUS_PANEL_EXPANDING_ATTR = "data-nexus-panel-expanding";
 
 /** Attribute on `<html>` while double-tap restores height from full expand. */
 export const NEXUS_PANEL_COLLAPSING_ATTR = "data-nexus-panel-collapsing";
+
+/** One-shot flag: next panel open should animate to max height (double-tap open). */
+let pendingDoubleTapFullOpen = false;
+
+/**
+ * Mark the next compact panel open as a double-tap full-height open.
+ *
+ * Consumed by {@link consumePendingDoubleTapFullOpen} in the open animation.
+ */
+export function markPendingDoubleTapFullOpen(): void {
+  pendingDoubleTapFullOpen = true;
+}
+
+/**
+ * Whether the current open should use max height instead of persisted height.
+ *
+ * @returns True when {@link markPendingDoubleTapFullOpen} was called and not yet consumed.
+ */
+export function consumePendingDoubleTapFullOpen(): boolean {
+  if (!pendingDoubleTapFullOpen) return false;
+  pendingDoubleTapFullOpen = false;
+  return true;
+}
 
 /**
  * Persist the panel height captured before double-tap expand.
@@ -239,6 +365,100 @@ export const NEXUS_PANEL_OPEN_ANIMATION_MS = NEXUS_PANEL_HEIGHT_ANIMATION_MS;
 /** Duration of the panel expand/collapse height animation in ms. */
 export const NEXUS_PANEL_EXPAND_ANIMATION_MS = NEXUS_PANEL_HEIGHT_ANIMATION_MS;
 
+/** Document event dispatched when compact panel close animation should run. */
+export const NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT = "nexus-mobile-panel-close-request";
+
+/** Payload for {@link NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT}. */
+export interface MobilePanelDismissRequestDetail {
+  /** Panel height in px at dismiss release — avoids stale reads after drag. */
+  lastHeightPx?: number;
+}
+
+/**
+ * Request the compact plugin panel close animation (e.g. swipe-to-dismiss on the resize handle).
+ *
+ * Handled by {@link NexusMobileNavPanelGestures} so close logic stays centralized.
+ *
+ * @param detail - Optional dismiss metadata from the drag release.
+ */
+export function requestMobilePanelDismiss(detail?: MobilePanelDismissRequestDetail): void {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent<MobilePanelDismissRequestDetail>(NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT, {
+      detail,
+    }),
+  );
+}
+
+/** Active post-close settle timer — cleared when a new settle starts. */
+let mobilePanelCloseSettlingTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Begin the post-close canvas reflow phase while preview height tracks the editor shell.
+ */
+export function beginMobilePanelCloseSettling(): void {
+  if (typeof document === "undefined") return;
+
+  document.documentElement.removeAttribute(NEXUS_PANEL_CLOSING_ATTR);
+  document.documentElement.setAttribute(NEXUS_PANEL_CLOSE_SETTLING_ATTR, "");
+  beginMobilePanelLayoutMutation();
+}
+
+/**
+ * End post-close settle — clear preview overrides and notify listeners.
+ */
+export function endMobilePanelCloseSettling(): void {
+  if (typeof document === "undefined") return;
+
+  if (mobilePanelCloseSettlingTimer !== null) {
+    clearTimeout(mobilePanelCloseSettlingTimer);
+    mobilePanelCloseSettlingTimer = null;
+  }
+
+  document.documentElement.removeAttribute(NEXUS_PANEL_CLOSE_SETTLING_ATTR);
+  clearMobilePreviewViewportOverrides();
+  endMobilePanelLayoutMutation();
+}
+
+/**
+ * Run {@link beginMobilePanelCloseSettling} then end after the height animation duration.
+ *
+ * @param durationMs - Settle duration in ms (defaults to panel close animation length).
+ */
+export function scheduleMobilePanelCloseSettling(
+  durationMs: number = NEXUS_PANEL_CLOSE_ANIMATION_MS,
+): void {
+  if (typeof window === "undefined") return;
+
+  if (mobilePanelCloseSettlingTimer !== null) {
+    clearTimeout(mobilePanelCloseSettlingTimer);
+  }
+
+  beginMobilePanelCloseSettling();
+
+  mobilePanelCloseSettlingTimer = setTimeout(() => {
+    mobilePanelCloseSettlingTimer = null;
+    endMobilePanelCloseSettling();
+  }, durationMs);
+}
+
+/**
+ * Whether the compact panel row height is easing via CSS (open or close animation).
+ *
+ * @returns True while `data-nexus-panel-opening` or `data-nexus-panel-closing` is set.
+ */
+export function isMobilePanelHeightTransitionActive(): boolean {
+  if (typeof document === "undefined") return false;
+
+  const root = document.documentElement;
+  return (
+    root.hasAttribute(NEXUS_PANEL_OPENING_ATTR) ||
+    root.hasAttribute(NEXUS_PANEL_CLOSING_ATTR) ||
+    root.hasAttribute(NEXUS_PANEL_CLOSE_SETTLING_ATTR)
+  );
+}
+
 /**
  * Whether the compact plugin panel height or layout is actively changing.
  *
@@ -254,7 +474,8 @@ export function isMobilePanelLayoutMutating(): boolean {
     root.hasAttribute(NEXUS_PANEL_CLOSING_ATTR) ||
     root.hasAttribute(NEXUS_PANEL_OPENING_ATTR) ||
     root.hasAttribute(NEXUS_PANEL_EXPANDING_ATTR) ||
-    root.hasAttribute(NEXUS_PANEL_COLLAPSING_ATTR)
+    root.hasAttribute(NEXUS_PANEL_COLLAPSING_ATTR) ||
+    root.hasAttribute(NEXUS_PANEL_CLOSE_SETTLING_ATTR)
   );
 }
 
@@ -279,19 +500,31 @@ export function endMobilePanelLayoutMutation(): void {
     document.documentElement.hasAttribute(NEXUS_PANEL_OPENING_ATTR) ||
     document.documentElement.hasAttribute(NEXUS_PANEL_EXPANDING_ATTR) ||
     document.documentElement.hasAttribute(NEXUS_PANEL_COLLAPSING_ATTR) ||
+    document.documentElement.hasAttribute(NEXUS_PANEL_CLOSE_SETTLING_ATTR) ||
     document.documentElement.hasAttribute(NEXUS_PANEL_RESIZING_ATTR);
 
   if (!stillMutating) {
+    recordMobileScrollportShellMetrics();
     window.dispatchEvent(new CustomEvent(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, { bubbles: true }));
   }
 }
 
 /**
+ * Resolve and synchronously apply the target compact panel height.
+ *
+ * @param viewportHeight - `window.innerHeight` or equivalent.
+ */
+export function applyMobilePanelOpenHeightImmediate(viewportHeight: number): void {
+  const targetHeightPx = resolveMobilePanelOpenHeightPx(viewportHeight);
+  scheduleMobilePanelHeightApply(`${targetHeightPx}px`);
+}
+
+/**
  * Prepare the plugin panel for an open-height animation on the next frame.
+ * @deprecated Use {@link applyMobilePanelOpenHeightImmediate} instead.
  */
 export function prepareMobilePanelOpenAnimation(): void {
   beginMobilePanelLayoutMutation();
-  applyMobilePanelHeight("0px");
 }
 
 /**
@@ -320,7 +553,7 @@ export function resolveMobilePanelOpenHeightPx(viewportHeight: number): number {
     /* ignore persistence errors */
   }
 
-  return clampMobilePanelHeightPx(Math.round(viewportHeight * 0.3), viewportHeight);
+  return resolveMobilePanelDefaultOpenHeightPx(viewportHeight);
 }
 
 /** Active panel height animation cancel callback. */
@@ -334,6 +567,21 @@ let activePanelHeightAnimationCancel: (() => void) | null = null;
 function prefersReducedPanelMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Pure helper to determine if the open animation should be skipped because the panel is already sufficiently open.
+ *
+ * @param currentPx - Current measured panel height in px.
+ * @param targetPx - Target open height in px.
+ * @returns True if the animation should be skipped.
+ */
+export function shouldSkipMobilePanelOpenAnimation(
+  currentPx: number | undefined,
+  targetPx: number,
+): boolean {
+  if (currentPx === undefined) return false;
+  return currentPx >= targetPx * 0.85;
 }
 
 /**
@@ -362,54 +610,69 @@ export function animateMobilePanelHeight(
     return () => undefined;
   }
 
-  const layout = resolveLayoutInner();
-  if (!layout) {
-    options?.onComplete?.();
-    return () => undefined;
-  }
-
   activePanelHeightAnimationCancel?.();
-
-  if (fromPx === toPx) {
-    applyMobilePanelHeight(`${toPx}px`);
-    options?.onComplete?.();
-    return () => undefined;
-  }
-
-  beginMobilePanelLayoutMutation();
-
-  if (options?.htmlAttr) {
-    document.documentElement.setAttribute(options.htmlAttr, "");
-  }
 
   let finished = false;
   let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryFrame: number | null = null;
+  let activeLayoutEl: HTMLElement | null = null;
+
+  const onTransitionEnd = (event: TransitionEvent) => {
+    if (event.target !== activeLayoutEl) return;
+    if (event.propertyName !== "--nexus-mobile-panel-height") {
+      return;
+    }
+    finish();
+  };
 
   const finish = () => {
     if (finished) return;
     finished = true;
 
-    layout.removeEventListener("transitionend", onTransitionEnd);
+    if (activeLayoutEl) {
+      activeLayoutEl.removeEventListener("transitionend", onTransitionEnd);
+    }
     if (fallbackTimer !== null) {
       clearTimeout(fallbackTimer);
       fallbackTimer = null;
     }
 
     applyMobilePanelHeight(`${toPx}px`);
-    endMobilePanelLayoutMutation();
-    activePanelHeightAnimationCancel = null;
     options?.onComplete?.();
 
-    if (options?.htmlAttr) {
-      document.documentElement.removeAttribute(options.htmlAttr);
+    if (options?.htmlAttr === NEXUS_PANEL_CLOSING_ATTR) {
+      if (activePanelHeightAnimationCancel === cancel) {
+        activePanelHeightAnimationCancel = null;
+      }
+      return;
     }
+
+    const finalizeMutation = () => {
+      if (options?.htmlAttr) {
+        document.documentElement.removeAttribute(options.htmlAttr);
+      }
+
+      endMobilePanelLayoutMutation();
+      if (activePanelHeightAnimationCancel === cancel) {
+        activePanelHeightAnimationCancel = null;
+      }
+    };
+
+    finalizeMutation();
   };
 
   const cancel = () => {
     if (finished) return;
     finished = true;
 
-    layout.removeEventListener("transitionend", onTransitionEnd);
+    if (retryFrame !== null) {
+      cancelAnimationFrame(retryFrame);
+      retryFrame = null;
+    }
+
+    if (activeLayoutEl) {
+      activeLayoutEl.removeEventListener("transitionend", onTransitionEnd);
+    }
     if (fallbackTimer !== null) {
       clearTimeout(fallbackTimer);
       fallbackTimer = null;
@@ -417,6 +680,11 @@ export function animateMobilePanelHeight(
 
     if (options?.htmlAttr) {
       document.documentElement.removeAttribute(options.htmlAttr);
+    }
+
+    // On cancel, if mid-open (height near 0), apply the intended toPx so cleanup never leaves the panel at 0px.
+    if (fromPx === 0 && toPx > 0) {
+      applyMobilePanelHeight(`${toPx}px`);
     }
 
     endMobilePanelLayoutMutation();
@@ -425,38 +693,66 @@ export function animateMobilePanelHeight(
     }
   };
 
-  const onTransitionEnd = (event: TransitionEvent) => {
-    if (event.target !== layout) return;
-    if (
-      event.propertyName !== "--nexus-mobile-panel-height"
-    ) {
+  const runAnimation = (layoutEl: HTMLElement) => {
+    if (finished) return;
+    activeLayoutEl = layoutEl;
+
+    if (fromPx === toPx) {
+      applyMobilePanelHeight(`${toPx}px`);
+      if (options?.htmlAttr) {
+        document.documentElement.removeAttribute(options.htmlAttr);
+      }
+      endMobilePanelLayoutMutation();
+      options?.onComplete?.();
       return;
     }
-    finish();
+
+    beginMobilePanelLayoutMutation();
+
+    if (options?.htmlAttr) {
+      document.documentElement.setAttribute(options.htmlAttr, "");
+    }
+
+    if (prefersReducedPanelMotion()) {
+      applyMobilePanelHeight(`${toPx}px`);
+      if (options?.htmlAttr) {
+        document.documentElement.removeAttribute(options.htmlAttr);
+      }
+      endMobilePanelLayoutMutation();
+      options?.onComplete?.();
+      return;
+    }
+
+    applyMobilePanelHeight(`${fromPx}px`);
+    layoutEl.addEventListener("transitionend", onTransitionEnd);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (finished) return;
+        applyMobilePanelHeight(`${toPx}px`);
+      });
+    });
+
+    fallbackTimer = setTimeout(finish, durationMs + 96);
   };
 
-  if (prefersReducedPanelMotion()) {
-    applyMobilePanelHeight(`${toPx}px`);
-    if (options?.htmlAttr) {
-      document.documentElement.removeAttribute(options.htmlAttr);
-    }
-    endMobilePanelLayoutMutation();
-    options?.onComplete?.();
-    return () => undefined;
+  const layout = resolveLayoutInner();
+  if (!layout) {
+    retryFrame = requestAnimationFrame(() => {
+      retryFrame = null;
+      const retryLayout = resolveLayoutInner();
+      if (!retryLayout) {
+        options?.onComplete?.();
+        return;
+      }
+      runAnimation(retryLayout);
+    });
+
+    activePanelHeightAnimationCancel = cancel;
+    return cancel;
   }
 
-  applyMobilePanelHeight(`${fromPx}px`);
-  layout.addEventListener("transitionend", onTransitionEnd);
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (finished) return;
-      applyMobilePanelHeight(`${toPx}px`);
-    });
-  });
-
-  fallbackTimer = setTimeout(finish, durationMs + 96);
-
+  runAnimation(layout);
   activePanelHeightAnimationCancel = cancel;
   return cancel;
 }
@@ -467,4 +763,65 @@ export function animateMobilePanelHeight(
 export function cancelMobilePanelHeightAnimation(): void {
   activePanelHeightAnimationCancel?.();
   activePanelHeightAnimationCancel = null;
+}
+
+/** `<html>` / layout panel mutation attributes cleared after a full panel close. */
+const PANEL_MUTATION_ATTRS = [
+  NEXUS_PANEL_LAYOUT_MUTATING_ATTR,
+  NEXUS_PANEL_RESIZING_ATTR,
+  NEXUS_PANEL_CLOSING_ATTR,
+  NEXUS_PANEL_OPENING_ATTR,
+  NEXUS_PANEL_EXPANDING_ATTR,
+  NEXUS_PANEL_COLLAPSING_ATTR,
+  NEXUS_PANEL_CLOSE_SETTLING_ATTR,
+] as const;
+
+/**
+ * Clear animation flags so the slide-up plugin panel accepts scroll and pointer input.
+ *
+ * Call after open/expand/collapse animations finish or when skipping height easing.
+ */
+export function releaseMobilePanelSidebarForInteraction(): void {
+  if (typeof document === "undefined") return;
+
+  document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
+  document.documentElement.removeAttribute(NEXUS_PANEL_CLOSING_ATTR);
+  document.documentElement.removeAttribute(NEXUS_PANEL_EXPANDING_ATTR);
+  document.documentElement.removeAttribute(NEXUS_PANEL_COLLAPSING_ATTR);
+  document.documentElement.removeAttribute(NEXUS_PANEL_LAYOUT_MUTATING_ATTR);
+  endMobilePanelLayoutMutation();
+}
+
+/**
+ * Clear portaled resize overlays and drag chrome after the plugin panel closes.
+ */
+export function cleanupCompactPanelOverlayChrome(): void {
+  if (typeof document === "undefined") return;
+
+  document.getElementById("resize-overlay")?.remove();
+  document.body.style.removeProperty("cursor");
+  document.body.style.removeProperty("user-select");
+
+  document.querySelectorAll(".nexus-mobile-panel-resize-host").forEach((node) => {
+    node.remove();
+  });
+}
+
+/**
+ * Remove stale compact panel chrome after the plugin panel closes.
+ *
+ * Clears mutation flags, panel height tokens, stuck resize overlays, and portaled
+ * drag hosts so the canvas returns to a full-width, interactive state.
+ */
+export function resetCompactPanelChromeAfterClose(): void {
+  if (typeof document === "undefined") return;
+
+  for (const attr of PANEL_MUTATION_ATTRS) {
+    document.documentElement.removeAttribute(attr);
+  }
+
+  applyMobilePanelHeight("0px");
+  cleanupCompactPanelOverlayChrome();
+  endMobilePanelCloseSettling();
+  endMobilePanelLayoutMutation();
 }

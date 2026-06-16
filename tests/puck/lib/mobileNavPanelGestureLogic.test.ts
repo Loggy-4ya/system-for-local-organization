@@ -18,7 +18,6 @@ import {
   isGhostNavClick,
   isPrimaryPointerTap,
   isPrimaryTouchTap,
-  isWithinMobileNavDoubleTapWindow,
   processMobileNavTap,
   recordNavPointerDown,
   resolveActiveNavLink,
@@ -298,12 +297,8 @@ describe("shouldBlockActiveNavTab", () => {
     );
   });
 
-  it("keeps blocking through the double-tap pairing window after the first tap", () => {
-    const state = createMobileNavTapState();
+  it("blocks the active tab while the panel is closed for deferred open", () => {
     const link = createActiveNavLink("Outline");
-
-    processMobileNavTap({ state, now: 1000, link, source: "touch" });
-    assert.equal(isWithinMobileNavDoubleTapWindow(state, 1200), true);
 
     assert.equal(
       shouldBlockActiveNavTab({
@@ -311,8 +306,8 @@ describe("shouldBlockActiveNavTab", () => {
         leftSideBarVisible: false,
         isNavRailTarget: true,
         link,
-        tapState: state,
-        now: 1200,
+        tapState: createMobileNavTapState(),
+        now: 1000,
       }),
       true,
     );
@@ -374,10 +369,44 @@ describe("resolveActiveNavLink", () => {
 });
 
 describe("resolveMobileNavPanelToggle", () => {
-  it("expands when the panel is not marked expanded", () => {
+  it("opens at full height when the panel is closed", () => {
     assert.deepEqual(
       resolveMobileNavPanelToggle(
         {
+          leftSideBarVisible: false,
+          openedViaDoubleTap: false,
+          isMobilePanelExpanded: false,
+          currentHeightPx: 0,
+          maxHeightPx: 480,
+        },
+        () => 160,
+      ),
+      { action: "open-full" },
+    );
+  });
+
+  it("closes when the panel was opened via double-tap", () => {
+    assert.deepEqual(
+      resolveMobileNavPanelToggle(
+        {
+          leftSideBarVisible: true,
+          openedViaDoubleTap: true,
+          isMobilePanelExpanded: true,
+          currentHeightPx: 480,
+          maxHeightPx: 480,
+        },
+        () => 240,
+      ),
+      { action: "close" },
+    );
+  });
+
+  it("expands when single-tap open and not marked expanded", () => {
+    assert.deepEqual(
+      resolveMobileNavPanelToggle(
+        {
+          leftSideBarVisible: true,
+          openedViaDoubleTap: false,
           isMobilePanelExpanded: false,
           currentHeightPx: 240,
           maxHeightPx: 480,
@@ -391,10 +420,12 @@ describe("resolveMobileNavPanelToggle", () => {
     );
   });
 
-  it("collapses to pre-expand height when marked expanded", () => {
+  it("collapses to pre-expand height when single-tap open and marked expanded", () => {
     assert.deepEqual(
       resolveMobileNavPanelToggle(
         {
+          leftSideBarVisible: true,
+          openedViaDoubleTap: false,
           isMobilePanelExpanded: true,
           currentHeightPx: 480,
           maxHeightPx: 480,
@@ -412,6 +443,8 @@ describe("resolveMobileNavPanelToggle", () => {
     assert.deepEqual(
       resolveMobileNavPanelToggle(
         {
+          leftSideBarVisible: true,
+          openedViaDoubleTap: false,
           isMobilePanelExpanded: false,
           currentHeightPx: 476,
           maxHeightPx: 480,

@@ -47,7 +47,7 @@ export function SegmentedControl<T extends string = string>({
 
   return (
     <div
-      className="nexus-segmented"
+      className="nexus-segmented nexus-plugin-segmented"
       role="toolbar"
       aria-label={ariaLabel}
       style={{ "--nexus-segmented-cols": gridCols } as CSSProperties}

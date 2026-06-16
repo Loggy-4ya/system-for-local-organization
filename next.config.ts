@@ -20,7 +20,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   // Phone/LAN testing: Next.js 16 blocks dev assets from non-localhost origins unless listed.
-  ...(devLanOrigin ? { allowedDevOrigins: [devLanOrigin] } : {}),
+  allowedDevOrigins: [
+    ...(devLanOrigin ? [devLanOrigin] : []),
+    "localhost",
+    "127.0.0.1",
+  ],
 
   // Allow remote image sources for user avatars (Google, Telegram CDN)
   images: {

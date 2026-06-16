@@ -6,6 +6,12 @@
  * @module src/components/puck/lib/outlineSortableLogic
  */
 
+import {
+  isValidNexusGridItemDestinationZone,
+  NEXUS_GRID_ITEM_TYPE,
+  type NexusGridItemZoneNode,
+} from "@/components/puck/lib/nexusGridItemZonePolicy";
+
 /** Drop position relative to a sibling row. */
 export type OutlineDropPosition = "before" | "after";
 
@@ -20,6 +26,31 @@ export const OUTLINE_OUTDENT_OFFSET_PX = -24;
 
 /** Puck root area id used in zone compound keys. */
 const ROOT_AREA_ID = "root";
+
+/**
+ * Reject outline drop targets that would place a grid item outside {@link NEXUS_GRID_TYPE}.
+ *
+ * @param source - Active drag source.
+ * @param target - Resolved drop target.
+ * @param nodes - Puck node index for parent type lookup.
+ * @returns The target when allowed, otherwise null.
+ */
+export function filterOutlineDropTargetForGridItem(
+  source: OutlineDragSource,
+  target: OutlineDropTarget | null,
+  nodes: Record<string, NexusGridItemZoneNode>,
+): OutlineDropTarget | null {
+  if (!target) {
+    return null;
+  }
+
+  const itemType = nodes[source.itemId]?.data.type;
+  if (itemType !== NEXUS_GRID_ITEM_TYPE) {
+    return target;
+  }
+
+  return isValidNexusGridItemDestinationZone(target.destinationZone, nodes) ? target : null;
+}
 
 /**
  * Escape a zone compound key for safe use inside CSS attribute selectors.

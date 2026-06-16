@@ -11,6 +11,7 @@
 
 import { useGetPuck } from "@puckeditor/core";
 import { Globe } from "lucide-react";
+import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import { useCallback, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { usePuckEditorPublish } from "@/components/puck/PuckEditorErrorContext";
@@ -29,7 +30,7 @@ export interface NexusPublishButtonProps {
  * @returns Publish button JSX.
  */
 export function NexusPublishButton({
-  className = "nexus-publish-btn nexus-editor-header-btn",
+  className = "nexus-mode-toggle nexus-editor-header-btn nexus-publish-btn",
 }: NexusPublishButtonProps) {
   const getPuck = useGetPuck();
   const onPublish = usePuckEditorPublish();
@@ -64,7 +65,7 @@ export function NexusPublishButton({
       {loading ? (
         <Spinner className="nexus-publish-btn__icon size-3.5" aria-hidden />
       ) : (
-        <Globe className="nexus-publish-btn__icon" size={14} strokeWidth={2.25} aria-hidden />
+        <Globe className="nexus-publish-btn__icon site-chrome-icon" {...siteChromeLucideProps()} aria-hidden />
       )}
       {iconOnly ? null : <span className="nexus-publish-btn__label">Publish</span>}
     </button>

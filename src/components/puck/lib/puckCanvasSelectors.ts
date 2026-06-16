@@ -8,6 +8,9 @@
 export const PUCK_CANVAS_SHELL_SELECTOR =
   '.Puck [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not([class*="PuckCanvas-root"]):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"])';
 
+/** Compact editor full-screen canvas shell (mobile / touch-primary ≤900px). */
+export const PUCK_MOBILE_CANVAS_SHELL_SELECTOR = '.Puck [class*="PuckCanvas--fullScreen"]';
+
 /** Puck canvas inner scrollport (preview host). */
 export const PUCK_CANVAS_INNER_SELECTOR = '.Puck [class*="PuckCanvas-inner"]';
 

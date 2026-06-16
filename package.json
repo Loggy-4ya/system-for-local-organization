@@ -8,9 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "test:mobile-nav-gestures": "npx tsx --test tests/puck/lib/mobileNavPanelGestureLogic.test.ts",
+    "test:mobile-panel-dismiss": "npx tsx --test tests/puck/lib/mobilePanelDismissLogic.test.ts",
+    "test:mobile-blocks-palette-dismiss": "npx tsx --test tests/puck/lib/mobileBlocksPalettePanelDismissLogic.test.ts",
     "test:carousel-pagination": "npx tsx --test tests/puck/lib/carouselPagination.test.ts",
     "test:carousel-nav": "npx tsx --test tests/puck/lib/carouselNavController.test.ts",
+    "test:carousel-edit-swipe": "npx tsx --test tests/puck/lib/carouselEditSwipeLogic.test.ts",
+    "test:preview-iframe-composite": "npx tsx --test tests/puck/lib/previewIframeShellComposite.test.ts",
+    "test:mobile-scrollport-grid-freeze": "npx tsx --test tests/puck/lib/mobileScrollportGridFreeze.test.ts",
     "test:outline-sortable": "npx tsx --test tests/puck/lib/outlineSortableLogic.test.ts",
+    "test:nexus-grid-item-zone": "npx tsx --test tests/puck/lib/nexusGridItemZonePolicy.test.ts",
     "test:island-defaults": "npx tsx --test tests/puck/lib/applyIslandDefaultsOnInsert.test.ts",
     "test:block-shell-band": "npx tsx --test tests/puck/lib/blockShellBand.test.ts",
     "test:content-width-tokens": "npx tsx --test tests/puck/lib/contentWidthTokens.test.ts",
@@ -26,8 +32,9 @@
     "test:global-layout-align": "npx tsx --test tests/global-layout/lib/headerNavAlignLogic.test.ts",
     "test:drag-scroll": "npx tsx --test tests/lib/dragAutoScrollLogic.test.ts",
     "test:page-edit-access": "npx tsx --test tests/lib/pageEditAccess.test.ts",
+    "test:loader-auto-retry": "npx tsx --test tests/lib/loaderAutoRetryLogic.test.ts",
     "test:validation": "npx tsx --test tests/shared/validation/schemas.test.ts",
-    "test:puck": "npm run test:mobile-nav-gestures && npm run test:carousel-pagination && npm run test:carousel-nav && npm run test:outline-sortable && npm run test:island-defaults && npm run test:block-shell-band && npm run test:content-width-tokens && npm run test:separator-block && npm run test:embed-media && npm run test:canvas-drop-target && npm run test:canvas-reparent && npm run test:canvas-carousel-drag && npm run test:canvas-section-drop && npm run test:block-render-visibility"
+    "test:puck": "npm run test:mobile-nav-gestures && npm run test:carousel-pagination && npm run test:carousel-nav && npm run test:carousel-edit-swipe && npm run test:outline-sortable && npm run test:nexus-grid-item-zone && npm run test:island-defaults && npm run test:block-shell-band && npm run test:content-width-tokens && npm run test:separator-block && npm run test:embed-media && npm run test:canvas-drop-target && npm run test:canvas-reparent && npm run test:canvas-carousel-drag && npm run test:canvas-section-drop && npm run test:block-render-visibility"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -53,6 +60,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",

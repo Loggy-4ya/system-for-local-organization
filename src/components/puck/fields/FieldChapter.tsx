@@ -9,7 +9,7 @@
  * @module src/components/puck/fields/FieldChapter
  */
 
-import { Box, Grid3x3, Palette, Settings2 } from "lucide-react";
+import { Box, ChevronDown, Grid3x3, Palette, Settings2 } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { puckIcon } from "../lib/puckIcons";
 
@@ -55,13 +55,24 @@ export function FieldChapter({ title, icon, children, defaultOpen = false }: Fie
       >
         {icon ? <span className="nexus-field-chapter__icon">{icon}</span> : null}
         <span className="nexus-field-chapter__title">{title}</span>
+        <span
+          className={[
+            "nexus-field-chapter__chevron",
+            open ? "nexus-field-chapter__chevron--expanded" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-hidden
+        >
+          <ChevronDown size={12} />
+        </span>
       </button>
       <div
         id={panelId}
         className="nexus-field-chapter__collapse"
         aria-hidden={!open}
       >
-        <div className="nexus-field-chapter__body">{children}</div>
+        <div className="nexus-field-chapter__body nexus-plugin-field-surface">{children}</div>
       </div>
     </div>
   );

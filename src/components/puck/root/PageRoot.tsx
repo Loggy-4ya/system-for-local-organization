@@ -24,6 +24,10 @@ import {
   resolvePageRootAppearance,
   type PageRootStoredProps,
 } from "../lib/pageRootFieldProps";
+import { useDesktopScrollportGridActive } from "../lib/desktopEditorScrollport";
+import { useRequiresIframeContainedEditGrid } from "../lib/previewIframeShellComposite";
+import { resolveShowPreviewIframeGrid } from "../lib/previewIframeGridBacking";
+import { useInsidePuckEditorShell } from "../lib/useInsidePuckEditorShell";
 import { useNexusEditorCanvas } from "../NexusEditorCanvasContext";
 import { InfiniteGrid } from "@/components/background/InfiniteGrid";
 
@@ -37,8 +41,7 @@ interface PageRootProps extends PageRootStoredProps {
 interface PageRootBodyProps extends PageRootProps {
   /**
    * When true, paint the site-default grid inside the Puck preview document.
-   * Required on desktop too — the scrollport grid sits behind the iframe element
-   * and cannot show through the preview viewport.
+   * False when the shell scrollport grid owns the canvas (Puck editor edit + preview).
    */
   showPreviewIframeGrid: boolean;
 }
@@ -54,6 +57,7 @@ function PageRootBody({
   showPreviewIframeGrid,
   ...props
 }: PageRootBodyProps) {
+  const isPuckEditMode = Boolean(props.puck?.isEditing);
   const { resolvedTheme } = useTheme();
   const { background, backgroundGridMotion, backgroundPreset, backgroundImage, contentWidth } =
     resolvePageRootAppearance(props);
@@ -77,7 +81,8 @@ function PageRootBody({
     <div
       style={{
         position: "relative",
-        minHeight: isPublishedView ? undefined : "100vh",
+        minHeight: isPublishedView ? undefined : "100%",
+        height: showPreviewIframeGrid && !isPuckEditMode ? "100%" : undefined,
         width: "100%",
         display: "flex",
         flexDirection: "column",
@@ -90,6 +95,9 @@ function PageRootBody({
           key={resolvedTheme ?? "dark"}
           isContained
           isStatic={backgroundGridMotion === "static"}
+          wrapperId={
+            isPuckEditMode ? "nexus-edit-iframe-contained-grid" : "nexus-preview-iframe-grid"
+          }
         />
       ) : null}
       <div
@@ -128,14 +136,21 @@ function PageRootBody({
 function PageRootRender(props: PageRootProps) {
   const isNexusEditorCanvas = useNexusEditorCanvas();
   const isPuckEditMode = Boolean(props.puck?.isEditing);
-  const showEditorBackground = isPuckEditMode || isNexusEditorCanvas;
-  const showPreviewIframeGrid = showEditorBackground;
+  const insidePuckEditorShell = useInsidePuckEditorShell();
+  const showEditorBackground = isPuckEditMode || isNexusEditorCanvas || insidePuckEditorShell;
+  const shellScrollportGrid = useDesktopScrollportGridActive();
+  const requiresIframeContainedEditGrid = useRequiresIframeContainedEditGrid();
+  const { background } = resolvePageRootAppearance(props);
+  const showPreviewIframeGrid = resolveShowPreviewIframeGrid({
+    showEditorBackground,
+    background,
+    shellScrollportGrid,
+    insidePuckEditorShell,
+    requiresIframeContainedEditGrid,
+  });
 
   return (
-    <PageRootBody
-      {...props}
-      showPreviewIframeGrid={showPreviewIframeGrid}
-    />
+    <PageRootBody {...props} showPreviewIframeGrid={showPreviewIframeGrid} />
   );
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
 /**
- * @fileoverview Carousel render — Embla in view/interactive modes; strip-style single panel in edit mode.
+ * @fileoverview Carousel render — Embla in view/interactive modes; edit-mode swipe via Embla or pointer gestures.
+ *
+ * Tests: `tests/puck/lib/carouselEditSwipeLogic.test.ts` — `npm run test:carousel-edit-swipe`
  *
  * @module src/components/puck/blocks/content/NexusCarouselRender
  */
@@ -55,6 +57,12 @@ import {
   resolveCarouselEmblaMotionOptions,
   scrollEngineToSnap,
 } from "../../lib/carouselEngine";
+import {
+  resolveCarouselEditEmblaDragEnabled,
+  resolveCarouselEditPointerSwipeEnabled,
+  shouldAllowCarouselEditEmblaDrag,
+} from "../../lib/carouselEditSwipeLogic";
+import { useCarouselEditSwipe } from "../../lib/useCarouselEditSwipe";
 import { useCarouselNavController } from "../../lib/useCarouselNavController";
 import {
   CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
@@ -575,17 +583,7 @@ function NexusCarouselBody({
   const slideSpvClass = resolveSlidesPerViewClass(slidesPerView);
   const useSingleFrame = slidesPerView === "1";
   const emblaScroll = resolveCarouselEmblaScrollOptions();
-  const emblaMotion = useMemo(
-    () => resolveCarouselEmblaMotionOptions(!editLayoutMode),
-    [editLayoutMode],
-  );
-  const emblaBreakpoints = useMemo(
-    () => ({
-      ...emblaScroll.breakpoints,
-      ...emblaMotion.breakpoints,
-    }),
-    [emblaMotion.breakpoints, emblaScroll.breakpoints],
-  );
+  const emblaBreakpointsBase = emblaScroll.breakpoints;
 
   const carouselSizeStyle: CSSProperties = {
     ...(useSingleFrame ? { borderRadius: resolvedBorderRadius } : undefined),
@@ -620,6 +618,26 @@ function NexusCarouselBody({
   /** Embla loop only in interactive/published — edit avoids clone nodes that break Puck slots. */
   const emblaLoop = canPaginate && !editLayoutMode;
   const emblaContainScroll = emblaLoop ? false : ("trimSnaps" as const);
+  const emblaEditDragEnabled = resolveCarouselEditEmblaDragEnabled(
+    editLayoutMode,
+    count,
+    editStaticFit,
+  );
+  const emblaMotion = useMemo(
+    () => resolveCarouselEmblaMotionOptions(!editLayoutMode || emblaEditDragEnabled),
+    [editLayoutMode, emblaEditDragEnabled],
+  );
+  const carouselEditPointerSwipeEnabled = resolveCarouselEditPointerSwipeEnabled(
+    editLayoutMode,
+    count,
+  );
+  const emblaBreakpoints = useMemo(
+    () => ({
+      ...emblaBreakpointsBase,
+      ...emblaMotion.breakpoints,
+    }),
+    [emblaBreakpointsBase, emblaMotion.breakpoints],
+  );
 
   const nav = useCarouselNavController({
     engine: api,
@@ -656,13 +674,25 @@ function NexusCarouselBody({
   };
 
   const scrollToEditPage = useCallback(
-    (pageIndex: number, slideIndex: number) => {
+    (pageIndex: number, slideIndex: number, options?: { jump?: boolean }) => {
       if (!api || count === 0 || editStaticFit) return;
 
+      const jump = options?.jump ?? false;
       const maxPage = Math.max(0, editPageCount - 1);
       const clampedPage = Math.min(Math.max(0, pageIndex), maxPage);
 
       if (singleSlideEditView) {
+        const snap = Math.min(Math.max(0, slideIndex), count - 1);
+        if (
+          lastEditScrollRef.current?.slideIndex === slideIndex &&
+          lastEditScrollRef.current?.snap === snap &&
+          api.selectedScrollSnap() === snap
+        ) {
+          return;
+        }
+
+        api.scrollTo(snap, jump);
+        lastEditScrollRef.current = { slideIndex, snap };
         return;
       }
 
@@ -676,7 +706,7 @@ function NexusCarouselBody({
         return;
       }
 
-      api.scrollTo(leadingSnap, true);
+      api.scrollTo(leadingSnap, jump);
       lastEditScrollRef.current = { slideIndex, snap: leadingSnap };
     },
     [api, count, editStaticFit, editPageCount, pagePlan.pages, singleSlideEditView],
@@ -732,7 +762,7 @@ function NexusCarouselBody({
 
       if (editLayoutMode) {
         setActiveSlideIndex(slideIndex);
-        if (!editStaticFit && !singleSlideEditView) {
+        if (!editStaticFit) {
           scrollToEditPage(clampedPage, slideIndex);
         }
         return;
@@ -768,8 +798,15 @@ function NexusCarouselBody({
   );
 
   const goToPrev = useCallback(() => {
-    if (editLayoutMode && (editStaticFit || singleSlideEditView)) {
+    if (editLayoutMode && editStaticFit) {
       setActiveSlideIndex(((activeSlideIndex - 1) % count + count) % count);
+      return;
+    }
+
+    if (editLayoutMode && singleSlideEditView) {
+      const nextIndex = ((activeSlideIndex - 1) % count + count) % count;
+      setActiveSlideIndex(nextIndex);
+      scrollToEditPage(nextIndex, nextIndex);
       return;
     }
 
@@ -807,14 +844,22 @@ function NexusCarouselBody({
     navGoPrev,
     setActiveSlideIndex,
     singleSlideEditView,
+    scrollToEditPage,
     slidesPerView,
     navScrollStep,
     viewportWidth,
   ]);
 
   const goToNext = useCallback(() => {
-    if (editLayoutMode && (editStaticFit || singleSlideEditView)) {
+    if (editLayoutMode && editStaticFit) {
       setActiveSlideIndex((activeSlideIndex + 1) % count);
+      return;
+    }
+
+    if (editLayoutMode && singleSlideEditView) {
+      const nextIndex = (activeSlideIndex + 1) % count;
+      setActiveSlideIndex(nextIndex);
+      scrollToEditPage(nextIndex, nextIndex);
       return;
     }
 
@@ -854,10 +899,25 @@ function NexusCarouselBody({
     navGoNext,
     setActiveSlideIndex,
     singleSlideEditView,
+    scrollToEditPage,
     slidesPerView,
     navScrollStep,
     viewportWidth,
   ]);
+
+  const isCanvasDragActive = useCallback(
+    () => isPreviewCanvasDragActive(rootRef.current),
+    [],
+  );
+
+  useCarouselEditSwipe({
+    enabled: carouselEditPointerSwipeEnabled,
+    rootRef,
+    onSwipePrev: goToPrev,
+    onSwipeNext: goToNext,
+    isCanvasDragActive,
+    getSnapIndex: () => api?.selectedScrollSnap(),
+  });
 
   useEffect(() => {
     if (!api || editLayoutMode || count === 0) return;
@@ -871,6 +931,14 @@ function NexusCarouselBody({
     const onSelect = () => {
       const snap = api.selectedScrollSnap();
       setCarouselIndex(snap);
+
+      const ctx = editNavContextRef.current;
+      if (ctx.editLayoutMode && !ctx.editStaticFit) {
+        const slideIndex = Math.min(Math.max(0, snap), count - 1);
+        if (slideIndex !== activeSlideIndexRef.current) {
+          setActiveSlideIndex(slideIndex);
+        }
+      }
 
       if (navRef.current.shouldSkipSnapSync()) return;
 
@@ -890,7 +958,7 @@ function NexusCarouselBody({
         return;
       }
 
-      if (ctx.editLayoutMode && ctx.multiSlideEditWysiwyg && !ctx.singleSlideEditView) {
+      if (ctx.editLayoutMode) {
         lastEditScrollRef.current = null;
         scrollToEditSlide(activeSlideIndexRef.current);
       }
@@ -908,16 +976,27 @@ function NexusCarouselBody({
     };
   }, [
     api,
+    count,
     scrollToEditSlide,
   ]);
 
-  /** Edit mode: sidebar / strip selection scrolls to the page that contains the active slide. */
+  /** Edit mode: sidebar / strip selection scrolls to the active slide with animation. */
   useLayoutEffect(() => {
     if (!api || !editLayoutMode || count === 0) return;
 
     if (isPreviewCanvasDragActive(rootRef.current)) return;
 
-    if (singleSlideEditView || editStaticFit) {
+    if (editStaticFit) {
+      return;
+    }
+
+    if (singleSlideEditView) {
+      const targetSnap = Math.min(Math.max(0, activeSlideIndex), count - 1);
+      if (api.selectedScrollSnap() === targetSnap) {
+        return;
+      }
+
+      scrollToEditPage(targetSnap, activeSlideIndex);
       return;
     }
 
@@ -1010,7 +1089,7 @@ function NexusCarouselBody({
       if (editStaticFit) {
         return;
       }
-      if (editLayoutMode && multiSlideEditWysiwyg && !singleSlideEditView) {
+      if (editLayoutMode) {
         lastEditScrollRef.current = null;
         scrollToEditSlide(activeSlideIndexRef.current);
       }
@@ -1023,10 +1102,8 @@ function NexusCarouselBody({
     emblaLoop,
     emblaBreakpoints,
     emblaMotion.duration,
-    multiSlideEditWysiwyg,
     navScrollStep,
     scrollToEditSlide,
-    singleSlideEditView,
     slidesPerView,
   ]);
 
@@ -1303,6 +1380,7 @@ function NexusCarouselBody({
       aria-label="Content carousel"
       onClick={handleCarouselShellClick}
     >
+      <div className="nexus-carousel__swipe-host min-w-0 w-full">
       <Carousel
         key={`${editLayoutMode ? "edit" : "iview"}-${slidesPerView}-${navScrollStep}-${count}`}
         setApi={setApi}
@@ -1310,7 +1388,16 @@ function NexusCarouselBody({
           loop: emblaLoop,
           align: "start",
           containScroll: emblaContainScroll,
-          watchDrag: !editLayoutMode,
+          watchDrag: editLayoutMode
+            ? emblaEditDragEnabled
+              ? (_embla, event) =>
+                  shouldAllowCarouselEditEmblaDrag(
+                    event.target,
+                    rootRef.current,
+                    isPreviewCanvasDragActive(rootRef.current),
+                  )
+              : false
+            : true,
           slidesToScroll: emblaScroll.slidesToScroll,
           breakpoints: emblaBreakpoints,
           duration: emblaMotion.duration,
@@ -1366,6 +1453,7 @@ function NexusCarouselBody({
           })}
         </CarouselContent>
       </Carousel>
+      </div>
 
       {showControlsShell ? (
         <CarouselControls

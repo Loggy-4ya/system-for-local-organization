@@ -22,6 +22,7 @@ import {
   formatCarouselSlideLabel,
   ensureCarouselSlideLabels,
 } from "../../lib/carouselSlideLabels";
+import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
 
 /** Default empty slide — label filled by `ensureCarouselSlideLabels` on insert. */
 const emptySlide = { label: "", content: [] as never[] };
@@ -86,6 +87,7 @@ export const NexusCarousel = {
         content: {
           type: "slot" as const,
           label: "Slide Content",
+          disallow: [...DISALLOW_NEXUS_GRID_ITEM],
         },
       },
       defaultItemProps: emptySlide,

@@ -5,7 +5,6 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      # Host 8080 — iOS Safari blocks some dev ports (e.g. 3000) on redirect; 8080 is safe.
       - "8080:3000"
     volumes:
       # Mount source for hot-reload; exclude node_modules to preserve container copy

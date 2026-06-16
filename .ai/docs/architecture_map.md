@@ -14,7 +14,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `public/icons/` | Browser favicon and app icons | `favicon.ico`, future `apple-icon.png` | Logos, UI illustrations |
 | `public/brand/` | Brand marks used in UI | `logo.svg` | Favicons, unrelated stock assets |
 | `public/uploads/` | User-uploaded images and media | Uploaded files | Brand marks, static icons |
-| `tests/` | Automated unit/integration test suites only | `*.test.ts` mirroring source tree (`tests/puck/lib/`, …) | Application runtime code, React components, fixtures unrelated to a registered suite |
+| `tests/` | Automated test suites only | `*.test.ts` mirroring source tree (`tests/puck/lib/`, …); Playwright `*.spec.ts` under `tests/e2e/` | Application runtime code, React components, fixtures unrelated to a registered suite |
 | `.ai/docs/` | Living architectural truth and feature specs | Markdown specs, roadmap, structure maps, [testing.md](./testing.md) test registry | Application runtime code |
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
 | `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
@@ -57,7 +57,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
 | `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `CoverMediaFrame`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
-| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
+| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `nexusGridItemZonePolicy.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`) | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) — includes `dragAutoScrollLogic.ts`, `useDragAutoScroll.ts` | Active |
 
@@ -93,6 +93,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/puck_editor.md` | Puck Editor overhaul and block specifications | Markdown spec | — |
 | `.ai/docs/features/puck_editor_enhancements.md` | Editor UI/UX refinements (fields, path bug, spacing) | Markdown spec | — |
 | `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
+| `.ai/docs/features/puck_field_controls.md` | Puck sidebar field controls — outline-flat select/segmented/switch/input style | Markdown spec | — |
+| `.ai/docs/features/puck_grid_item_zone_policy.md` | Grid Item placement rule (`{gridId}:content`), slot disallow, outline/root guards | Markdown spec | — |
 | `.ai/docs/features/global_layout.md` | Global Layout feature specification | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |

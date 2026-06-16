@@ -18,7 +18,7 @@ All components are registered under `src/components/puck/config.tsx` and organiz
 For structural composition and nested drag-and-drop grids:
 - **`NexusSection`** — Wraps content in the standard `.page-shell` container to enforce consistent horizontal alignment and vertical padding.
 - **`NexusGrid`** — CSS grid container (1–12 columns, configurable gap). Slot composition: `content` **allow** `NexusGridItem` only (no direct `NexusGrid` children).
-- **`NexusGridItem`** — Grid cell with column/row span. Slot composition: `content` **disallow** `NexusGridItem` and `NexusGrid` (no nested grid cells or nested grids inside a cell).
+- **`NexusGridItem`** — Grid cell with column/row span. **Placement:** only inside `NexusGrid` `content` (valid zone: `{gridId}:content`). Full policy spec: [`puck_grid_item_zone_policy.md`](puck_grid_item_zone_policy.md). Slot composition: `content` **disallow** `NexusGridItem` and `NexusGrid`.
 - **`NexusColumns`** — Fixed 2-column split with asymmetrical ratio controls (e.g. 50/50, 60/40, 70/30).
 - **`NexusSpacer`** *(sidebar label: **Spacer & Divider**)* — Single layout block for vertical spacing **and** horizontal rules. One top-level **Style Preset** bundles height, line visibility, thickness, width, color, and alignment. Preset groups:
   - **Space** — XS → 2XL (gap only)
@@ -144,11 +144,12 @@ To ensure the editor canvas matches the live site exactly:
 
 ## 5. Editor Theme & Readability
 
-The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. The editor uses a unified full-width glass header island (`NexusPuckHeaderShell`) — spans the Puck header row with `clamp(12px, 3vw, 24px)` inset and rounded corners; compact mobile stacks logo + title + toolbar in two rows:
+The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. The editor uses a unified full-width glass header island (`NexusPuckHeaderShell`) — spans the Puck header row with `clamp(12px, 3vw, 24px)` inset and rounded corners; compact mobile stacks Nexus wordmark + toolbar in one row (logo mark omitted):
 
 | File | Role |
 |------|------|
-| `src/components/puck/NexusPuckHeaderShell.tsx` | Puck `overrides.header` — Nexus logo + embedded toolbar in a glass panel |
+| `src/components/puck/NexusPuckHeaderShell.tsx` | Puck `overrides.header` — Nexus wordmark, undo/redo (left), embedded toolbar |
+| `src/components/puck/NexusHistoryToolbar.tsx` | Undo/redo header chips (desktop) + bottom-left canvas island (compact); exclusive with viewport chooser |
 | `src/components/ui/ThemeToggle.tsx` | Animated pill switch (`role="switch"`) with sliding knob and lucide sun/moon icons — used in Puck `headerActions` |
 | `src/components/puck/EditorModeToggle.tsx` | Edit vs Interactive preview toggle in Puck `headerActions` |
 | `src/components/puck/NexusEditorCanvasContext.tsx` | Marks Puck editor canvas so `PageRoot` keeps grid + header in interactive preview |
@@ -177,7 +178,7 @@ Nexus uses **Puck 0.21** (`@puckeditor/core`) with the default **plugin rail** �
 | `sidebarLayoutLimits.ts` | Shared min/max sidebar widths and compact panel height limits |
 | `NexusSidebarWidthClamp.tsx` | Clamps desktop sidebar drag widths + sanitizes `puck-sidebar-widths` localStorage |
 | `NexusMobilePanelResizer.tsx` | Compact-mode vertical drag handle for Blocks/Outline/Fields panel (`--nexus-mobile-panel-height`) |
-| `puckEditorOverrides.tsx` | `headerActions` — error chip, All Pages link, Edit/Interactive + theme toggles (`.nexus-editor-header-btn` 36px toolbar); mounts `PageHeaderLabel`, clamp/resizer enhancers |
+| `puckEditorOverrides.tsx` | `headerActions` — error chip, All Pages link, Edit/Interactive + theme toggles (`.nexus-editor-header-btn` + shared `--site-header-*` chip/action tokens); mounts `PageHeaderLabel`, clamp/resizer enhancers |
 | `puck-editor.css` | Compact-editor safe-area padding, 44px nav touch targets, narrow-desktop sidebar/canvas rules, mobile panel resize handle |
 | `nexusOutlinePlugin.tsx` | Outline tab — draggable page tree with per-zone sibling reorder (grip handle + Puck `reorder` dispatch) |
 | `PuckAutoViewportSync.tsx` | Auto-selects Phone / Tablet / Desktop / Full-width canvas preset on window resize |
@@ -187,13 +188,15 @@ Nexus uses **Puck 0.21** (`@puckeditor/core`) with the default **plugin rail** �
 
 ### 6c. Canvas drag-and-drop (slot reparenting)
 
-On the **preview canvas**, drag an existing block by its overlay handle and drop it into any slot (carousel slide, grid cell, tab panel, column, section). Nexus enhances Puck's default drop zones so highlights **fill the target container** based on the dragged block's placed height.
+> **2026-06-16:** `NexusCanvasDragCoordinator` is **unmounted** — stock Puck pointer collision is active (top grab → nest in containers; bottom grab → sibling insert). Coordinator sources remain for a future fix.
+
+On the **preview canvas**, drag an existing block by its overlay handle and drop it into any slot (carousel slide, grid cell, tab panel, column, section). Nexus slot CSS classes (`nexus-*__dropzone`) remain on layout blocks for Puck's native drop zones.
 
 | File | Role |
 |------|------|
-| [`NexusCanvasDragCoordinator.tsx`](../../src/components/puck/NexusCanvasDragCoordinator.tsx) | Preview iframe overlay drop previews + post-drop reparent commits |
-| [`canvasDropTargetLogic.ts`](../../src/components/puck/lib/canvasDropTargetLogic.ts) | Pure sizing math for empty vs append slots |
-| [`puck-editor.css`](../../src/app/puck-editor.css) | `[data-puck-dragging]` — pointer pass-through, full highlights, expanded hitboxes |
+| [`NexusCanvasDragCoordinator.tsx`](../../src/components/puck/NexusCanvasDragCoordinator.tsx) | *(disabled)* Overlay drop previews + post-drop reparent — not mounted |
+| [`canvasDropTargetLogic.ts`](../../src/components/puck/lib/canvasDropTargetLogic.ts) | Pure sizing math — used only when coordinator is enabled |
+| [`puck-editor.css`](../../src/app/puck-editor.css) | `[data-puck-dragging]` helpers (partially inactive without coordinator marker) |
 | Layout slot blocks | `nexus-section__dropzone`, `nexus-columns__dropzone`, `nexus-grid`, `nexus-grid-item`, carousel/tabs markers |
 
 **Tests:** `npm run test:canvas-drop-target` · Full spec: [puck_canvas_drag_drop.md](./puck_canvas_drag_drop.md)
@@ -202,7 +205,7 @@ On the **preview canvas**, drag an existing block by its overlay handle and drop
 
 **Viewport island:** Canvas device/zoom controls styled as a centered Nexus glass pill; on compact layouts (≤900px) `_experimentalFullScreenCanvas` collapses controls into a bottom-right FAB that expands into an animated pill. When the plugin panel is closed, the expanded pill sits bottom-center; when the panel is open, it anchors top-center of the canvas so device preset buttons are not obscured by the panel resize handle.
 
-**Compact panel resize:** When a bottom-rail tab is open (≤900px), drag the handle on the panel top edge to resize height (160px min, `min(60vh, 480px)` max). Double-tap the active tab to expand to max or restore the previous height; single-tap the active tab to close with a smooth animation; opening a tab animates the panel from 0 to the persisted height. The maximize button is hidden; nav tabs are spread evenly across the bar. Height persists in `nexus-mobile-panel-height` localStorage.
+**Compact panel resize:** When a bottom-rail tab is open (≤900px), drag the handle on the panel top edge to resize height (160px min, `min(60vh, 480px)` max). **Drag down past the minimum to dismiss** — release below ~35% of start height (capped at 120px) fully closes the panel (`leftSideBarVisible: false`) and resets persisted height to the default (~30vh) so the next section-tab open animates to default height. **Blocks palette placement:** while drafting a block from the **Blocks** tab toward the canvas, the panel auto-closes as soon as the palette drag starts (touch-safe) or when the finger/pointer leaves the panel overlay — so the canvas stays clear for drop placement. Canvas taps, canvas reparent drags, and Outline/Fields sidebar drags do **not** trigger this path. Double-tap the active tab to expand to max or restore the previous height; single-tap the active tab to close with a smooth animation (preserves resized height); opening a tab animates the panel from 0 to the persisted height. The maximize button is hidden; nav tabs are spread evenly across the bar. Height persists in `nexus-mobile-panel-height` localStorage.
 
 **Sidebar motion:** Desktop sidebars (Blocks/Outline left, Fields right) ease open and closed via animated grid columns (280ms). Blocks drawer categories (Layout, Content, …) and **FieldChapter** settings chapters (block Content/Typography/Layout, Spacing, Island, Page Settings) expand and collapse smoothly via the same grid-accordion tokens (240ms). Respects `prefers-reduced-motion`.
 
@@ -275,8 +278,8 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Inline path editing | `PageSettingsFieldGroup.tsx` — title + slug in Page Settings sidebar |
 | Media upload (image/video) | `MediaUploadField.tsx` + `lib/mediaUpload.ts`; `/api/upload` accepts video up to 50MB |
 | Accent background presets | `AccentPresetField.tsx` — 6 hue families for solid page backgrounds |
-| Header chrome preview | Removed from canvas — unified `NexusPuckHeaderShell` wraps Puck toolbar in a `SiteHeaderBar`-style glass bar (logo + title/slug + editor controls). Published pages use `GlobalHeader` from `layout.tsx`. |
-| Editor header toolbar | `NexusPuckHeaderShell.tsx` + `.nexus-editor-header-btn` — All Pages, Interactive, theme, Publish/undo/redo inside one glass panel |
+| Header chrome preview | Removed from canvas — editor toolbar lives in `NexusPuckHeaderShell` (`overrides.header`). Published pages use `GlobalHeader` from `layout.tsx`. |
+| Editor header toolbar | `NexusPuckHeaderShell.tsx` + `.nexus-editor-header-btn` — All Pages, Interactive, theme, Publish/undo/redo inside one glass panel; shares `--site-header-action-size`, chip padding/gap, and icon tiers with `GlobalHeader` |
 | Live header metadata | `PageHeaderLabel.tsx` + `editorPageMetadataStore.ts` — title + slug in Puck header center |
 | Animated theme toggle | `ThemeToggle.tsx` pill switch + `globals.css` `.nexus-theme-toggle` |
 | Block spacing & islands | `SpacingFieldGroup` + `IslandFieldGroup` custom fields in `spacingFields.tsx` |

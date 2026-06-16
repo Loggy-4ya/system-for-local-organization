@@ -22,9 +22,45 @@ import {
 } from "@/components/puck/lib/puckCanvasSelectors";
 import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
 import { isMobilePanelLayoutMutating } from "@/components/puck/lib/mobilePanelLayout";
+import { NEXUS_COMPACT_EDITOR_ATTR, NEXUS_NARROW_EDITOR_ATTR } from "@/components/puck/NexusCompactEditorAttr";
 import { NEXUS_SIDEBAR_RESIZING_ATTR } from "@/components/puck/NexusSidebarResizeStabilizer";
+import { matchesCompactEditorViewport } from "@/components/puck/usePuckMobileEditorChrome";
 
 const RESIZE_DEBOUNCE_MS = 150;
+
+/** Puck internal store shape (subset) for viewport attribute sync. */
+interface PuckViewportAppStore {
+  getState: () => {
+    state: { ui: { viewports: { current: { width: number | "100%"; height?: number | "auto" } } } };
+  };
+  subscribe: (listener: (state: ReturnType<PuckViewportAppStore["getState"]>) => void) => () => void;
+}
+
+/**
+ * Resolve Puck's internal app store for viewport subscriptions.
+ *
+ * @returns App store or null before Puck mounts.
+ */
+function resolvePuckViewportAppStore(): PuckViewportAppStore | null {
+  if (typeof window === "undefined") return null;
+
+  const internal = (
+    window as Window & { __PUCK_INTERNAL_DO_NOT_USE?: { appStore?: PuckViewportAppStore } }
+  ).__PUCK_INTERNAL_DO_NOT_USE;
+
+  return internal?.appStore ?? null;
+}
+
+/**
+ * Toggle full-width layout attribute on `.Puck` from the active viewport preset.
+ *
+ * @param width - Current viewport width from Puck UI state.
+ */
+function syncViewportFullWidthAttribute(width: number | "100%"): void {
+  document
+    .querySelector(".Puck")
+    ?.toggleAttribute(NEXUS_VIEWPORT_FULL_WIDTH_ATTR, width === "100%");
+}
 
 /**
  * Measure the Puck canvas inner frame width (same node as Puck `frameRef`).
@@ -60,19 +96,36 @@ export function PuckAutoViewportSync() {
       }
 
       const frameWidth = measureCanvasFrameWidth();
-      const preset = resolveAutoViewport(
-        window.innerWidth,
-        frameWidth,
-        NEXUS_EDITOR_VIEWPORTS,
-      );
+      const isCompactEditor =
+        matchesCompactEditorViewport() ||
+        document.documentElement.hasAttribute(NEXUS_COMPACT_EDITOR_ATTR);
+      const isNarrowEditor =
+        isCompactEditor ||
+        document.documentElement.hasAttribute(NEXUS_NARROW_EDITOR_ATTR) ||
+        window.innerWidth <= 900;
 
-      const nextWidth = preset.width;
-      const nextHeight = preset.height ?? "auto";
       const { appState, dispatch } = getPuck();
       const current = appState.ui.viewports.current;
 
-      const puckEl = document.querySelector(".Puck");
-      puckEl?.toggleAttribute(NEXUS_VIEWPORT_FULL_WIDTH_ATTR, nextWidth === "100%");
+      syncViewportFullWidthAttribute(current.width);
+
+      // Preserve user-selected Phone / Tablet / Desktop presets on narrow viewports.
+      if (isNarrowEditor && typeof current.width === "number") {
+        return;
+      }
+
+      const preset = isNarrowEditor
+        ? { width: "100%" as const, height: "auto" as const }
+        : resolveAutoViewport(
+            window.innerWidth,
+            frameWidth,
+            NEXUS_EDITOR_VIEWPORTS,
+          );
+
+      const nextWidth = preset.width;
+      const nextHeight = preset.height ?? "auto";
+
+      syncViewportFullWidthAttribute(nextWidth);
 
       if (current.width === nextWidth && current.height === nextHeight) {
         return;
@@ -101,6 +154,12 @@ export function PuckAutoViewportSync() {
     syncViewport();
     window.addEventListener("resize", scheduleSync);
     window.addEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, scheduleSync);
+
+    const appStore = resolvePuckViewportAppStore();
+    const unsubscribeViewport =
+      appStore?.subscribe((state) => {
+        syncViewportFullWidthAttribute(state.state.ui.viewports.current.width);
+      }) ?? null;
 
     const canvasInner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR);
     let resizeObserverPaused = false;
@@ -183,6 +242,7 @@ export function PuckAutoViewportSync() {
         "data-nexus-panel-opening",
         "data-nexus-panel-expanding",
         "data-nexus-panel-collapsing",
+        "data-nexus-panel-close-settling",
         "data-nexus-sidebar-resizing",
       ],
     });
@@ -190,6 +250,7 @@ export function PuckAutoViewportSync() {
     return () => {
       window.removeEventListener("resize", scheduleSync);
       window.removeEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, scheduleSync);
+      unsubscribeViewport?.();
       window.removeEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, syncResizeObserverGate);
       mutationGateObserver.disconnect();
       layoutInner?.removeEventListener("transitionend", onGridTransitionEnd);

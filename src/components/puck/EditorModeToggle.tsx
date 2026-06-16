@@ -9,6 +9,8 @@
  */
 
 import { MousePointerClick, Pencil } from "lucide-react";
+import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
+import { applyMobilePanelHeight } from "./lib/mobilePanelLayout";
 import { useNexusPuck } from "./lib/useNexusPuck";
 
 /** Props for the editor mode toggle button. */
@@ -33,10 +35,26 @@ export function EditorModeToggle({
   const handleToggle = () => {
     dispatch({
       type: "setUi",
-      ui: (ui) => ({
-        previewMode: ui.previewMode === "edit" ? "interactive" : "edit",
-      }),
+      ui: (ui) => {
+        const enteringInteractive = ui.previewMode === "edit";
+
+        return {
+          previewMode: enteringInteractive ? "interactive" : "edit",
+          ...(enteringInteractive
+            ? {
+                leftSideBarVisible: false,
+                mobilePanelExpanded: false,
+                rightSideBarVisible: false,
+              }
+            : {}),
+        };
+      },
+      recordHistory: false,
     });
+
+    if (previewMode === "edit") {
+      applyMobilePanelHeight("0px");
+    }
   };
 
   const label = isInteractive ? "Edit" : "Interactive";
@@ -53,11 +71,11 @@ export function EditorModeToggle({
       aria-label={hint}
       aria-pressed={isInteractive}
     >
-      <span className="nexus-mode-toggle__icon" aria-hidden="true">
+      <span className="nexus-mode-toggle__icon site-chrome-icon" aria-hidden="true">
         {isInteractive ? (
-          <Pencil size={14} strokeWidth={2.25} />
+          <Pencil {...siteChromeLucideProps()} />
         ) : (
-          <MousePointerClick size={14} strokeWidth={2.25} />
+          <MousePointerClick {...siteChromeLucideProps()} />
         )}
       </span>
       <span className="nexus-mode-toggle__label">{label}</span>

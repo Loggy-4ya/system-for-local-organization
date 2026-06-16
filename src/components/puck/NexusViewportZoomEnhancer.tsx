@@ -14,7 +14,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { formatViewportZoomLabel } from "@/components/puck/lib/formatViewportZoomLabel";
-import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
+import { matchesCompactEditorViewport, PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Zoom mount context for the viewport instrument island. */
 interface ViewportZoomContext {
@@ -27,8 +27,7 @@ interface ViewportZoomContext {
  * @returns Whether the editor is in Puck's mobile chrome breakpoint.
  */
 function isMobileEditorChrome(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`).matches;
+  return matchesCompactEditorViewport();
 }
 
 /** Cached snapshot for `useSyncExternalStore` — must keep referential stability. */
@@ -118,7 +117,7 @@ function subscribeViewportZoomMount(onStoreChange: () => void): () => void {
     attributeFilter: ["class"],
   });
 
-  const media = window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`);
+  const media = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
   media.addEventListener("change", onStoreChange);
 
   return () => {

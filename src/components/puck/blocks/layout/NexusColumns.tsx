@@ -13,6 +13,7 @@ import React from "react";
 import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
 import { LAYOUT_GAP_OPTIONS } from "../../lib/fieldOptionLabels";
 import { resolveSpacingDimension } from "../../lib/resolveSpacingDimension";
+import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
 
 const GAP_DEFAULTS = { preset: "md", custom: "16px" };
 const PADDING_DEFAULTS = { preset: "none", custom: "0" };
@@ -62,10 +63,12 @@ export const NexusColumns = {
     left: {
       type: "slot" as const,
       label: "Left Column",
+      disallow: [...DISALLOW_NEXUS_GRID_ITEM],
     },
     right: {
       type: "slot" as const,
       label: "Right Column",
+      disallow: [...DISALLOW_NEXUS_GRID_ITEM],
     },
   },
   defaultProps: {

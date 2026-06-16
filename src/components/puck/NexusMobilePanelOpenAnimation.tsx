@@ -3,84 +3,149 @@
 /**
  * @fileoverview Animate compact-mode plugin panel height when a bottom-rail tab opens.
  *
- * Puck toggles `leftSideBarVisible` instantly; this module eases the panel from 0px
- * to the persisted (or default) height so open matches the close animation feel.
+ * Puck toggles `leftSideBarVisible` instantly; this module eases the grid row from 0 to the
+ * persisted (or default) height. Strict Mode cleanup and cancel paths always apply the target
+ * height so the row never stays at 0px (black void).
+ *
+ * Tests: `tests/puck/lib/mobileEditorReachabilityLogic.test.ts` — `npm run test:mobile-editor-reachability`
  *
  * @module src/components/puck/NexusMobilePanelOpenAnimation
  */
 
 import { useLayoutEffect, useEffect, useRef } from "react";
 import {
-  animateMobilePanelHeight,
-  cancelMobilePanelHeightAnimation,
-  measureMobilePanelHeightPx,
   NEXUS_PANEL_OPEN_ANIMATION_MS,
   NEXUS_PANEL_OPENING_ATTR,
-  prepareMobilePanelOpenAnimation,
-  resolveMobilePanelOpenHeightPx,
+  animateMobilePanelHeight,
+  applyMobilePanelHeight,
+  beginMobilePanelLayoutMutation,
+  cancelMobilePanelHeightAnimation,
+  consumePendingDoubleTapFullOpen,
+  endMobilePanelCloseSettling,
   endMobilePanelLayoutMutation,
+  measureMobilePanelHeightPx,
+  releaseMobilePanelSidebarForInteraction,
+  resolveMobilePanelOpenHeightPx,
+  scheduleMobilePanelHeightApply,
+  shouldSkipMobilePanelOpenAnimation,
 } from "@/components/puck/lib/mobilePanelLayout";
+import {
+  NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY,
+  resolveMobilePanelMaxHeightPx,
+} from "@/components/puck/lib/sidebarLayoutLimits";
+import { recordMobileScrollportShellMetrics, syncCompactNavRailHeight } from "@/components/puck/lib/mobileScrollportGridFreeze";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
-import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
+import { matchesCompactEditorViewport } from "@/components/puck/usePuckMobileEditorChrome";
+import { matchesNarrowEditorViewport } from "@/components/puck/NexusCompactEditorAttr";
 
 /**
- * Whether the viewport uses compact editor chrome.
+ * Whether the viewport uses compact or narrow editor layout.
  *
- * @returns True at or below {@link PUCK_COMPACT_EDITOR_MAX_WIDTH}.
+ * @returns True when compact touch-primary media query matches or width is narrow.
  */
-function isCompactViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`).matches;
+function isCompactOrNarrowViewport(): boolean {
+  return matchesCompactEditorViewport() || matchesNarrowEditorViewport();
 }
 
 /**
- * Silent Puck child — eases compact plugin panel open height.
+ * Silent Puck child — animates compact plugin panel open height.
  *
  * @returns null
  */
 export function NexusMobilePanelOpenAnimation() {
   const leftSideBarVisible = useNexusPuck((state) => state.appState.ui.leftSideBarVisible);
-  const previousVisibleRef = useRef(leftSideBarVisible);
+  const leftSideBarVisibleRef = useRef(leftSideBarVisible);
+  const openSessionRef = useRef<number>(0);
   const animationCancelRef = useRef<(() => void) | null>(null);
+  const scheduleCancelRef = useRef<(() => void) | null>(null);
+
+  leftSideBarVisibleRef.current = leftSideBarVisible;
 
   useLayoutEffect(() => {
-    const wasVisible = previousVisibleRef.current;
+    if (typeof window === "undefined") return;
 
-    if (typeof window === "undefined" || !isCompactViewport()) return;
-    if (!leftSideBarVisible || wasVisible) return;
+    if (!leftSideBarVisible) {
+      openSessionRef.current = 0;
+      animationCancelRef.current?.();
+      animationCancelRef.current = null;
+      scheduleCancelRef.current?.();
+      scheduleCancelRef.current = null;
+      cancelMobilePanelHeightAnimation();
+      document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
+      releaseMobilePanelSidebarForInteraction();
+      recordMobileScrollportShellMetrics();
+      return;
+    }
 
-    prepareMobilePanelOpenAnimation();
-  }, [leftSideBarVisible]);
+    if (!isCompactOrNarrowViewport()) return;
 
-  useEffect(() => {
-    const wasVisible = previousVisibleRef.current;
-    previousVisibleRef.current = leftSideBarVisible;
+    endMobilePanelCloseSettling();
+    syncCompactNavRailHeight();
 
-    if (typeof window === "undefined" || !isCompactViewport()) return;
+    // Snapshot backdrop alignment + defer header collapse before panel height writes.
+    beginMobilePanelLayoutMutation();
+    document.documentElement.setAttribute(NEXUS_PANEL_OPENING_ATTR, "");
+
+    // Snap panel row to 0 before paint so persisted height cannot flash the panel background.
+    applyMobilePanelHeight("0px");
+
+    const openToMaxHeight = consumePendingDoubleTapFullOpen();
+    const targetPx = openToMaxHeight
+      ? resolveMobilePanelMaxHeightPx(window.innerHeight)
+      : resolveMobilePanelOpenHeightPx(window.innerHeight);
+    const currentPx = measureMobilePanelHeightPx() ?? 0;
 
     animationCancelRef.current?.();
     animationCancelRef.current = null;
+    scheduleCancelRef.current?.();
+    scheduleCancelRef.current = null;
     cancelMobilePanelHeightAnimation();
-    document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
 
-    if (!leftSideBarVisible || wasVisible) return;
+    const sessionId = Date.now();
+    openSessionRef.current = sessionId;
 
-    const targetHeightPx = resolveMobilePanelOpenHeightPx(window.innerHeight);
-    const measuredHeightPx = measureMobilePanelHeightPx();
+    const ensureTargetHeight = () => {
+      if (openSessionRef.current === sessionId) {
+        scheduleCancelRef.current = scheduleMobilePanelHeightApply(`${targetPx}px`, {
+          onApplied: () => {
+            if (openSessionRef.current === sessionId) {
+              if (openToMaxHeight) {
+                localStorage.setItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY, String(targetPx));
+              }
+              releaseMobilePanelSidebarForInteraction();
+            }
+          },
+        });
+      }
+    };
 
-    if (measuredHeightPx !== undefined && measuredHeightPx >= targetHeightPx * 0.85) {
+    if (shouldSkipMobilePanelOpenAnimation(currentPx, targetPx)) {
+      applyMobilePanelHeight(`${targetPx}px`);
+      if (openToMaxHeight) {
+        localStorage.setItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY, String(targetPx));
+      }
+      document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
       endMobilePanelLayoutMutation();
-      return;
+      releaseMobilePanelSidebarForInteraction();
+      ensureTargetHeight();
+      return () => {
+        if (leftSideBarVisibleRef.current && openSessionRef.current === sessionId) {
+          applyMobilePanelHeight(`${targetPx}px`);
+          releaseMobilePanelSidebarForInteraction();
+        }
+      };
     }
 
     animationCancelRef.current = animateMobilePanelHeight(
       0,
-      targetHeightPx,
+      targetPx,
       NEXUS_PANEL_OPEN_ANIMATION_MS,
       {
         htmlAttr: NEXUS_PANEL_OPENING_ATTR,
         onComplete: () => {
           animationCancelRef.current = null;
+          ensureTargetHeight();
+          releaseMobilePanelSidebarForInteraction();
         },
       },
     );
@@ -88,10 +153,23 @@ export function NexusMobilePanelOpenAnimation() {
     return () => {
       animationCancelRef.current?.();
       animationCancelRef.current = null;
-      cancelMobilePanelHeightAnimation();
-      document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
+      scheduleCancelRef.current?.();
+      scheduleCancelRef.current = null;
+
+      if (leftSideBarVisibleRef.current && openSessionRef.current === sessionId) {
+        applyMobilePanelHeight(`${targetPx}px`);
+        releaseMobilePanelSidebarForInteraction();
+      }
     };
   }, [leftSideBarVisible]);
+
+  useEffect(() => {
+    return () => {
+      animationCancelRef.current?.();
+      scheduleCancelRef.current?.();
+      cancelMobilePanelHeightAnimation();
+    };
+  }, []);
 
   return null;
 }

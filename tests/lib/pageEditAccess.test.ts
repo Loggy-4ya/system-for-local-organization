@@ -13,6 +13,7 @@ import type { Session } from "next-auth";
 import {
   canEditPages,
   isPuckManagedPagePath,
+  resolvePageEditHref,
   shouldShowPageEditFab,
 } from "@/lib/pageEditAccess";
 
@@ -81,5 +82,19 @@ describe("shouldShowPageEditFab", () => {
       false,
     );
     assert.equal(shouldShowPageEditFab(null, "/news", false), false);
+  });
+});
+
+describe("resolvePageEditHref", () => {
+  it("returns edit URL for Puck pages when the user can edit", () => {
+    assert.equal(resolvePageEditHref("/news", true), "/news/edit");
+    assert.equal(resolvePageEditHref("/about/team", true), "/about/team/edit");
+  });
+
+  it("returns null when editing is not allowed or path is excluded", () => {
+    assert.equal(resolvePageEditHref("/news", false), null);
+    assert.equal(resolvePageEditHref("/", true), null);
+    assert.equal(resolvePageEditHref("/news/edit", true), null);
+    assert.equal(resolvePageEditHref("", true), null);
   });
 });

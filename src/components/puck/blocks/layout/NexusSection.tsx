@@ -24,6 +24,7 @@ import {
   resolveSectionPadding,
 } from "../../lib/resolveSectionDimensions";
 import { normalizePresetDimensionValue, presetValuesFromOptions } from "../../lib/resolvePresetDimension";
+import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
 
 const MAX_WIDTH_PRESET_VALUES = presetValuesFromOptions(SECTION_MAX_WIDTH_OPTIONS);
 
@@ -71,6 +72,7 @@ export const NexusSection = {
     content: {
       type: "slot" as const,
       label: "Section Content",
+      disallow: [...DISALLOW_NEXUS_GRID_ITEM],
     },
   },
   defaultProps: {

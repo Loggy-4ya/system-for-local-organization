@@ -7,7 +7,7 @@
  */
 
 import "@/lib/safePointerCaptureInstall";
-import { Puck, blocksPlugin, fieldsPlugin } from "@puckeditor/core";
+import { Puck, fieldsPlugin } from "@puckeditor/core";
 import "@puckeditor/core/puck.css";
 import "../puck-editor.css";
 import puckConfig from "@/components/puck/config";
@@ -18,11 +18,13 @@ import {
   validatePageSlug,
 } from "@/components/puck/lib/pageSlugValidation";
 import { NEXUS_EDITOR_VIEWPORTS } from "@/components/puck/lib/resolveAutoViewport";
+import { nexusBlocksPlugin } from "@/components/puck/nexusBlocksPlugin";
 import { nexusOutlinePlugin } from "@/components/puck/nexusOutlinePlugin";
 import { usePuckMobileEditorChrome } from "@/components/puck/usePuckMobileEditorChrome";
 import { NexusEditorCanvasProvider } from "@/components/puck/NexusEditorCanvasContext";
 import { PuckEditorErrorProvider } from "@/components/puck/PuckEditorErrorContext";
 import { PUCK_EDITOR_OVERRIDES } from "@/components/puck/puckEditorOverrides";
+import { handleNexusGridItemPlacementAction } from "@/components/puck/NexusGridItemPlacementGuard";
 import type { Data } from "@puckeditor/core";
 import { useCallback, useState } from "react";
 
@@ -158,6 +160,17 @@ export function PuckEditorShell({
     [getLatestData, onPublished, pageTitle, path],
   );
 
+  const handlePuckAction = useCallback(
+    (
+      action: Parameters<typeof handleNexusGridItemPlacementAction>[0],
+      appState: Parameters<typeof handleNexusGridItemPlacementAction>[1],
+      prevAppState: Parameters<typeof handleNexusGridItemPlacementAction>[2],
+    ) => {
+      handleNexusGridItemPlacementAction(action, appState, prevAppState);
+    },
+    [],
+  );
+
   return (
     <PuckEditorErrorProvider error={error} onPublish={handlePublish}>
       <NexusEditorCanvasProvider>
@@ -167,10 +180,20 @@ export function PuckEditorShell({
           data={initialEditorData}
           onChange={onEditorDataChange}
           onPublish={handlePublish}
+          onAction={handlePuckAction}
           overrides={PUCK_EDITOR_OVERRIDES}
-          plugins={[blocksPlugin(), nexusOutlinePlugin(), fieldsPlugin()]}
+          plugins={[nexusBlocksPlugin(), nexusOutlinePlugin(), fieldsPlugin()]}
           viewports={NEXUS_EDITOR_VIEWPORTS}
           _experimentalFullScreenCanvas={isCompactEditor}
+          ui={
+            isCompactEditor
+              ? {
+                  leftSideBarVisible: false,
+                  rightSideBarVisible: false,
+                  rightSideBarWidth: 0,
+                }
+              : undefined
+          }
         />
       </NexusEditorCanvasProvider>
     </PuckEditorErrorProvider>

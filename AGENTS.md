@@ -46,6 +46,7 @@ Automated tests are first-class architectural artifacts. Agents and developers M
 * **On renaming or removing a test:** Update `testing.md`, `package.json` scripts, and any feature docs that reference the old command — in the same change.
 * **Before closing a bugfix:** Run the relevant registered test script(s) and document which command confirms the fix (see `testing.md` manual smoke sections where applicable).
 * **Prefer pure logic tests:** Extract testable helpers from React/DOM components into `src/` modules, then add suites under the matching `tests/` path so Node `tsx --test` can cover regressions without a browser.
+* **Use Playwright browser automation** when the bug depends on real CSS cascade, layout geometry, or Puck mount order — register specs in `tests/e2e/` and [testing.md](.ai/docs/testing.md) (`npm run test:browser:*`). **How to start the app and run specs:** see **[Agent quickstart — Playwright browser automation](.ai/docs/testing.md#agent-quickstart--playwright-browser-automation)** in `testing.md` (install browser → `docker compose up` or `npm run dev` → `PLAYWRIGHT_BASE_URL=… npm run test:browser:puck-mobile-panel`; optional `PUCK_E2E_EDIT_PATH=/slug/edit`).
 
 ## 2. CORE PHILOSOPHY & ANTI-OVERENGINEERING
 You must strictly follow the Domain Consolidation Principle (High Cohesion).

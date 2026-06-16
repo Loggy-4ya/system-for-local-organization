@@ -13,6 +13,10 @@
 
 import { useTheme } from "@teispace/next-themes";
 import { useEffect, useLayoutEffect } from "react";
+import {
+  injectSafePointerCaptureScript,
+  installSafePointerCapture,
+} from "@/lib/safePointerCapture";
 
 /** DOM id used for the injected token `<style>` element inside the preview iframe. */
 const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
@@ -30,6 +34,27 @@ body {
   overflow-y: auto;
   background: transparent !important;
   background-color: transparent !important;
+}
+
+/*
+ * Puck edit mode — keep drop-zone / component wrappers transparent (shell bleed-through).
+ * When compositing fails, edit uses an iframe-contained grid instead; these rules still
+ * prevent opaque Puck defaults in both paths.
+ */
+#frame-root,
+[data-puck-entry],
+[data-puck-dropzone],
+[class*="DropZone"],
+[class*="DropZone-item"],
+[data-puck-component],
+.global-layout-page-content-slot,
+.global-layout-page-content-slot > div {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+[class*="DraggableComponent-overlay"]:not(:hover) {
+  background: transparent !important;
 }
 `;
 
@@ -116,10 +141,23 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
   /** Sync `data-theme` before paint so iframe-contained grids read the active theme. */
   useLayoutEffect(() => {
     if (!iframeDoc?.documentElement) return;
+
+    injectSafePointerCaptureScript(iframeDoc);
+    installSafePointerCapture(iframeDoc.defaultView);
+
     iframeDoc.documentElement.setAttribute("data-theme", theme);
     iframeDoc.documentElement.style.background = "transparent";
     if (iframeDoc.body) {
       iframeDoc.body.style.background = "transparent";
+    }
+
+    try {
+      const frame = iframeDoc.defaultView?.frameElement as HTMLIFrameElement | null;
+      if (frame) {
+        frame.style.backgroundColor = "transparent";
+      }
+    } catch {
+      /* cross-origin parent */
     }
   }, [iframeDoc, theme]);
 
@@ -138,9 +176,9 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     if (!docStyleEl) {
       docStyleEl = iframeDoc.createElement("style");
       docStyleEl.id = DOCUMENT_STYLE_ID;
-      docStyleEl.textContent = PREVIEW_DOCUMENT_CSS;
       iframeDoc.head.appendChild(docStyleEl);
     }
+    docStyleEl.textContent = PREVIEW_DOCUMENT_CSS;
 
     if (iframeDoc.body) {
       iframeDoc.body.style.color = "var(--color-text-primary)";

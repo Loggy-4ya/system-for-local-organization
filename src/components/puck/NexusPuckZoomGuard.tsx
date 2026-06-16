@@ -14,7 +14,16 @@
 
 import { useEffect, useRef } from "react";
 import { NEXUS_SIDEBAR_RESIZING_ATTR } from "@/components/puck/NexusSidebarResizeStabilizer";
-import { isMobilePanelLayoutMutating } from "@/components/puck/lib/mobilePanelLayout";
+import {
+  isMobilePanelHeightTransitionActive,
+  isMobilePanelLayoutMutating,
+  NEXUS_PANEL_CLOSING_ATTR,
+  NEXUS_PANEL_OPENING_ATTR,
+  NEXUS_PANEL_CLOSE_SETTLING_ATTR,
+} from "@/components/puck/lib/mobilePanelLayout";
+import {
+  clearMobilePreviewViewportOverrides,
+} from "@/components/puck/lib/mobilePanelPreviewSync";
 import { isAnyCanvasDragActive } from "@/components/puck/lib/canvasDropTargetLogic";
 import {
   PUCK_CANVAS_INNER_SELECTOR,
@@ -26,6 +35,8 @@ import {
   sanitizePuckZoomConfig,
   type PuckZoomConfig,
 } from "@/components/puck/lib/sanitizePuckZoomConfig";
+import { matchesDesktopEditorChrome } from "@/components/puck/lib/desktopEditorScrollport";
+import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
 
 /** Puck preview root inside the canvas — receives zoom `height` / `transform`. */
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
@@ -53,6 +64,10 @@ function isCanvasZoomMutationBlocked(): boolean {
     return false;
   }
 
+  if (isMobilePanelHeightTransitionActive()) {
+    return false;
+  }
+
   return (
     document.documentElement.hasAttribute(NEXUS_SIDEBAR_RESIZING_ATTR) ||
     isMobilePanelLayoutMutating() ||
@@ -68,13 +83,32 @@ function isCanvasZoomMutationBlocked(): boolean {
  * @param config - Last sanitized zoom config (optional fallback for math).
  */
 function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
-  if (typeof document === "undefined" || isCanvasZoomMutationBlocked()) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const blocked = isCanvasZoomMutationBlocked();
+  const panelTransition = isMobilePanelHeightTransitionActive();
+  if (blocked && !panelTransition) {
+    return;
+  }
+
+  if (panelTransition && !matchesDesktopEditorChrome()) {
+    return;
+  }
+
+  const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
+  if (!inner) {
+    return;
+  }
+
+  if (matchesDesktopEditorChrome()) {
+    inner.style.removeProperty("height");
     return;
   }
 
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
-  const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
-  if (!root || !inner) {
+  if (!root) {
     return;
   }
 
@@ -94,6 +128,7 @@ function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
  * Remove scrollport height override so Puck can reclaim inner sizing when the guard unmounts.
  */
 function clearCanvasInnerScrollportHeight(): void {
+  clearMobilePreviewViewportOverrides();
   const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
   inner?.style.removeProperty("height");
 }
@@ -123,6 +158,15 @@ export function NexusPuckZoomGuard(): null {
       });
     };
 
+    const onPanelTransitionEnd = () => {
+      if (isMobilePanelHeightTransitionActive()) {
+        return;
+      }
+
+      clearMobilePreviewViewportOverrides();
+      scheduleScrollportSync(zoomFallbackRef.current);
+    };
+
     const rootObserver = new MutationObserver(() => {
       scheduleScrollportSync(zoomFallbackRef.current);
     });
@@ -143,6 +187,24 @@ export function NexusPuckZoomGuard(): null {
 
     observeRoot();
 
+    const onPanelLayoutSettled = () => {
+      clearMobilePreviewViewportOverrides();
+      scheduleScrollportSync(zoomFallbackRef.current);
+    };
+
+    window.addEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, onPanelLayoutSettled);
+
+    const panelTransitionObserver = new MutationObserver(onPanelTransitionEnd);
+    panelTransitionObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [
+        NEXUS_PANEL_OPENING_ATTR,
+        NEXUS_PANEL_CLOSING_ATTR,
+        NEXUS_PANEL_CLOSE_SETTLING_ATTR,
+      ],
+    });
+    onPanelTransitionEnd();
+
     const mountObserver = new MutationObserver(observeRoot);
     const puckRoot = document.querySelector(".Puck");
     if (puckRoot) {
@@ -150,6 +212,8 @@ export function NexusPuckZoomGuard(): null {
     }
 
     return () => {
+      window.removeEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, onPanelLayoutSettled);
+      panelTransitionObserver.disconnect();
       mountObserver.disconnect();
       rootObserver.disconnect();
       if (syncRafRef.current !== null) {

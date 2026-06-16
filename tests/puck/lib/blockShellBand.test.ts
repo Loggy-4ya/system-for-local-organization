@@ -12,6 +12,7 @@ import { describe, it } from "node:test";
 
 import {
   ISLAND_DEFAULTS,
+  buildWidthConstrainedRootStyle,
   isIslandBandActive,
   type BlockShellProps,
 } from "@/components/puck/lib/spacingFields";
@@ -65,5 +66,20 @@ describe("isIslandBandActive", () => {
       ),
       true,
     );
+  });
+});
+
+describe("buildWidthConstrainedRootStyle", () => {
+  it("centers the root shell with max-width for Puck overlay sizing", () => {
+    const style = buildWidthConstrainedRootStyle(
+      { marginTop: "8px", marginBottom: "8px", width: "100%" },
+      "1200px",
+      "center",
+    );
+
+    assert.equal(style.maxWidth, "1200px");
+    assert.equal(style.marginLeft, "auto");
+    assert.equal(style.marginRight, "auto");
+    assert.equal(style.marginTop, "8px");
   });
 });

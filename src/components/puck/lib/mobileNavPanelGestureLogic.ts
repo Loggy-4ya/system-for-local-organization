@@ -7,16 +7,16 @@
  */
 
 /** Max delay between tap ends to count as a double-tap. */
-export const MOBILE_NAV_DOUBLE_TAP_MS = 300;
+export const MOBILE_NAV_DOUBLE_TAP_MS = 250;
 
-/** Delay before treating a tap as a single-tap close (must exceed {@link MOBILE_NAV_DOUBLE_TAP_MS}). */
-export const MOBILE_NAV_SINGLE_TAP_DEFER_MS = 340;
+/** Delay before a lone single-tap close/open (just past {@link MOBILE_NAV_DOUBLE_TAP_MS}). */
+export const MOBILE_NAV_SINGLE_TAP_DEFER_MS = MOBILE_NAV_DOUBLE_TAP_MS + 16;
 
 /** Ignore duplicate touchend/pointerup pairs from one physical tap on mobile. */
 export const MOBILE_NAV_SAME_TAP_EVENT_DEDUPE_MS = 45;
 
 /** Suppress ghost `click` after a handled pointer/touch tap (same physical tap). */
-export const MOBILE_NAV_GHOST_CLICK_SUPPRESS_MS = 350;
+export const MOBILE_NAV_GHOST_CLICK_SUPPRESS_MS = 300;
 
 /**
  * Ignore duplicate dispatch from pointer/touch + click for the same physical tap.
@@ -153,12 +153,16 @@ export function isPrimaryTouchTap(event: Pick<TouchEvent, "changedTouches">): bo
   return event.changedTouches.length === 1;
 }
 
-/** Panel toggle direction for double-tap expand/collapse. */
-export type MobileNavPanelToggleAction = "expand" | "collapse";
+/** Panel action for a confirmed nav double-tap. */
+export type MobileNavPanelToggleAction = "open-full" | "close" | "expand" | "collapse";
 
 /** Input for resolving double-tap panel toggle direction. */
 export interface ResolveMobileNavPanelToggleInput {
-  /** Puck UI expanded flag. */
+  /** Puck left plugin panel is visible. */
+  leftSideBarVisible: boolean;
+  /** Panel was opened via double-tap to full height (close on next double-tap). */
+  openedViaDoubleTap: boolean;
+  /** Puck UI expanded flag (single-tap open + double-tap expand cycle). */
   isMobilePanelExpanded: boolean;
   /** Current panel height in px. */
   currentHeightPx: number;
@@ -168,7 +172,7 @@ export interface ResolveMobileNavPanelToggleInput {
 
 /** Resolved double-tap panel toggle action. */
 export interface ResolvedMobileNavPanelToggle {
-  /** Whether to expand to max or collapse to pre-expand height. */
+  /** Next panel action for the double-tap gesture. */
   action: MobileNavPanelToggleAction;
   /** Height in px to persist before expanding. */
   preExpandHeightPx?: number;
@@ -177,10 +181,12 @@ export interface ResolvedMobileNavPanelToggle {
 }
 
 /**
- * Resolve expand vs collapse for a confirmed nav double-tap.
+ * Resolve the next panel action for a confirmed nav double-tap.
  *
- * Uses the Puck expanded flag as the source of truth so near-max persisted
- * heights do not incorrectly trigger collapse before the first expand.
+ * - Closed panel → open at max height (`open-full`).
+ * - Opened via double-tap → close entirely (`close`).
+ * - Single-tap open, not expanded → expand to max (`expand`).
+ * - Single-tap open, expanded → restore pre-expand height (`collapse`).
  *
  * @param input - Current panel metrics and UI state.
  * @param resolvePreExpandHeightPx - Reads the saved pre-expand height in px.
@@ -190,6 +196,14 @@ export function resolveMobileNavPanelToggle(
   input: ResolveMobileNavPanelToggleInput,
   resolvePreExpandHeightPx: () => number,
 ): ResolvedMobileNavPanelToggle {
+  if (!input.leftSideBarVisible) {
+    return { action: "open-full" };
+  }
+
+  if (input.openedViaDoubleTap) {
+    return { action: "close" };
+  }
+
   if (input.isMobilePanelExpanded) {
     return {
       action: "collapse",
@@ -246,9 +260,8 @@ export interface ShouldBlockActiveNavTabInput {
 /**
  * Whether Nexus should intercept Puck's active-tab nav handler.
  *
- * Blocks while the panel is open, and continues blocking through the double-tap
- * pairing window after the first tap so a leaked native close on tap 1 cannot
- * leave tap 2 to reopen the panel instead of collapsing height.
+ * Blocks while the panel is open, and while the panel is closed on the active
+ * tab so single/double-tap defer can choose persisted vs full-height open.
  *
  * @param input - Block decision input.
  * @returns True when the event should be consumed.
@@ -258,9 +271,7 @@ export function shouldBlockActiveNavTab(input: ShouldBlockActiveNavTabInput): bo
     return false;
   }
 
-  if (input.leftSideBarVisible) return true;
-
-  return isWithinMobileNavDoubleTapWindow(input.tapState, input.now);
+  return true;
 }
 
 /** Input for processing one nav tab tap. */

@@ -70,8 +70,10 @@ If any answer is “no,” place the file elsewhere or delete it.
 | Allowed | Forbidden |
 |---------|-----------|
 | `*.test.ts` files mirroring source paths (`tests/puck/lib/` ↔ `src/components/puck/lib/`) | React components, API routes, Mongoose models |
-| Imports from `@/` and `@shared/` path aliases | Duplicated production logic copied for convenience |
-| Registry entries in [testing.md](./testing.md) | Unregistered one-off scripts |
+| Playwright `*.spec.ts` under `tests/e2e/` | Duplicated production logic copied for convenience |
+| Shared helpers under `tests/e2e/helpers/` (not registered as suites) | Unregistered one-off scripts |
+| Imports from `@/` and `@shared/` path aliases | |
+| Registry entries in [testing.md](./testing.md) | |
 
 See [testing.md](./testing.md) for the full registry and `npm run test:*` scripts.
 

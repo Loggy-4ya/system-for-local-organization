@@ -47,3 +47,21 @@ export function shouldShowPageEditFab(
   if (!isPuckManagedPagePath(path)) return false;
   return canEditPages(session?.user?.role ?? null);
 }
+
+/**
+ * Resolve the Puck editor URL for the current published route.
+ *
+ * @param pathname - Browser pathname (e.g. `/news`, `/about/team`).
+ * @param canEdit - Whether the viewer may open the editor.
+ * @returns Edit href or null when not applicable.
+ */
+export function resolvePageEditHref(
+  pathname: string,
+  canEdit: boolean,
+): string | null {
+  if (!canEdit) return null;
+  if (!pathname || pathname === "/") return null;
+  if (pathname === "/edit" || pathname.endsWith("/edit")) return null;
+  if (!isPuckManagedPagePath(pathname)) return null;
+  return `${pathname}/edit`;
+}

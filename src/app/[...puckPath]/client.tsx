@@ -250,7 +250,7 @@ export function PuckClient({
   return (
     <>
       <Render config={puckConfig} data={viewData} />
-      {showPageEditFab ? <PageEditFab pagePath={path} /> : null}
+      <PageEditFab pagePath={path} serverVisible={showPageEditFab} />
     </>
   );
 }

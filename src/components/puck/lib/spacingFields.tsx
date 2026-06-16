@@ -472,7 +472,44 @@ export function applyBlockShell(props: BlockShellProps): {
     islandInnerStyle,
     islandActive,
     bandActive,
+    islandAlign: flat.islandAlign ?? "center",
+    islandMaxWidthCss: maxWidth,
   };
+}
+
+/**
+ * Root shell style when max-width band or island chrome applies.
+ *
+ * Puck's selection overlay uses `getBoundingClientRect()` on `[data-puck-component]`,
+ * which must match the visible band — not a full-width outer wrapper.
+ *
+ * @param shellStyle - Margin shell from {@link applyBlockShell}.
+ * @param maxWidth - Resolved island max-width CSS value.
+ * @param align - Horizontal band alignment.
+ * @returns Single root box style for band/island blocks.
+ */
+export function buildWidthConstrainedRootStyle(
+  shellStyle: React.CSSProperties,
+  maxWidth: React.CSSProperties["maxWidth"],
+  align: "left" | "center" | "right",
+): React.CSSProperties {
+  const base: React.CSSProperties = {
+    ...shellStyle,
+    maxWidth,
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+  };
+
+  if (align === "center") {
+    return { ...base, marginLeft: "auto", marginRight: "auto" };
+  }
+
+  if (align === "right") {
+    return { ...base, marginLeft: "auto" };
+  }
+
+  return { ...base, marginRight: "auto" };
 }
 
 /**
@@ -566,20 +603,24 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
       const {
         shellStyle,
         contentStyle,
-        islandOuterStyle,
         islandInnerStyle,
         islandActive,
         bandActive,
+        islandAlign,
+        islandMaxWidthCss,
       } = applyBlockShell(props as BlockShellProps);
       const inner = originalRender(props);
+      const constrainedRoot = buildWidthConstrainedRootStyle(
+        shellStyle,
+        islandMaxWidthCss,
+        islandAlign,
+      );
 
       if (islandActive) {
         return (
-          <div style={shellStyle}>
-            <div style={islandOuterStyle}>
-              <div style={islandInnerStyle}>
-                <div style={contentStyle}>{inner}</div>
-              </div>
+          <div style={constrainedRoot}>
+            <div style={islandInnerStyle}>
+              <div style={contentStyle}>{inner}</div>
             </div>
           </div>
         );
@@ -587,10 +628,8 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
 
       if (bandActive) {
         return (
-          <div style={shellStyle}>
-            <div style={islandOuterStyle}>
-              <div style={contentStyle}>{inner}</div>
-            </div>
+          <div style={constrainedRoot}>
+            <div style={contentStyle}>{inner}</div>
           </div>
         );
       }

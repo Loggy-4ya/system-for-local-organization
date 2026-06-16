@@ -6,9 +6,13 @@
 
 import {
   PUCK_COMPACT_EDITOR_MAX_WIDTH,
+  PUCK_COMPACT_EDITOR_MQ,
   PUCK_NARROW_DESKTOP_MAX_WIDTH,
   PUCK_TIGHT_DESKTOP_MAX_WIDTH,
 } from "@/components/puck/usePuckMobileEditorChrome";
+
+/** Upper bound for narrow editor layout fixes (sidebar strip, full-bleed canvas). */
+export const NEXUS_NARROW_EDITOR_MAX_WIDTH = PUCK_COMPACT_EDITOR_MAX_WIDTH;
 
 /** Puck `localStorage` key for persisted sidebar drag widths. */
 export const PUCK_SIDEBAR_WIDTHS_STORAGE_KEY = "puck-sidebar-widths";
@@ -67,6 +71,22 @@ export const NEXUS_MOBILE_PANEL_MAX_HEIGHT_PX = 480;
 
 /** Default compact panel height when nothing is persisted. */
 export const NEXUS_MOBILE_PANEL_DEFAULT_HEIGHT = "30%";
+
+/** Default compact panel height as a fraction of viewport height. */
+export const NEXUS_MOBILE_PANEL_DEFAULT_HEIGHT_VH = 0.3;
+
+/**
+ * Resolve the default compact plugin panel open height in px.
+ *
+ * @param viewportHeight - Current viewport height in px.
+ * @returns Clamped default open height in px.
+ */
+export function resolveMobilePanelDefaultOpenHeightPx(viewportHeight: number): number {
+  return clampMobilePanelHeightPx(
+    Math.round(viewportHeight * NEXUS_MOBILE_PANEL_DEFAULT_HEIGHT_VH),
+    viewportHeight,
+  );
+}
 
 /** Min/max sidebar width limits for the current viewport band. */
 export interface SidebarWidthLimits {

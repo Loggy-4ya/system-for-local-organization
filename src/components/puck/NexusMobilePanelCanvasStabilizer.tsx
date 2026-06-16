@@ -148,6 +148,7 @@ export function NexusMobilePanelCanvasStabilizer() {
         "data-nexus-panel-opening",
         "data-nexus-panel-expanding",
         "data-nexus-panel-collapsing",
+        "data-nexus-panel-close-settling",
       ],
     });
 

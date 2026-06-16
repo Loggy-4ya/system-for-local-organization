@@ -4,14 +4,14 @@
  * @fileoverview Site-header-style shell wrapping Puck's default header toolbar.
  *
  * Replaces the duplicate in-canvas `EditorHeaderChrome` preview with a single
- * glass-panel bar (logo + embedded Puck controls) matching `SiteHeaderBar`.
+ * glass-panel bar (Nexus wordmark home link + embedded Puck controls).
  *
  * @module src/components/puck/NexusPuckHeaderShell
  */
 
-import Image from "next/image";
 import Link from "next/link";
-import { BRAND } from "@/lib/assets";
+import { NexusHistoryHeaderToolbar } from "@/components/puck/NexusHistoryToolbar";
+import { usePuckMobileEditorChrome } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Props for the Puck `overrides.header` wrapper. */
 export interface NexusPuckHeaderShellProps {
@@ -22,12 +22,14 @@ export interface NexusPuckHeaderShellProps {
 }
 
 /**
- * Glass-panel editor header — Nexus branding plus embedded Puck toolbar.
+ * Glass-panel editor header — Nexus wordmark home link plus embedded Puck toolbar.
  *
  * @param props - See {@link NexusPuckHeaderShellProps}.
  * @returns Header shell JSX.
  */
 export function NexusPuckHeaderShell({ children }: NexusPuckHeaderShellProps) {
+  const isCompactEditor = usePuckMobileEditorChrome();
+
   return (
     <div className="nexus-puck-header-shell">
       <div className="nexus-puck-header-shell__inner">
@@ -36,26 +38,14 @@ export function NexusPuckHeaderShell({ children }: NexusPuckHeaderShellProps) {
             <Link
               href="/"
               aria-label="Nexus home"
-              className="site-header-bar__logo nexus-puck-header-bar__logo inline-flex shrink-0 items-center gap-2 no-underline"
+              className="site-header-bar__logo nexus-puck-header-bar__logo inline-flex shrink-0 items-center no-underline"
             >
-              <span
-                aria-hidden="true"
-                className="site-header-bar__logo-mark inline-flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--color-accent-user)]"
-              >
-                <Image
-                  src={BRAND.logo}
-                  alt=""
-                  width={16}
-                  height={16}
-                  className="site-header-bar__logo-mark-image"
-                  priority
-                  suppressHydrationWarning
-                />
-              </span>
-              <span className="site-header-bar__wordmark text-[13px] font-semibold text-[var(--color-text-primary)]">
+              <span className="site-header-bar__wordmark">
                 Nexus
               </span>
             </Link>
+
+            {!isCompactEditor ? <NexusHistoryHeaderToolbar /> : null}
 
             <div className="nexus-puck-header-bar__puck min-w-0">{children}</div>
           </div>

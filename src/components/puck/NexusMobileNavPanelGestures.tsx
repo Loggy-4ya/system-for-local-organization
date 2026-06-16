@@ -4,8 +4,9 @@
  * @fileoverview Compact-mode nav tab gestures — double-tap toggle, single-tap close.
  *
  * Replaces Puck's maximize button on the bottom plugin rail. Double-tapping the
- * active tab expands the panel to max height or restores the pre-expand height;
- * single-tapping closes it with animation.
+ * active tab opens the panel at full height (when closed) or closes it (when
+ * opened via double-tap); single-tap open + double-tap expands to max or restores
+ * the pre-expand height.
  *
  * Tests: `tests/puck/lib/mobileNavPanelGestureLogic.test.ts` — `npm run test:mobile-nav-gestures`
  *
@@ -35,16 +36,25 @@ import {
   NEXUS_PANEL_COLLAPSING_ATTR,
   NEXUS_PANEL_EXPAND_ANIMATION_MS,
   NEXUS_PANEL_EXPANDING_ATTR,
+  applyMobilePanelHeight,
+  cleanupCompactPanelOverlayChrome,
+  markPendingDoubleTapFullOpen,
+  scheduleMobilePanelCloseSettling,
   resolvePreExpandPanelHeightPx,
+  releaseMobilePanelSidebarForInteraction,
+  isMobilePanelHeightClosedPx,
+  NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT,
+  resetMobilePanelPersistedHeightToDefault,
   restorePersistedPanelHeight,
   savePreExpandPanelHeight,
+  type MobilePanelDismissRequestDetail,
 } from "@/components/puck/lib/mobilePanelLayout";
 import {
   NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY,
   resolveMobilePanelMaxHeightPx,
 } from "@/components/puck/lib/sidebarLayoutLimits";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
-import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
+import { matchesCompactEditorViewport, PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Passive flag for touch listeners that call `preventDefault` (blocks synthetic click). */
 const NAV_TOUCH_LISTENER_OPTIONS: AddEventListenerOptions = { capture: true, passive: false };
@@ -55,11 +65,10 @@ const NAV_POINTER_LISTENER_OPTIONS: AddEventListenerOptions = { capture: true, p
 /**
  * Whether the viewport uses compact editor chrome.
  *
- * @returns True at or below {@link PUCK_COMPACT_EDITOR_MAX_WIDTH}.
+ * @returns True when {@link PUCK_COMPACT_EDITOR_MQ} matches.
  */
 function isCompactViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(`(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`).matches;
+  return matchesCompactEditorViewport();
 }
 
 /**
@@ -108,6 +117,8 @@ export function NexusMobileNavPanelGestures() {
   const leftSideBarVisibleRef = useRef(leftSideBarVisible);
   const mobilePanelExpandedRef = useRef(mobilePanelExpanded);
   const preExpandHeightRef = useRef<number | null>(null);
+  const openedViaDoubleTapRef = useRef(false);
+  const openedViaSingleTapRef = useRef(false);
   const closingRef = useRef(false);
   const animatingRef = useRef(false);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,27 +152,53 @@ export function NexusMobileNavPanelGestures() {
       animatingRef.current = false;
     };
 
-    const finishPanelClose = () => {
+    const finishPanelClose = (options?: { resetPersistedHeight?: boolean }) => {
       closingRef.current = false;
       animatingRef.current = false;
+      openedViaDoubleTapRef.current = false;
+      openedViaSingleTapRef.current = false;
 
-      requestAnimationFrame(() => {
-        dispatch({
-          type: "setUi",
-          ui: {
-            leftSideBarVisible: false,
-            mobilePanelExpanded: false,
-          },
-        });
+      if (options?.resetPersistedHeight && typeof window !== "undefined") {
+        resetMobilePanelPersistedHeightToDefault(window.innerHeight);
+      }
+
+      dispatch({
+        type: "setUi",
+        ui: {
+          leftSideBarVisible: false,
+          mobilePanelExpanded: false,
+          rightSideBarVisible: false,
+          rightSideBarWidth: 0,
+        },
+        recordHistory: false,
       });
+
+      applyMobilePanelHeight("0px");
+      cleanupCompactPanelOverlayChrome();
+      scheduleMobilePanelCloseSettling(NEXUS_PANEL_CLOSE_ANIMATION_MS);
     };
 
-    const animatePanelClose = () => {
-      if (closingRef.current || animatingRef.current || !leftSideBarVisibleRef.current) return;
+    const animatePanelClose = (options?: {
+      force?: boolean;
+      startHeightPx?: number;
+      resetPersistedHeight?: boolean;
+    }) => {
+      if (!leftSideBarVisibleRef.current) return;
 
-      const startHeight = measureMobilePanelHeightPx();
-      if (startHeight === undefined) {
-        finishPanelClose();
+      if (!options?.force && (closingRef.current || animatingRef.current)) return;
+
+      if (options?.force) {
+        clearAnimation();
+        closingRef.current = false;
+      } else if (closingRef.current || animatingRef.current) {
+        return;
+      }
+
+      const startHeight =
+        options?.startHeightPx ?? measureMobilePanelHeightPx();
+
+      if (isMobilePanelHeightClosedPx(startHeight)) {
+        finishPanelClose({ resetPersistedHeight: options?.resetPersistedHeight });
         return;
       }
 
@@ -178,7 +215,7 @@ export function NexusMobileNavPanelGestures() {
           htmlAttr: NEXUS_PANEL_CLOSING_ATTR,
           onComplete: () => {
             animationCancelRef.current = null;
-            finishPanelClose();
+            finishPanelClose({ resetPersistedHeight: options?.resetPersistedHeight });
           },
         },
       );
@@ -204,6 +241,7 @@ export function NexusMobileNavPanelGestures() {
               type: "setUi",
               ui: { mobilePanelExpanded: true },
             });
+            releaseMobilePanelSidebarForInteraction();
           },
         },
       );
@@ -229,6 +267,7 @@ export function NexusMobileNavPanelGestures() {
               type: "setUi",
               ui: { mobilePanelExpanded: false },
             });
+            releaseMobilePanelSidebarForInteraction();
           },
         },
       );
@@ -238,12 +277,15 @@ export function NexusMobileNavPanelGestures() {
       return preExpandHeightRef.current ?? resolvePreExpandPanelHeightPx();
     };
 
-    const reopenPanelAfterMidGestureClose = () => {
+    const reopenPanelAtPersistedHeight = () => {
+      openedViaDoubleTapRef.current = false;
       leftSideBarVisibleRef.current = true;
+      mobilePanelExpandedRef.current = false;
       restorePersistedPanelHeight();
       dispatch({
         type: "setUi",
-        ui: { leftSideBarVisible: true },
+        ui: { leftSideBarVisible: true, mobilePanelExpanded: false },
+        recordHistory: false,
       });
     };
 
@@ -252,22 +294,39 @@ export function NexusMobileNavPanelGestures() {
 
       clearSingleTapTimer();
 
-      if (!leftSideBarVisibleRef.current) {
-        reopenPanelAfterMidGestureClose();
-      }
-
-      const startHeight = measureMobilePanelHeightPx();
-      if (startHeight === undefined) return;
-
       const maxHeight = resolveMobilePanelMaxHeightPx(window.innerHeight);
       const toggle = resolveMobileNavPanelToggle(
         {
+          leftSideBarVisible: leftSideBarVisibleRef.current,
+          openedViaDoubleTap: openedViaDoubleTapRef.current,
           isMobilePanelExpanded: mobilePanelExpandedRef.current,
-          currentHeightPx: startHeight,
+          currentHeightPx: measureMobilePanelHeightPx() ?? 0,
           maxHeightPx: maxHeight,
         },
         resolveStoredPreExpandHeightPx,
       );
+
+      if (toggle.action === "open-full") {
+        openedViaDoubleTapRef.current = true;
+        leftSideBarVisibleRef.current = true;
+        mobilePanelExpandedRef.current = true;
+        markPendingDoubleTapFullOpen();
+        applyMobilePanelHeight("0px");
+        dispatch({
+          type: "setUi",
+          ui: { leftSideBarVisible: true, mobilePanelExpanded: true },
+          recordHistory: false,
+        });
+        return;
+      }
+
+      if (toggle.action === "close") {
+        animatePanelClose();
+        return;
+      }
+
+      const startHeight = measureMobilePanelHeightPx();
+      if (startHeight === undefined) return;
 
       if (toggle.action === "collapse") {
         const restoreHeight = toggle.restoreHeightPx ?? startHeight;
@@ -281,12 +340,35 @@ export function NexusMobileNavPanelGestures() {
       animatePanelExpandToMax(startHeight, maxHeight);
     };
 
+    const isPanelTransitionLocked = () => animatingRef.current || closingRef.current;
+
     const scheduleSingleTapClose = () => {
       clearSingleTapTimer();
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
+        if (animatingRef.current || closingRef.current) return;
+        if (!leftSideBarVisibleRef.current) return;
         animatePanelClose();
       }, MOBILE_NAV_SINGLE_TAP_DEFER_MS);
+    };
+
+    const handleSingleTapOpen = () => {
+      if (closingRef.current) {
+        clearSingleTapTimer();
+        clearAnimation();
+        closingRef.current = false;
+        document.documentElement.removeAttribute(NEXUS_PANEL_CLOSING_ATTR);
+      }
+
+      if (leftSideBarVisibleRef.current) {
+        openedViaSingleTapRef.current = false;
+        scheduleSingleTapClose();
+        return;
+      }
+
+      clearSingleTapTimer();
+      openedViaSingleTapRef.current = true;
+      reopenPanelAtPersistedHeight();
     };
 
     /**
@@ -301,9 +383,26 @@ export function NexusMobileNavPanelGestures() {
       source: "pointer" | "touch" | "click",
       clickDetail = 1,
     ) => {
+      const now = performance.now();
+
+      // Quick close after single-tap open — do not wait for double-tap pairing window.
+      if (
+        leftSideBarVisibleRef.current &&
+        openedViaSingleTapRef.current &&
+        !closingRef.current &&
+        !animatingRef.current
+      ) {
+        openedViaSingleTapRef.current = false;
+        tapStateRef.current.lastTap = null;
+        tapStateRef.current.lastPrimaryTapEndAt = now;
+        clearSingleTapTimer();
+        animatePanelClose();
+        return;
+      }
+
       const outcome = processMobileNavTap({
         state: tapStateRef.current,
-        now: performance.now(),
+        now,
         link,
         source,
         clickDetail,
@@ -311,13 +410,25 @@ export function NexusMobileNavPanelGestures() {
 
       if (outcome.type === "ignore") return;
 
+      if (isPanelTransitionLocked()) {
+        if (outcome.type === "double-tap-toggle") {
+          clearSingleTapTimer();
+        } else if (outcome.type === "record-single-tap") {
+          handleSingleTapOpen();
+        }
+        return;
+      }
+
       if (outcome.type === "double-tap-toggle") {
         clearSingleTapTimer();
+        openedViaSingleTapRef.current = false;
         animatePanelDoubleTapToggle();
         return;
       }
 
-      scheduleSingleTapClose();
+      if (outcome.type === "record-single-tap") {
+        handleSingleTapOpen();
+      }
     };
 
     /**
@@ -474,7 +585,19 @@ export function NexusMobileNavPanelGestures() {
     document.addEventListener("pointerup", onDocumentPointerUp, NAV_POINTER_LISTENER_OPTIONS);
     document.addEventListener("click", onDocumentClickCapture, NAV_POINTER_LISTENER_OPTIONS);
 
+    const onDismissRequest = (event: Event) => {
+      const detail = (event as CustomEvent<MobilePanelDismissRequestDetail>).detail;
+      animatePanelClose({
+        force: true,
+        startHeightPx: detail?.lastHeightPx,
+        resetPersistedHeight: true,
+      });
+    };
+
+    window.addEventListener(NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT, onDismissRequest);
+
     return () => {
+      window.removeEventListener(NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT, onDismissRequest);
       clearSingleTapTimer();
       clearAnimation();
       navObserver?.disconnect();
@@ -492,6 +615,8 @@ export function NexusMobileNavPanelGestures() {
       animatingRef.current = false;
       tapStateRef.current = createMobileNavTapState();
       preExpandHeightRef.current = null;
+      openedViaDoubleTapRef.current = false;
+      openedViaSingleTapRef.current = false;
     };
   }, [dispatch]);
 

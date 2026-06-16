@@ -32,6 +32,17 @@ When creating or editing Puck blocks, custom fields, or sidebar settings:
 - Adjacent Puck `Field` rows use `border-top` dividers from `puck-editor.css` — do not add parallel divider logic.
 - Conditional chapters: omit via `resolveChapterFieldVisibility()` / `visibleWhenFlat` in chapter config — do not render empty shells.
 
+## Field controls (outline-flat)
+
+Match Outline tree row rhythm — not boxed Shadcn controls. See `.ai/docs/features/puck_field_controls.md`.
+
+- `FieldChapter` body carries `nexus-plugin-field-surface` (automatic).
+- Selects: `PuckSelectField` only (`nexus-plugin-flat-control` on trigger).
+- Multi-option: `SegmentedControl` (`nexus-plugin-segmented`).
+- Binary: `PuckSwitchField` — not segmented Off/On boxes.
+- No `border`, `shadow-xs`, or rounded card chrome on controls inside plugin panels.
+- Horizontal gutter: `--nexus-plugin-panel-gutter-x` on wrappers + `--nexus-plugin-leaf-pad-inline` on labels/controls (see `puck_field_controls.md`).
+
 ## Reference files
 
 | File | Role |

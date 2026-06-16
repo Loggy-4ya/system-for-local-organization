@@ -240,6 +240,40 @@ iframe#preview-frame {
   --nexus-editor-panel-bg: color-mix(in srgb, var(--puck-color-white) 96%, transparent);
   --nexus-editor-panel-shadow: 0 8px 24px -4px color-mix(in srgb, var(--puck-color-black) 10%, transparent);
   --nexus-canvas-chrome-border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
+  /* Plugin panel rhythm — canonical source: `.nexus-outline-layer__*` (see `.ai/docs/features/puck_plugin_panel_rhythm.md`) */
+  --nexus-plugin-font-family: var(--puck-font-family, inherit);
+  --nexus-plugin-leaf-gap: 2px;
+  --nexus-plugin-leaf-icon-gap: 6px;
+  --nexus-plugin-leaf-min-height: 28px;
+  --nexus-plugin-leaf-margin-block: 1px;
+  /* Horizontal inset from panel edge to row content (Outline / Blocks / Fields parity) */
+  --nexus-plugin-panel-gutter-x: 12px;
+  --nexus-plugin-leaf-margin-inline: var(--nexus-plugin-panel-gutter-x);
+  --nexus-plugin-leaf-pad-block: 4px;
+  --nexus-plugin-leaf-pad-inline: 8px;
+  --nexus-plugin-leaf-handle-pad-inline-start: 6px;
+  --nexus-plugin-leaf-label-size: 13px;
+  --nexus-plugin-leaf-label-weight: 400;
+  --nexus-plugin-leaf-label-line-height: 1.3;
+  --nexus-plugin-section-title-size: 11px;
+  --nexus-plugin-section-title-weight: 600;
+  --nexus-plugin-section-title-spacing: 0.04em;
+  --nexus-plugin-section-title-gap: 6px;
+  --nexus-plugin-section-title-margin-block-start: 8px;
+  --nexus-plugin-section-title-margin-block-end: 4px;
+  --nexus-plugin-section-title-pad-block: 4px;
+  --nexus-plugin-section-title-pad-inline: var(--nexus-plugin-panel-gutter-x);
+  --nexus-plugin-section-header-margin-block: 0;
+  --nexus-plugin-section-header-pad-block: 4px;
+  --nexus-plugin-section-header-pad-inline: var(--nexus-plugin-panel-gutter-x);
+  /* Legacy aliases — prefer leaf/section tokens above */
+  --nexus-plugin-row-height: var(--nexus-plugin-leaf-min-height);
+  --nexus-plugin-row-pad-x: var(--nexus-plugin-leaf-pad-inline);
+  --nexus-plugin-row-pad-y: var(--nexus-plugin-leaf-pad-block);
+  --nexus-plugin-leaf-inset-x: var(--nexus-plugin-leaf-margin-inline);
+  --nexus-plugin-label-size: var(--nexus-plugin-section-title-size);
+  --nexus-plugin-section-height: var(--nexus-plugin-leaf-min-height);
+  --nexus-plugin-section-pad-y: var(--nexus-plugin-section-title-pad-block);
 }
 
 [data-theme="dark"] .Puck {
@@ -434,15 +468,22 @@ html[data-nexus-panel-layout-mutating] .Puck [class*="PuckCanvas_"]:not([class*=
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
+  visibility: hidden;
   transition:
     grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
-    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease);
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease),
+    visibility 0s linear var(--nexus-drawer-accordion-duration);
 }
 
 .Puck [class*="ComponentList--isExpanded"] > [class*="ComponentList-content"] {
   grid-template-rows: 1fr;
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease),
+    visibility 0s linear 0s;
 }
 
 .Puck [class*="ComponentList-content"] > [class*="Drawer"] {
@@ -467,7 +508,7 @@ html[data-nexus-panel-layout-mutating] .Puck [class*="PuckCanvas_"]:not([class*=
   .Puck [class*="PuckLayout-header"],
   .Puck .nexus-puck-header-shell,
   .Puck .nexus-field-chapter__collapse,
-  .Puck .nexus-field-chapter__head::after {
+  .Puck .nexus-field-chapter__chevron {
     animation: none !important;
     transition: none !important;
   }
@@ -556,37 +597,121 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 /* Belt-and-suspenders: Puck sometimes changes hover bg without updating text color */
 [data-theme="dark"] .Puck [class*="ArrayFieldItem-summary"]:hover,
 [data-theme="dark"] .Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
-  color: var(--puck-color-black);
+  color: var(--puck-color-azure-04) !important;
 }
 
 [data-theme="dark"] .Puck [class*="ArrayFieldItem-actions"] {
   color: var(--puck-color-grey-06);
 }
 
-/* Neutral array/list chrome — drop azure-tinted panel backgrounds */
+/* Array/list fields — flat rows (Outline / Blocks parity, no card chrome) */
 .Puck [class*="ArrayField"]:not([class*="ArrayFieldItem"]) {
-  background: var(--puck-color-grey-12) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.Puck [class*="ArrayField-inner"] {
+  margin-top: 0;
+}
+
+.Puck [class*="ArrayFieldItem"] {
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+}
+
+.Puck [class*="ArrayFieldItem--isExpanded"] {
+  outline: none !important;
+  z-index: auto;
 }
 
 .Puck [class*="ArrayFieldItem-summary"] {
-  background: var(--puck-color-white) !important;
-  color: var(--puck-color-black) !important;
+  background: transparent !important;
+  border-bottom: var(--nexus-editor-panel-border);
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  color: var(--puck-color-black);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  width: auto;
+}
+
+[data-theme="dark"] .Puck [class*="ArrayFieldItem-summary"],
+[data-theme="dark"] .Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
+  color: var(--puck-color-azure-04) !important;
 }
 
 .Puck [class*="ArrayFieldItem-summary"]:hover,
 .Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
-  background: var(--puck-color-grey-11) !important;
+  background: color-mix(in srgb, var(--color-accent-user) 6%, transparent) !important;
   color: var(--puck-color-black) !important;
 }
 
-.Puck [class*="ArrayFieldItem-body"],
+[data-theme="dark"] .Puck [class*="ArrayFieldItem-summary"]:hover,
+[data-theme="dark"] .Puck [class*="ArrayFieldItem--isExpanded"] > [class*="ArrayFieldItem-summary"] {
+  background: color-mix(in srgb, var(--puck-color-azure-04) 8%, transparent) !important;
+  color: var(--puck-color-azure-04) !important;
+}
+
+.Puck [class*="ArrayField-inner"] > [class*="ArrayFieldItem"]:last-child:not([class*="ArrayFieldItem--isExpanded"])
+  > [class*="ArrayFieldItem-summary"] {
+  border-bottom: none;
+}
+
+.Puck [class*="ArrayFieldItem-body"] {
+  background: transparent !important;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"] {
+  border: none;
+  border-bottom: var(--nexus-editor-panel-border);
+  box-sizing: border-box;
+  font-family: var(--nexus-plugin-font-family);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-width: 0;
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline) 10px;
+  width: auto;
+}
+
+.Puck [class*="ArrayField-inner"] > [class*="ArrayFieldItem"]:last-child[class*="ArrayFieldItem--isExpanded"]
+  > [class*="ArrayFieldItem-fieldset"] {
+  border-bottom: none;
+}
+
 .Puck [class*="ArrayField-addButton"] {
-  background: var(--puck-color-white) !important;
-  color: var(--puck-color-black) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  color: var(--puck-color-grey-06);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  width: auto;
 }
 
 .Puck [class*="ArrayField-addButton"]:hover {
-  background: var(--puck-color-grey-11) !important;
+  background: color-mix(in srgb, var(--color-accent-user) 6%, transparent) !important;
+  color: var(--puck-color-azure-04);
+}
+
+.Puck [class*="ArrayField--hasItems"] > [class*="ArrayField-addButton"] {
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.Puck [class*="ArrayFieldItem-actions"] {
+  color: var(--puck-color-grey-06);
+  opacity: 1;
 }
 
 /* ── Canvas: visible selection + hover rings ──────────────────────────────── */
@@ -695,22 +820,38 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 /* ── Custom Puck Fields (e.g. ImageField) ─────────────────────────────────── */
-.nexus-puck-field input[type="text"] {
+.nexus-puck-field input[type="text"],
+.nexus-puck-field input[type="number"] {
   width: 100%;
   padding: 8px 12px;
-  background: var(--puck-color-white);
-  border: 1px solid var(--puck-color-grey-09);
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
   color: var(--puck-color-black);
-  border-radius: 4px;
+  border-radius: var(--radius-md, 6px);
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.nexus-puck-field input[type="text"]:focus {
-  border-color: var(--puck-color-grey-07);
-  box-shadow: 0 0 0 1px var(--puck-color-grey-07);
+.nexus-puck-field input[type="text"]:hover:not(:disabled),
+.nexus-puck-field input[type="number"]:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-06));
+}
+
+.nexus-puck-field input[type="text"]:focus,
+.nexus-puck-field input[type="number"]:focus {
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06)),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent);
 }
 
 .nexus-puck-field button {
@@ -742,14 +883,15 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   padding: 12px 32px 12px 15px;
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--puck-color-white);
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2394a3b8'><polygon points='0,0 100,0 50,50'/></svg>");
   background-repeat: no-repeat;
   background-size: 12px;
   background-position: calc(100% - 15px) center;
-  border: 1px solid var(--puck-color-grey-09);
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
   color: var(--puck-color-black);
-  border-radius: 4px;
+  border-radius: var(--radius-md, 6px);
   font-family: inherit;
   font-size: 14px;
   line-height: 1.2;
@@ -759,25 +901,51 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 .nexus-puck-select-trigger {
-  width: 100%;
-  height: 42px;
-  min-height: 42px;
-  max-height: 42px;
-  background-color: var(--puck-color-white);
-  border-color: var(--puck-color-grey-09);
+  --nexus-plugin-select-min-height: 42px;
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
+  align-items: center;
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white)) !important;
+  border: 1px solid var(--nexus-select-border) !important;
+  border-radius: var(--radius-md, 6px) !important;
+  box-sizing: border-box;
+  box-shadow: inset 0 0 0 1px var(--nexus-select-border-inner) !important;
   color: var(--puck-color-black);
   font-family: inherit;
   font-size: 14px;
+  height: auto;
+  justify-content: space-between;
+  max-height: none;
+  min-height: var(--nexus-plugin-select-min-height);
+  padding: 0 12px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.nexus-puck-select-trigger:hover:not(:disabled) {
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-08));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white)) !important;
 }
 
 .nexus-puck-field select:focus {
-  border-color: var(--puck-color-grey-07);
-  box-shadow: 0 0 0 1px var(--puck-color-grey-07);
+  border-color: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06)),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent);
 }
 
 .nexus-puck-select-trigger:focus-visible {
-  border-color: var(--puck-color-grey-07);
-  box-shadow: 0 0 0 1px var(--puck-color-grey-07);
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white)) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--nexus-select-border-inner),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent) !important;
+  outline: none;
 }
 
 /* ── Dark theme: Puck native selects (chevron, not zigzag tile) ─────────── */
@@ -785,37 +953,69 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 [data-theme="dark"] .Puck select:not([class*="ViewportControls-zoomSelect"]) {
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--puck-color-grey-11) !important;
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11)) !important;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23cbd5e1'><polygon points='0,0 100,0 50,50'/></svg>") !important;
   background-repeat: no-repeat !important;
   background-size: 12px !important;
   background-position: calc(100% - 12px) center !important;
-  border-color: var(--puck-color-grey-09) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06)) !important;
   color: var(--puck-color-black) !important;
 }
 
 [data-theme="dark"] .Puck select[class*="Input-input"]:hover:not([disabled]),
 [data-theme="dark"] .Puck select:not([class*="ViewportControls-zoomSelect"]):hover:not([disabled]) {
-  background-color: var(--puck-color-grey-10) !important;
+  background-color: color-mix(in srgb, var(--color-accent-user) 20%, var(--puck-color-grey-11)) !important;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0'><polygon points='0,0 100,0 50,50'/></svg>") !important;
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-07)) !important;
 }
 
 [data-theme="dark"] .nexus-puck-field select {
-  background-color: var(--puck-color-grey-11);
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11));
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23cbd5e1'><polygon points='0,0 100,0 50,50'/></svg>");
-  border-color: var(--puck-color-grey-09);
+  border-color: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
   color: var(--puck-color-black);
 }
 
-[data-theme="dark"] .nexus-puck-select-trigger {
-  background-color: var(--puck-color-grey-11);
-  border-color: var(--puck-color-grey-09);
+[data-theme="dark"] .nexus-puck-select-trigger:not(.nexus-viewport-zoom-select__trigger):not(
+    .global-layout-editor__icon-picker-trigger
+  ) {
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11)) !important;
   color: var(--puck-color-black);
+}
+
+[data-theme="dark"]
+  .nexus-puck-select-trigger:not(.nexus-viewport-zoom-select__trigger):not(
+    .global-layout-editor__icon-picker-trigger
+  ):hover:not(:disabled) {
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-07));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 44%, var(--puck-color-grey-05));
+  background-color: color-mix(in srgb, var(--color-accent-user) 20%, var(--puck-color-grey-11)) !important;
+}
+
+[data-theme="dark"]
+  .nexus-puck-select-trigger:not(.nexus-viewport-zoom-select__trigger):not(
+    .global-layout-editor__icon-picker-trigger
+  ):focus-visible {
+  --nexus-select-border: color-mix(in srgb, var(--color-accent-user) 55%, var(--puck-color-grey-07));
+  --nexus-select-border-inner: color-mix(in srgb, var(--color-accent-user) 50%, var(--puck-color-grey-05));
+  background-color: color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-11)) !important;
 }
 
 [data-theme="dark"] .Puck select option,
 [data-theme="dark"] .Puck option {
   background: var(--puck-color-grey-11);
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .Puck .nexus-puck-field input[type="text"],
+[data-theme="dark"] .Puck .nexus-puck-field input[type="number"] {
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
   color: var(--puck-color-black);
 }
 
@@ -894,15 +1094,17 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   align-items: center;
   background: transparent;
   border: none;
-  color: var(--puck-color-grey-07);
+  color: var(--puck-color-grey-06);
   cursor: pointer;
   display: flex;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 8px;
-  letter-spacing: 0.03em;
-  padding: 6px 0;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-section-title-size);
+  font-weight: var(--nexus-plugin-section-title-weight);
+  gap: var(--nexus-plugin-section-title-gap);
+  letter-spacing: var(--nexus-plugin-section-title-spacing);
+  margin: var(--nexus-plugin-section-header-margin-block);
+  min-height: 0;
+  padding: var(--nexus-plugin-section-header-pad-block) var(--nexus-plugin-section-header-pad-inline);
   text-align: left;
   text-transform: uppercase;
   user-select: none;
@@ -926,18 +1128,22 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   flex: 1;
 }
 
-.nexus-field-chapter__head::after {
-  color: var(--puck-color-grey-08);
-  content: "+";
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1;
-  transition: opacity calc(var(--nexus-drawer-accordion-duration) - 40ms)
-    var(--nexus-drawer-accordion-ease);
+.nexus-field-chapter__chevron {
+  color: var(--puck-color-grey-06);
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+  margin-inline-start: auto;
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 12px;
 }
 
-.nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head::after {
-  content: "−";
+.nexus-field-chapter__chevron--expanded {
+  transform: rotate(0deg);
+}
+
+.nexus-field-chapter__chevron:not(.nexus-field-chapter__chevron--expanded) {
+  transform: rotate(-90deg);
 }
 
 .nexus-field-chapter__collapse {
@@ -946,15 +1152,22 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
+  visibility: hidden;
   transition:
     grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
-    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease);
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease),
+    visibility 0s linear var(--nexus-drawer-accordion-duration);
 }
 
 .nexus-field-chapter[data-open="true"] > .nexus-field-chapter__collapse {
   grid-template-rows: 1fr;
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
+    opacity calc(var(--nexus-drawer-accordion-duration) - 40ms) var(--nexus-drawer-accordion-ease),
+    visibility 0s linear 0s;
 }
 
 .nexus-field-chapter:not([data-nexus-chapter-hydrated]) .nexus-field-chapter__collapse {
@@ -968,6 +1181,12 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   min-height: 0;
   overflow: hidden;
   padding-bottom: 6px;
+}
+
+.Puck .nexus-plugin-field-surface,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body {
+  gap: 0;
+  padding-bottom: var(--nexus-plugin-leaf-pad-block);
 }
 
 .nexus-field-category {
@@ -1091,18 +1310,28 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 /* Top-level Puck fields — one FieldChapter per field (same rhythm as block settings). */
+.Puck [class*="PuckFields--wrapFields"],
 .Puck [class*="Fields-fields"] {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
+/* Puck core wrapFields adds 16px/12px pad per field — strip for FieldChapter rows. */
+.Puck [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"],
 .Puck [class*="Fields-fields"] > [class*="Field"] {
   border: none;
+  display: block;
   margin: 0;
   padding: 0;
 }
 
+.Puck [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"] [class*="InputWrapper"],
+.Puck [class*="Fields-fields"] > [class*="Field"] [class*="InputWrapper"] {
+  margin: 0;
+}
+
+.Puck [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"] + [class*="PuckFields-field"],
 .Puck [class*="Fields-fields"] > [class*="Field"] + [class*="Field"],
 .Puck [class*="Fields"] > [class*="Field"] + [class*="Field"] {
   border-top: 1px solid var(--puck-color-grey-09);
@@ -1110,6 +1339,7 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 /* Belt-and-suspenders when a conditional custom field still mounts an empty shell. */
+.Puck [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"]:empty,
 .Puck [class*="Fields-fields"] > [class*="Field"]:empty {
   border: none !important;
   display: none !important;
@@ -1160,9 +1390,10 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 .nexus-field-grid__custom {
-  background: var(--puck-color-white);
-  border: 1px solid var(--puck-color-grey-09);
-  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
   box-sizing: border-box;
   color: var(--puck-color-black);
   font-family: inherit;
@@ -1171,6 +1402,21 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   min-height: 42px;
   padding: 0 12px;
   width: 100%;
+}
+
+.nexus-field-grid__custom:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-06));
+}
+
+.nexus-field-grid__custom:focus {
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06)),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent);
+  outline: none;
 }
 
 .nexus-color-row {
@@ -1260,9 +1506,19 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 [data-theme="dark"] .nexus-field-grid__custom {
-  background: var(--puck-color-grey-11);
-  border-color: var(--puck-color-grey-09);
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
   color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-field-grid__custom:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent-user) 20%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-07));
+}
+
+[data-theme="dark"] .nexus-field-grid__custom:focus {
+  background-color: color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-11));
 }
 
 [data-theme="dark"] .nexus-path-chip {
@@ -1293,17 +1549,14 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   align-items: center;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   cursor: pointer;
   display: inline-flex;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--site-header-chip-font-size);
   font-weight: 500;
-  gap: 6px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0 12px;
+  gap: var(--site-header-chip-gap);
   transition: opacity 0.15s ease;
 }
 
@@ -1481,31 +1734,630 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   text-underline-offset: 2px;
 }
 
-/* ── Component drawer icons ─────────────────────────────────────────────── */
-.nexus-drawer-item {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  width: 100%;
+/* ── Component drawer icons (desktop + shared row shell) ─────────────────── */
+.Puck .nexus-blocks-plugin,
+.Puck .nexus-outline-plugin,
+.Puck [class*="FieldsPlugin"] {
+  font-family: var(--nexus-plugin-font-family);
 }
 
-.nexus-drawer-item__icon {
+.nexus-drawer-item,
+.nexus-plugin-panel-row {
   align-items: center;
-  color: var(--puck-color-grey-07);
+  box-sizing: border-box;
+  display: flex;
+  font-family: var(--nexus-plugin-font-family);
+  gap: var(--nexus-plugin-leaf-icon-gap);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  min-width: 0;
+  width: auto;
+}
+
+.nexus-plugin-panel-row--block {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/*
+ * Puck Drawer.Item renders duplicate bg + fg layers for @dnd-kit palette drags.
+ * Nexus custom rows live in both layers — hide the bg placeholder on all breakpoints
+ * (mobile rules below repeat these for specificity inside the compact panel block).
+ */
+.Puck [class*="Sidebar--left"] [class*="Drawer-draggableBg"] {
+  visibility: hidden !important;
+}
+
+/* Puck default drawer chrome — never show alongside Nexus plugin rows */
+.Puck [class*="Sidebar--left"] [class*="DrawerItem-name"],
+.Puck [class*="Sidebar--left"] [class*="DrawerItem-icon"],
+.Puck [class*="Sidebar--left"] [class*="DrawerItem-draggable"] {
+  display: none !important;
+}
+
+.Puck [class*="Sidebar--left"] [class*="Drawer-draggable"]:has([class*="DrawerItem--isDragging"])
+  .nexus-plugin-panel-row--block {
+  opacity: 0.55;
+}
+
+.nexus-drawer-item__icon,
+.nexus-plugin-panel-row__icon {
+  align-items: center;
+  color: var(--puck-color-grey-05);
   display: inline-flex;
   flex-shrink: 0;
   justify-content: center;
+  line-height: 0;
+  padding: var(--nexus-plugin-leaf-pad-block) 0;
   width: 16px;
 }
 
-.nexus-drawer-item__label {
+.nexus-plugin-panel-row__handle {
+  align-items: center;
+  color: var(--puck-color-grey-06);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  line-height: 0;
+  padding: var(--nexus-plugin-leaf-pad-block) 2px var(--nexus-plugin-leaf-pad-block)
+    var(--nexus-plugin-leaf-handle-pad-inline-start);
+  pointer-events: none;
+}
+
+.nexus-plugin-panel-row__handle svg {
+  height: 12px;
+  width: 12px;
+}
+
+/* Match outline layer row label color (see `.nexus-outline-layer__name`). */
+.nexus-drawer-item__label,
+.nexus-plugin-panel-row__label {
+  color: var(--puck-color-black);
   flex: 1;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
   min-width: 0;
+  overflow: hidden;
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline)
+    var(--nexus-plugin-leaf-pad-block) 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .nexus-drawer-item__label,
+[data-theme="dark"] .nexus-plugin-panel-row__label {
+  color: var(--puck-color-azure-04);
 }
 
 .Puck [class*="DrawerItem"]:hover .nexus-drawer-item__icon,
-.Puck [class*="DrawerItem--isDragging"] .nexus-drawer-item__icon {
+.Puck [class*="DrawerItem"]:hover .nexus-plugin-panel-row__icon,
+.Puck [class*="DrawerItem--isDragging"] .nexus-drawer-item__icon,
+.Puck [class*="DrawerItem--isDragging"] .nexus-plugin-panel-row__icon {
+  color: var(--puck-color-grey-05);
+}
+
+[data-theme="dark"] .Puck [class*="DrawerItem"]:hover .nexus-drawer-item__icon,
+[data-theme="dark"] .Puck [class*="DrawerItem"]:hover .nexus-plugin-panel-row__icon,
+[data-theme="dark"] .Puck [class*="DrawerItem--isDragging"] .nexus-drawer-item__icon,
+[data-theme="dark"] .Puck [class*="DrawerItem--isDragging"] .nexus-plugin-panel-row__icon {
+  color: var(--puck-color-azure-04);
+}
+
+/* ── Fields plugin — Outline / Blocks flat panel parity (all breakpoints) ─── */
+.Puck [class*="FieldsPlugin"] [class*="FieldsPlugin-header"] {
+  box-sizing: border-box;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="PuckFields--wrapFields"],
+.Puck [class*="FieldsPlugin"] [class*="Fields-fields"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__head {
+  color: var(--puck-color-grey-06);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-section-title-size);
+  font-weight: var(--nexus-plugin-section-title-weight);
+  gap: var(--nexus-plugin-section-title-gap);
+  letter-spacing: var(--nexus-plugin-section-title-spacing);
+  margin: var(--nexus-plugin-section-header-margin-block);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-section-header-pad-block) var(--nexus-plugin-section-header-pad-inline);
+  text-transform: uppercase;
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head {
+  background: color-mix(in srgb, var(--color-accent-user) 6%, var(--puck-color-white));
   color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head {
+  background: color-mix(in srgb, var(--puck-color-azure-04) 8%, transparent);
+  color: var(--puck-color-azure-04);
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__icon {
+  color: var(--puck-color-grey-06);
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter + .nexus-field-chapter,
+.Puck [class*="FieldsPlugin"] [class*="PuckFields-field"] + [class*="PuckFields-field"] {
+  border-top: var(--nexus-editor-panel-border);
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-category__label {
+  box-sizing: border-box;
+  color: var(--puck-color-grey-06);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-section-title-size);
+  font-weight: var(--nexus-plugin-section-title-weight);
+  letter-spacing: var(--nexus-plugin-section-title-spacing);
+  margin: var(--nexus-plugin-section-header-margin-block);
+  padding: var(--nexus-plugin-section-header-pad-block)
+    var(--nexus-plugin-leaf-pad-inline)
+    var(--nexus-plugin-section-header-pad-block)
+    var(--nexus-plugin-panel-gutter-x);
+  text-transform: uppercase;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="PuckFields-field"] > [class*="InputWrapper"] > [class*="ArrayField"] {
+  box-sizing: border-box;
+  margin-inline: var(--nexus-plugin-panel-gutter-x);
+  width: auto;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="FieldLabel"],
+.Puck [class*="FieldsPlugin"] .nexus-field-subfield__label {
+  align-items: center;
+  color: var(--puck-color-black);
+  display: flex;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  gap: var(--nexus-plugin-leaf-icon-gap);
+  letter-spacing: normal;
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-panel-gutter-x);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  text-transform: none;
+  width: auto;
+}
+
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="FieldLabel"],
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-subfield__label {
+  color: var(--puck-color-azure-04);
+}
+
+.Puck [class*="FieldsPlugin"] [class*="FieldLabel"] svg {
+  color: var(--puck-color-grey-05);
+  flex-shrink: 0;
+  height: 14px;
+  opacity: 1;
+  width: 14px;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="Input-label"] {
+  color: var(--puck-color-grey-06);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-section-title-size);
+  font-weight: var(--nexus-plugin-section-title-weight);
+  letter-spacing: var(--nexus-plugin-section-title-spacing);
+  padding-bottom: var(--nexus-plugin-section-title-pad-block);
+  text-transform: uppercase;
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-grid,
+.Puck [class*="FieldsPlugin"] .nexus-sidebar-field .nexus-field-grid,
+.Puck [class*="FieldsPlugin"] .nexus-carousel-size-fields {
+  gap: 4px;
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-grid__custom,
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"],
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"],
+.Puck [class*="FieldsPlugin"] [class*="Input-input"],
+.Puck [class*="FieldsPlugin"] .nexus-puck-input {
+  font-size: 13px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body .nexus-sidebar-field [class*="Field"],
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body .nexus-sidebar-field [class*="FieldLabel"] {
+  margin: 0;
+}
+
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-chapter__head,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-category__label,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="Input-label"] {
+  background: transparent;
+}
+
+/* ── Plugin field controls — outline-flat rows (select, segmented, inputs) ─── */
+.Puck .nexus-plugin-field-surface .nexus-sidebar-field,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body .nexus-sidebar-field {
+  border-bottom: var(--nexus-editor-panel-border);
+  box-sizing: border-box;
+  font-family: var(--nexus-plugin-font-family);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-panel-gutter-x);
+  padding: var(--nexus-plugin-leaf-pad-block) 0;
+  width: auto;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-subfield__label,
+.Puck [class*="FieldsPlugin"] .nexus-field-subfield__label {
+  margin-bottom: 2px;
+  margin-inline: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category,
+.Puck [class*="FieldsPlugin"] .nexus-field-category {
+  gap: 0;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-chapter__body > .nexus-field-category,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body > .nexus-field-category {
+  border-bottom: var(--nexus-editor-panel-border);
+  box-sizing: border-box;
+  margin-inline: var(--nexus-plugin-panel-gutter-x);
+  width: auto;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-chapter__body > .nexus-field-category:last-child,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body > .nexus-field-category:last-child {
+  border-bottom: none;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-chapter__body > .nexus-field-category:last-child
+  > .nexus-sidebar-field:last-child,
+.Puck .nexus-plugin-field-surface .nexus-field-chapter__body > .nexus-sidebar-field:last-child,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body > .nexus-field-category:last-child
+  > .nexus-sidebar-field:last-child,
+.Puck [class*="FieldsPlugin"] .nexus-field-chapter__body > .nexus-sidebar-field:last-child {
+  border-bottom: none;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category__label,
+.Puck [class*="FieldsPlugin"] .nexus-field-category__label {
+  padding-bottom: 2px;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-tiptap-editor,
+.Puck [class*="FieldsPlugin"] .nexus-tiptap-editor {
+  box-sizing: border-box;
+  margin-inline: var(--nexus-plugin-panel-gutter-x);
+  width: auto;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-color-row,
+.Puck [class*="FieldsPlugin"] .nexus-color-row,
+.Puck .nexus-plugin-field-surface .nexus-stepped-slider,
+.Puck [class*="FieldsPlugin"] .nexus-stepped-slider,
+.Puck .nexus-plugin-field-surface .nexus-field-grid,
+.Puck [class*="FieldsPlugin"] .nexus-field-grid {
+  box-sizing: border-box;
+  margin-inline: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+  width: auto;
+}
+
+/* ── Plugin select fields — bordered controls inset in field rows ─────────── */
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-puck-select-trigger,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-puck-select-trigger,
+.Puck .nexus-plugin-field-surface .nexus-sidebar-field .nexus-puck-select-trigger,
+.Puck [class*="FieldsPlugin"] .nexus-sidebar-field .nexus-puck-select-trigger,
+.Puck .nexus-plugin-field-surface .nexus-puck-select-trigger,
+.Puck [class*="FieldsPlugin"] .nexus-puck-select-trigger {
+  --nexus-plugin-select-min-height: var(--nexus-plugin-leaf-min-height);
+  box-sizing: border-box;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  margin-block: 4px 6px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.Puck .nexus-plugin-field-surface .nexus-puck-select-trigger [data-slot="select-value"],
+.Puck [class*="FieldsPlugin"] .nexus-puck-select-trigger [data-slot="select-value"] {
+  color: inherit;
+  font: inherit;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-puck-select-trigger svg,
+.Puck [class*="FieldsPlugin"] .nexus-puck-select-trigger svg {
+  color: var(--puck-color-grey-06);
+  flex-shrink: 0;
+  height: 12px;
+  width: 12px;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-grid__custom-row .nexus-puck-select-trigger,
+.Puck [class*="FieldsPlugin"] .nexus-field-grid__custom-row .nexus-puck-select-trigger {
+  margin-inline: 0;
+  width: 100%;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-plugin-segmented,
+.Puck .nexus-plugin-field-surface .nexus-segmented,
+.Puck [class*="FieldsPlugin"] .nexus-segmented {
+  gap: 0;
+  width: 100%;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-segmented__btn,
+.Puck [class*="FieldsPlugin"] .nexus-segmented__btn {
+  background: transparent !important;
+  border: none !important;
+  border-inline-end: var(--nexus-editor-panel-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--puck-color-black);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  outline: none !important;
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  transition: background-color 0.15s ease;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-segmented__btn:last-child,
+.Puck [class*="FieldsPlugin"] .nexus-segmented__btn:last-child {
+  border-inline-end: none !important;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-segmented__btn:hover:not(.nexus-segmented__btn--active),
+.Puck [class*="FieldsPlugin"] .nexus-segmented__btn:hover:not(.nexus-segmented__btn--active) {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white)) !important;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-segmented__btn--active,
+.Puck [class*="FieldsPlugin"] .nexus-segmented__btn--active {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white)) !important;
+  border-color: transparent !important;
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-segmented__btn,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-segmented__btn {
+  background: transparent !important;
+  color: var(--puck-color-azure-04);
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-segmented__btn:hover:not(.nexus-segmented__btn--active),
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-segmented__btn:hover:not(.nexus-segmented__btn--active) {
+  background: color-mix(in srgb, var(--color-accent-user) 6%, transparent) !important;
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-segmented__btn--active,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-segmented__btn--active {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, transparent) !important;
+  color: var(--puck-color-azure-04);
+}
+
+/* Text inputs + native Puck fields inside plugin field surfaces */
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-puck-input,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-puck-input,
+.Puck .nexus-plugin-field-surface .nexus-sidebar-field .nexus-puck-field input[type="text"],
+.Puck .nexus-plugin-field-surface .nexus-sidebar-field .nexus-puck-field input[type="number"],
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"],
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="number"],
+.Puck .nexus-plugin-field-surface [class*="Input-input"],
+.Puck [class*="FieldsPlugin"] .nexus-sidebar-field .nexus-puck-field input[type="text"],
+.Puck [class*="FieldsPlugin"] .nexus-sidebar-field .nexus-puck-field input[type="number"],
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"],
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"],
+.Puck [class*="FieldsPlugin"] [class*="Input-input"] {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white)) !important;
+  border: 1px solid var(--nexus-plugin-control-border) !important;
+  border-radius: var(--radius-md, 6px) !important;
+  box-shadow: inset 0 0 0 1px var(--nexus-plugin-control-border-inner) !important;
+  box-sizing: border-box;
+  color: var(--puck-color-black);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  height: auto;
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  margin-block: 4px 6px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-slug-row,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-slug-row {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
+  align-items: center;
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white)) !important;
+  border: 1px solid var(--nexus-plugin-control-border) !important;
+  border-radius: var(--radius-md, 6px) !important;
+  box-shadow: inset 0 0 0 1px var(--nexus-plugin-control-border-inner) !important;
+  box-sizing: border-box;
+  display: flex;
+  gap: 4px;
+  margin-block: 4px 6px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.Puck .nexus-plugin-field-surface .nexus-page-slug-row .nexus-puck-input,
+.Puck .nexus-plugin-field-surface .nexus-page-slug-row__input,
+.Puck [class*="FieldsPlugin"] .nexus-page-slug-row .nexus-puck-input,
+.Puck [class*="FieldsPlugin"] .nexus-page-slug-row__input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  flex: 1;
+  margin: 0 !important;
+  min-height: 0;
+  padding: 0 !important;
+  width: auto !important;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-page-slug-row__prefix,
+.Puck [class*="FieldsPlugin"] .nexus-page-slug-row__prefix {
+  color: var(--puck-color-grey-06);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-slug-row,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-slug-row {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11)) !important;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-grid__custom-row .nexus-field-grid__custom,
+.Puck [class*="FieldsPlugin"] .nexus-field-grid__custom-row .nexus-field-grid__custom {
+  margin-inline: 0;
+  width: 100%;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"]:hover:not(:disabled),
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="number"]:hover:not(:disabled),
+.Puck .nexus-plugin-field-surface [class*="Input-input"]:hover:not(:disabled),
+.Puck .nexus-plugin-field-surface .nexus-puck-input:hover:not(:disabled),
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"]:hover:not(:disabled),
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"]:hover:not(:disabled),
+.Puck [class*="FieldsPlugin"] [class*="Input-input"]:hover:not(:disabled),
+.Puck [class*="FieldsPlugin"] .nexus-puck-input:hover:not(:disabled) {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white)) !important;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"]:focus,
+.Puck .nexus-plugin-field-surface .nexus-puck-field input[type="number"]:focus,
+.Puck .nexus-plugin-field-surface [class*="Input-input"]:focus,
+.Puck .nexus-plugin-field-surface .nexus-puck-input:focus,
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"]:focus,
+.Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"]:focus,
+.Puck [class*="FieldsPlugin"] [class*="Input-input"]:focus,
+.Puck [class*="FieldsPlugin"] .nexus-puck-input:focus {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white)) !important;
+  box-shadow:
+    inset 0 0 0 1px var(--nexus-plugin-control-border-inner),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent) !important;
+  outline: none !important;
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"],
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-field input[type="number"],
+[data-theme="dark"] .Puck .nexus-plugin-field-surface [class*="Input-input"],
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-input,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"],
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"],
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="Input-input"],
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-input {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11)) !important;
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"]:hover:not(:disabled),
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-field input[type="number"]:hover:not(:disabled),
+[data-theme="dark"] .Puck .nexus-plugin-field-surface [class*="Input-input"]:hover:not(:disabled),
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-puck-input:hover:not(:disabled),
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="text"]:hover:not(:disabled),
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-field input[type="number"]:hover:not(:disabled),
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="Input-input"]:hover:not(:disabled),
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-puck-input:hover:not(:disabled) {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-07));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 44%, var(--puck-color-grey-05));
+  background-color: color-mix(in srgb, var(--color-accent-user) 20%, var(--puck-color-grey-11)) !important;
+}
+
+/* Binary switch rows — label left, control right, outline row rhythm */
+.Puck .nexus-plugin-field-surface .nexus-switch-field,
+.Puck [class*="FieldsPlugin"] .nexus-switch-field {
+  width: 100%;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-switch-row,
+.Puck [class*="FieldsPlugin"] .nexus-switch-row {
+  align-items: center;
+  box-sizing: border-box;
+  font-family: var(--nexus-plugin-font-family);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  width: auto;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-switch-row__label,
+.Puck [class*="FieldsPlugin"] .nexus-switch-row__label {
+  color: var(--puck-color-black);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface .nexus-switch-row__label,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-switch-row__label {
+  color: var(--puck-color-azure-04);
+}
+
+/* Puck radio override inside Fields — same flat row as SegmentedControl */
+.Puck .nexus-plugin-field-surface [class*="RadioField"] > div,
+.Puck .nexus-plugin-field-surface [class*="RadioField"] fieldset,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] > div,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] fieldset {
+  gap: 0 !important;
+}
+
+.Puck .nexus-plugin-field-surface [class*="RadioField"] label,
+.Puck .nexus-plugin-field-surface [class*="RadioField"] button,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] label,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] button {
+  background: transparent !important;
+  border: none !important;
+  border-inline-end: var(--nexus-editor-panel-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--puck-color-black) !important;
+  font-family: var(--nexus-plugin-font-family) !important;
+  font-size: var(--nexus-plugin-leaf-label-size) !important;
+  font-weight: var(--nexus-plugin-leaf-label-weight) !important;
+  min-height: var(--nexus-plugin-leaf-min-height) !important;
+  outline: none !important;
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline) !important;
+}
+
+.Puck .nexus-plugin-field-surface [class*="RadioField"] label:last-child,
+.Puck .nexus-plugin-field-surface [class*="RadioField"] button:last-child,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] label:last-child,
+.Puck [class*="FieldsPlugin"] [class*="RadioField"] button:last-child {
+  border-inline-end: none !important;
+}
+
+[data-theme="dark"] .Puck .nexus-plugin-field-surface [class*="RadioField"] label,
+[data-theme="dark"] .Puck .nexus-plugin-field-surface [class*="RadioField"] button,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="RadioField"] label,
+[data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="RadioField"] button {
+  color: var(--puck-color-azure-04) !important;
 }
 
 /* ── Field label icons (sidebar) ────────────────────────────────────────── */
@@ -1600,6 +2452,14 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
    Selectors omit `.Puck` because the preview canvas renders inside Puck's iframe (no `.Puck` ancestor). */
 .nexus-carousel--edit {
   position: relative;
+}
+
+.nexus-carousel--edit [data-slot="carousel-content"] {
+  touch-action: pan-y pinch-zoom;
+}
+
+.nexus-carousel--edit .nexus-carousel__swipe-host {
+  touch-action: pan-y pinch-zoom;
 }
 
 .nexus-carousel--edit:not(.nexus-carousel--fixed-height) {
@@ -1808,39 +2668,22 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 /*
- * Single-slide edit: collapse inactive slides and pin the Embla track.
- * Embla scroll breaks layout when inactive items are width-zero — CSS alone drives the view.
+ * Single-slide edit — Embla scrolls the full-width track (no CSS transform pin).
+ * Active slide gets the same focus ring as multi-slide WYSIWYG edit.
  */
+.nexus-carousel--edit.nexus-carousel--edit-single-slide
+  .nexus-carousel__slide--active-edit {
+  outline: 1px solid color-mix(in srgb, var(--color-accent-user) 65%, transparent);
+  outline-offset: -1px;
+  z-index: 1;
+}
+
 .nexus-carousel--edit.nexus-carousel--edit-single-slide [data-slot="carousel-content"] > .flex {
   flex-wrap: nowrap !important;
-  transform: translate3d(0, 0, 0) !important;
-}
-
-.nexus-carousel--edit.nexus-carousel--edit-single-slide
-  [data-slot="carousel-item"]:has(.nexus-carousel__slide--inactive-edit) {
-  flex: 0 0 0 !important;
-  max-width: 0 !important;
-  min-width: 0 !important;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.nexus-carousel--edit.nexus-carousel--edit-single-slide
-  [data-slot="carousel-item"]:not(:has(.nexus-carousel__slide--inactive-edit)) {
-  flex: 0 0 100% !important;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.nexus-carousel--edit.nexus-carousel--edit-single-slide
-  [data-slot="carousel-content"]
-  > .flex {
   margin-left: 0 !important;
 }
 
-.nexus-carousel--edit.nexus-carousel--edit-single-slide
-  [data-slot="carousel-item"]:not(:has(.nexus-carousel__slide--inactive-edit)) {
+.nexus-carousel--edit.nexus-carousel--edit-single-slide [data-slot="carousel-item"] {
   padding-left: 0 !important;
 }
 
@@ -2302,19 +3145,48 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
 /* ── Page Settings (root sidebar) ───────────────────────────────────────── */
 .nexus-puck-input {
-  background: var(--color-bg-cell);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-07));
+  background-color: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+  border: 1px solid var(--nexus-plugin-control-border);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px var(--nexus-plugin-control-border-inner);
   box-sizing: border-box;
-  color: var(--color-text-primary);
+  color: var(--puck-color-black);
   font-size: 13px;
   padding: 8px 10px;
   width: 100%;
 }
 
+.nexus-puck-input:hover:not(:disabled) {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white));
+}
+
 .nexus-puck-input:focus {
-  border-color: var(--color-accent-user);
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white));
+  box-shadow:
+    inset 0 0 0 1px var(--nexus-plugin-control-border-inner),
+    0 0 0 2px color-mix(in srgb, var(--color-accent-user) 22%, transparent);
   outline: none;
+}
+
+[data-theme="dark"] .nexus-puck-input {
+  --nexus-plugin-control-border: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+  --nexus-plugin-control-border-inner: color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-06));
+  background-color: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11));
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-puck-input:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent-user) 20%, var(--puck-color-grey-11));
+}
+
+[data-theme="dark"] .nexus-puck-input:focus {
+  background-color: color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-11));
 }
 
 .nexus-puck-input:disabled {
@@ -2389,25 +3261,17 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   width: 100%;
 }
 
-.nexus-puck-header-bar {
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
-  box-sizing: border-box;
-  padding: 8px 12px;
-  width: 100%;
-}
-
-/* Match site glass-panel island — full-width bar with rounded corners + gutter inset */
-.nexus-puck-header-bar.glass-panel,
 .nexus-puck-header-bar.site-header-bar {
   border-radius: var(--radius-lg);
+  box-shadow: var(--site-header-bar-shadow);
 }
 
 .nexus-puck-header-bar__row {
   align-items: center;
   display: flex;
   flex-direction: row;
-  gap: 12px;
+  gap: var(--site-header-row-gap);
+  min-height: var(--site-header-bar-inner-min-height);
   min-width: 0;
   width: 100%;
 }
@@ -2437,7 +3301,6 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   width: 100%;
 }
 
-/* Puck reserves 67px for the plugin rail — Nexus logo replaces that inset */
 @media (min-width: 638px) {
   .nexus-puck-header-bar__puck > [class*="PuckHeader"] {
     padding-left: 0 !important;
@@ -2452,7 +3315,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   align-items: center !important;
   border: none !important;
   box-sizing: border-box;
-  gap: 8px 12px;
+  gap: var(--site-header-actions-gap) var(--site-header-row-gap);
   min-width: 0;
   padding: 0 !important;
   width: 100%;
@@ -2492,7 +3355,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     align-items: center;
     display: flex !important;
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: var(--site-header-actions-gap);
     justify-content: flex-end;
     width: 100%;
   }
@@ -2501,7 +3364,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     display: flex;
     flex: 1 1 auto;
     flex-shrink: 0;
-    gap: 12px;
+    gap: var(--site-header-row-gap);
     justify-content: space-between;
     margin-right: 0;
     max-width: 88px;
@@ -2550,7 +3413,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   background: transparent !important;
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: var(--site-header-actions-gap);
   min-width: 0;
 }
 
@@ -2564,18 +3427,33 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   box-shadow: none !important;
 }
 
-/* ── Shared editor header toolbar button sizing ───────────────────────────── */
+/* ── Shared editor header toolbar button sizing (match site header chrome) ─ */
 .nexus-editor-header-btn {
   align-items: center;
   box-sizing: border-box;
   display: inline-flex;
-  font-size: 12px;
+  font-size: var(--site-header-chip-font-size);
   font-weight: 500;
-  height: 36px;
+  gap: var(--site-header-chip-gap);
+  height: var(--site-header-action-size);
   justify-content: center;
   line-height: 1;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: var(--site-header-action-size);
+  padding: var(--site-header-chip-padding-block) var(--site-header-chip-padding-inline);
+}
+
+@media (min-width: 1024px) {
+  .Puck .nexus-editor-header-btn:not(.nexus-theme-toggle) {
+    height: var(--site-header-desktop-chip-height);
+    min-height: var(--site-header-desktop-chip-height);
+  }
+
+  .Puck .nexus-theme-toggle.nexus-editor-header-btn {
+    height: var(--site-header-theme-toggle-height) !important;
+    min-height: var(--site-header-theme-toggle-height) !important;
+    min-width: var(--site-header-theme-toggle-width) !important;
+    width: var(--site-header-theme-toggle-width) !important;
+  }
 }
 
 /* Puck header row — center all toolbar chips on one baseline */
@@ -2603,7 +3481,12 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   background: transparent !important;
 }
 
-/* Puck built-in header controls — match Nexus toolbar height */
+/* Puck built-in header controls — match site header toolbar height */
+.Puck [class*="MenuBar-history"],
+.Puck [class*="PuckHeader"] [class*="MenuBar-inner"] > [class*="Button--primary"] {
+  display: none !important;
+}
+
 .Puck [class*="PuckHeader"] [class*="Button--primary"] {
   align-items: center;
   align-self: center;
@@ -2611,19 +3494,27 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   display: inline-flex;
   flex: 0 0 auto;
   font-family: inherit;
-  font-size: 12px !important;
+  font-size: var(--site-header-chip-font-size) !important;
   font-weight: 500 !important;
-  gap: 6px;
-  height: 36px !important;
+  gap: var(--site-header-chip-gap);
+  height: var(--site-header-action-size) !important;
   justify-content: center;
   letter-spacing: normal !important;
   line-height: 1 !important;
-  max-height: 36px !important;
-  min-height: 36px !important;
-  padding-block: 0 !important;
-  padding-inline: 12px !important;
-  border-radius: var(--radius-sm) !important;
+  max-height: var(--site-header-action-size) !important;
+  min-height: var(--site-header-action-size) !important;
+  padding-block: var(--site-header-chip-padding-block) !important;
+  padding-inline: var(--site-header-chip-padding-inline) !important;
+  border-radius: var(--radius-md) !important;
   width: max-content;
+}
+
+@media (min-width: 1024px) {
+  .Puck [class*="PuckHeader"] [class*="Button--primary"] {
+    height: var(--site-header-desktop-chip-height) !important;
+    max-height: var(--site-header-desktop-chip-height) !important;
+    min-height: var(--site-header-desktop-chip-height) !important;
+  }
 }
 
 .Puck [class*="PuckHeader"] [class*="Button--primary"] > [class*="Button-icon"] {
@@ -2640,19 +3531,36 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 }
 
 .Puck [class*="PuckHeader"] [class*="Button--primary"] > [class*="Button-icon"] svg {
+  block-size: var(--site-chrome-icon-size);
   display: block;
+  inline-size: var(--site-chrome-icon-size);
 }
 
 .Puck [class*="PuckHeader"] [class*="IconButton"] {
   align-items: center;
   box-sizing: border-box;
   display: inline-flex;
-  height: 36px;
+  height: var(--site-header-action-size);
   justify-content: center;
-  min-height: 36px;
-  min-width: 36px;
+  min-height: var(--site-header-action-size);
+  min-width: var(--site-header-action-size);
   padding: 0;
-  width: 36px;
+  width: var(--site-header-action-size);
+}
+
+.Puck [class*="PuckHeader"] [class*="IconButton"] svg {
+  block-size: var(--site-header-icon-btn-icon-size);
+  flex-shrink: 0;
+  inline-size: var(--site-header-icon-btn-icon-size);
+}
+
+@media (min-width: 1024px) {
+  .Puck [class*="PuckHeader"] [class*="IconButton"] {
+    height: var(--site-header-desktop-chip-height);
+    min-height: var(--site-header-desktop-chip-height);
+    min-width: var(--site-header-desktop-chip-height);
+    width: var(--site-header-desktop-chip-height);
+  }
 }
 
 /* ── Nexus header chrome (Puck headerActions override) ─────────────────────── */
@@ -2662,7 +3570,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   background: transparent !important;
   flex: 0 0 auto;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: var(--site-header-actions-gap);
   line-height: 1;
   margin-right: 0;
   min-width: 0;
@@ -2683,49 +3591,34 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 }
 
 .nexus-puck-header-actions__pages-link {
-  font-size: 12px;
+  font-size: var(--site-header-chip-font-size);
   color: var(--color-text-primary);
   text-decoration: none;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--site-header-chip-gap);
 }
 
 .nexus-puck-header-actions__pages-icon {
+  align-items: center;
+  display: inline-flex;
   flex-shrink: 0;
+  justify-content: center;
   line-height: 0;
 }
 
 .nexus-publish-btn {
-  align-items: center;
-  background: var(--puck-color-azure-04);
-  border: none;
-  border-radius: var(--radius-sm);
-  box-sizing: border-box;
-  color: var(--puck-color-white);
+  /* Visual shell inherited from .nexus-mode-toggle */
   cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  gap: 6px;
-  justify-content: center;
-  line-height: 1;
-  transition: background-color 0.15s ease;
-  white-space: nowrap;
+  transition: opacity 0.15s ease;
 }
 
 .nexus-publish-btn:hover:not(:disabled) {
-  background: var(--puck-color-azure-03);
-}
-
-.nexus-publish-btn:active:not(:disabled) {
-  background: var(--puck-color-azure-02);
+  opacity: 0.85;
 }
 
 .nexus-publish-btn:disabled {
@@ -2760,8 +3653,16 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
 .nexus-puck-header-actions__pages-link.nexus-editor-header-btn,
 .nexus-mode-toggle.nexus-editor-header-btn {
-  height: 36px;
-  min-height: 36px;
+  height: var(--site-header-action-size);
+  min-height: var(--site-header-action-size);
+}
+
+@media (min-width: 1024px) {
+  .nexus-puck-header-actions__pages-link.nexus-editor-header-btn,
+  .nexus-mode-toggle.nexus-editor-header-btn:not(.nexus-theme-toggle) {
+    height: var(--site-header-desktop-chip-height);
+    min-height: var(--site-header-desktop-chip-height);
+  }
 }
 
 .nexus-puck-header-actions__theme {
@@ -2770,7 +3671,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
 .nexus-puck-header-actions__toggles {
   display: inline-flex;
-  gap: 8px;
+  gap: var(--site-header-actions-gap);
   align-items: center;
 }
 
@@ -2831,7 +3732,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
  */
 @media (min-width: 901px) and (max-width: 1023px) {
   .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
-    gap: 8px;
+    gap: var(--site-header-actions-gap);
   }
 
   .Puck [class*="PuckHeader-title"] {
@@ -2848,7 +3749,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
   .Puck [class*="MenuBar-inner"] {
     flex-wrap: nowrap;
-    gap: 4px 8px;
+    gap: var(--site-header-actions-gap);
   }
 
   .nexus-page-header-label {
@@ -2866,22 +3767,20 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     flex: 0 1 auto;
     max-width: 42%;
   }
-
-  .nexus-puck-header-actions {
-    gap: 4px;
-    margin-right: 0;
-  }
-
-  .nexus-puck-header-actions__pages-link {
-    padding-inline: 8px;
-  }
 }
 
 .nexus-publish-btn--icon-only {
   gap: 0 !important;
-  min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  min-width: var(--site-header-action-size) !important;
   padding-inline: 0 !important;
-  width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+  width: var(--site-header-action-size) !important;
+}
+
+@media (min-width: 1024px) {
+  .nexus-publish-btn--icon-only {
+    min-width: var(--site-header-desktop-chip-height) !important;
+    width: var(--site-header-desktop-chip-height) !important;
+  }
 }
 
 /* Tight narrow-desktop band — icon-only header chips */
@@ -2896,10 +3795,22 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   .nexus-publish-btn {
     gap: 0;
     justify-content: center;
-    min-width: 36px;
+    min-width: var(--site-header-desktop-chip-height);
     padding-inline: 0 !important;
-    width: 36px;
+    width: var(--site-header-desktop-chip-height);
   }
+
+  .nexus-puck-header-actions__pages-link .site-chrome-icon,
+  .nexus-mode-toggle__icon.site-chrome-icon,
+  .nexus-publish-btn .site-chrome-icon {
+    block-size: var(--site-header-icon-btn-icon-size);
+    inline-size: var(--site-header-icon-btn-icon-size);
+  }
+}
+
+.nexus-publish-btn--icon-only .site-chrome-icon {
+  block-size: var(--site-header-icon-btn-icon-size);
+  inline-size: var(--site-header-icon-btn-icon-size);
 }
 
 /* ── Compact editor (≤900px — bottom rail + full-screen canvas) ───────────── */
@@ -2916,9 +3827,34 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     --nexus-compact-nav-label-size: 9px;
     --nexus-compact-nav-icon-size: 16px;
     --nexus-compact-nav-indicator: 2px;
-    --nexus-compact-toolbar-btn-height: 30px;
-    --nexus-compact-viewport-btn-size: 30px;
+    /* Fallback until JS measures the live nav rail (see syncCompactNavRailHeight). */
+    --nexus-compact-nav-rail-height: 69px;
+    --nexus-compact-toolbar-btn-height: var(--site-header-action-size);
+    --nexus-compact-viewport-btn-size: var(--site-header-action-size);
     --nexus-compact-viewport-fab-size: 36px;
+    /* Compact bottom panel — flat inset rows (override desktop outline metrics) */
+    --nexus-plugin-panel-gutter-x: 12px;
+    --nexus-plugin-leaf-min-height: 36px;
+    --nexus-plugin-leaf-margin-block: 0;
+    --nexus-plugin-leaf-margin-inline: var(--nexus-plugin-panel-gutter-x);
+    --nexus-plugin-leaf-pad-block: 7px;
+    --nexus-plugin-leaf-pad-inline: 12px;
+    --nexus-plugin-leaf-label-size: 12px;
+    --nexus-plugin-section-header-pad-block: 2px;
+    --nexus-plugin-section-header-pad-inline: 12px;
+    --nexus-plugin-section-title-margin-block-start: 0;
+    --nexus-plugin-section-title-margin-block-end: 0;
+    /* Mobile plugin panel — alias shared plugin row tokens */
+    --nexus-mobile-plugin-row-height: var(--nexus-plugin-row-height);
+    --nexus-mobile-plugin-row-pad-x: var(--nexus-plugin-row-pad-x);
+    --nexus-mobile-plugin-row-pad-y: var(--nexus-plugin-row-pad-y);
+    --nexus-mobile-plugin-section-height: var(--nexus-plugin-section-height);
+    --nexus-mobile-plugin-section-pad-y: var(--nexus-plugin-section-pad-y);
+    --nexus-mobile-plugin-leaf-inset-x: var(--nexus-plugin-panel-gutter-x);
+    --nexus-mobile-plugin-body-pad-x: var(--nexus-plugin-panel-gutter-x);
+    --nexus-mobile-plugin-body-pad-bottom: 16px;
+    --nexus-mobile-plugin-section-end-gap: 10px;
+    --nexus-mobile-plugin-label-size: var(--nexus-plugin-label-size);
   }
 
   /* Plugin panel open — float viewport island just above the panel seam */
@@ -2941,23 +3877,13 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
     [class*="PuckLayout-inner"] {
     grid-template-columns: var(--puck-frame-width) !important;
-    grid-template-rows: 0 auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
-  }
-
-  /* Close — restore header row while the panel height eases to 0. */
-  html[data-nexus-panel-closing]
-    .Puck
-    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
-    [class*="PuckLayout-inner"] {
-    grid-template-rows: min-content auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
+    /* Plugin panel overlays the editor — left grid row stays 0 so canvas never shrinks. */
+    grid-template-rows: min-content auto 0 0 var(--puck-side-nav-width) !important;
   }
 
   .Puck
     [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"][class*="PuckLayout--isExpanded"]
-    [class*="PuckLayout-inner"] {
-    grid-template-rows: 0 auto var(--nexus-mobile-panel-height, 30%) 0 var(--puck-side-nav-width) !important;
-  }
-
+    [class*="PuckLayout-inner"],
   .Puck
     [class*="PuckLayout--mobilePanelHeightMinContent"][class*="PuckLayout--leftSideBarVisible"]
     [class*="PuckLayout-inner"],
@@ -2965,7 +3891,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     [class*="PuckLayout--mobilePanelHeightMinContent"][class*="PuckLayout--leftSideBarVisible"][class*="PuckLayout--isExpanded"]
     [class*="PuckLayout-inner"] {
     grid-template-columns: var(--puck-frame-width) !important;
-    grid-template-rows: min-content auto min-content 0 var(--puck-side-nav-width) !important;
+    grid-template-rows: min-content auto 0 0 var(--puck-side-nav-width) !important;
   }
 
   html[data-nexus-panel-layout-mutating] .Puck [class*="PuckLayout-inner"],
@@ -2980,9 +3906,13 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   .Puck [class*="PuckLayout-header"] {
     align-self: stretch;
     grid-area: header;
+    isolation: isolate;
     min-height: 0;
     overflow: hidden;
+    position: relative;
     width: 100%;
+    /* Above layout-inner scrollport backdrop (inset: 0, z-index: 0) — grid is pointer-events: none but occludes chrome. */
+    z-index: 2;
   }
 
   .nexus-puck-header-shell {
@@ -3005,32 +3935,27 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   }
 
   /*
-   * Plugin panel open — ease header out while the panel row grows; pointer-events
-   * off so the viewport island toolbar stays tappable during the transition.
+   * Overlay panel — header stays in the grid; only fade/slide chrome (no row collapse snap).
    */
-  .Puck
+  html[data-nexus-panel-row-open]:not([data-nexus-panel-opening]):not([data-nexus-panel-closing]):not(
+      [data-nexus-panel-layout-mutating]
+    )
+    .Puck
     [class*="PuckLayout--leftSideBarVisible"]
     .nexus-puck-header-shell {
     max-height: 0;
   }
 
-  /* Collapse the header grid cell — min-content row left a static strip above the panel. */
-  .Puck
-    [class*="PuckLayout--leftSideBarVisible"]
-    [class*="PuckLayout-header"] {
-    height: 0 !important;
-    margin: 0 !important;
-    max-height: 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    pointer-events: none !important;
-  }
-
-  .Puck
+  html[data-nexus-panel-row-open]:not([data-nexus-panel-opening]):not([data-nexus-panel-closing]):not(
+      [data-nexus-panel-layout-mutating]
+    )
+    .Puck
     [class*="PuckLayout--leftSideBarVisible"]
     .nexus-puck-header-shell__inner,
-  .Puck
+  html[data-nexus-panel-row-open]:not([data-nexus-panel-opening]):not([data-nexus-panel-closing]):not(
+      [data-nexus-panel-layout-mutating]
+    )
+    .Puck
     [class*="PuckLayout--leftSideBarVisible"]
     [class*="PuckHeader"] {
     opacity: 0;
@@ -3039,6 +3964,30 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     transform: translateY(-8px);
   }
 
+  /*
+   * Interactive preview — keep the Puck editor toolbar visible (panel-open collapse
+   * and scrollport backdrop must not hide chrome while controls stay clickable).
+   */
+  html[data-nexus-puck-preview-mode="interactive"] .Puck .nexus-puck-header-shell {
+    max-height: 120px !important;
+  }
+
+  html[data-nexus-puck-preview-mode="interactive"] .Puck .nexus-puck-header-shell__inner,
+  html[data-nexus-puck-preview-mode="interactive"] .Puck .nexus-puck-header-bar,
+  html[data-nexus-puck-preview-mode="interactive"]
+    .Puck
+    [class*="PuckLayout-header"]
+    [class*="PuckHeader"] {
+    opacity: 1 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+  }
+
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckLayout-header"],
   html[data-nexus-panel-closing]
     .Puck
     [class*="PuckLayout--leftSideBarVisible"]
@@ -3048,6 +3997,10 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     pointer-events: auto !important;
   }
 
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell,
   html[data-nexus-panel-closing]
     .Puck
     [class*="PuckLayout--leftSideBarVisible"]
@@ -3055,6 +4008,14 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     max-height: 120px;
   }
 
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    .nexus-puck-header-shell__inner,
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout--leftSideBarVisible"]
+    [class*="PuckHeader"],
   html[data-nexus-panel-closing]
     .Puck
     [class*="PuckLayout--leftSideBarVisible"]
@@ -3078,21 +4039,13 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     padding-left: 0 !important;
   }
 
-  /* Compact single-row header — logo left, toolbar right; hide page title/slug */
-  .nexus-puck-header-bar {
-    padding: 6px 10px;
-  }
-
+  /* Compact single-row header — wordmark left, toolbar right; hide page title/slug */
   .nexus-puck-header-shell {
     padding: env(safe-area-inset-top, 0px) 0 0;
   }
 
-  .nexus-puck-header-bar__row {
-    gap: 6px;
-  }
-
   .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
-    gap: 4px;
+    gap: var(--site-header-actions-gap);
     justify-content: flex-end;
   }
 
@@ -3106,7 +4059,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
   .Puck [class*="PuckHeader-tools"] {
     flex: 1 1 auto;
-    gap: 4px;
+    gap: var(--site-header-actions-gap);
     justify-content: flex-end;
     min-width: 0;
   }
@@ -3137,7 +4090,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     align-items: center;
     display: flex !important;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: var(--site-header-actions-gap);
     justify-content: flex-end;
     max-width: 100%;
     min-width: 0;
@@ -3154,16 +4107,16 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     align-items: center;
     flex-shrink: 0;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: var(--site-header-actions-gap);
     margin-right: 0;
   }
 
   .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
-    height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
-    min-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
-    min-width: 44px !important;
+    height: var(--site-header-action-size) !important;
+    min-height: var(--site-header-action-size) !important;
+    min-width: var(--site-header-action-size) !important;
     padding: 0 !important;
-    width: 44px !important;
+    width: var(--site-header-action-size) !important;
   }
 
   .Puck [class*="PuckHeader-rightSideBarToggle"],
@@ -3174,13 +4127,13 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   .Puck [class*="PuckHeader"] [class*="Button--primary"],
   .Puck [class*="PuckHeader"] [class*="IconButton"],
   .nexus-editor-header-btn {
-    height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
-    max-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
-    min-height: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    height: var(--site-header-action-size) !important;
+    max-height: var(--site-header-action-size) !important;
+    min-height: var(--site-header-action-size) !important;
   }
 
   .Puck [class*="PuckHeader"] [class*="IconButton"] {
-    min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    min-width: var(--site-header-action-size) !important;
   }
 
   .nexus-puck-header-actions__pages-label,
@@ -3193,15 +4146,15 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   .nexus-publish-btn {
     gap: 0;
     justify-content: center;
-    min-width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    min-width: var(--site-header-action-size) !important;
     padding-inline: 0 !important;
-    width: var(--nexus-compact-toolbar-btn-height, 36px) !important;
+    width: var(--site-header-action-size) !important;
   }
 
   .nexus-puck-header-actions__pages-link {
     font-size: 11px;
-    height: var(--nexus-compact-toolbar-btn-height, 36px);
-    min-height: var(--nexus-compact-toolbar-btn-height, 36px);
+    height: var(--site-header-action-size);
+    min-height: var(--site-header-action-size);
     padding: 0;
   }
 
@@ -3329,39 +4282,52 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     padding-bottom: 0;
   }
 
-  /* Plugin panel above bottom rail — clip shell to the same height token as the grid row */
+  /* Plugin panel — absolute overlay above bottom nav; height eases via @property --nexus-mobile-panel-height. */
   .Puck [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
-    align-self: end;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    align-self: unset !important;
     background: var(--nexus-editor-panel-bg) !important;
     border: none !important;
     border-radius: 0 !important;
+    border-top: var(--nexus-editor-panel-border) !important;
+    bottom: var(--nexus-compact-nav-rail-height) !important;
     box-shadow: none !important;
     box-sizing: border-box;
     display: flex !important;
     flex-direction: column !important;
-    grid-area: left;
+    grid-area: unset !important;
+    height: var(--nexus-mobile-panel-height, 0px) !important;
     justify-content: flex-start;
+    left: 0 !important;
+    max-height: var(--nexus-mobile-panel-height, 0px) !important;
     min-height: 0 !important;
     overflow: clip !important;
-    position: relative;
-    width: 100%;
-    z-index: 1;
-  }
-
-  .Puck
-    [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
-    [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
-    height: var(--nexus-mobile-panel-height) !important;
-    max-height: var(--nexus-mobile-panel-height) !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: auto !important;
+    transition:
+      height var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease),
+      max-height var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease) !important;
+    width: 100% !important;
+    z-index: 2;
   }
 
   html[data-nexus-panel-layout-mutating]
     .Puck
     [class*="PuckLayout--mobilePanelHeightToggle"][class*="PuckLayout--leftSideBarVisible"]
+    [class*="Sidebar--left"][class*="Sidebar--isVisible"],
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="Sidebar--left"][class*="Sidebar--isVisible"],
+  html[data-nexus-panel-closing]
+    .Puck
     [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
-    will-change: height;
+    will-change: height, max-height;
+  }
+
+  html[data-nexus-panel-resizing]
+    .Puck
+    [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
+    transition: none !important;
   }
 
   .Puck [class*="Sidebar--left"] .nexus-mobile-panel-resize-host,
@@ -3391,26 +4357,491 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     -webkit-overflow-scrolling: touch;
   }
 
-  /* While the grid row eases, freeze inner scroll — skip during live drag so content tracks height. */
-  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
-  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
-  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
-  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] [class*="Drawer"],
-  html[data-nexus-panel-layout-mutating]:not([data-nexus-panel-resizing]) .Puck [class*="Sidebar--left"] .nexus-outline-plugin,
-  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
-  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
-  html[data-nexus-panel-opening] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
-  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
-  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
-  html[data-nexus-panel-closing] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
-  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
-  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
-  html[data-nexus-panel-expanding] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
-  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
-  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
-  html[data-nexus-panel-collapsing] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"] {
+  /*
+   * Live panel height drag only — freeze inner scroll and block stray taps while the finger
+   * tracks the handle. Open/close/expand/collapse eases stay interactive (FieldChapter taps).
+   */
+  html[data-nexus-panel-resizing] .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  html[data-nexus-panel-resizing] .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  html[data-nexus-panel-resizing] .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  html[data-nexus-panel-resizing] .Puck [class*="Sidebar--left"] [class*="Drawer"],
+  html[data-nexus-panel-resizing] .Puck [class*="Sidebar--left"] .nexus-outline-plugin {
     overflow: hidden !important;
     pointer-events: none;
+  }
+
+  /*
+   * Mobile plugin panel — unified flat sections (Blocks categories, Outline tree,
+   * Fields chapters). Thin divider rows, minimal padding, no card chrome.
+   */
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  .Puck [class*="Sidebar--left"] [class*="FieldsPlugin"],
+  .Puck [class*="Sidebar--left"] .nexus-outline-plugin,
+  .Puck [class*="Sidebar--left"] .nexus-blocks-plugin {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-bottom: var(--nexus-mobile-plugin-body-pad-bottom);
+    scroll-padding-bottom: var(--nexus-mobile-plugin-body-pad-bottom);
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > [class*="ComponentList"]:first-child,
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > [class*="LayerTree"]:first-child,
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"] > div:first-child > [class*="LayerTree"] {
+    margin-top: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="PuckFields--wrapFields"],
+  .Puck [class*="Sidebar--left"] [class*="PuckFields--wrapFields"],
+  .Puck [class*="Sidebar--left"] [class*="Fields-fields"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"],
+  .Puck [class*="Sidebar--left"] [class*="Fields-fields"] > [class*="Field"] {
+    border: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="FieldsPlugin-header"] {
+    display: none !important;
+  }
+
+  /* Shared accordion shell — Blocks category + Fields chapter (no outer borders). */
+  .Puck [class*="Sidebar--left"] [class*="ComponentList"],
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none !important;
+    overflow: hidden;
+    transition:
+      background-color var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease),
+      color var(--nexus-drawer-accordion-duration) var(--nexus-drawer-accordion-ease);
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="ComponentList--isExpanded"] + [class*="ComponentList"] {
+    margin-top: 0;
+  }
+
+  /* ── Mobile plugin panel rows (Outline-aligned) ─────────────────────────── */
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row {
+    align-items: center;
+    box-sizing: border-box;
+    display: flex;
+    gap: 2px;
+    min-height: var(--nexus-mobile-plugin-row-height);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__handle {
+    color: var(--puck-color-grey-06);
+    padding: 0 2px 0 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__handle svg {
+    height: 12px;
+    width: 12px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__icon {
+    align-items: center;
+    color: var(--puck-color-grey-05);
+    display: inline-flex;
+    flex-shrink: 0;
+    justify-content: center;
+    line-height: 0;
+    width: 16px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__icon svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: normal;
+    line-height: 1.3;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  /* Section headers — Blocks category, Fields chapter, Outline zone (no underline) */
+  .Puck [class*="Sidebar--left"] [class*="ComponentList-title"],
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__head,
+  .Puck [class*="Sidebar--left"] .nexus-outline-zone__title {
+    align-items: center;
+    background: var(--puck-color-white);
+    border: none;
+    border-bottom: none;
+    border-radius: 0;
+    box-sizing: border-box;
+    color: var(--puck-color-grey-06);
+    font-family: inherit;
+    font-size: var(--nexus-mobile-plugin-label-size);
+    font-weight: 600;
+    gap: 6px;
+    letter-spacing: 0.04em;
+    margin: 0;
+    min-height: var(--nexus-mobile-plugin-section-height);
+    padding: var(--nexus-mobile-plugin-section-pad-y) var(--nexus-mobile-plugin-row-pad-x);
+    position: relative;
+    text-align: left;
+    text-transform: uppercase;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    width: 100%;
+    z-index: 1;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-blocks-plugin,
+  .Puck [class*="Sidebar--left"] .nexus-blocks-drawer {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-blocks-drawer [class*="Drawer"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0 !important;
+    padding: 0;
+  }
+
+  /* One divider between stacked sections — page root uses one Puck field per chapter */
+  .Puck [class*="Sidebar--left"] [class*="ComponentList"] + [class*="ComponentList"],
+  .Puck [class*="Sidebar--left"] [class*="PuckFields-field"] + [class*="PuckFields-field"],
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter + .nexus-field-chapter,
+  .Puck [class*="Sidebar--left"] .nexus-blocks-drawer > .nexus-field-chapter + .nexus-field-chapter {
+    border-top: var(--nexus-editor-panel-border);
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] [class*="ComponentList-title"],
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-field-chapter__head,
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-outline-zone__title {
+    background: var(--puck-color-grey-12);
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="ComponentList-titleIcon"] {
+    align-items: center;
+    color: var(--puck-color-grey-06);
+    display: inline-flex;
+    flex-shrink: 0;
+    line-height: 0;
+    margin-inline-start: auto;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="ComponentList-titleIcon"] svg {
+    height: 12px;
+    width: 12px;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="ComponentList--isExpanded"] > [class*="ComponentList-title"],
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head {
+    background: color-mix(in srgb, var(--color-accent-user) 6%, var(--puck-color-white));
+    color: var(--puck-color-black);
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__icon {
+    color: var(--puck-color-grey-06);
+    height: 12px;
+    width: 12px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__icon svg {
+    height: 12px;
+    width: 12px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__chevron {
+    color: var(--puck-color-grey-06);
+    margin-inline-start: auto;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__chevron svg {
+    height: 12px;
+    width: 12px;
+  }
+
+  /* Leaf rows — Outline layers + Blocks drawer items (inset like outline tree) */
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__inner,
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] .nexus-plugin-panel-row--block {
+    background: transparent;
+    border: none;
+    border-bottom: var(--nexus-editor-panel-border);
+    border-radius: 0;
+    box-shadow: none !important;
+    box-sizing: border-box;
+    cursor: grab;
+    margin: 0 var(--nexus-mobile-plugin-leaf-inset-x);
+    padding: var(--nexus-mobile-plugin-row-pad-y) var(--nexus-mobile-plugin-row-pad-x);
+    touch-action: none;
+    transition: background-color 0.15s ease;
+    user-select: none;
+    width: auto;
+    -webkit-user-select: none;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__inner:hover,
+  .Puck [class*="Sidebar--left"] [class*="Drawer-draggable"]:hover .nexus-plugin-panel-row--block {
+    background: color-mix(in srgb, var(--color-accent-user) 6%, transparent);
+  }
+
+  /* Uniform row padding on the shell — reset split handle/label padding from desktop tokens */
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__handle,
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__select,
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] .nexus-plugin-panel-row--block .nexus-plugin-panel-row__handle,
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] .nexus-plugin-panel-row--block .nexus-plugin-panel-row__icon,
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] .nexus-plugin-panel-row--block .nexus-plugin-panel-row__label {
+    padding: 0;
+  }
+
+  /* Single inset divider between leaf rows — not after the last row in a group */
+  .Puck [class*="Sidebar--left"] [class*="Drawer"] > [class*="Drawer-draggable"]:last-child .nexus-plugin-panel-row--block,
+  .Puck [class*="Sidebar--left"] .nexus-outline-zone__item-group:last-child .nexus-outline-layer__inner {
+    border-bottom: none;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__inner--selected {
+    background: color-mix(in srgb, var(--color-accent-user) 10%, transparent) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="ComponentList-content"] > [class*="Drawer"] {
+    gap: 0 !important;
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="Drawer-draggable"],
+  .Puck [class*="Sidebar--left"] [class*="DrawerItem"] {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] {
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"]:active {
+    cursor: grabbing;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="draggableFg"] > [class*="DrawerItem"] {
+    min-block-size: var(--nexus-mobile-plugin-row-height);
+    width: 100%;
+  }
+
+  /* Fields — chapter body rows (control under label, outline-like divider rhythm) */
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 0 var(--nexus-mobile-plugin-section-end-gap);
+  }
+
+  /* Last block row in each Blocks category — room before the next section header */
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body [class*="Drawer"] > [class*="Drawer-draggable"]:last-child {
+    margin-bottom: var(--nexus-mobile-plugin-section-end-gap);
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body > .nexus-field-category {
+    border-bottom: var(--nexus-editor-panel-border);
+    box-sizing: border-box;
+    margin-inline: var(--nexus-mobile-plugin-leaf-inset-x);
+    width: auto;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body > .nexus-field-category:last-child {
+    border-bottom: none;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-category {
+    gap: 0;
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body .nexus-sidebar-field {
+    border-bottom: var(--nexus-editor-panel-border);
+    box-sizing: border-box;
+    margin-inline: var(--nexus-mobile-plugin-leaf-inset-x);
+    padding: var(--nexus-mobile-plugin-row-pad-y) 0 calc(var(--nexus-mobile-plugin-row-pad-y) + 2px);
+    width: auto;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body > .nexus-field-category:last-child > .nexus-sidebar-field:last-child,
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body > .nexus-sidebar-field:last-child {
+    border-bottom: none;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-category__label {
+    background: var(--puck-color-white);
+    box-sizing: border-box;
+    color: var(--puck-color-grey-06);
+    font-size: var(--nexus-mobile-plugin-label-size);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0;
+    padding: var(--nexus-mobile-plugin-row-pad-y) var(--nexus-plugin-leaf-pad-inline) 4px
+      var(--nexus-plugin-panel-gutter-x);
+    text-transform: uppercase;
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-field-category__label {
+    background: var(--puck-color-grey-12);
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-subfield__label,
+  .Puck [class*="Sidebar--left"] [class*="FieldLabel"] {
+    align-items: center;
+    color: var(--puck-color-black);
+    display: flex;
+    font-size: 12px;
+    font-weight: 500;
+    gap: 6px;
+    letter-spacing: normal;
+    margin: 0;
+    padding-inline: var(--nexus-plugin-leaf-pad-inline);
+    text-transform: none;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="FieldLabel"] svg {
+    color: var(--puck-color-grey-05);
+    flex-shrink: 0;
+    height: 14px;
+    opacity: 1;
+    width: 14px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-grid,
+  .Puck [class*="Sidebar--left"] .nexus-sidebar-field .nexus-field-grid,
+  .Puck [class*="Sidebar--left"] .nexus-carousel-size-fields {
+    gap: 4px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-grid__custom,
+  .Puck [class*="Sidebar--left"] .nexus-puck-field input[type="text"],
+  .Puck [class*="Sidebar--left"] .nexus-puck-field input[type="number"],
+  .Puck [class*="Sidebar--left"] .nexus-puck-input,
+  .Puck [class*="Sidebar--left"] [class*="Input-input"] {
+    font-size: 13px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-puck-field button {
+    font-size: 12px;
+    min-height: 34px;
+    padding: 6px 10px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-puck-select-trigger {
+    --nexus-plugin-select-min-height: 34px;
+    font-size: 13px;
+    padding-inline: 10px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body .nexus-sidebar-field [class*="Field"],
+  .Puck [class*="Sidebar--left"] .nexus-field-chapter__body .nexus-sidebar-field [class*="FieldLabel"] {
+    margin: 0;
+  }
+
+  /* Bordered select controls inherit global plugin field rules */
+
+  /* Outline shell */
+  .Puck [class*="Sidebar--left"] .nexus-outline-plugin {
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-tree {
+    margin-top: 0;
+    padding-bottom: var(--nexus-mobile-plugin-section-end-gap);
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-zone__empty {
+    border: none;
+    border-bottom: none;
+    border-radius: 0;
+    color: var(--puck-color-grey-06);
+    font-size: 12px;
+    margin-inline: var(--nexus-mobile-plugin-leaf-inset-x);
+    padding: var(--nexus-mobile-plugin-row-pad-y) var(--nexus-mobile-plugin-row-pad-x);
+    width: auto;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__handle {
+    padding: 0 2px 0 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__select {
+    font-size: 12px;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__name {
+    font-size: 12px;
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-layer__icon {
+    color: var(--puck-color-grey-05);
+  }
+
+  .Puck [class*="Sidebar--left"] .nexus-outline-zone .nexus-outline-zone {
+    padding-left: 8px;
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] [class*="ComponentList"],
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-field-chapter {
+    background: transparent;
+  }
+
+  [data-theme="dark"]
+    .Puck
+    [class*="Sidebar--left"]
+    [class*="ComponentList--isExpanded"]
+    > [class*="ComponentList-title"],
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-field-chapter[data-open="true"] > .nexus-field-chapter__head {
+    background: color-mix(in srgb, var(--puck-color-azure-04) 10%, var(--puck-color-grey-12));
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-outline-layer__inner:hover,
+  [data-theme="dark"]
+    .Puck
+    [class*="Sidebar--left"]
+    [class*="Drawer-draggable"]:hover
+    .nexus-plugin-panel-row--block {
+    background: color-mix(in srgb, var(--puck-color-azure-04) 8%, transparent) !important;
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-plugin-panel-row__label,
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-outline-layer__name,
+  [data-theme="dark"] .Puck [class*="FieldsPlugin"] [class*="FieldLabel"],
+  [data-theme="dark"] .Puck [class*="FieldsPlugin"] .nexus-field-subfield__label {
+    color: var(--puck-color-azure-04);
+  }
+
+  [data-theme="dark"] .Puck [class*="Sidebar--left"] .nexus-outline-layer__inner--selected {
+    background: color-mix(in srgb, var(--puck-color-azure-04) 12%, transparent) !important;
   }
 
   .Puck [class*="PuckLayout-nav"] {
@@ -3421,11 +4852,13 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
   .nexus-mobile-panel-resize-host {
     align-items: center;
+    border-bottom: var(--nexus-editor-panel-border);
     box-sizing: border-box;
     display: flex;
     flex-shrink: 0;
     justify-content: center;
-    padding: 6px 16px;
+    min-height: 32px;
+    padding: 0 16px;
     position: relative;
     touch-action: none;
     transition: opacity 160ms ease;
@@ -3448,40 +4881,60 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     background: transparent;
     border: 0;
     border-radius: 0;
-    bottom: 0;
     cursor: row-resize;
     display: flex;
+    inset: 0;
     justify-content: center;
-    left: 0;
     margin: 0;
     min-height: 0;
     padding: 0;
     position: absolute;
-    right: 0;
-    top: -14px;
     touch-action: none;
     width: 100%;
   }
 
   .nexus-mobile-panel-resize-handle::before {
-    background: color-mix(in srgb, var(--puck-color-grey-08) 55%, transparent);
+    background: var(--puck-color-grey-07);
     border-radius: 999px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--puck-color-grey-09) 28%, transparent),
+      0 1px 3px color-mix(in srgb, var(--puck-color-black) 14%, transparent);
     content: "";
     display: block;
     flex-shrink: 0;
-    height: 4px;
-    transition: background 0.15s ease;
-    width: min(72px, 42%);
+    height: 6px;
+    transition:
+      background 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+    width: min(104px, 52%);
   }
 
   .nexus-mobile-panel-resize-handle:hover::before,
   .nexus-mobile-panel-resize-handle:focus-visible::before,
   .nexus-mobile-panel-resize-handle:active::before {
-    background: color-mix(in srgb, var(--color-accent-user) 45%, var(--puck-color-grey-08));
+    background: color-mix(in srgb, var(--color-accent-user) 55%, var(--puck-color-grey-07));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent-user) 35%, transparent),
+      0 2px 6px color-mix(in srgb, var(--puck-color-black) 18%, transparent);
+    transform: scaleX(1.04);
   }
 
   .nexus-mobile-panel-resize-handle:focus-visible {
     outline: none;
+  }
+
+  [data-theme="dark"] .nexus-mobile-panel-resize-handle::before {
+    background: var(--puck-color-grey-08);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--puck-color-grey-06) 22%, transparent),
+      0 1px 4px color-mix(in srgb, var(--puck-color-black) 42%, transparent);
+  }
+
+  [data-theme="dark"] .nexus-mobile-panel-resize-handle:hover::before,
+  [data-theme="dark"] .nexus-mobile-panel-resize-handle:focus-visible::before,
+  [data-theme="dark"] .nexus-mobile-panel-resize-handle:active::before {
+    background: color-mix(in srgb, var(--color-accent-user) 50%, var(--puck-color-grey-08));
   }
 
   /* Instant grid tracking while dragging panel height — gestures use native CSS transition */
@@ -3720,12 +5173,14 @@ body.nexus-outline-pointer-dragging {
   color: var(--puck-color-grey-05);
   cursor: default;
   display: flex;
-  font-size: 11px;
-  font-weight: 600;
-  gap: 6px;
-  letter-spacing: 0.04em;
-  margin: 8px 0 4px;
-  padding: 4px 8px;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-section-title-size);
+  font-weight: var(--nexus-plugin-section-title-weight);
+  gap: var(--nexus-plugin-section-title-gap);
+  letter-spacing: var(--nexus-plugin-section-title-spacing);
+  margin: var(--nexus-plugin-section-title-margin-block-start) 0
+    var(--nexus-plugin-section-title-margin-block-end);
+  padding: var(--nexus-plugin-section-title-pad-block) var(--nexus-plugin-section-title-pad-inline);
   text-transform: uppercase;
   transition: background-color 0.15s ease, outline-color 0.15s ease;
 }
@@ -3759,9 +5214,10 @@ body.nexus-outline-pointer-dragging {
   border-radius: 4px;
   box-sizing: border-box;
   display: flex;
-  gap: 2px;
-  margin: 1px 4px;
-  min-height: 28px;
+  font-family: var(--nexus-plugin-font-family);
+  gap: var(--nexus-plugin-leaf-gap);
+  margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -3800,7 +5256,8 @@ body.nexus-outline-pointer-dragging {
   flex-shrink: 0;
   justify-content: center;
   line-height: 0;
-  padding: 4px 2px 4px 6px;
+  padding: var(--nexus-plugin-leaf-pad-block) 2px var(--nexus-plugin-leaf-pad-block)
+    var(--nexus-plugin-leaf-handle-pad-inline-start);
   pointer-events: none;
 }
 
@@ -3813,9 +5270,11 @@ body.nexus-outline-pointer-dragging {
   display: flex;
   flex: 1;
   font: inherit;
-  gap: 6px;
+  font-family: var(--nexus-plugin-font-family);
+  gap: var(--nexus-plugin-leaf-icon-gap);
   min-width: 0;
-  padding: 4px 8px 4px 0;
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline)
+    var(--nexus-plugin-leaf-pad-block) 0;
   text-align: left;
 }
 
@@ -3851,7 +5310,10 @@ body.nexus-outline-pointer-dragging {
 
 .nexus-outline-layer__name {
   color: var(--puck-color-black);
-  font-size: 13px;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3891,6 +5353,183 @@ body.nexus-outline-pointer-dragging {
   .nexus-outline-children__inner {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ── History + viewport canvas islands (compact editor toolbar pair) ───────── */
+
+.nexus-history-toolbar--header {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: var(--site-header-actions-gap);
+}
+
+.nexus-history-toolbar__btn {
+  align-items: center;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  line-height: 0;
+  padding: 0;
+}
+
+.nexus-history-toolbar__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.nexus-history-toolbar__btn svg {
+  block-size: var(--site-header-icon-btn-icon-size);
+  flex-shrink: 0;
+  inline-size: var(--site-header-icon-btn-icon-size);
+}
+
+@media (max-width: 900px) {
+  .nexus-history-toolbar--header {
+    display: none !important;
+  }
+}
+
+.nexus-canvas-island {
+  pointer-events: auto;
+  position: absolute;
+  z-index: 80;
+}
+
+.nexus-history-island {
+  align-items: center;
+  bottom: var(--nexus-viewport-island-gap, 6px);
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  max-width: min(
+    100%,
+    calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))
+  );
+  transition:
+    bottom var(--nexus-sidebar-transition-duration) var(--nexus-sidebar-transition-ease),
+    left 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease,
+    padding 280ms ease,
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 240ms ease;
+}
+
+.nexus-history-island__actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.nexus-history-island:not(.nexus-history-island--expanded) .nexus-history-island__actions {
+  display: none;
+}
+
+.nexus-history-island__toggle,
+.nexus-history-island__action {
+  height: var(--nexus-compact-viewport-fab-size, 44px) !important;
+  max-height: var(--nexus-compact-viewport-fab-size, 44px) !important;
+  min-height: var(--nexus-compact-viewport-fab-size, 44px) !important;
+  min-width: var(--nexus-compact-viewport-fab-size, 44px) !important;
+  width: var(--nexus-compact-viewport-fab-size, 44px) !important;
+}
+
+.nexus-history-island:not(.nexus-history-island--expanded) .nexus-history-island__toggle {
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-bg-base) 18%, transparent);
+}
+
+.nexus-history-island--expanded {
+  animation: nexus-history-island-open 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-bg-base) 18%, transparent);
+  gap: 4px;
+  min-width: 0;
+  overflow: visible;
+  padding: 5px 10px 5px 8px;
+  width: max-content;
+}
+
+.nexus-history-island--expanded .nexus-history-island__toggle,
+.nexus-history-island--expanded .nexus-history-island__action {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+  max-height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+  min-height: var(--nexus-compact-viewport-btn-size, 36px) !important;
+  min-width: var(--nexus-compact-viewport-btn-size, 36px) !important;
+  width: var(--nexus-compact-viewport-btn-size, 36px) !important;
+}
+
+.nexus-history-island--expanded .nexus-history-island__toggle:hover,
+.nexus-history-island--expanded .nexus-history-island__action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent) !important;
+}
+
+@keyframes nexus-history-island-open {
+  from {
+    transform: translateY(12px) scale(0.92);
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+[data-theme="dark"] .nexus-history-island:not(.nexus-history-island--expanded) .nexus-history-island__toggle,
+[data-theme="dark"] .nexus-history-island--expanded {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 94%, transparent) !important;
+  border-color: var(--puck-color-grey-09) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, #000 24%, transparent);
+}
+
+@media (max-width: 900px) {
+  .nexus-puck-header-bar__puck [class*="MenuBar-history"],
+  .nexus-puck-header-bar__row .nexus-history-toolbar {
+    display: none !important;
+  }
+
+  .Puck [class*="PuckLayout--leftSideBarVisible"] .nexus-history-island {
+    bottom: var(--nexus-viewport-island-gap, 10px);
+  }
+
+  .nexus-history-island--expanded {
+    animation: nexus-viewport-island-open 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    backdrop-filter: none !important;
+    background: var(--color-bg-elevated) !important;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .Puck [class*="PuckLayout--leftSideBarVisible"] .nexus-history-island--expanded {
+    bottom: var(--nexus-viewport-island-gap, 10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-history-island,
+  .nexus-history-island--expanded {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -4327,6 +5966,61 @@ body.nexus-outline-pointer-dragging {
     min-width: 0;
   }
 
+  .Puck [class*="PuckCanvas--fullScreen"] {
+    background: transparent !important;
+    isolation: isolate;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /*
+   * Narrow editor scrollport grid — fixed backdrop on PuckLayout-inner (above bottom nav).
+   * Canvas + plugin panel stack above it; panel chrome covers/reveals the grid.
+   */
+  .Puck [class*="PuckLayout-inner"] {
+    isolation: isolate;
+    position: relative;
+  }
+
+  .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid-backdrop] {
+    height: 100% !important;
+    inset: 0 !important;
+    max-height: none !important;
+    min-height: 100% !important;
+    pointer-events: none;
+    position: absolute !important;
+    width: 100% !important;
+    z-index: 0;
+  }
+
+  html[data-nexus-panel-layout-mutating]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid-backdrop],
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid-backdrop],
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid-backdrop] {
+    transition: none !important;
+  }
+
+  .Puck [class*="PuckCanvas--fullScreen"] {
+    z-index: 1;
+  }
+
+  .Puck [class*="PuckCanvas--fullScreen"] [class*="PuckCanvas-inner"] {
+    background: transparent !important;
+    z-index: 1;
+  }
+
   .Puck [class*="ViewportButton-inner"] {
     height: var(--nexus-compact-viewport-btn-size, 36px);
     width: var(--nexus-compact-viewport-btn-size, 36px);
@@ -4347,10 +6041,6 @@ body.nexus-outline-pointer-dragging {
 
   .Puck [class*="NavItem-link"] {
     gap: 1px;
-  }
-
-  .nexus-puck-header-bar__logo .site-header-bar__wordmark {
-    display: none;
   }
 
   .nexus-puck-header-actions__pages-link::before {
@@ -4381,9 +6071,15 @@ body.nexus-outline-pointer-dragging {
     min-height: 28px;
     padding: 2px 2px;
   }
+
+  .Puck [class*="FieldsPlugin"] .nexus-segmented__btn {
+    font-size: var(--nexus-plugin-leaf-label-size);
+    min-height: var(--nexus-plugin-leaf-min-height);
+    padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  }
 }
 
-/* Ultra-narrow devices (≤360px) — tighter header + plugin rail */
+/* Ultra-narrow devices (≤360px) — tighter plugin rail; header keeps site chrome sizing */
 @media (max-width: 360px) {
   .Puck {
     --nexus-compact-toolbar-btn-height: 24px;
@@ -4391,32 +6087,6 @@ body.nexus-outline-pointer-dragging {
     --nexus-compact-nav-icon-size: 13px;
     --nexus-compact-viewport-btn-size: 24px;
     --nexus-compact-viewport-fab-size: 28px;
-  }
-
-  .nexus-puck-header-shell {
-    padding-top: calc(4px + env(safe-area-inset-top, 0px));
-  }
-
-  .nexus-puck-header-bar {
-    padding: 4px 6px;
-  }
-
-  .nexus-puck-header-bar__row {
-    gap: 4px;
-  }
-
-  .nexus-puck-header-bar__logo .site-header-bar__logo-mark {
-    height: 20px;
-    width: 20px;
-  }
-
-  .nexus-puck-header-actions {
-    gap: 2px;
-  }
-
-  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
-    min-width: 40px !important;
-    width: 40px !important;
   }
 
   .Puck [class*="NavItem-linkLabel"] {
@@ -4450,7 +6120,7 @@ body.nexus-outline-pointer-dragging {
   }
 }
 
-/* Minimum supported width (~200px) — logo mark only, scrollable toolbar */
+/* Minimum supported width (~200px) — scrollable toolbar; header keeps site chrome sizing */
 @media (max-width: 240px) {
   .Puck {
     --nexus-compact-toolbar-btn-height: 20px;
@@ -4458,16 +6128,6 @@ body.nexus-outline-pointer-dragging {
     --nexus-compact-nav-icon-size: 11px;
     --nexus-compact-viewport-btn-size: 20px;
     --nexus-compact-viewport-fab-size: 24px;
-  }
-
-  .nexus-puck-header-bar__logo .site-header-bar__logo-mark {
-    height: 18px;
-    width: 18px;
-  }
-
-  .nexus-puck-header-actions__theme.nexus-theme-toggle.nexus-editor-header-btn {
-    min-width: 32px !important;
-    width: 32px !important;
   }
 
   .nexus-puck-header-actions__error {
