@@ -1152,6 +1152,7 @@ function NexusCarouselBody({
     if (!editLayoutMode) {
       root.style.removeProperty("--nexus-carousel-edit-height");
       root.classList.remove("nexus-carousel--has-grid-slide");
+      root.classList.remove("nexus-carousel--in-grid-cell");
       return undefined;
     }
 
@@ -1162,13 +1163,16 @@ function NexusCarouselBody({
       if (!rootRef.current) return;
       if (isPreviewCanvasDragActive(rootRef.current)) return;
 
+      const inGridCell = Boolean(rootRef.current.closest(".nexus-grid-item"));
+      rootRef.current.classList.toggle("nexus-carousel--in-grid-cell", inGridCell);
+
       const slideEls = rootRef.current.querySelectorAll<HTMLElement>(".nexus-carousel__slide");
       const hasGridSlide = Array.from(slideEls).some((slide) =>
         Boolean(slide.querySelector(".nexus-grid")),
       );
 
-      if (hasGridSlide) {
-        rootRef.current.classList.add("nexus-carousel--has-grid-slide");
+      if (hasGridSlide || inGridCell) {
+        rootRef.current.classList.toggle("nexus-carousel--has-grid-slide", hasGridSlide);
         rootRef.current.classList.remove("nexus-carousel--all-fill-only");
         rootRef.current.classList.remove("nexus-carousel--edit-height-sync");
         rootRef.current.style.removeProperty("--nexus-carousel-edit-height");

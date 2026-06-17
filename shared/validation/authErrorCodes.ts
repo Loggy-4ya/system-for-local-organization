@@ -10,8 +10,9 @@
  * Map of stable error codes to user-facing messages.
  */
 export const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  credentials: "Invalid email or password.",
+  credentials: "Invalid login or password.",
   signin: "Account created but sign-in failed. Please log in.",
+  login_exists: "This login is already taken.",
   email_exists: "An account with this email already exists.",
   validation: "Please check your inputs and try again.",
   expired: "The authentication request has expired.",
@@ -35,7 +36,15 @@ export function getAuthErrorMessage(code: string | null | undefined): string | n
     return AUTH_ERROR_MESSAGES[normalized];
   }
   
+  // Auth.js credentials provider error code
+  if (normalized === "credentialssignin") {
+    return AUTH_ERROR_MESSAGES.credentials;
+  }
+
   // Check for common raw error messages and map them to stable codes
+  if (normalized.includes("login already")) {
+    return AUTH_ERROR_MESSAGES.login_exists;
+  }
   if (normalized.includes("already exists")) {
     return AUTH_ERROR_MESSAGES.email_exists;
   }

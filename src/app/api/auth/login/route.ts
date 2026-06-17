@@ -1,8 +1,8 @@
 /**
- * @fileoverview Native form POST login — sets session cookie and redirects to profile.
+ * @fileoverview Form POST login fallback — sets session cookie and redirects.
  *
  * POST /api/auth/login — accepts `application/x-www-form-urlencoded` or `multipart/form-data`.
- * Works without client-side JavaScript (iOS Safari safe).
+ * Primary UI uses client-side `signIn({ redirect: false })`; this route remains for no-JS fallback.
  *
  * @module src/app/api/auth/login/route
  */
@@ -27,19 +27,18 @@ function resolveRedirectTo(value: FormDataEntryValue | null): string {
 }
 
 /**
- * Authenticate with email/password and redirect to `redirectTo`.
+ * Authenticate with login/password and redirect to `redirectTo`.
  *
- * @param req - Form POST with email, password, and optional redirectTo.
+ * @param req - Form POST with login, password, and optional redirectTo.
  * @returns Redirect to profile on success or back to login with error.
  */
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const email = String(formData.get("email") ?? "");
+  const login = String(formData.get("login") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectPath = resolveRedirectTo(formData.get("redirectTo"));
 
-  // Server-side Zod validation
-  const result = loginSchema.safeParse({ email, password });
+  const result = loginSchema.safeParse({ login, password });
   if (!result.success) {
     const loginUrl = publicUrl("/login", req);
     loginUrl.searchParams.set("error", "validation");
@@ -49,8 +48,8 @@ export async function POST(req: NextRequest) {
 
   try {
     await signIn("credentials", {
-      email,
-      password,
+      login: result.data.login,
+      password: result.data.password,
       redirectTo: redirectPath,
     });
   } catch (error) {

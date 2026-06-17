@@ -179,15 +179,18 @@ All app screens share the same **page chrome**:
 | Layer | Size / spacing |
 |-------|----------------|
 | Root frame | `1440×900`, vertical auto-layout |
-| `Header/Global` | `72px` slot, contained `1200px` bar centered |
+| `Header/Global` | `72px` slot, contained **`1400px`** bar centered (`GLOBAL_LAYOUT_CONTENT_WIDTH`) |
 | `Content` | `FILL`, **`24px` padding** on all sides, centers child shell |
-| Inner shell (`Shell` / `AppShell` / `NewsHubContent` / editor / profile) | **`1200px` wide**, `12px` radius, glass panel (`panel` @ 92% + border) |
+| Inner shell (built-in static routes: profile, admin, `/pages`, auth, home) | **`1400px` wide** (`StaticPageShell` / `STATIC_DEFAULT_CONTENT_WIDTH`), `12px` radius, glass panel |
+| Inner shell (Puck-published pages) | Per-page `pageLayout.contentWidth`, max **`1400px`** (`xl`) |
 | `Background/InfiniteGrid` | Absolute, `1440×900`, bottom z-order |
 
-Horizontal gutter on a `1440` canvas: `(1440 − 1200) / 2 = 120px` per side **including** the `24px` content padding → visual equal margins left/right.
+Horizontal gutter on a `1440` canvas with **1400px** chrome: `(1440 − 1400) / 2 = 20px` per side **including** the `24px` content padding on narrower viewports (gutter uses `clamp(12px, 3vw, 24px)`).
+
+> **Figma source frames** often show `1200px` shells; implemented built-in static pages and global chrome use **1400px** so profile, admin, and header/footer share one band. See [global_layout.md](./global_layout.md).
 
 ### Auth (`57:2`, `57:17`)
-Centered `1200×680` `Shell`: split layout — gradient brand panel + registration form. Fields: Email, Password, Specialty, Group. Role chips: Starosta, Deputy, Neither. OAuth row. Primary CTA.
+Centered auth shell at **1400px** max width (global chrome band); inner card min-height `680px`. Split layout — gradient brand panel + registration form. Fields: Login, Password, Specialty, Group; optional linked Email. Role chips: Starosta, Deputy, Neither. OAuth row. Primary CTA.
 
 ### Admin Calendar (`58:2`)
 Centered `1200×788` `AppShell` (`51:3`) inside `58:16` Content. `Sidebar/Admin` instance + main card (`8px` radius). Tracker table `117:38` must stay **834px FIXED width** (never `layoutGrow`). Legend `51:150` fixed **196px**. Grid wrap `51:24` = **1084px** total. Student rows include **Group Badges** (e.g. `SE-42`, `CS-301`) next to names.

@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# User-generated uploads — keep directory structure, ignore binary payloads
+public/uploads/**/*
+!public/uploads/**/.gitkeep

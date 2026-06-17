@@ -20,11 +20,12 @@ import {
 } from "../../lib/contentWidthTokens";
 import {
   normalizeSectionPaddingValue,
-  resolveSectionMaxWidth,
   resolveSectionPadding,
 } from "../../lib/resolveSectionDimensions";
 import { normalizePresetDimensionValue, presetValuesFromOptions } from "../../lib/resolvePresetDimension";
 import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
+import { usePageContentWidth } from "../../lib/PageContentWidthContext";
+import { resolveContentBandMaxWidth } from "../../lib/contentWidthTokens";
 
 const MAX_WIDTH_PRESET_VALUES = presetValuesFromOptions(SECTION_MAX_WIDTH_OPTIONS);
 
@@ -35,7 +36,7 @@ export const NexusSection = {
       label: "Max Width",
       options: SECTION_MAX_WIDTH_OPTIONS,
       defaultPreset: DEFAULT_CONTENT_WIDTH,
-      defaultCustom: "1200px",
+      defaultCustom: "1400px",
       legacyMap: { contained: "lg", narrow: "sm" },
     }),
     padding: createPresetDimensionPuckField({
@@ -76,7 +77,7 @@ export const NexusSection = {
     },
   },
   defaultProps: {
-    maxWidth: { preset: DEFAULT_CONTENT_WIDTH, custom: "1200px" },
+    maxWidth: { preset: DEFAULT_CONTENT_WIDTH, custom: "1400px" },
     padding: { preset: "md", custom: "var(--spacing-lg) var(--spacing-md)" },
     backgroundOverride: "",
     textColor: "",
@@ -105,14 +106,19 @@ export const NexusSection = {
     }>;
     puck?: { isEditing?: boolean };
   }) {
+    const pageContentWidth = usePageContentWidth();
     const maxWidthNorm = normalizePresetDimensionValue(
       maxWidth,
       undefined,
       MAX_WIDTH_PRESET_VALUES,
-      { preset: DEFAULT_CONTENT_WIDTH, custom: "1200px" },
+      { preset: DEFAULT_CONTENT_WIDTH, custom: "1400px" },
       { contained: "lg", narrow: "sm" },
     );
-    const resolvedMaxWidth = resolveSectionMaxWidth(maxWidthNorm, maxWidthNorm.custom);
+    const bandMaxWidth = resolveContentBandMaxWidth(
+      maxWidthNorm.preset === "custom" ? "custom" : maxWidthNorm.preset,
+      maxWidthNorm.custom,
+      pageContentWidth,
+    );
     const resolvedPadding = resolveSectionPadding(padding);
 
     const borderStyle = "1px solid var(--color-border-default)";
@@ -128,9 +134,9 @@ export const NexusSection = {
       >
         <div
           style={{
-            maxWidth: resolvedMaxWidth,
+            maxWidth: bandMaxWidth,
             width: "100%",
-            marginInline: resolvedMaxWidth === "100%" ? "0" : "auto",
+            marginInline: bandMaxWidth === "100%" ? "0" : "auto",
             padding: resolvedPadding,
             color: textColor || "inherit",
             boxSizing: "border-box",

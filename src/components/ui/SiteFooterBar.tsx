@@ -13,7 +13,7 @@ import React from "react";
 import Link from "next/link";
 import { resolveLucideIcon, siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import { type FooterConfig, DEFAULT_FOOTER_LAYOUT } from "@shared/constants/globalLayout";
-import { contentWidthContainerStyle } from "@/components/puck/lib/contentWidthTokens";
+import { contentWidthContainerStyle, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 
 /**
  * Resolves the CSS variable style for footer link column count.
@@ -42,7 +42,7 @@ export interface SiteFooterBarProps {
  * @param props - See {@link SiteFooterBarProps}.
  * @returns Footer bar JSX.
  */
-export function SiteFooterBar({ footer, contentWidth = "lg", preview = false }: SiteFooterBarProps) {
+export function SiteFooterBar({ footer, contentWidth = GLOBAL_LAYOUT_CONTENT_WIDTH, preview = false }: SiteFooterBarProps) {
   const { sections = [], socialLinks = [], mention, copyright } = footer;
   const widthStyle = contentWidthContainerStyle(contentWidth);
   const gridStyle = footerGridStyle(footer);

@@ -1,8 +1,8 @@
 /**
- * @fileoverview Native form POST signup — register then sign in and redirect.
+ * @fileoverview Form POST signup fallback — register then sign in and redirect.
  *
  * POST /api/auth/signup — accepts form fields from the student registration form.
- * Works without client-side JavaScript (iOS Safari safe).
+ * Primary UI uses `/api/auth/register` + client `signIn`; this route remains for no-JS fallback.
  *
  * @module src/app/api/auth/signup/route
  */
@@ -26,6 +26,7 @@ const VALID_TITLES: StudentTitle[] = ["Starosta", "Deputy", "Neither"];
  */
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
+  const login = String(formData.get("login") ?? "");
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const specialty = String(formData.get("specialty") ?? "").trim() || null;
@@ -35,9 +36,9 @@ export async function POST(req: NextRequest) {
     ? (studentTitleRaw as StudentTitle)
     : null;
 
-  // Server-side Zod validation
   const result = signupSchema.safeParse({
-    email,
+    login,
+    email: email || null,
     password,
     specialty,
     group,
@@ -47,7 +48,8 @@ export async function POST(req: NextRequest) {
   if (!result.success) {
     const signupUrl = publicUrl("/signup", req);
     signupUrl.searchParams.set("error", "validation");
-    signupUrl.searchParams.set("email", email);
+    signupUrl.searchParams.set("login", login);
+    if (email) signupUrl.searchParams.set("email", email);
     if (specialty) signupUrl.searchParams.set("specialty", specialty);
     if (group) signupUrl.searchParams.set("group", group);
     return NextResponse.redirect(signupUrl);
@@ -55,22 +57,24 @@ export async function POST(req: NextRequest) {
 
   try {
     await AuthDomain.registerWithCredentials({
-      email,
-      password,
-      name: email.split("@")[0],
+      login: result.data.login,
+      email: result.data.email,
+      password: result.data.password,
+      name: result.data.login,
       specialty,
       group,
       studentTitle,
     });
 
     await signIn("credentials", {
-      email,
-      password,
+      login: result.data.login,
+      password: result.data.password,
       redirectTo: "/profile",
     });
   } catch (error) {
     const signupUrl = publicUrl("/signup", req);
-    signupUrl.searchParams.set("email", email);
+    signupUrl.searchParams.set("login", login);
+    if (email) signupUrl.searchParams.set("email", email);
     if (specialty) signupUrl.searchParams.set("specialty", specialty);
     if (group) signupUrl.searchParams.set("group", group);
 
@@ -80,7 +84,11 @@ export async function POST(req: NextRequest) {
     }
 
     const message = error instanceof Error ? error.message : "Registration failed.";
-    const code = message.includes("already exists") ? "email_exists" : message;
+    const code = message.includes("login already")
+      ? "login_exists"
+      : message.includes("email already")
+        ? "email_exists"
+        : message;
     signupUrl.searchParams.set("error", code);
     return NextResponse.redirect(signupUrl);
   }

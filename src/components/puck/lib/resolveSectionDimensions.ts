@@ -6,7 +6,9 @@
 
 import {
   CONTENT_WIDTH_MAP,
+  DEFAULT_CONTENT_WIDTH,
   normalizeContentWidth,
+  resolveContentBandMaxWidth,
   resolveContentWidth,
   type ContentWidthToken,
 } from "./contentWidthTokens";
@@ -73,9 +75,14 @@ export function resolveSectionPadding(raw: unknown): string {
  *
  * @param raw - Stored max-width prop.
  * @param custom - Custom CSS when preset is `custom`.
+ * @param pageWidthToken - Active page container width from PageRoot.
  * @returns CSS max-width value.
  */
-export function resolveSectionMaxWidth(raw: unknown, custom?: string): string {
+export function resolveSectionMaxWidth(
+  raw: unknown,
+  custom?: string,
+  pageWidthToken?: ContentWidthToken,
+): string {
   if (raw === "custom" || (typeof raw === "object" && raw !== null && "preset" in raw)) {
     const normalized =
       typeof raw === "object" && raw !== null && "preset" in raw
@@ -83,20 +90,20 @@ export function resolveSectionMaxWidth(raw: unknown, custom?: string): string {
             raw,
             undefined,
             new Set([...Object.keys(CONTENT_WIDTH_MAP), "custom"]),
-            { preset: "lg", custom: custom ?? "1200px" },
+            { preset: DEFAULT_CONTENT_WIDTH, custom: custom ?? "1400px" },
           )
-        : { preset: "custom" as const, custom: custom ?? "1200px" };
+        : { preset: "custom" as const, custom: custom ?? "1400px" };
     if (normalized.preset === "custom") {
-      return normalized.custom.trim() || CONTENT_WIDTH_MAP.lg;
+      return resolveContentBandMaxWidth("custom", normalized.custom, pageWidthToken);
     }
-    return resolveContentWidth(normalized.preset);
+    return resolveContentBandMaxWidth(normalized.preset, normalized.custom, pageWidthToken);
   }
 
   if (typeof raw === "string" && raw === "custom") {
-    return custom?.trim() || CONTENT_WIDTH_MAP.lg;
+    return resolveContentBandMaxWidth("custom", custom, pageWidthToken);
   }
 
-  return resolveContentWidth(raw as ContentWidthToken);
+  return resolveContentBandMaxWidth(raw as ContentWidthToken, custom, pageWidthToken);
 }
 
 export default resolveSectionPadding;

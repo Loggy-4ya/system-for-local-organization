@@ -12,33 +12,32 @@ import { loginSchema, signupSchema, registerSchema } from "@shared/validation/au
 import { profileUpdateSchema, clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 
 describe("loginSchema", () => {
-  it("passes validation for valid email and password", () => {
+  it("passes validation for valid login and password", () => {
     const result = loginSchema.safeParse({
-      email: "student@nexus.edu",
+      login: "student.nexus",
       password: "securepassword123",
     });
     assert.equal(result.success, true);
     if (result.success) {
-      assert.equal(result.data.email, "student@nexus.edu");
+      assert.equal(result.data.login, "student.nexus");
     }
   });
 
-  it("fails validation for invalid email format", () => {
+  it("fails validation for invalid login format", () => {
     const result = loginSchema.safeParse({
-      email: "not-an-email",
+      login: "bad login!",
       password: "securepassword123",
     });
     assert.equal(result.success, false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
-      assert.ok(errors.email);
-      assert.equal(errors.email[0], "Invalid email address.");
+      assert.ok(errors.login);
     }
   });
 
   it("fails validation for empty password", () => {
     const result = loginSchema.safeParse({
-      email: "student@nexus.edu",
+      login: "student.nexus",
       password: "",
     });
     assert.equal(result.success, false);
@@ -51,9 +50,9 @@ describe("loginSchema", () => {
 });
 
 describe("signupSchema", () => {
-  it("passes validation for valid signup fields", () => {
+  it("passes validation for valid signup fields without email", () => {
     const result = signupSchema.safeParse({
-      email: "  STUDENT@nexus.edu  ",
+      login: "student_nexus",
       password: "newpassword123",
       specialty: "Software Engineering",
       group: "SE-42",
@@ -61,16 +60,29 @@ describe("signupSchema", () => {
     });
     assert.equal(result.success, true);
     if (result.success) {
-      assert.equal(result.data.email, "student@nexus.edu"); // trimmed and lowercased
+      assert.equal(result.data.login, "student_nexus");
+      assert.equal(result.data.email, null);
       assert.equal(result.data.specialty, "Software Engineering");
       assert.equal(result.data.group, "SE-42");
       assert.equal(result.data.studentTitle, "Starosta");
     }
   });
 
+  it("passes validation with optional linked email", () => {
+    const result = signupSchema.safeParse({
+      login: "student_nexus",
+      email: "  STUDENT@nexus.edu  ",
+      password: "newpassword123",
+    });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.email, "student@nexus.edu");
+    }
+  });
+
   it("fails validation for short password", () => {
     const result = signupSchema.safeParse({
-      email: "student@nexus.edu",
+      login: "student_nexus",
       password: "short",
     });
     assert.equal(result.success, false);
@@ -83,7 +95,7 @@ describe("signupSchema", () => {
 
   it("transforms empty specialty and group to null", () => {
     const result = signupSchema.safeParse({
-      email: "student@nexus.edu",
+      login: "student_nexus",
       password: "password123",
       specialty: "",
       group: "   ",
@@ -97,7 +109,7 @@ describe("signupSchema", () => {
 
   it("fails validation for invalid student title", () => {
     const result = signupSchema.safeParse({
-      email: "student@nexus.edu",
+      login: "student_nexus",
       password: "password123",
       studentTitle: "Rector",
     });

@@ -18,6 +18,8 @@ export interface FormFieldProps {
   htmlFor?: string;
   /** Field-specific validation error message. */
   error?: string;
+  /** Optional helper text shown under the control when there is no error. */
+  hint?: string;
   /** The input or control element. Must be a single valid React element. */
   children: React.ReactElement;
   /** Optional container class name. */
@@ -35,6 +37,7 @@ export function FormField({
   label,
   htmlFor,
   error,
+  hint,
   children,
   className,
 }: FormFieldProps) {
@@ -61,6 +64,9 @@ export function FormField({
         >
           {error}
         </p>
+      )}
+      {!error && hint && (
+        <p className="text-xs text-(--color-text-secondary) mt-0.5">{hint}</p>
       )}
     </div>
   );

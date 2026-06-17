@@ -20,7 +20,7 @@ export function createDefaultEditorContent(): Data["content"] {
       type: "NexusSection",
       props: {
         id: "nexus-starter-section",
-        maxWidth: "lg",
+        maxWidth: { preset: DEFAULT_CONTENT_WIDTH, custom: "1400px" },
         padding: "normal",
         backgroundOverride: "",
         textColor: "",
@@ -68,7 +68,7 @@ export function createDefaultEditorContent(): Data["content"] {
         island: {
           ...ISLAND_DEFAULTS,
           islandEnabled: true,
-          islandMaxWidth: "lg",
+          islandMaxWidth: "full",
           islandAlign: "center",
           islandFillPreset: "glass-panel",
           islandBorderPreset: "border-default",

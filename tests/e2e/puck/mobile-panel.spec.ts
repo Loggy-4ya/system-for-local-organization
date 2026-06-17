@@ -240,19 +240,20 @@ test.describe("Puck mobile plugin panel", () => {
     expect(snapshot.rootVisualWidth / snapshot.innerWidth).toBeGreaterThan(0.85);
   });
 
-  test("mounts scrollport grid on layout-inner backdrop on phone viewport preset", async ({
-    page,
-  }) => {
+  test("uses single global background grid on phone viewport preset", async ({ page }) => {
     await tapMobileViewportPreset(page, 0);
 
-    const snapshot = await readMobileGridBackdropSnapshot(page);
+    const snapshot = await page.evaluate(() => ({
+      globalGrid: document.getElementById("nexus-bg") !== null,
+      scrollportGrid: document.getElementById("nexus-editor-scrollport-grid") === null,
+      iframeEditGrid: document.getElementById("nexus-edit-iframe-contained-grid") === null,
+      previewIframeGrid: document.getElementById("nexus-preview-iframe-grid") === null,
+    }));
 
-    expect(snapshot.shellHeight).toBeGreaterThan(0);
-    expect(snapshot.gridHeight).toBeGreaterThan(0);
-    expect(snapshot.gridHeight / snapshot.shellHeight).toBeGreaterThan(0.95);
-    expect(snapshot.hasBackdropAttr).toBe(true);
-    expect(snapshot.parentIsLayoutInner).toBe(true);
-    expect(snapshot.parentIsFullScreen).toBe(false);
+    expect(snapshot.globalGrid).toBe(true);
+    expect(snapshot.scrollportGrid).toBe(true);
+    expect(snapshot.iframeEditGrid).toBe(true);
+    expect(snapshot.previewIframeGrid).toBe(true);
   });
 });
 

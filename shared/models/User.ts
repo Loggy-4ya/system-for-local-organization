@@ -45,7 +45,10 @@ export type AccentShade = "soft" | "medium" | "strong";
  * @see {@link UserSchema} for the matching Mongoose schema definition.
  */
 export interface IUser extends Document {
-  /** Primary email for credentials login and OAuth identity merge. */
+  /** Unique login handle for credentials sign-in. Distinct from Telegram {@link username}. */
+  login: string | null;
+
+  /** Optional linked email for OAuth merge and notifications — not used for credentials sign-in. */
   email: string | null;
 
   /** Timestamp when the email was verified (OAuth providers set this). */
@@ -138,6 +141,7 @@ export interface IUser extends Document {
  */
 const UserSchema = new Schema<IUser>(
   {
+    login:        { type: String, default: null, sparse: true, unique: true, trim: true, lowercase: true, index: true },
     email:        { type: String, default: null, sparse: true, unique: true, trim: true, lowercase: true },
     emailVerified:{ type: Date, default: null },
     passwordHash: { type: String, default: null, select: false },

@@ -7,7 +7,6 @@
  */
 
 import React, { useEffect, useId, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link EditorCollapsibleIsland}. */
@@ -66,7 +65,9 @@ export function EditorCollapsibleIsland({
             data-tooltip={open ? "Collapse section" : "Expand section"}
             onClick={() => setOpen((prev) => !prev)}
           >
-            <ChevronDown className="global-layout-editor__collapsible-chevron" aria-hidden />
+            <span className="global-layout-editor__collapsible-sign" aria-hidden>
+              {open ? "−" : "+"}
+            </span>
           </button>
           {!open && summary ? (
             <span className="global-layout-editor__collapsible-summary">{summary}</span>

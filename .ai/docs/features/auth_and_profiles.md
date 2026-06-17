@@ -8,7 +8,11 @@
 
 ## Overview
 
-Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Login Widget, and email/password credentials into a single MongoDB `users` document. Auth.js (NextAuth v5) issues JWT sessions; all mutations flow through `shared/domains/AuthDomain.ts`.
+Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Login Widget, **Telegram Mini App** (`/telegram`), and login/password credentials into a single MongoDB `users` document. Auth.js (NextAuth v5) issues JWT sessions; all mutations flow through `shared/domains/AuthDomain.ts`.
+
+**Telegram surfaces:** Browser users link via the Login Widget; Telegram app users open the Mini App at `/telegram` (auto-login or onboarding). See [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md).
+
+**Credentials model:** Students sign in with a unique **`login`** handle (3–32 chars, lowercase alphanumeric plus `.`, `-`, `_`). **Email is optional** at signup — used only as a linked contact/OAuth merge field, not for credentials sign-in.
 
 ---
 
@@ -16,16 +20,21 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 
 | Route | Type | Purpose |
 |-------|------|---------|
-| `/login` | Page | Email/password sign-in + OAuth row |
-| `/signup` | Page | Student registration (Figma `57:17`) |
+| `/login` | Page | Login/password sign-in + OAuth row |
+| `/signup` | Page | Student registration — login, optional linked email (Figma `57:17`) |
 | `/profile` | Page | Read-only profile dashboard (Figma `59:47`) |
 | `/profile/settings` | Page | Editable user info |
+| `/telegram` | Page | Telegram Mini App entry (auto-login / onboarding) |
 | `/api/auth/[...nextauth]` | API | Auth.js handler |
 | `/api/auth/register` | API | POST credentials signup (JSON API) |
-| `/api/auth/login` | API | POST form login → redirect to profile |
-| `/api/auth/signup` | API | POST form register + sign-in → redirect |
+| `/api/auth/login` | API | POST form login fallback (redirect) — primary UI uses client `signIn` |
+| `/api/auth/signup` | API | POST form register fallback — primary UI uses `/api/auth/register` + client `signIn` |
 | `/api/auth/telegram` | API | POST Telegram widget verification |
+| `/api/auth/telegram/mini-app` | API | POST Mini App `initData` → bridge or onboarding |
+| `/api/auth/telegram/mini-app/register` | API | POST Mini App onboarding registration |
+| `/api/telegram/webhook` | API | Bot webhook (`/start` → Open Nexus button) |
 | `/api/profile` | API | PATCH profile fields |
+| `/api/profile/telegram` | API | DELETE unlink Telegram (session required) |
 
 ---
 
@@ -55,7 +64,8 @@ sequenceDiagram
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `email` | `string \| null` | Sparse unique index |
+| `login` | `string \| null` | Unique credentials handle; sparse unique index |
+| `email` | `string \| null` | Optional linked email; sparse unique index; OAuth merge |
 | `emailVerified` | `Date \| null` | Set on OAuth verify |
 | `passwordHash` | `string \| null` | bcrypt; never exposed |
 | `appleId` | `string \| null` | Apple `sub` |
@@ -77,21 +87,28 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 AUTH_APPLE_ID=            # Apple Services ID
 AUTH_APPLE_SECRET=        # Apple client secret JWT
-TELEGRAM_BOT_TOKEN=       # BotFather token for widget hash verification
+TELEGRAM_BOT_TOKEN=       # BotFather token for widget + Mini App initData + bot API
+NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=
+TELEGRAM_WEBHOOK_SECRET=  # Optional webhook header validation
+ADMIN_SEED_LOGIN=         # Admin credentials seed (required with ADMIN_SEED_PASSWORD)
+ADMIN_SEED_EMAIL=         # Optional linked email for seeded admin
+ADMIN_SEED_PASSWORD=
 ```
 
-`docker-compose.yml` loads secrets from `.env.local`. Do **not** hardcode `NEXTAUTH_URL` in Compose — set it in `.env.local` so it matches how you open the app (especially when testing on a phone via LAN IP).
+`docker-compose.yml` loads secrets from `.env.local`. Do **not** hardcode `NEXTAUTH_URL` in Compose — set it in `.env.local` so it matches how you open the app (scheme, host, and port in the browser address bar).
+
+**Phone / LAN testing:** If you open the app as `http://192.168.x.x:8080` on your phone, `NEXTAUTH_URL` must use that same LAN IP — **not** `http://localhost:8080`. On a phone, `localhost` is the phone itself, so auth redirects and session cookies target the wrong host and sign-in appears to fail.
+
+**Default admin (dev):** Set `ADMIN_SEED_LOGIN` + `ADMIN_SEED_PASSWORD` in `.env.local`. Sign in on `/login` with the **login handle** (e.g. `admin`), not email. `ADMIN_SEED_EMAIL` is optional. On first load, `seedAdminUser()` creates the admin or **backfills `login`** on a legacy email-only seed document and resets its password from env.
 
 ---
 
-## Troubleshooting
-
 ### Signed in but `/profile` sends me back to `/login`
 
-1. **iOS Safari blocked port:** WebKit blocks port **3000** (and others) on iPhone. Docker maps **host port 8080** → container 3000. Open `http://YOUR_LAN_IP:8080`, set matching `NEXTAUTH_URL`, then `docker compose up -d --force-recreate web`.
-2. **URL mismatch:** `NEXTAUTH_URL` must use the same host and port as the browser address bar. Run `hostname -I | awk '{print $1}'` for your LAN IP.
-3. **Next.js dev blocks LAN JS:** When `NEXTAUTH_URL` uses a LAN hostname, `next.config.ts` auto-adds it to `allowedDevOrigins`.
-4. **iOS / no client JS:** Credentials login and signup POST to `/api/auth/login` and `/api/auth/signup` (native HTML forms).
+1. **`localhost` redirect on phone (most common):** Auth redirects are built from `NEXTAUTH_URL` via `resolvePublicOrigin()` (`src/lib/publicOrigin.ts`). If the dev machine still has `NEXTAUTH_URL=http://localhost:8080` while you browse from an iPhone at `http://YOUR_LAN_IP:8080`, post-login redirects send the phone to **its own** `localhost`, not your PC. Set `NEXTAUTH_URL` to the LAN URL you actually open (e.g. `http://192.168.50.10:8080`), then `docker compose up -d --force-recreate web`. Find your LAN IP: `hostname -I | awk '{print $1}'`.
+2. **URL mismatch:** `NEXTAUTH_URL` must match the browser address bar (host **and** port). Docker maps host **8080** → container **3000**; use **8080** in both the URL you open and `NEXTAUTH_URL`.
+3. **Next.js dev blocks LAN assets:** When `NEXTAUTH_URL` uses a LAN hostname, `next.config.ts` auto-adds it to `allowedDevOrigins` so dev JS/CSS load from the phone.
+4. **Credentials forms:** `/login` and `/signup` submit via client-side Auth.js (`signIn({ redirect: false })` and `/api/auth/register`). Invalid credentials show inline without a full page reload. Legacy `/api/auth/login` and `/api/auth/signup` form POST routes remain as no-JS fallbacks.
 5. **Stale session:** Clear site cookies for the host, sign in again.
 
 ### React hydration warnings on `/profile`
@@ -110,10 +127,13 @@ Not emitted by Nexus application code. Brave and some wallet extensions assign t
 | Method | Purpose |
 |--------|---------|
 | `registerWithCredentials` | Signup with bcrypt hash |
-| `validateCredentials` | Login email/password |
+| `validateCredentials` | Login handle + password |
 | `findOrCreateFromGoogle` | OAuth merge by `googleId` or email |
 | `findOrCreateFromApple` | OAuth merge by `appleId` or email |
 | `verifyTelegramLoginWidget` | HMAC verify + link Telegram identity |
+| `authenticateTelegramMiniApp` | Mini App initData → returning user or onboarding |
+| `registerFromTelegramMiniApp` | First-time Mini App registration + `telegramId` link |
+| `unlinkTelegram` | Remove `telegramId` when password/OAuth remains |
 | `updateProfile` | Settings page PATCH |
 | `changePassword` | Current + new password |
 | `toPublicUser` | Strip `passwordHash` for API/session |
@@ -126,7 +146,8 @@ All authentication and profile settings forms are validated using **Zod** schema
 
 ### Validation Rules
 
-- **Email:** Trimmed, lowercased, valid email format, max 254 characters.
+- **Login:** Trimmed, lowercased, 3–32 characters; `[a-z0-9._-]` only.
+- **Linked email (signup):** Optional; trimmed, lowercased, valid email format, max 254 characters when provided.
 - **Password:** Minimum 8 characters, max 128 characters.
 - **Specialty / Group:** Optional, trimmed, max 120 characters when present. Empty strings are transformed to `null`.
 - **Student Title:** Must be one of `Starosta | Deputy | Neither` (defaults to `Neither`).
@@ -141,7 +162,7 @@ Validation logic is centralized in the `shared/validation/` folder:
 
 - `authSchemas.ts` — `loginSchema`, `signupSchema`, `registerSchema`
 - `profileSchemas.ts` — `profileUpdateSchema`, `clientProfileSettingsSchema`
-- `authErrorCodes.ts` — Maps stable error codes (e.g. `credentials`, `email_exists`, `validation`) to localized, user-friendly messages.
+- `authErrorCodes.ts` — Maps stable error codes (e.g. `credentials`, `login_exists`, `email_exists`, `validation`) to localized, user-friendly messages.
 - `formatValidationErrors.ts` — Formats Zod errors into a flat key-value map of field errors.
 
 ### Unified UI Feedback
@@ -163,8 +184,9 @@ Dev bypass: when `NEXTAUTH_SECRET` is unset, API write guards allow all requests
 
 ## Acceptance criteria
 
-- [x] Sign up with email/password + specialty/group/student title
-- [x] Sign in via Google, Apple, Telegram widget, or credentials
+- [x] Sign up with login/password + optional linked email + specialty/group/student title
+- [x] Sign in via Google, Apple, Telegram widget, Telegram Mini App, or credentials (inline errors, no full-page reload on bad password)
+- [x] Profile settings can unlink Telegram when another sign-in method exists
 - [x] Identities merge into one `users` document
 - [x] `/profile` read-only dashboard with live user data
 - [x] `/profile/settings` saves editable fields

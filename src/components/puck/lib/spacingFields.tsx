@@ -15,9 +15,11 @@ import {
   CONTENT_WIDTH_MAP,
   DEFAULT_CONTENT_WIDTH,
   normalizeContentWidth,
+  resolveContentBandMaxWidth,
   type ContentWidthToken,
   type LegacyContentWidth,
 } from "./contentWidthTokens";
+import { usePageContentWidth } from "./PageContentWidthContext";
 import { resolveNexusColor } from "./nexusColorTokens";
 import { resolveEffectiveIslandComponents } from "./editorIslandSettings";
 import {
@@ -200,8 +202,8 @@ export const SECTION_SHELL_SPACING_DEFAULTS: SpacingProps = ISLAND_AUTO_SPACING_
 /** Default island values for new blocks. */
 export const ISLAND_DEFAULTS: IslandProps = {
   islandEnabled: false,
-  islandMaxWidth: DEFAULT_CONTENT_WIDTH,
-  islandMaxWidthCustom: "1200px",
+  islandMaxWidth: "full",
+  islandMaxWidthCustom: "1400px",
   islandAlign: "center",
   islandFillPreset: "glass-panel",
   islandBorderPreset: "border-default",
@@ -359,8 +361,8 @@ export function isIslandActive(props: BlockShellProps): boolean {
  * Whether a block should use a centered max-width band without island chrome.
  *
  * Island-off blocks still honor {@link IslandProps.islandMaxWidth} so full-width
- * pages can show edge-to-edge background while content stays aligned to lg/xl bands.
- * Set max width to **Full Width** for true bleed.
+ * pages can show edge-to-edge background while content stays aligned to page bands.
+ * Set max width to **Full Width** for true bleed beyond the page container.
  *
  * @param props - Block props including island fields.
  * @returns True when the width band wrapper should render.
@@ -378,9 +380,13 @@ export function isIslandBandActive(props: BlockShellProps): boolean {
  * Compute margin shell, content padding, and optional island wrapper styles.
  *
  * @param props - Block props including spacing and island fields.
+ * @param pageWidthToken - Active page container width from PageRoot.
  * @returns Style objects and island flag for render composition.
  */
-export function applyBlockShell(props: BlockShellProps): {
+export function applyBlockShell(
+  props: BlockShellProps,
+  pageWidthToken?: ContentWidthToken,
+): {
   shellStyle: React.CSSProperties;
   contentStyle: React.CSSProperties;
   islandOuterStyle: React.CSSProperties;
@@ -435,9 +441,14 @@ export function applyBlockShell(props: BlockShellProps): {
     "color-mix(in srgb, var(--color-bg-panel) 94%, transparent)",
   );
   const radius = resolveIslandRadius(flat.islandRadius ?? "md", flat.islandRadiusCustom);
-  const maxWidth = resolveIslandMaxWidth(flat.islandMaxWidth, flat.islandMaxWidthCustom);
-  const widthToken = flat.islandMaxWidth === "custom" ? "full" : normalizeContentWidth(flat.islandMaxWidth);
-  const marginInline = widthToken === "full" && flat.islandMaxWidth !== "custom" ? "0" : "auto";
+  const maxWidth = resolveContentBandMaxWidth(
+    flat.islandMaxWidth,
+    flat.islandMaxWidthCustom,
+    pageWidthToken,
+  );
+  const widthToken =
+    flat.islandMaxWidth === "custom" ? "full" : normalizeContentWidth(flat.islandMaxWidth);
+  const marginInline = maxWidth === "100%" ? "0" : "auto";
 
   const align = ISLAND_ALIGN_MAP[flat.islandAlign ?? "center"];
 
@@ -600,6 +611,7 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
       };
     },
     render: (props) => {
+      const pageContentWidth = usePageContentWidth();
       const {
         shellStyle,
         contentStyle,
@@ -608,7 +620,7 @@ export function withBlockShell<T extends PuckBlockLike>(block: T, componentType:
         bandActive,
         islandAlign,
         islandMaxWidthCss,
-      } = applyBlockShell(props as BlockShellProps);
+      } = applyBlockShell(props as BlockShellProps, pageContentWidth);
       const inner = originalRender(props);
       const constrainedRoot = buildWidthConstrainedRootStyle(
         shellStyle,

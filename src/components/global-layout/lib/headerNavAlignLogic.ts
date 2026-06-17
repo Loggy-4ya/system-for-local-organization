@@ -82,10 +82,12 @@ export function formatHeaderNavAlignLabel(align: HeaderNavAlign): string {
 }
 
 /**
- * Whether desktop header navigation should use the dense full-width grid layout.
+ * Whether desktop header navigation should use compact grid cells (5+ categories).
+ *
+ * Keeps categories in a single header row; only tightens horizontal grid spacing.
  *
  * @param categories - Visible header categories.
- * @returns `true` when the category count exceeds the dense threshold.
+ * @returns `true` when the category count is at or above the compact threshold.
  */
 export function shouldUseDenseHeaderNav(categories: readonly HeaderCategory[]): boolean {
   return categories.length >= DENSE_HEADER_NAV_CATEGORY_COUNT;

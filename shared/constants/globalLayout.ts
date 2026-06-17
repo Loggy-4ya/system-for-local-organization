@@ -97,6 +97,8 @@ export interface HeaderCategory {
 export interface HeaderConfig {
   layout: HeaderLayout;
   categories: HeaderCategory[];
+  /** Signed-in avatar dropdown links (configured in Global Layout → User Menu). */
+  userMenu: HeaderNavItem[];
 }
 
 /** Individual footer link. */
@@ -151,6 +153,12 @@ export const DEFAULT_HEADER_LAYOUT: HeaderLayout = {
   gap: "md",
   align: "start",
 };
+
+/** Default signed-in user menu links (avatar dropdown + mobile account section). */
+export const DEFAULT_HEADER_USER_MENU: HeaderNavItem[] = [
+  { id: "profile", href: "/profile", label: "Profile", icon: "User" },
+  { id: "profile-settings", href: "/profile/settings", label: "Settings", icon: "Settings" },
+];
 
 /** Default header categories — grouped for desktop dropdowns and mobile accordions. */
 export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [
@@ -214,6 +222,7 @@ export const DEFAULT_GLOBAL_LAYOUT: GlobalLayoutConfig = {
   header: {
     layout: DEFAULT_HEADER_LAYOUT,
     categories: DEFAULT_HEADER_CATEGORIES,
+    userMenu: DEFAULT_HEADER_USER_MENU,
   },
   footer: DEFAULT_FOOTER_CONFIG,
 };

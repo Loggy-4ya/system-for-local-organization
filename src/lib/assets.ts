@@ -28,6 +28,15 @@ export const BRAND = {
 /** Root-relative path to the uploads directory (`public/uploads/`). */
 export const UPLOADS = "/uploads" as const;
 
+/** Purpose-specific upload URL prefixes under {@link UPLOADS}. */
+export const UPLOAD_SEGMENTS = {
+  avatars: `${UPLOADS}/avatars`,
+  pageCovers: `${UPLOADS}/page-covers`,
+  puckBlocks: `${UPLOADS}/puck-blocks`,
+  taskReports: `${UPLOADS}/task-reports`,
+  general: `${UPLOADS}/general`,
+} as const;
+
 /**
  * Next.js `metadata.icons` configuration — wired in `src/app/layout.tsx`.
  * Keeps favicon resolution out of `src/app/` (no file-based metadata there).

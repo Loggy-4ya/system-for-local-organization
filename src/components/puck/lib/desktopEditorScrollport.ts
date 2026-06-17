@@ -1,24 +1,25 @@
 /**
  * @fileoverview Desktop Puck canvas scrollport — full-shell grid, shell-owned scroll.
  *
- * On desktop (≥901px or fine pointer), the InfiniteGrid mounts on the bordered canvas
- * shell. Tall page content scrolls inside the preview iframe — not on the shell.
+ * On desktop (≥901px), the global layout `InfiniteGrid` (`#nexus-bg`) fills the viewport;
+ * Puck canvas chrome stays transparent so the grid shows through letterbox gutters.
+ *
+ * Tests: `tests/puck/lib/desktopEditorScrollport.test.ts` — `npm run test:desktop-editor-scrollport`
  *
  * @module src/components/puck/lib/desktopEditorScrollport
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
 import { PUCK_DESKTOP_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /**
- * Whether the given window uses desktop editor chrome (side-by-side layout).
+ * Whether the given window uses the desktop Puck editor layout (side-by-side panels).
  *
  * @param target - Window to query; defaults to the current window.
  * @returns True when {@link PUCK_DESKTOP_EDITOR_MQ} matches.
  */
-export function matchesDesktopEditorChrome(target: Window = window): boolean {
+export function matchesDesktopEditorLayout(target: Window = window): boolean {
   if (typeof target.matchMedia !== "function") return false;
   return target.matchMedia(PUCK_DESKTOP_EDITOR_MQ).matches;
 }
@@ -29,7 +30,7 @@ export function matchesDesktopEditorChrome(target: Window = window): boolean {
  * @param doc - Document to inspect.
  * @returns True when a `.Puck` root is mounted.
  */
-function isPuckEditorDocument(doc: Document): boolean {
+export function isPuckEditorDocument(doc: Document): boolean {
   return doc.querySelector(".Puck") !== null;
 }
 
@@ -47,51 +48,43 @@ export function usesDesktopScrollportGrid(target: Window = window): boolean {
   try {
     const parent = target.parent;
     if (parent && parent !== target) {
-      // Preview iframe — shell grid fills the canvas at every breakpoint (desktop + compact).
-      if (isPuckEditorDocument(parent.document)) {
-        return true;
-      }
-      return matchesDesktopEditorChrome(parent);
+      return matchesDesktopEditorLayout(parent);
     }
   } catch {
     /* cross-origin parent — fall through */
   }
 
-  return matchesDesktopEditorChrome(target);
+  return matchesDesktopEditorLayout(target);
 }
 
 /**
- * React hook — tracks desktop shell scrollport grid mode (parent window on iframe routes).
+ * Required `puck-editor.css` fragments for desktop fixed-viewport centering (≥901px).
  *
- * @returns True when iframe grid should stay off and shell grid owns the canvas panel.
+ * Puck `#puck-canvas-root` is `position: absolute` with `left: auto`; horizontal centering
+ * depends on `PuckCanvas-inner` `justify-content: center` (flex static position).
  */
-export function useDesktopScrollportGridActive(): boolean {
-  const [active, setActive] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return usesDesktopScrollportGrid();
-  });
+export const DESKTOP_FIXED_VIEWPORT_CENTERING_CSS_CONTRACT = {
+  canvasInnerCenter: "justify-content: center !important",
+  fullWidthStretch: "[data-nexus-viewport-full-width]",
+  fullWidthInnerStretch: "justify-content: stretch !important",
+  canvasShellTransparent: "background: transparent !important",
+  layoutInnerTransparent: "PuckLayout-inner",
+} as const;
 
-  useEffect(() => {
-    const sync = () => setActive(usesDesktopScrollportGrid());
+/**
+ * Validate desktop fixed-viewport centering rules exist in `puck-editor.css`.
+ *
+ * @param cssText - Full puck-editor stylesheet text.
+ * @returns Missing contract keys (empty when satisfied).
+ */
+export function findMissingDesktopFixedViewportCenteringCss(cssText: string): string[] {
+  const missing: string[] = [];
 
-    sync();
-
-    let media: MediaQueryList | null = null;
-    try {
-      const owner = window.parent !== window ? window.parent : window;
-      media = owner.matchMedia(PUCK_DESKTOP_EDITOR_MQ);
-      media.addEventListener("change", sync);
-    } catch {
-      /* ignore cross-origin parent */
+  for (const [key, fragment] of Object.entries(DESKTOP_FIXED_VIEWPORT_CENTERING_CSS_CONTRACT)) {
+    if (!cssText.includes(fragment)) {
+      missing.push(key);
     }
+  }
 
-    window.addEventListener("resize", sync);
-
-    return () => {
-      media?.removeEventListener("change", sync);
-      window.removeEventListener("resize", sync);
-    };
-  }, []);
-
-  return active;
+  return missing;
 }

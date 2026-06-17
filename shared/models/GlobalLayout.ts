@@ -46,6 +46,7 @@ const HeaderConfigSchema = new Schema({
     align: { type: String, enum: ["start", "center", "end"], default: "start" },
   },
   categories: { type: [HeaderCategorySchema], default: [] },
+  userMenu: { type: [HeaderNavItemSchema], default: [] },
 });
 
 const FooterLinkSchema = new Schema({

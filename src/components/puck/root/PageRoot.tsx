@@ -7,7 +7,6 @@
  */
 
 import React from "react";
-import { useTheme } from "@teispace/next-themes";
 import { PageBackgroundFieldGroup } from "../fields/PageBackgroundFieldGroup";
 import { PageLayoutFieldGroup } from "../fields/PageLayoutFieldGroup";
 import type { PageSettingsValue } from "../fields/PageSettingsFieldGroup";
@@ -17,19 +16,18 @@ import {
   contentWidthContainerStyle,
   DEFAULT_CONTENT_WIDTH,
   GLOBAL_LAYOUT_PAGE_CONTENT_SLOT_CLASS,
+  resolveContentWidth,
   pageContentBlockGutterStyle,
   pageContentTopGutterStyle,
+  type ContentWidthToken,
 } from "../lib/contentWidthTokens";
+import { PageContentWidthProvider } from "../lib/PageContentWidthContext";
 import {
   resolvePageRootAppearance,
   type PageRootStoredProps,
 } from "../lib/pageRootFieldProps";
-import { useDesktopScrollportGridActive } from "../lib/desktopEditorScrollport";
-import { useRequiresIframeContainedEditGrid } from "../lib/previewIframeShellComposite";
-import { resolveShowPreviewIframeGrid } from "../lib/previewIframeGridBacking";
 import { useInsidePuckEditorShell } from "../lib/useInsidePuckEditorShell";
 import { useNexusEditorCanvas } from "../NexusEditorCanvasContext";
-import { InfiniteGrid } from "@/components/background/InfiniteGrid";
 
 /** Root props shape for PageRoot render and field resolution. */
 interface PageRootProps extends PageRootStoredProps {
@@ -39,31 +37,26 @@ interface PageRootProps extends PageRootStoredProps {
 
 /** Shared page shell body — edit, interactive preview, and published paths. */
 interface PageRootBodyProps extends PageRootProps {
-  /**
-   * When true, paint the site-default grid inside the Puck preview document.
-   * False when the shell scrollport grid owns the canvas (Puck editor edit + preview).
-   */
-  showPreviewIframeGrid: boolean;
+  /** True on Puck edit / interactive preview chrome (not a standalone published page). */
+  showEditorBackground: boolean;
 }
 
 /**
  * Shared PageRoot layout — background, optional editor chrome, and content gutter.
  *
+ * Site-default grid is the global `InfiniteGrid` in root layout (`#nexus-bg`), not here.
+ *
  * @param props - Page settings, appearance, and chrome flags.
  * @returns Page shell JSX.
  */
-function PageRootBody({
-  children,
-  showPreviewIframeGrid,
-  ...props
-}: PageRootBodyProps) {
+function PageRootBody({ children, showEditorBackground, ...props }: PageRootBodyProps) {
   const isPuckEditMode = Boolean(props.puck?.isEditing);
-  const { resolvedTheme } = useTheme();
-  const { background, backgroundGridMotion, backgroundPreset, backgroundImage, contentWidth } =
+  const { background, backgroundPreset, backgroundImage, contentWidth } =
     resolvePageRootAppearance(props);
   const bgStyles: React.CSSProperties = {};
   const widthStyle = contentWidthContainerStyle(contentWidth ?? DEFAULT_CONTENT_WIDTH);
-  const isPublishedView = !showPreviewIframeGrid;
+  const pageWidthToken = (contentWidth ?? DEFAULT_CONTENT_WIDTH) as ContentWidthToken;
+  const isPublishedView = !showEditorBackground;
 
   if (background === "solid") {
     bgStyles.backgroundColor = resolveAccentPreset(backgroundPreset);
@@ -82,7 +75,7 @@ function PageRootBody({
       style={{
         position: "relative",
         minHeight: isPublishedView ? undefined : "100%",
-        height: showPreviewIframeGrid && !isPuckEditMode ? "100%" : undefined,
+        height: showEditorBackground && !isPuckEditMode ? "100%" : undefined,
         width: "100%",
         display: "flex",
         flexDirection: "column",
@@ -90,16 +83,6 @@ function PageRootBody({
         ...bgStyles,
       }}
     >
-      {showPreviewIframeGrid && background === "site-default" ? (
-        <InfiniteGrid
-          key={resolvedTheme ?? "dark"}
-          isContained
-          isStatic={backgroundGridMotion === "static"}
-          wrapperId={
-            isPuckEditMode ? "nexus-edit-iframe-contained-grid" : "nexus-preview-iframe-grid"
-          }
-        />
-      ) : null}
       <div
         className={GLOBAL_LAYOUT_PAGE_CONTENT_SLOT_CLASS}
         style={{
@@ -118,9 +101,10 @@ function PageRootBody({
             boxSizing: "border-box",
             ...widthStyle,
             ...(isPublishedView ? pageContentTopGutterStyle() : pageContentBlockGutterStyle()),
+            ["--nexus-page-content-max-width" as string]: resolveContentWidth(pageWidthToken),
           }}
         >
-          {children}
+          <PageContentWidthProvider value={pageWidthToken}>{children}</PageContentWidthProvider>
         </div>
       </div>
     </div>
@@ -138,20 +122,8 @@ function PageRootRender(props: PageRootProps) {
   const isPuckEditMode = Boolean(props.puck?.isEditing);
   const insidePuckEditorShell = useInsidePuckEditorShell();
   const showEditorBackground = isPuckEditMode || isNexusEditorCanvas || insidePuckEditorShell;
-  const shellScrollportGrid = useDesktopScrollportGridActive();
-  const requiresIframeContainedEditGrid = useRequiresIframeContainedEditGrid();
-  const { background } = resolvePageRootAppearance(props);
-  const showPreviewIframeGrid = resolveShowPreviewIframeGrid({
-    showEditorBackground,
-    background,
-    shellScrollportGrid,
-    insidePuckEditorShell,
-    requiresIframeContainedEditGrid,
-  });
 
-  return (
-    <PageRootBody {...props} showPreviewIframeGrid={showPreviewIframeGrid} />
-  );
+  return <PageRootBody {...props} showEditorBackground={showEditorBackground} />;
 }
 
 export const PageRoot = {

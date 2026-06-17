@@ -928,3 +928,35 @@ describe("setCanvasDragMarker", () => {
     assert.equal(isCanvasDragActiveInPreview(previewDoc), false);
   });
 });
+
+describe("resolveCanvasDropZoneMeasureElement", () => {
+  it("keeps grid cell bounds when the slot is inside a carousel slide", () => {
+    const slide = {
+      getBoundingClientRect: () => ({ width: 400, height: 280 }),
+    };
+    const gridItem = {
+      classList: { contains: (name: string) => name === "nexus-grid-item" },
+      closest: (selector: string) => (selector === ".nexus-carousel__slide" ? slide : null),
+      getBoundingClientRect: () => ({ width: 180, height: 120 }),
+    } as unknown as HTMLElement;
+
+    assert.equal(resolveCanvasDropZoneMeasureElement(gridItem), gridItem);
+    assert.equal(getCanvasDropZoneMeasureRect(gridItem).height, 120);
+  });
+
+  it("uses the slide card for carousel slide drop zones", () => {
+    const slide = {
+      getBoundingClientRect: () => ({ width: 400, height: 280 }),
+    };
+    const slideDropzone = {
+      classList: {
+        contains: (name: string) =>
+          name === "nexus-carousel__dropzone" || name === "nexus-carousel__dropzone",
+      },
+      closest: (selector: string) => (selector === ".nexus-carousel__slide" ? slide : null),
+      getBoundingClientRect: () => ({ width: 400, height: 400 }),
+    } as unknown as HTMLElement;
+
+    assert.equal(resolveCanvasDropZoneMeasureElement(slideDropzone), slide);
+  });
+});

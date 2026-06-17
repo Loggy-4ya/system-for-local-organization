@@ -19,6 +19,7 @@ import { RoleChipGroup } from "@/components/auth/RoleChipGroup";
 import { formatAccentLabel } from "@/lib/accentTokens";
 import { clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
+import { uploadMediaFile } from "@/lib/mediaUploadClient";
 
 /** Props for {@link ProfileSettingsForm}. */
 export interface ProfileSettingsFormProps {
@@ -52,8 +53,13 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const hasPassword = Boolean(user.email) && !user.googleId && !user.appleId;
-  const canChangePassword = hasPassword || user.email;
+  const [unlinkLoading, setUnlinkLoading] = useState(false);
+
+  const hasPassword = Boolean(user.login) && !user.googleId && !user.appleId;
+  const canChangePassword = hasPassword;
+  const canUnlinkTelegram =
+    Boolean(user.telegramId) &&
+    Boolean(user.googleId || user.appleId || user.login);
 
   /**
    * Upload avatar image via authenticated upload API.
@@ -64,13 +70,42 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append("file", file);
+    setError(null);
+    try {
+      const url = await uploadMediaFile(file, {
+        accept: "image",
+        purpose: "avatar",
+        ownerKey: user.id,
+      });
+      setAvatar(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Avatar upload failed.");
+    } finally {
+      e.target.value = "";
+    }
+  }
 
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
-    const data = await res.json();
-    if (res.ok && data.url) {
-      setAvatar(data.url);
+  /**
+   * Unlink Telegram from the authenticated account.
+   */
+  async function handleUnlinkTelegram() {
+    if (!window.confirm("Unlink Telegram from this Nexus account?")) return;
+
+    setError(null);
+    setSuccess(null);
+    setUnlinkLoading(true);
+
+    try {
+      const res = await fetch("/api/profile/telegram", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to unlink Telegram.");
+
+      setSuccess("Telegram unlinked successfully.");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unlink Telegram.");
+    } finally {
+      setUnlinkLoading(false);
     }
   }
 
@@ -165,8 +200,21 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
         </FormField>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-(--color-text-primary)">Email</span>
-          <Input id="settings-email" value={user.email ?? ""} disabled />
+          <span className="text-sm font-medium text-(--color-text-primary)">Login</span>
+          <Input id="settings-login" value={user.login ?? ""} disabled />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-(--color-text-primary)">Linked email</span>
+          <Input
+            id="settings-email"
+            value={user.email ?? ""}
+            disabled
+            placeholder="No email linked"
+          />
+          <p className="text-xs text-(--color-text-secondary)">
+            Optional contact email for OAuth merge — not used for sign-in.
+          </p>
         </div>
 
         <FormField
@@ -302,6 +350,22 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
           <li>Apple: {user.appleId ? "Linked" : "Not linked"}</li>
           <li>Telegram: {user.telegramId ? `Linked (@${user.username ?? user.telegramId})` : "Not linked"}</li>
         </ul>
+        {canUnlinkTelegram && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={unlinkLoading}
+            onClick={handleUnlinkTelegram}
+            className="w-full md:w-auto"
+          >
+            {unlinkLoading ? "Unlinking…" : "Unlink Telegram"}
+          </Button>
+        )}
+        {user.telegramId && !canUnlinkTelegram && (
+          <p className="text-xs text-(--color-text-secondary)">
+            Set a password or link Google/Apple before unlinking Telegram.
+          </p>
+        )}
         <OAuthButtonRow callbackUrl="/profile/settings" />
       </section>
 

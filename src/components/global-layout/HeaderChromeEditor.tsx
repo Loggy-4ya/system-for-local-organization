@@ -10,10 +10,11 @@
  */
 
 import React from "react";
-import { Plus, Trash2, Sliders, FolderPlus } from "lucide-react";
+import { Plus, Trash2, Sliders, FolderPlus, UserCircle } from "lucide-react";
 import { LucideIconPicker } from "./LucideIconPicker";
 import { HeaderNavFlagToggles } from "./HeaderNavFlagToggles";
 import { HeaderNavItemsList } from "./HeaderNavItemsList";
+import { HeaderUserMenuEditor } from "./HeaderUserMenuEditor";
 import { EditorDragHandle } from "./EditorDragHandle";
 import { EditorDropSlot } from "./EditorDropSlot";
 import { EditorCollapsibleIsland } from "./EditorCollapsibleIsland";
@@ -153,7 +154,7 @@ export function HeaderChromeEditor({ config, onChange }: HeaderChromeEditorProps
         <div className="global-layout-editor__layout-grid">
           <EditorField
             label="Spacing Gap"
-            hint="Horizontal padding between navigation groups."
+            hint="Horizontal spacing between navigation groups, including inset from the nav band edges."
           >
             <EditorOptionBadgeGroup
               ariaLabel="Header spacing gap"
@@ -230,6 +231,13 @@ export function HeaderChromeEditor({ config, onChange }: HeaderChromeEditorProps
             </HeaderNavItemSortableProvider>
           )}
         </div>
+      </FieldChapter>
+
+      <FieldChapter title="User Menu" icon={puckIcon(UserCircle)} defaultOpen={true}>
+        <HeaderUserMenuEditor
+          items={config.userMenu ?? []}
+          onChange={(userMenu) => onChange({ ...config, userMenu })}
+        />
       </FieldChapter>
     </div>
   );

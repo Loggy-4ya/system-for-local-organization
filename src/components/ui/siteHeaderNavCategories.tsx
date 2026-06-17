@@ -28,16 +28,23 @@ import { cn } from "@/lib/utils";
 import {
   type HeaderCategory,
   type HeaderLayout,
-  type HeaderNavAlign,
   type HeaderNavItem,
 } from "@shared/constants/globalLayout";
+
+/** Returns visible nav items, respecting admin-only flags. */
+export function visibleNavItems(
+  items: HeaderNavItem[],
+  showAdminPanel: boolean,
+): HeaderNavItem[] {
+  return items.filter((item) => !item.adminOnly || showAdminPanel);
+}
 
 /** Returns visible nav items for a category, respecting admin-only flags. */
 export function visibleCategoryItems(
   category: HeaderCategory,
   showAdminPanel: boolean,
 ): HeaderNavItem[] {
-  return category.items.filter((item) => !item.adminOnly || showAdminPanel);
+  return visibleNavItems(category.items, showAdminPanel);
 }
 
 /** Whether a labeled category should render at all for the current viewer. */
@@ -328,7 +335,13 @@ export function MobileHeaderNavCategory({
         <div className="site-header-mobile-menu__category-body">
           <ul className="site-header-mobile-menu__list">
             {visibleItems.map((item) => (
-              <MobileNavItem key={item.id} item={item} isActive={isActive} onClose={onClose} />
+              <MobileNavItem
+                key={item.id}
+                item={item}
+                isActive={isActive}
+                onClose={onClose}
+                preview={preview}
+              />
             ))}
           </ul>
         </div>
@@ -394,47 +407,37 @@ export function DesktopHeaderNavZones({
       />
     ));
 
-  if (denseNav) {
-    const denseBands: Array<{
-      key: HeaderNavAlign;
-      items: HeaderCategory[];
-      rowClass: string;
-    }> = [
-      { key: "start", items: grouped.start, rowClass: "site-header-bar__nav-grid-row--start" },
-      { key: "center", items: grouped.center, rowClass: "site-header-bar__nav-grid-row--center" },
-      { key: "end", items: grouped.end, rowClass: "site-header-bar__nav-grid-row--end" },
-    ];
-
-    return (
-      <nav
-        className="site-header-bar__nav-zones site-header-bar__nav-zones--dense hidden w-full lg:flex"
-        aria-label="Primary navigation"
-        style={gapStyle}
-      >
-        {denseBands.map(({ key, items, rowClass }) =>
-          items.length === 0 ? null : (
-            <div key={key} className={`site-header-bar__nav-grid-row ${rowClass}`}>
-              <ul className="site-header-bar__nav-grid m-0 list-none p-0">{renderZone(items)}</ul>
-            </div>
-          ),
-        )}
-      </nav>
-    );
-  }
-
   return (
     <nav
-      className="site-header-bar__nav-zones hidden min-w-0 flex-1 lg:flex"
+      className={cn(
+        "site-header-bar__nav-zones hidden min-w-0 flex-1 lg:flex",
+        denseNav && "site-header-bar__nav-zones--compact",
+      )}
       aria-label="Primary navigation"
       style={gapStyle}
     >
-      <ul className="site-header-bar__nav-zone site-header-bar__nav-zone--start site-header-bar__nav-zone-grid m-0 list-none p-0">
+      <ul
+        className={cn(
+          "site-header-bar__nav-zone site-header-bar__nav-zone--start site-header-bar__nav-zone-grid m-0 list-none p-0",
+          denseNav && "site-header-bar__nav-zone-grid--dense",
+        )}
+      >
         {renderZone(grouped.start)}
       </ul>
-      <ul className="site-header-bar__nav-zone site-header-bar__nav-zone--center site-header-bar__nav-zone-grid m-0 min-w-0 flex-1 list-none p-0">
+      <ul
+        className={cn(
+          "site-header-bar__nav-zone site-header-bar__nav-zone--center site-header-bar__nav-zone-grid m-0 min-w-0 flex-1 list-none p-0",
+          denseNav && "site-header-bar__nav-zone-grid--dense",
+        )}
+      >
         {renderZone(grouped.center)}
       </ul>
-      <ul className="site-header-bar__nav-zone site-header-bar__nav-zone--end site-header-bar__nav-zone-grid m-0 list-none p-0">
+      <ul
+        className={cn(
+          "site-header-bar__nav-zone site-header-bar__nav-zone--end site-header-bar__nav-zone-grid m-0 list-none p-0",
+          denseNav && "site-header-bar__nav-zone-grid--dense",
+        )}
+      >
         {renderZone(grouped.end)}
       </ul>
     </nav>

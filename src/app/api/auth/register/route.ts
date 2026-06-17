@@ -13,16 +13,15 @@ import { registerSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 
 /**
- * Register a new student account with email and password.
+ * Register a new student account with login and password.
  *
- * @param req - JSON body with email, password, name, specialty, group, studentTitle.
+ * @param req - JSON body with login, optional email, password, name, specialty, group, studentTitle.
  * @returns 201 on success or error payload.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    
-    // Server-side Zod validation
+
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {
       const formatted = formatZodErrors(parsed.error);
@@ -31,16 +30,17 @@ export async function POST(req: NextRequest) {
           error: formatted.formError || "Validation failed.",
           fieldErrors: formatted.fieldErrors,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { email, password, name, specialty, group, studentTitle } = parsed.data;
+    const { login, email, password, name, specialty, group, studentTitle } = parsed.data;
 
     const user = await AuthDomain.registerWithCredentials({
-      email,
+      login,
+      email: email ?? null,
       password,
-      name: name?.trim() || email.split("@")[0],
+      name: name?.trim() || login,
       specialty: specialty ?? null,
       group: group ?? null,
       studentTitle: studentTitle || null,

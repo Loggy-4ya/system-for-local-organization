@@ -28,6 +28,7 @@ describe("GlobalLayoutDomain.validateHeader", () => {
     const invalidHeader: HeaderConfig = {
       layout: { gap: "huge" as any, align: "start" },
       categories: [],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
@@ -38,6 +39,7 @@ describe("GlobalLayoutDomain.validateHeader", () => {
     const invalidHeader: HeaderConfig = {
       layout: { gap: "md", align: "right" as any },
       categories: [],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
@@ -55,6 +57,7 @@ describe("GlobalLayoutDomain.validateHeader", () => {
           items: [],
         },
       ],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
@@ -71,6 +74,7 @@ describe("GlobalLayoutDomain.validateHeader", () => {
           items: [],
         },
       ],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
@@ -94,6 +98,7 @@ describe("GlobalLayoutDomain.validateHeader", () => {
           ],
         },
       ],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
@@ -117,10 +122,40 @@ describe("GlobalLayoutDomain.validateHeader", () => {
           ],
         },
       ],
+      userMenu: [],
     };
     assert.throws(() => {
       GlobalLayoutDomain.validateHeader(invalidHeader);
     }, /Navigation item 'home' variant must be 'link' or 'button'/);
+  });
+
+  it("throws error when user menu is not an array", () => {
+    const invalidHeader = {
+      layout: { gap: "md", align: "start" },
+      categories: [],
+      userMenu: null,
+    } as HeaderConfig;
+    assert.throws(() => {
+      GlobalLayoutDomain.validateHeader(invalidHeader);
+    }, /Header user menu must be an array/);
+  });
+
+  it("throws error for invalid user menu item icon", () => {
+    const invalidHeader: HeaderConfig = {
+      layout: { gap: "md", align: "start" },
+      categories: [],
+      userMenu: [
+        {
+          id: "profile",
+          href: "/profile",
+          label: "Profile",
+          icon: "BadIcon" as any,
+        },
+      ],
+    };
+    assert.throws(() => {
+      GlobalLayoutDomain.validateHeader(invalidHeader);
+    }, /Navigation item 'profile' has an invalid or unsupported icon: 'BadIcon'/);
   });
 });
 

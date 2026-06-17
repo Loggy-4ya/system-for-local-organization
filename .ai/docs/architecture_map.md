@@ -13,7 +13,12 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `public/` | Static assets served at URL root | Organised subfolders: `icons/`, `brand/` | Secrets, compiled bundles, create-next-app boilerplate SVGs |
 | `public/icons/` | Browser favicon and app icons | `favicon.ico`, future `apple-icon.png` | Logos, UI illustrations |
 | `public/brand/` | Brand marks used in UI | `logo.svg` | Favicons, unrelated stock assets |
-| `public/uploads/` | User-uploaded images and media | Uploaded files | Brand marks, static icons |
+| `public/uploads/` | User-uploaded images and media (gitignored binaries; `.gitkeep` per segment) | Uploaded files in declared subfolders | Brand marks, static icons, loose files at `public/uploads/` root |
+| `public/uploads/avatars/` | Profile avatar images | Image uploads from `/profile/settings` | Videos, Puck block assets |
+| `public/uploads/page-covers/` | Puck page root background images | `page-cover` purpose uploads | Block inline media |
+| `public/uploads/puck-blocks/` | Inline Puck block images and videos | `puck-block` purpose uploads | Avatars, task reports |
+| `public/uploads/task-reports/` | Future task submission attachments | `task-report` purpose uploads | Unrelated CMS media |
+| `public/uploads/general/` | Fallback uploads when purpose is `general` | Generic media | Purpose-specific assets |
 | `tests/` | Automated test suites only | `*.test.ts` mirroring source tree (`tests/puck/lib/`, …); Playwright `*.spec.ts` under `tests/e2e/` | Application runtime code, React components, fixtures unrelated to a registered suite |
 | `.ai/docs/` | Living architectural truth and feature specs | Markdown specs, roadmap, structure maps, [testing.md](./testing.md) test registry | Application runtime code |
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
@@ -37,13 +42,15 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/api/puck/` | REST API for loading/saving Puck page layouts to MongoDB | Active |
 | `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
 | `src/app/api/global-layout/` | REST API for global layout settings | Active |
-| `src/app/api/upload/` | REST API for uploading image/video files to `public/uploads/` | Active |
+| `src/app/api/upload/` | REST API for media uploads via {@link MediaDomain} | Active |
 | `src/app/(marketing)/` | Hardcoded landing and public marketing pages (excluded from Puck) | Planned |
 | `src/app/(dashboard)/` | Hardcoded admin dashboard shell (excluded from Puck) | Planned |
 | `src/app/(auth)/` | Authentication flows (`/login`, `/signup`) | Active |
+| `src/app/telegram/` | Telegram Mini App entry (`/telegram`) | Active |
 | `src/app/(profile)/` | User profile dashboard (`/profile`) and settings (`/profile/settings`) | Active |
-| `src/app/api/auth/` | Auth.js handler, register, Telegram verify | Active |
-| `src/app/api/profile/` | PATCH user profile (session-required) | Active |
+| `src/app/api/auth/` | Auth.js handler, register, Telegram widget + Mini App verify | Active |
+| `src/app/api/telegram/` | Telegram Bot API webhook (`/api/telegram/webhook`) | Active |
+| `src/app/api/profile/` | PATCH user profile; DELETE `/api/profile/telegram` unlink | Active |
 | `src/auth.ts` | Auth.js configuration (providers, callbacks, session) | Active |
 | `src/auth.config.ts` | Edge-safe Auth.js config for middleware | Active |
 | `src/middleware.ts` | Route protection for `/profile/*`, `/admin/*`; `Accept-CH` for theme hints | Active |
@@ -59,13 +66,15 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `CoverMediaFrame`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
 | `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `nexusGridItemZonePolicy.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`) | Active |
-| `src/lib/` | App-local utilities and constants (no React, no routes) — includes `dragAutoScrollLogic.ts`, `useDragAutoScroll.ts` | Active |
+| `src/lib/` | App-local utilities and constants (no React, no routes) — includes `mediaUploadClient.ts`, `assets.ts`, `dragAutoScrollLogic.ts` | Active |
+| `src/lib/mediaUploadClient.ts` | App-wide browser upload helper (`POST /api/upload` + purpose) | Active |
 
 ## `tests/` Sub-directories
 
 | Path | Purpose | Status |
 |------|---------|--------|
 | `tests/puck/lib/` | Unit tests for `src/components/puck/lib/` pure logic modules | Active |
+| `tests/shared/lib/` | Unit tests for shared lib helpers (Telegram initData verify, media storage rules) | Active |
 | `tests/shared/domains/` | Unit tests for shared domains (global layout validation) | Active |
 | `tests/shared/validation/` | Unit tests for shared validation schemas | Active |
 
@@ -81,8 +90,12 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/constants/editorSettings.ts` | Client-safe editor settings seed constants | Active |
 | `shared/constants/globalLayout.ts` | Global Layout seed constants and whitelists | Active |
 | `shared/domains/` | Consolidated domain engines (one file per domain) | Active |
-| `shared/domains/AuthDomain.ts` | Auth registration, OAuth merge, Telegram verify, profile mutations | Active |
-| `shared/domains/GlobalLayoutDomain.ts` | Global Layout load, seed, validate, and update domain engine | Active |
+| `shared/domains/AuthDomain.ts` | Auth registration, OAuth merge, Telegram widget + Mini App, profile mutations | Active |
+| `shared/domains/TelegramBotDomain.ts` | Telegram Bot API webhook dispatch (`/start`, Mini App button) | Active |
+| `shared/lib/verifyTelegramWebAppInitData.ts` | HMAC verification for Telegram Mini App `initData` | Active |
+| `shared/domains/MediaDomain.ts` | Media upload validation + storage provider orchestration | Active |
+| `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
+| `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS stub) | Active |
 | `shared/validation/` | Centralized Zod validation schemas and format utilities | Active |
 
 ## `.ai/docs/` Sub-directories
@@ -95,7 +108,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
 | `.ai/docs/features/puck_field_controls.md` | Puck sidebar field controls — outline-flat select/segmented/switch/input style | Markdown spec | — |
 | `.ai/docs/features/puck_grid_item_zone_policy.md` | Grid Item placement rule (`{gridId}:content`), slot disallow, outline/root guards | Markdown spec | — |
-| `.ai/docs/features/global_layout.md` | Global Layout feature specification | Markdown spec | — |
+| `.ai/docs/features/media_storage.md` | Unified media upload/storage architecture (local + GCS migration path) | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |

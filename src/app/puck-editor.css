@@ -1,8 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    Puck Editor Custom Styles — Project Nexus
-   Clears Puck's opaque preview/canvas defaults so InfiniteGrid can paint the editor.
-   Desktop (≥901px): scrollport grid on canvas shell; inner scrollport scrolls page content.
-   Compact (≤900px): contained grid in PageRoot inside the preview iframe.
+   Clears Puck's opaque preview/canvas defaults so the global InfiniteGrid (`#nexus-bg`) shows through.
+   Desktop (≥901px): letterbox gutters beside fixed device presets.
+   Compact (≤900px): full-bleed canvas over the same global grid.
    Syncs Puck chrome colours with the site light/dark theme.
    ══════════════════════════════════════════════════════════════════════════════ */
 
@@ -48,7 +48,20 @@ iframe#preview-frame {
  * bleed under the left Blocks/Outline panel when the editor column shrinks.
  */
 .Puck [class*="PuckLayout-inner"] {
+  background: transparent !important;
+  background-color: transparent !important;
   min-width: 0;
+}
+
+/* Puck shell — transparent so global `#nexus-bg` shows through panel gaps and letterbox gutters. */
+.Puck [class*="PuckLayout"]:not([class*="PuckLayout-inner"]) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.Puck {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Outer canvas shell only — [class*="PuckCanvas"] also matches controls/inner/root */
@@ -73,18 +86,65 @@ iframe#preview-frame {
   max-width: 100%;
 }
 
-/* Sidebars and plugin rail stay above any residual canvas bleed */
+/* Sidebars stay above any residual canvas bleed */
 .Puck [class*="Sidebar--left"],
-.Puck [class*="Sidebar--right"],
+.Puck [class*="Sidebar--right"] {
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * Plugin nav rail (Blocks / Outline) — fully opaque on every breakpoint.
+ * Canvas preview can bleed under the sidenav track; paint every layer + stack above canvas.
+ */
 .Puck [class*="PuckLayout-nav"] {
+  align-self: stretch;
+  background: var(--color-bg-panel) !important;
+  background-color: var(--color-bg-panel) !important;
+  isolation: isolate;
+  min-height: 100%;
+  position: relative;
+  z-index: 3;
+}
+
+.Puck [class*="PuckLayout-nav"]::before {
+  background: var(--color-bg-panel);
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.Puck [class*="PuckLayout-nav"] [class*="Nav_"],
+.Puck [class*="PuckLayout-nav"] [class*="Nav-list"],
+.Puck [class*="PuckLayout-nav"] [class*="NavItem"] {
+  background: var(--color-bg-panel) !important;
+  background-color: var(--color-bg-panel) !important;
   position: relative;
   z-index: 1;
+}
+
+.Puck [class*="PuckLayout-nav"] [class*="NavItem"]:not([class*="NavItem--active"]) > [class*="NavItem-link"] {
+  background: var(--color-bg-panel) !important;
+  background-color: var(--color-bg-panel) !important;
+}
+
+.Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--color-bg-panel)) !important;
+  background-color: color-mix(in srgb, var(--color-accent-user) 14%, var(--color-bg-panel)) !important;
+}
+
+[data-theme="dark"] .Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
+  background: color-mix(in srgb, var(--puck-color-azure-04) 16%, var(--color-bg-panel)) !important;
+  background-color: color-mix(in srgb, var(--puck-color-azure-04) 16%, var(--color-bg-panel)) !important;
 }
 
 @media (max-width: 900px) {
   /* Bottom rail must stay above the slide-up panel during height animations. */
   .Puck [class*="PuckLayout-nav"] {
-    z-index: 2;
+    z-index: 4;
   }
 }
 
@@ -161,13 +221,13 @@ iframe#preview-frame {
     width: 0 !important;
   }
 
-  /* Puck canvas — shell scrolls (default); inner is the zoom frame; preview scrolls in iframe. */
+  /* Puck canvas — transparent interior; scrollport grid fills letterbox gutters. */
   .Puck
     [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
       [class*="PuckCanvas-root"]
     ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"]) {
     align-self: stretch;
-    background: var(--nexus-editor-panel-bg) !important;
+    background: transparent !important;
     grid-area: editor;
     justify-self: stretch;
     max-width: none !important;
@@ -179,22 +239,17 @@ iframe#preview-frame {
     width: 100% !important;
   }
 
-  .Puck
-    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
-      [class*="PuckCanvas-root"]
-    ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"])
-    > [data-nexus-scrollport-grid] {
-    pointer-events: none;
-    z-index: 0;
-  }
-
+  /*
+   * Fixed Phone / Tablet / Desktop presets — Puck centers `#puck-canvas-root` via flex
+   * `justify-content: center` (absolute root uses the flex static position for `left: auto`).
+   * Stretch was a regression: preview hugged the left edge and letterbox gutters looked broken.
+   */
   .Puck [class*="PuckCanvas-inner"] {
     background: transparent !important;
     box-sizing: border-box;
     flex: 1 1 auto;
     height: 100% !important;
-    justify-content: stretch !important;
-    align-items: stretch !important;
+    justify-content: center !important;
     min-height: 0 !important;
     overflow: hidden !important;
     position: relative;
@@ -202,9 +257,35 @@ iframe#preview-frame {
     z-index: 1;
   }
 
-  .Puck [class*="PuckCanvas-inner"] > [class*="PuckCanvas-root"],
-  .Puck [class*="PuckCanvas-inner"] > #puck-canvas-root {
-    max-width: 100% !important;
+  /*
+   * Fixed Phone / Tablet / Desktop — preview renders at true preset width (≥1× zoom).
+   * Scroll horizontally when the editor column is narrower than the device preset.
+   */
+  .Puck:not([data-nexus-viewport-full-width]) [class*="PuckCanvas-inner"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  .Puck:not([data-nexus-viewport-full-width]) [class*="PuckCanvas-inner"] > [class*="PuckCanvas-root"],
+  .Puck:not([data-nexus-viewport-full-width]) [class*="PuckCanvas-inner"] > #puck-canvas-root {
+    max-width: none !important;
+  }
+
+  /* Shell scrollport grid — always fill the bordered canvas panel (not the preview width). */
+  .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"])
+    > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid] {
+    height: 100% !important;
+    inset: 0 !important;
+    min-height: 100% !important;
+    pointer-events: none;
+    position: absolute !important;
+    width: 100% !important;
+    z-index: 0;
   }
 
   /* Full-width preset — preview root spans the inner frame (Puck sets width: 100%). */
@@ -237,7 +318,7 @@ iframe#preview-frame {
   --nexus-editor-panel-gap: 4px;
   --nexus-editor-panel-radius: var(--radius-lg);
   --nexus-editor-panel-border: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 85%, transparent);
-  --nexus-editor-panel-bg: color-mix(in srgb, var(--puck-color-white) 96%, transparent);
+  --nexus-editor-panel-bg: var(--color-bg-panel);
   --nexus-editor-panel-shadow: 0 8px 24px -4px color-mix(in srgb, var(--puck-color-black) 10%, transparent);
   --nexus-canvas-chrome-border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
   /* Plugin panel rhythm — canonical source: `.nexus-outline-layer__*` (see `.ai/docs/features/puck_plugin_panel_rhythm.md`) */
@@ -278,14 +359,13 @@ iframe#preview-frame {
 
 [data-theme="dark"] .Puck {
   --nexus-editor-panel-border: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 92%, transparent);
-  --nexus-editor-panel-bg: color-mix(in srgb, var(--puck-color-grey-12) 94%, transparent);
+  --nexus-editor-panel-bg: var(--color-bg-panel);
   --nexus-editor-panel-shadow: 0 8px 24px -4px color-mix(in srgb, #000 32%, transparent);
 }
 
 /** Shared rounded panel shell — desktop plugin rail, sidebars, canvas. */
 @media (min-width: 901px) {
   .Puck [class*="PuckLayout-inner"] {
-    background-color: transparent !important;
     box-sizing: border-box;
     gap: var(--nexus-editor-panel-gap);
     padding: var(--nexus-editor-panel-gap);
@@ -294,9 +374,8 @@ iframe#preview-frame {
   .Puck [class*="PuckLayout-nav"],
   .Puck [class*="Sidebar--left"],
   .Puck [class*="Sidebar--right"] {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    background: var(--nexus-editor-panel-bg) !important;
+    background: var(--nexus-editor-panel-bg, var(--color-bg-panel)) !important;
+    background-color: var(--nexus-editor-panel-bg, var(--color-bg-panel)) !important;
     border: var(--nexus-editor-panel-border) !important;
     border-radius: var(--nexus-editor-panel-radius) !important;
     box-shadow: var(--nexus-editor-panel-shadow);
@@ -365,29 +444,40 @@ iframe#preview-frame {
 
 /** Mobile — bottom plugin rail + slide-up panel; full-bleed (no panel borders). */
 @media (max-width: 900px) {
+  /* Full-bleed canvas over global grid — layout shell only; panels stay opaque. */
+  .Puck [class*="PuckLayout-inner"],
+  .Puck [class*="PuckLayout"]:not([class*="PuckLayout-inner"]) {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
   .Puck [class*="PuckLayout-inner"] {
     box-sizing: border-box;
     gap: 0;
     padding-inline: 0;
   }
 
+  /*
+   * Bottom sections rail — glass island (parity with `nexus-puck-header-bar`):
+   * square-rounded `var(--radius-lg)`, `--page-content-gutter` inset, site header shadow.
+   */
   .Puck [class*="PuckLayout-nav"] {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    background: var(--nexus-editor-panel-bg) !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+    background: var(--color-bg-panel) !important;
+    background-color: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--site-header-bar-shadow) !important;
     box-sizing: border-box;
-    margin-inline: 0;
+    margin-inline: max(var(--nexus-compact-nav-island-inset-x), env(safe-area-inset-left, 0px))
+      max(var(--nexus-compact-nav-island-inset-x), env(safe-area-inset-right, 0px));
+    margin-bottom: max(var(--nexus-compact-nav-island-gap), env(safe-area-inset-bottom, 0px));
     overflow: hidden;
-    width: 100%;
+    width: auto !important;
   }
 
   .Puck [class*="Sidebar--left"][class*="Sidebar--isVisible"] {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     background: var(--nexus-editor-panel-bg) !important;
+    background-color: var(--nexus-editor-panel-bg) !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -2515,31 +2605,31 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 /* Multi-slide edit — per-slide height from content (no stretch gap / ghost append band) */
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   [data-slot="carousel-content"]
   > .flex {
   align-items: flex-start !important;
 }
 
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   [data-slot="carousel-item"] {
   align-self: flex-start !important;
 }
 
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   .nexus-carousel__slide:has([data-nexus-carousel-fill="true"]),
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   .nexus-carousel__slide:has(.nexus-carousel__slide-media-fill) {
   height: auto !important;
 }
 
 /* Multi-slide content-sized layout — drop viewport min-height floor (prevents band below slides) */
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   .nexus-carousel__viewport,
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   [data-slot="carousel-content"]
   > .flex,
-.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide)
+.nexus-carousel--edit.nexus-carousel--multi-slide:not(.nexus-carousel--edit-single-slide):not(.nexus-carousel--edit-height-sync):not(.nexus-carousel--has-grid-slide):not(.nexus-carousel--in-grid-cell)
   .nexus-carousel__track--edit {
   height: auto !important;
   min-height: 0 !important;
@@ -3827,7 +3917,9 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     --nexus-compact-nav-label-size: 9px;
     --nexus-compact-nav-icon-size: 16px;
     --nexus-compact-nav-indicator: 2px;
-    /* Fallback until JS measures the live nav rail (see syncCompactNavRailHeight). */
+    /* Bottom plugin rail — island inset (matches header / canvas FAB gutters) */
+    --nexus-compact-nav-island-gap: 8px;
+    --nexus-compact-nav-island-inset-x: var(--page-content-gutter);
     --nexus-compact-nav-rail-height: 69px;
     --nexus-compact-toolbar-btn-height: var(--site-header-action-size);
     --nexus-compact-viewport-btn-size: var(--site-header-action-size);
@@ -4031,8 +4123,8 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
   .Puck [class*="PuckLayout-nav"] {
     border-right: 0 !important;
-    border-top: 1px solid var(--puck-color-grey-09) !important;
-    width: 100%;
+    flex-shrink: 0;
+    width: auto !important;
   }
 
   .Puck [class*="PuckHeader"] {
@@ -4041,7 +4133,12 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 
   /* Compact single-row header — wordmark left, toolbar right; hide page title/slug */
   .nexus-puck-header-shell {
-    padding: env(safe-area-inset-top, 0px) 0 0;
+    padding: env(safe-area-inset-top, 0px) max(var(--page-content-gutter), env(safe-area-inset-right, 0px)) 0
+      max(var(--page-content-gutter), env(safe-area-inset-left, 0px));
+  }
+
+  .nexus-puck-header-shell__inner {
+    width: 100%;
   }
 
   .nexus-puck-header-bar__puck [class*="PuckHeader-inner"] {
@@ -4186,10 +4283,15 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   }
 
   .Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
+    background: color-mix(
+      in srgb,
+      var(--puck-color-azure-04) 14%,
+      var(--color-bg-panel)
+    ) !important;
     background-color: color-mix(
       in srgb,
       var(--puck-color-azure-04) 14%,
-      var(--puck-color-grey-12)
+      var(--color-bg-panel)
     ) !important;
     border-right-color: transparent !important;
     border-top-color: var(--puck-color-azure-04) !important;
@@ -4204,7 +4306,7 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   .Puck [class*="PuckLayout-nav"] [class*="Nav_"] {
     align-items: stretch;
     justify-content: stretch;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: 0;
     width: 100%;
   }
 
@@ -4289,7 +4391,11 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     border: none !important;
     border-radius: 0 !important;
     border-top: var(--nexus-editor-panel-border) !important;
-    bottom: var(--nexus-compact-nav-rail-height) !important;
+    bottom: calc(
+      var(--nexus-compact-nav-rail-height)
+      + var(--nexus-compact-nav-island-gap)
+      + env(safe-area-inset-bottom, 0px)
+    ) !important;
     box-shadow: none !important;
     box-sizing: border-box;
     display: flex !important;
@@ -4844,12 +4950,6 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
     background: color-mix(in srgb, var(--puck-color-azure-04) 12%, transparent) !important;
   }
 
-  .Puck [class*="PuckLayout-nav"] {
-    flex-shrink: 0;
-    isolation: isolate;
-    z-index: 2;
-  }
-
   .nexus-mobile-panel-resize-host {
     align-items: center;
     border-bottom: var(--nexus-editor-panel-border);
@@ -4961,12 +5061,14 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 }
 
 [data-theme="dark"] .Puck [class*="NavItem--active"] > [class*="NavItem-link"] {
-  background-color: var(--puck-color-azure-11) !important;
+  background: color-mix(in srgb, var(--puck-color-azure-04) 16%, var(--color-bg-panel)) !important;
+  background-color: color-mix(in srgb, var(--puck-color-azure-04) 16%, var(--color-bg-panel)) !important;
   color: var(--puck-color-azure-04) !important;
 }
 
 [data-theme="dark"] .Puck [class*="NavItem"]:not([class*="NavItem--active"]) > [class*="NavItem-link"]:hover {
-  background-color: var(--puck-color-azure-11) !important;
+  background: color-mix(in srgb, var(--puck-color-azure-04) 10%, var(--color-bg-panel)) !important;
+  background-color: color-mix(in srgb, var(--puck-color-azure-04) 10%, var(--color-bg-panel)) !important;
   color: var(--puck-color-azure-04) !important;
 }
 

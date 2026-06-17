@@ -12,6 +12,7 @@ import GlobalLayout, { GLOBAL_LAYOUT_ID, type IGlobalLayout } from "@shared/mode
 import {
   ALLOWED_LUCIDE_ICONS,
   DEFAULT_GLOBAL_LAYOUT,
+  DEFAULT_HEADER_USER_MENU,
   type GlobalLayoutConfig,
   type HeaderConfig,
   type FooterConfig,
@@ -142,6 +143,14 @@ export class GlobalLayoutDomain {
 
     for (const category of header.categories) {
       this.validateCategory(category);
+    }
+
+    if (header.userMenu !== undefined && !Array.isArray(header.userMenu)) {
+      throw new Error("Header user menu must be an array.");
+    }
+
+    for (const item of header.userMenu ?? []) {
+      this.validateNavItem(item, "userMenu");
     }
   }
 
@@ -397,6 +406,17 @@ export class GlobalLayoutDomain {
             variant: item.variant ?? "link",
             adminOnly: item.adminOnly ?? false,
           })),
+        })),
+        userMenu: (doc.header?.userMenu?.length
+          ? doc.header.userMenu
+          : DEFAULT_HEADER_USER_MENU
+        ).map((item) => ({
+          id: item.id,
+          href: item.href,
+          label: item.label,
+          icon: item.icon,
+          variant: item.variant ?? "link",
+          adminOnly: item.adminOnly ?? false,
         })),
       },
       footer: {

@@ -20,7 +20,7 @@ The global layout configuration is stored as a singleton document in MongoDB (`_
 type NavItemVariant = "link" | "button";
 
 interface HeaderLayout {
-  gap: "sm" | "md" | "lg" | "xl" | "2xl"; // Spacing between elements (8px / 16px / 24px / 36px / 48px)
+  gap: "sm" | "md" | "lg" | "xl" | "2xl"; // Spacing between groups + nav band edge inset (8px–48px)
   align: "start" | "center" | "end"; // Default desktop nav zone (left / center / right)
 }
 
@@ -46,6 +46,8 @@ interface HeaderCategory {
 interface HeaderConfig {
   layout: HeaderLayout;
   categories: HeaderCategory[];
+  /** Signed-in avatar dropdown links (User Menu chapter in Global Layout editor). */
+  userMenu: HeaderNavItem[];
 }
 
 interface FooterLink {
@@ -129,10 +131,10 @@ Icons appear **before** link and category labels on desktop and mobile. Chevron 
 - [x] Social handle rows use the same stretched icon-first grid as header nav items (responsive on phone).
 - [x] Admin Global Layout Editor at `/admin/global-layout` with live preview below settings and tabbed configuration.
 - [x] Header/Footer tab bar uses a sliding pill indicator plus panel fade/slide transition (`global-layout-editor.css` tokens).
-- [x] Live preview header nav is interactive: desktop category dropdowns and mobile burger/accordion sections open inside the preview frame; nav links do not navigate away from the editor. Preview canvas stays scrollable while menus are open.
-- [x] Live preview mock page content uses the fixed global layout band (`GLOBAL_LAYOUT_CONTENT_WIDTH` → 1400px), same as header/footer; viewport device toggles (phone / tablet / desktop) remain in the toolbar.
-- [x] Published Puck pages use `.global-layout-page-content-slot` (gutter outside) + per-page inner `pageLayout.contentWidth` (max 1400px; legacy `full` clamped to `xl`). Header/footer chrome **do not** read page layout — they always use `GLOBAL_LAYOUT_CONTENT_WIDTH`.
-- [x] Static routes (`/pages`, `/admin`, `/profile`, auth, home) use `StaticPageShell` + `STATIC_ROUTE_CONTENT_WIDTH` for page body width; header/footer still use the fixed global layout band.
+- [x] Live preview header nav is interactive: desktop category dropdowns, signed-in avatar user-menu dropdown, and mobile burger/accordion sections open inside the preview frame; nav links do not navigate away from the editor. Preview canvas stays scrollable while menus are open.
+- [x] Live preview mock page content uses the global layout band (`GLOBAL_LAYOUT_CONTENT_WIDTH` → 1400px), same as header/footer; viewport device toggles (phone / tablet / desktop) remain in the toolbar.
+- [x] Published Puck pages use `.global-layout-page-content-slot` (gutter outside) + per-page inner `pageLayout.contentWidth` (default 1400px `xl`; optional `full` or narrower presets). Header/footer chrome **do not** read page layout — they use `GLOBAL_LAYOUT_CONTENT_WIDTH`.
+- [x] Static routes (`/`, `/pages`, `/admin`, `/profile`, auth) use `StaticPageShell` at **1400px** (`STATIC_DEFAULT_CONTENT_WIDTH` / `GLOBAL_LAYOUT_CONTENT_WIDTH` / `xl`) — same band as header/footer chrome.
 - [x] Published Puck pages drop `min-height: 100vh` so global footer follows content; `.global-layout-footer-slot` adds `--spacing-sm` (8px) above footer chrome (matches root block margin token).
 - [x] Header collapses to burger + sidebar below `1024px` (`lg`); phone and tablet preview frames both use the mobile header; desktop preview uses horizontal nav.
 - [x] Desktop header categories with a label render as shadcn `DropdownMenu` triggers; items without a category label stay as inline top-level links.
@@ -142,7 +144,7 @@ Icons appear **before** link and category labels on desktop and mobile. Chevron 
 - [x] Short editor flags (Pill Button, Admin Only, External) use Shadcn `Badge` tags for compact, colored status.
 - [x] Layout pickers (spacing gap, default alignment) use `EditorOptionBadgeGroup` — Shadcn badge single-select (not Puck `SegmentedControl`, which requires `puck-editor.css`). Default alignment supports left, center, and right desktop nav zones.
 - [x] Each header category can override desktop alignment (Default / Left / Center / Right) via `HeaderCategory.align`; `DesktopHeaderNavZones` renders three flex zones in `SiteHeaderBar`.
-- [x] When five or more desktop categories are visible, `SiteHeaderBar` switches to a dense two-row layout (logo + actions on top, full-width nav grid below). Categories render in aligned grid rows per zone (`repeat(auto-fill, minmax(7.25rem, 1fr))`) with spacing from `HeaderLayout.gap`.
+- [x] When five or more desktop categories are visible, nav zones use compact horizontal grid cells (`site-header-bar__nav-zone-grid--dense`) while the header stays a single row (logo + nav + actions).
 - [x] Dedicated `global-layout-editor.css` + `EditorField` / `EditorSectionHeader` provide aligned typography and spacing on `/admin/global-layout` without importing Puck editor styles.
 - [x] Editor island rhythm uses `--global-layout-island-gap` (`--spacing-sm` / 8px) for page panels, chapters, category cards, item rows, and preview sections via `global-layout-editor__stack` / `__island-grid`.
 - [x] Header categories and footer columns use `EditorCollapsibleIsland` (closed by default, chevron toggle) to fit more settings on screen.
@@ -157,8 +159,12 @@ Icons appear **before** link and category labels on desktop and mobile. Chevron 
 - [x] Mobile sidebar nav starts flush under the safe-area inset (no header-offset gap); section accordions support optional category icons.
 - [x] Signed-in profile avatar in the header uses square-rounded corners (`--radius-md`), matching the logo mark style.
 - [x] On mobile (`<768px`), theme toggle lives in the sidebar footer; header shows profile (or sign-in icon) directly before the burger menu.
-- [x] On mobile, header is logo + burger only; **Theme** and **Account** rows live in the sidebar footer (label left, control/link right).
+- [x] On mobile, header is logo + burger only; **Theme** toggle (no label) and **Account** rows live in the sidebar footer.
 - [x] Mobile sidebar **Account** row matches Shadcn sidebar user pattern: circular avatar, name + email stack, chevron on the right (full-width link).
 - [x] Mobile sidebar theme toggle uses `variant="sidebar"` (36×68px, 14px icons) for proportional scale next to the Theme label.
 - [x] Mobile sidebar nav links use horizontal icon + label layout (`display: flex` on `.site-header-mobile-menu__link`).
 - [x] Desktop header vertical rhythm: wordmark `line-height: 1`, avatar `inline-flex` + `box-sizing: border-box` aligned with CTA and theme toggle.
+- [x] Signed-in desktop avatar opens a dropdown (`HeaderUserMenuDropdown`) with the user's name/email, configurable **User Menu** links (`HeaderConfig.userMenu`), and a fixed **Log out** action (`signOut` via Auth.js).
+- [x] **User Menu** is edited in `/admin/global-layout` → Header tab → **User Menu** chapter (`HeaderUserMenuEditor`); defaults to Profile + Settings. Log out is not configurable and is always appended in the UI. User menu rows support pointer drag reorder.
+- [x] `HeaderLayout.gap` applies between nav groups and as horizontal inset from the nav band edges (`padding-inline` + `gap` on `.site-header-bar__nav-zones`).
+- [x] Mobile sidebar account footer shows name/email and a single **Log out** button; configurable user menu links open in a fixed-height panel above the user badge when the chevron on the badge is pressed (not duplicated in nav accordions).

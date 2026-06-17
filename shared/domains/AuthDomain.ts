@@ -19,12 +19,17 @@ import User, {
   type UserRole,
 } from "@shared/models/User";
 import { registerSchema } from "@shared/validation/authSchemas";
+import {
+  verifyTelegramWebAppInitData,
+  type TelegramWebAppUser,
+} from "@shared/lib/verifyTelegramWebAppInitData";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** Input for credentials-based student registration. */
 export interface RegisterCredentialsInput {
-  email: string;
+  login: string;
+  email?: string | null;
   password: string;
   name: string;
   specialty?: string | null;
@@ -55,6 +60,7 @@ export interface TelegramWidgetPayload {
 /** Safe user representation — never includes passwordHash. */
 export interface PublicUser {
   id: string;
+  login: string | null;
   email: string | null;
   name: string;
   username: string | null;
@@ -75,6 +81,20 @@ export interface PublicUser {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** Public Telegram user fields returned for Mini App onboarding. */
+export interface TelegramMiniAppPublicUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+}
+
+/** Result of Mini App initData authentication. */
+export type TelegramMiniAppAuthenticateResult =
+  | { status: "authenticated"; user: IUser }
+  | { status: "needs_onboarding"; telegramUser: TelegramMiniAppPublicUser };
 
 /** Patch payload for profile settings updates. */
 export interface ProfileUpdateInput {
@@ -102,37 +122,47 @@ const TELEGRAM_AUTH_MAX_AGE_SEC = 86_400;
  */
 export const AuthDomain = {
   /**
-   * Register a new user with email and password credentials.
+   * Register a new user with login/password credentials.
    *
    * @param input - Registration fields from the student signup form.
    * @returns The created user document.
-   * @throws When email is already registered or validation fails.
+   * @throws When login or linked email is already registered, or validation fails.
    */
   async registerWithCredentials(input: RegisterCredentialsInput): Promise<IUser> {
     await connectDB();
 
-    // Enforce schema validation
     const parsed = registerSchema.parse({
-      email: input.email,
+      login: input.login,
+      email: input.email ?? null,
       password: input.password,
-      name: input.name || input.email.split("@")[0],
+      name: input.name || input.login,
       specialty: input.specialty,
       group: input.group,
       studentTitle: input.studentTitle ?? "Neither",
     });
 
-    const email = parsed.email;
-    const existing = await User.findOne({ email });
-    if (existing) {
-      throw new Error("An account with this email already exists.");
+    const login = parsed.login;
+    const email = parsed.email ?? null;
+
+    const existingLogin = await User.findOne({ login });
+    if (existingLogin) {
+      throw new Error("An account with this login already exists.");
+    }
+
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        throw new Error("An account with this email already exists.");
+      }
     }
 
     const passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
 
     const user = await User.create({
+      login,
       email,
       passwordHash,
-      name: parsed.name || email.split("@")[0],
+      name: parsed.name || login,
       specialty: parsed.specialty,
       group: parsed.group,
       studentTitle: parsed.studentTitle,
@@ -142,17 +172,17 @@ export const AuthDomain = {
   },
 
   /**
-   * Validate email/password credentials for Auth.js Credentials provider.
+   * Validate login/password credentials for Auth.js Credentials provider.
    *
-   * @param email - User email address.
+   * @param login - User login handle.
    * @param password - Plain-text password.
    * @returns Matching user document or null when invalid.
    */
-  async validateCredentials(email: string, password: string): Promise<IUser | null> {
+  async validateCredentials(login: string, password: string): Promise<IUser | null> {
     await connectDB();
 
-    const normalized = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalized }).select("+passwordHash");
+    const normalized = login.trim().toLowerCase();
+    const user = await User.findOne({ login: normalized }).select("+passwordHash");
     if (!user?.passwordHash) return null;
 
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -185,6 +215,153 @@ export const AuthDomain = {
   async findOrCreateFromApple(profile: OAuthProfileInput): Promise<IUser> {
     await connectDB();
     return mergeOAuthUser("appleId", profile);
+  },
+
+  /**
+   * Authenticate a Telegram Mini App visitor via signed `initData`.
+   *
+   * Returning users are synced and returned for bridge-token sign-in.
+   * First-time visitors receive onboarding metadata instead of a user row.
+   *
+   * @param initData - Raw `Telegram.WebApp.initData` query string.
+   * @param botToken - BotFather token from environment.
+   * @returns Authenticated user or onboarding payload.
+   * @throws When initData verification fails.
+   */
+  async authenticateTelegramMiniApp(
+    initData: string,
+    botToken: string,
+  ): Promise<TelegramMiniAppAuthenticateResult> {
+    await connectDB();
+
+    if (!botToken) {
+      throw new Error("Telegram bot token is not configured.");
+    }
+
+    const verified = verifyTelegramWebAppInitData(initData, botToken);
+    const syncAt = new Date();
+    const name = formatTelegramDisplayName(verified.user);
+
+    let user = await User.findOne({ telegramId: verified.user.id });
+
+    if (user) {
+      user.name = name || user.name;
+      user.username = verified.user.username ?? user.username;
+      user.avatar = verified.user.photo_url ?? user.avatar;
+      user.lastTelegramSyncAt = syncAt;
+      await user.save();
+      return { status: "authenticated", user };
+    }
+
+    return {
+      status: "needs_onboarding",
+      telegramUser: toTelegramMiniAppPublicUser(verified.user),
+    };
+  },
+
+  /**
+   * Register a new Nexus account from the Telegram Mini App onboarding form.
+   *
+   * @param initData - Raw `Telegram.WebApp.initData` (re-verified server-side).
+   * @param input - Credentials registration fields from onboarding.
+   * @param botToken - BotFather token from environment.
+   * @returns Created user with linked `telegramId`.
+   * @throws When initData is invalid, login/email exists, or telegramId is taken.
+   */
+  async registerFromTelegramMiniApp(
+    initData: string,
+    input: RegisterCredentialsInput,
+    botToken: string,
+  ): Promise<IUser> {
+    await connectDB();
+
+    if (!botToken) {
+      throw new Error("Telegram bot token is not configured.");
+    }
+
+    const verified = verifyTelegramWebAppInitData(initData, botToken);
+    const existingTelegram = await User.findOne({ telegramId: verified.user.id });
+    if (existingTelegram) {
+      throw new Error("This Telegram account is already linked to Nexus.");
+    }
+
+    const parsed = registerSchema.parse({
+      login: input.login,
+      email: input.email ?? null,
+      password: input.password,
+      name: input.name || input.login,
+      specialty: input.specialty,
+      group: input.group,
+      studentTitle: input.studentTitle ?? "Neither",
+    });
+
+    const login = parsed.login;
+    const email = parsed.email ?? null;
+
+    const existingLogin = await User.findOne({ login });
+    if (existingLogin) {
+      throw new Error("An account with this login already exists.");
+    }
+
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        throw new Error("An account with this email already exists.");
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
+    const syncAt = new Date();
+    const name = formatTelegramDisplayName(verified.user) || parsed.name || login;
+
+    const user = await User.create({
+      login,
+      email,
+      passwordHash,
+      name,
+      specialty: parsed.specialty,
+      group: parsed.group,
+      studentTitle: parsed.studentTitle,
+      telegramId: verified.user.id,
+      username: verified.user.username ?? null,
+      avatar: verified.user.photo_url ?? null,
+      lastTelegramSyncAt: syncAt,
+    });
+
+    return user;
+  },
+
+  /**
+   * Remove Telegram linkage from an account when another sign-in method remains.
+   *
+   * @param userId - Target user MongoDB id.
+   * @returns Updated user document.
+   * @throws When user not found or unlink would lock the account out.
+   */
+  async unlinkTelegram(userId: string): Promise<IUser> {
+    await connectDB();
+
+    const user = await User.findById(userId).select("+passwordHash");
+    if (!user) throw new Error("User not found.");
+
+    if (!user.telegramId) {
+      throw new Error("Telegram is not linked to this account.");
+    }
+
+    const hasAlternateAuth =
+      Boolean(user.passwordHash) || Boolean(user.googleId) || Boolean(user.appleId);
+
+    if (!hasAlternateAuth) {
+      throw new Error(
+        "Set a password or link Google/Apple before unlinking Telegram.",
+      );
+    }
+
+    user.telegramId = null;
+    user.lastTelegramSyncAt = null;
+    await user.save();
+
+    return user;
   },
 
   /**
@@ -313,6 +490,7 @@ export const AuthDomain = {
   toPublicUser(doc: IUser): PublicUser {
     return {
       id: String(doc._id),
+      login: doc.login,
       email: doc.email,
       name: doc.name,
       username: doc.username,
@@ -376,6 +554,39 @@ async function mergeOAuthUser(
   });
 
   return user;
+}
+
+/**
+ * Verify Telegram Login Widget HMAC hash per official Telegram docs.
+ *
+ * @param payload - Widget callback payload.
+ * @param botToken - Bot token used as HMAC secret seed.
+ * @throws When computed hash does not match payload hash.
+ */
+/**
+ * Format a display name from Telegram Web App user fields.
+ *
+ * @param user - Parsed Telegram user from initData.
+ * @returns Combined first/last name or empty string.
+ */
+function formatTelegramDisplayName(user: TelegramWebAppUser): string {
+  return [user.first_name, user.last_name].filter(Boolean).join(" ");
+}
+
+/**
+ * Map verified Telegram Web App user to a safe onboarding payload.
+ *
+ * @param user - Parsed Telegram user from initData.
+ * @returns Public onboarding user fields.
+ */
+function toTelegramMiniAppPublicUser(user: TelegramWebAppUser): TelegramMiniAppPublicUser {
+  return {
+    id: user.id,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    username: user.username,
+    photo_url: user.photo_url,
+  };
 }
 
 /**

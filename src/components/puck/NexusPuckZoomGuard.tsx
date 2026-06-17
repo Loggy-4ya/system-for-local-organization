@@ -28,15 +28,50 @@ import { isAnyCanvasDragActive } from "@/components/puck/lib/canvasDropTargetLog
 import {
   PUCK_CANVAS_INNER_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
+import { matchesDesktopEditorLayout } from "@/components/puck/lib/desktopEditorScrollport";
 import {
+  floorLetterboxDevicePreviewZoom,
   DEFAULT_PUCK_ZOOM_CONFIG,
   resolvePuckAppStore,
   resolvePuckScaledRootHeightPx,
+  resolvePuckViewportWidthFromAppStore,
   sanitizePuckZoomConfig,
+  type PuckInternalAppStore,
   type PuckZoomConfig,
 } from "@/components/puck/lib/sanitizePuckZoomConfig";
-import { matchesDesktopEditorChrome } from "@/components/puck/lib/desktopEditorScrollport";
 import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
+
+/** Puck internal store shape (subset) for viewport-driven zoom refresh. */
+interface PuckViewportZoomAppStore {
+  getState: () => {
+    state: { ui: { viewports: { current: { width: number | "100%" } } } };
+    zoomConfig: PuckZoomConfig;
+    setZoomConfig: (config: PuckZoomConfig) => void;
+  };
+  subscribe: (listener: () => void) => () => void;
+}
+
+/**
+ * Apply letterbox zoom floor from the active viewport preset and canvas frame width.
+ *
+ * @param appStore - Puck internal app store.
+ * @param config - Candidate zoom config.
+ * @returns Sanitized config with letterbox floor when applicable.
+ */
+function applyLetterboxZoomFloor(
+  appStore: PuckInternalAppStore,
+  config: PuckZoomConfig,
+): PuckZoomConfig {
+  const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
+  const frameWidth = inner?.clientWidth > 0 ? inner.clientWidth : undefined;
+  const viewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
+
+  if (viewportWidth === undefined) {
+    return config;
+  }
+
+  return floorLetterboxDevicePreviewZoom(config, viewportWidth, frameWidth);
+}
 
 /** Puck preview root inside the canvas — receives zoom `height` / `transform`. */
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
@@ -93,7 +128,7 @@ function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
     return;
   }
 
-  if (panelTransition && !matchesDesktopEditorChrome()) {
+  if (panelTransition && !matchesDesktopEditorLayout()) {
     return;
   }
 
@@ -102,7 +137,7 @@ function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
     return;
   }
 
-  if (matchesDesktopEditorChrome()) {
+  if (matchesDesktopEditorLayout()) {
     inner.style.removeProperty("height");
     return;
   }
@@ -236,7 +271,9 @@ export function NexusPuckZoomGuard(): null {
         return;
       }
 
-      const sanitized = sanitizePuckZoomConfig(next, zoomFallbackRef.current);
+      let sanitized = sanitizePuckZoomConfig(next, zoomFallbackRef.current);
+      sanitized = applyLetterboxZoomFloor(appStore, sanitized);
+
       zoomFallbackRef.current = sanitized;
       originalSetZoom(sanitized);
 
@@ -249,7 +286,40 @@ export function NexusPuckZoomGuard(): null {
 
     appStore.setState({ setZoomConfig: patchedSetZoom });
 
+    const viewportStore = appStore as unknown as PuckViewportZoomAppStore;
+    let lastViewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
+
+    const unsubscribeViewport = viewportStore.subscribe(() => {
+      const viewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
+      if (viewportWidth === lastViewportWidth) {
+        return;
+      }
+
+      lastViewportWidth = viewportWidth;
+
+      if (isCanvasZoomMutationBlocked()) {
+        return;
+      }
+
+      const current = sanitizePuckZoomConfig(
+        viewportStore.getState().zoomConfig,
+        zoomFallbackRef.current,
+      );
+      const floored = applyLetterboxZoomFloor(appStore, current);
+
+      if (
+        floored.zoom === current.zoom &&
+        floored.autoZoom === current.autoZoom &&
+        floored.rootHeight === current.rootHeight
+      ) {
+        return;
+      }
+
+      patchedSetZoom(floored);
+    });
+
     return () => {
+      unsubscribeViewport();
       appStore.setState({ setZoomConfig: originalSetZoom });
     };
   }, []);

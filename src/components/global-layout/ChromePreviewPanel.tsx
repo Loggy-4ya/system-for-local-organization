@@ -5,7 +5,7 @@
  *
  * Renders header and footer inside a viewport frame (phone / tablet / desktop)
  * so responsive chrome matches the selected breakpoint — not the browser window.
- * Page content uses the same max-width band as site chrome ({@link GLOBAL_LAYOUT_CONTENT_WIDTH}).
+ * Page content uses the same max-width band as global layout header/footer ({@link GLOBAL_LAYOUT_CONTENT_WIDTH}).
  *
  * @module src/components/global-layout/ChromePreviewPanel
  */
@@ -143,6 +143,7 @@ export function ChromePreviewPanel({
                 <SiteHeaderBar
                   categories={header.categories}
                   layout={header.layout}
+                  userMenuItems={header.userMenu}
                   contentWidth="full"
                   showAdminPanel={true}
                   isDarkTheme={isDarkTheme}
@@ -161,7 +162,7 @@ export function ChromePreviewPanel({
               >
                 <h3 className="global-layout-preview-frame__content-title">Mock Page Content</h3>
                 <p className="global-layout-preview-frame__content-copy">
-                  Header, footer, and mock page content use the site chrome band (1400px max).
+                  Header, footer, and mock page content use the global layout band (1400px max).
                 </p>
               </div>
             </div>

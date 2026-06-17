@@ -1,9 +1,10 @@
 /**
- * @fileoverview Resolve when PageRoot should paint site-default InfiniteGrid inside the
- * Puck preview iframe.
+ * @fileoverview Puck preview iframe vs editor shell detection.
  *
- * Default: shell scrollport grid only (single grid). Edit and interactive preview use an
- * iframe-contained grid when shell bleed-through fails (see {@link previewIframeShellComposite}).
+ * Site-default background is painted only by the global `InfiniteGrid` in `layout.tsx`
+ * (`#nexus-bg`). No duplicate scrollport or iframe-contained grids.
+ *
+ * Tests: `tests/puck/lib/previewIframeGridBacking.test.ts` — `npm run test:preview-iframe-grid-backing`
  *
  * @module src/components/puck/lib/previewIframeGridBacking
  */
@@ -31,52 +32,4 @@ export function isInsidePuckEditorShell(target: Window = window): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Resolve whether PageRoot should mount InfiniteGrid inside the preview iframe.
- *
- * @param input - Edit/preview flags from PageRoot render.
- * @returns True when the iframe document should own the site-default grid.
- */
-export function resolveShowPreviewIframeGrid(input: {
-  showEditorBackground: boolean;
-  background: string;
-  shellScrollportGrid: boolean;
-  insidePuckEditorShell: boolean;
-  requiresIframeContainedEditGrid: boolean;
-}): boolean {
-  const {
-    showEditorBackground,
-    background,
-    shellScrollportGrid,
-    insidePuckEditorShell,
-    requiresIframeContainedEditGrid,
-  } = input;
-
-  if (!showEditorBackground || background !== "site-default") {
-    return false;
-  }
-
-  if (insidePuckEditorShell && requiresIframeContainedEditGrid) {
-    return true;
-  }
-
-  if (insidePuckEditorShell || shellScrollportGrid) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Whether the shell scrollport grid should defer to the iframe-contained edit grid.
- *
- * @param input - Parent shell flags.
- * @returns True when `NexusEditorScrollportGrid` should not mount.
- */
-export function shouldSuppressShellScrollportGridForIframeContainedEdit(input: {
-  requiresIframeContainedEditGrid: boolean;
-}): boolean {
-  return input.requiresIframeContainedEditGrid;
 }

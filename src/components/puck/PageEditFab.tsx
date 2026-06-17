@@ -18,7 +18,7 @@ import { useSession } from "next-auth/react";
 import { Pencil } from "lucide-react";
 import { shouldShowPageEditFab } from "@/lib/pageEditAccess";
 
-/** Root page stack — FAB must portal here to share z-index context with site chrome. */
+/** Root page stack — FAB must portal here to share z-index context with global layout header/footer. */
 const PAGE_STACK_PORTAL_SELECTOR = ".nexus-page-stack";
 
 /** Props for {@link PageEditFab}. */

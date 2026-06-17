@@ -1,5 +1,5 @@
 /**
- * @fileoverview Student signup form with client-side validation and native POST fallback (iOS-safe).
+ * @fileoverview Student signup form with client-side validation and inline errors.
  *
  * @module src/components/auth/StudentSignUpForm
  */
@@ -7,8 +7,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { StudentTitle } from "@shared/models/User";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { OAuthButtonRow } from "@/components/auth/OAuthButtonRow";
@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
+import { Spinner } from "@/components/ui/spinner";
+import { submitStudentSignup } from "@/lib/credentialsAuthClient";
 import { signupSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
@@ -27,15 +29,17 @@ import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
  * @returns Signup form page content.
  */
 export function StudentSignUpForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const errorParam = searchParams.get("error");
   const initialError = getAuthErrorMessage(errorParam);
 
-  // Repopulate fields from query parameters on server-side redirect fallback
+  const initialLogin = searchParams.get("login") ?? "";
   const initialEmail = searchParams.get("email") ?? "";
   const initialSpecialty = searchParams.get("specialty") ?? "";
   const initialGroup = searchParams.get("group") ?? "";
 
+  const [login, setLogin] = useState(initialLogin);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [specialty, setSpecialty] = useState(initialSpecialty);
@@ -43,19 +47,27 @@ export function StudentSignUpForm() {
   const [studentTitle, setStudentTitle] = useState<StudentTitle | null>("Neither");
   const [formError, setFormError] = useState<string | null>(initialError);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  /** Strip legacy redirect error query params after hydrating the inline alert. */
+  useEffect(() => {
+    if (!errorParam) return;
+    router.replace("/signup", { scroll: false });
+  }, [errorParam, router]);
 
   /**
-   * Handle form submission.
-   * Validates inputs on the client side before allowing native POST submission.
+   * Validate and register without a full-page reload on failure.
    *
    * @param e - Form submit event.
    */
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setFormError(null);
     setFieldErrors({});
 
     const result = signupSchema.safeParse({
-      email,
+      login,
+      email: email || null,
       password,
       specialty: specialty || null,
       group: group || null,
@@ -63,43 +75,76 @@ export function StudentSignUpForm() {
     });
 
     if (!result.success) {
-      e.preventDefault();
       const formatted = formatZodErrors(result.error);
       setFormError(formatted.formError || "Please correct the validation errors.");
       setFieldErrors(formatted.fieldErrors);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const authResult = await submitStudentSignup(result.data);
+      if (!authResult.ok) {
+        setFormError(authResult.error ?? getAuthErrorMessage("default"));
+        if (authResult.fieldErrors) {
+          setFieldErrors(authResult.fieldErrors);
+        }
+        return;
+      }
+
+      router.push("/profile");
+      router.refresh();
+    } catch {
+      setFormError(getAuthErrorMessage("default"));
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <AuthShell title="Create account">
-      <form
-        method="POST"
-        action="/api/auth/signup"
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-4"
-        noValidate
-      >
-        <input type="hidden" name="studentTitle" value={studentTitle ?? "Neither"} />
-
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {formError && (
-          <FormAlert variant="error">
+          <FormAlert variant="error" className="auth-shell__alert">
             {formError}
           </FormAlert>
         )}
 
         <FormField
+          label="Login"
+          htmlFor="signup-login"
+          error={fieldErrors.login}
+        >
+          <Input
+            id="signup-login"
+            name="login"
+            type="text"
+            autoComplete="username"
+            spellCheck={false}
+            placeholder="e.g. ivan.petrenko"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            disabled={loading}
+            required
+          />
+        </FormField>
+
+        <FormField
           label="Email"
           htmlFor="signup-email"
           error={fieldErrors.email}
+          hint="Optional — link email for OAuth merge and notifications."
         >
           <Input
             id="signup-email"
             name="email"
             type="email"
             autoComplete="email"
+            placeholder="you@university.edu"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
+            disabled={loading}
           />
         </FormField>
 
@@ -115,6 +160,7 @@ export function StudentSignUpForm() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
             required
           />
         </FormField>
@@ -131,6 +177,7 @@ export function StudentSignUpForm() {
             placeholder="e.g. Software Engineering"
             value={specialty}
             onChange={(e) => setSpecialty(e.target.value)}
+            disabled={loading}
           />
         </FormField>
 
@@ -146,6 +193,7 @@ export function StudentSignUpForm() {
             placeholder="e.g. SE-42"
             value={group}
             onChange={(e) => setGroup(e.target.value)}
+            disabled={loading}
           />
         </FormField>
 
@@ -154,11 +202,18 @@ export function StudentSignUpForm() {
           <RoleChipGroup value={studentTitle} onChange={setStudentTitle} />
         </div>
 
-        <Button type="submit" className="h-12 w-full mt-2">
-          Create account
+        <Button type="submit" className="mt-2 h-12 w-full" disabled={loading}>
+          {loading ? (
+            <>
+              <Spinner className="size-4" />
+              Creating account…
+            </>
+          ) : (
+            "Create account"
+          )}
         </Button>
 
-        <p className="text-center text-sm text-(--color-text-secondary) mt-2">
+        <p className="mt-2 text-center text-sm text-(--color-text-secondary)">
           Already have an account?{" "}
           <Link href="/login" className="text-(--color-accent-user) no-underline hover:underline">
             Sign in

@@ -2,7 +2,7 @@
  * @fileoverview Shared static-page shell — gutter outside, content width inside.
  *
  * Matches global layout chrome (`GLOBAL_LAYOUT_HEADER_SLOT_CLASS` + `contentWidthContainerStyle`)
- * so `/pages`, `/admin`, `/profile`, and other non-Puck routes align with global chrome.
+ * so `/`, `/pages`, `/admin`, `/profile`, auth, and other non-Puck routes align with global chrome.
  *
  * @module src/components/ui/StaticPageShell
  */
@@ -10,7 +10,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
   contentWidthContainerStyle,
-  DEFAULT_CONTENT_WIDTH,
+  GLOBAL_LAYOUT_CONTENT_WIDTH,
   GLOBAL_LAYOUT_PAGE_CONTENT_SLOT_CLASS,
   type ContentWidthToken,
 } from "@/components/puck/lib/contentWidthTokens";
@@ -38,7 +38,7 @@ export interface StaticPageShellProps {
  */
 export function StaticPageShell({
   children,
-  contentWidth = DEFAULT_CONTENT_WIDTH,
+  contentWidth = GLOBAL_LAYOUT_CONTENT_WIDTH,
   className,
   innerClassName,
   innerStyle,

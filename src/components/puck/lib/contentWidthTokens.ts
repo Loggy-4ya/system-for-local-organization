@@ -40,26 +40,34 @@ export const CONTENT_WIDTH_CSS_VARS: Record<ContentWidthToken, string> = {
   full: "--content-width-full",
 };
 
-/** Default page / island width. */
-export const DEFAULT_CONTENT_WIDTH: ContentWidthToken = "lg";
-
-/** Hard project cap — no Puck page or chrome band may exceed this preset. */
+/** Max contained preset — site default container band (1400px). */
 export const MAX_PROJECT_CONTENT_WIDTH: ContentWidthToken = "xl";
 
-/** Fixed width for global header/footer chrome (decoupled from per-page Puck layout). */
+/** Default page / island / chrome width — {@link MAX_PROJECT_CONTENT_WIDTH} (1400px). */
+export const DEFAULT_CONTENT_WIDTH: ContentWidthToken = MAX_PROJECT_CONTENT_WIDTH;
+
+/** Global header/footer chrome band — same 1400px default as page containers. */
 export const GLOBAL_LAYOUT_CONTENT_WIDTH: ContentWidthToken = MAX_PROJECT_CONTENT_WIDTH;
 
 /**
+ * Default max-width for built-in static routes (`StaticPageShell`).
+ * Matches header/footer chrome (1400px / {@link MAX_PROJECT_CONTENT_WIDTH}).
+ */
+export const STATIC_DEFAULT_CONTENT_WIDTH: ContentWidthToken = GLOBAL_LAYOUT_CONTENT_WIDTH;
+
+/**
  * Content width for static (non-Puck) routes.
+ * All entries use {@link STATIC_DEFAULT_CONTENT_WIDTH} — same as global chrome.
  * Must stay in sync with {@link StaticPageShell} on each route.
  */
 export const STATIC_ROUTE_CONTENT_WIDTH = {
-  "/": "lg",
-  "/pages": "xl",
-  "/login": "lg",
-  "/signup": "lg",
-  admin: "xl",
-  profile: "lg",
+  "/": STATIC_DEFAULT_CONTENT_WIDTH,
+  "/pages": STATIC_DEFAULT_CONTENT_WIDTH,
+  "/login": STATIC_DEFAULT_CONTENT_WIDTH,
+  "/signup": STATIC_DEFAULT_CONTENT_WIDTH,
+  "/telegram": STATIC_DEFAULT_CONTENT_WIDTH,
+  admin: STATIC_DEFAULT_CONTENT_WIDTH,
+  profile: STATIC_DEFAULT_CONTENT_WIDTH,
 } as const satisfies Record<string, ContentWidthToken>;
 
 /**
@@ -97,10 +105,8 @@ export const CONTENT_WIDTH_OPTIONS: ContentWidthOption[] = [
   { label: "Full Width", value: "full" },
 ];
 
-/** Page-root layout presets — capped at {@link MAX_PROJECT_CONTENT_WIDTH} (no viewport bleed). */
-export const PAGE_CONTENT_WIDTH_OPTIONS: ContentWidthOption[] = CONTENT_WIDTH_OPTIONS.filter(
-  (option) => option.value !== "full",
-);
+/** Page-root layout presets — includes full bleed within page gutters. */
+export const PAGE_CONTENT_WIDTH_OPTIONS: ContentWidthOption[] = CONTENT_WIDTH_OPTIONS;
 
 /**
  * Normalize legacy width values to canonical tokens.
@@ -119,19 +125,17 @@ export function normalizeContentWidth(
 }
 
 /**
- * Clamp Puck page-root width to the project maximum.
+ * Normalize Puck page-root width — preserves optional `full` bleed or contained presets.
  *
- * Legacy `full` page layout values map to {@link MAX_PROJECT_CONTENT_WIDTH}.
+ * Header/footer chrome use {@link GLOBAL_LAYOUT_CONTENT_WIDTH} (default 1400px).
  *
  * @param raw - Stored page layout token or legacy value.
- * @returns Canonical token within project limits.
+ * @returns Canonical page layout token.
  */
 export function clampPageContentWidth(
   raw: LegacyContentWidth | string | undefined,
 ): ContentWidthToken {
-  const token = normalizeContentWidth(raw);
-  if (token === "full") return MAX_PROJECT_CONTENT_WIDTH;
-  return token;
+  return normalizeContentWidth(raw);
 }
 
 /**
@@ -143,6 +147,36 @@ export function clampPageContentWidth(
 export function resolveContentWidth(raw: LegacyContentWidth | string | undefined): string {
   const token = normalizeContentWidth(raw);
   return CONTENT_WIDTH_MAP[token];
+}
+
+/**
+ * Resolve block/section max-width relative to the page content container.
+ *
+ * Returns `100%` when the element should fill the page band (full bleed, same token as
+ * page, or legacy `lg` blocks on an `xl` page). Otherwise returns the block token px.
+ *
+ * @param raw - Block or section width token (or legacy value).
+ * @param custom - CSS length when `raw` is `custom`.
+ * @param pageWidthToken - Active page layout token from PageRoot.
+ * @returns CSS max-width for band / island outer shell.
+ */
+export function resolveContentBandMaxWidth(
+  raw: LegacyContentWidth | string | undefined,
+  custom?: string,
+  pageWidthToken?: ContentWidthToken,
+): string {
+  if (raw === "custom") {
+    return custom?.trim() || CONTENT_WIDTH_MAP[DEFAULT_CONTENT_WIDTH];
+  }
+
+  const pageToken = pageWidthToken ?? DEFAULT_CONTENT_WIDTH;
+  const blockToken = normalizeContentWidth(raw);
+
+  if (blockToken === "full") return "100%";
+  if (blockToken === pageToken) return "100%";
+  if (blockToken === "lg" && pageToken === "xl") return "100%";
+
+  return CONTENT_WIDTH_MAP[blockToken];
 }
 
 /**

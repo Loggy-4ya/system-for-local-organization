@@ -9,12 +9,15 @@
 import { FieldLabel } from "@puckeditor/core";
 import { useCallback, useRef, useState } from "react";
 import { uploadMediaFile, type MediaAccept } from "../lib/mediaUpload";
+import type { MediaPurpose } from "@shared/constants/mediaStorage";
 
 /** Props for the media upload field renderer. */
 interface MediaUploadFieldProps {
   field: {
     label?: string;
     accept?: MediaAccept;
+    /** Upload category forwarded to `/api/upload`. */
+    purpose?: MediaPurpose;
   };
   value: string;
   onChange: (value: string) => void;
@@ -28,6 +31,7 @@ interface MediaUploadFieldProps {
  */
 export function MediaUploadField({ field, value, onChange }: MediaUploadFieldProps) {
   const accept = field.accept ?? "both";
+  const purpose = field.purpose ?? "puck-block";
   const acceptAttr =
     accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*";
 
@@ -50,7 +54,7 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
       setUploading(true);
       setError(null);
       try {
-        const url = await uploadMediaFile(file, accept);
+        const url = await uploadMediaFile(file, { accept, purpose });
         onChange(url);
       } catch (err: unknown) {
         console.error("[MediaUploadField]", err);
@@ -62,7 +66,7 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
         }
       }
     },
-    [accept, onChange],
+    [accept, purpose, onChange],
   );
 
   return (

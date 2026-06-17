@@ -5,6 +5,8 @@
  * - Default: in-flow — React sets inline `aspect-ratio` on the media frame.
  * - Stretch: absolute cover only when `.nexus-carousel--fixed-height` is on the carousel root.
  *
+ * Tests: `tests/puck/lib/carouselMediaFill.test.ts` — `npm run test:carousel-media-fill`
+ *
  * @module src/components/puck/lib/carouselMediaFill
  */
 
@@ -42,14 +44,21 @@ export const CAROUSEL_COMPOSITE_LAYOUT_SELECTORS = [
 ].join(", ");
 
 /**
- * Whether media sits inside a composite carousel slide (grid, multi-block layout).
+ * Whether media sits inside a composite carousel slide (grid layout inside the slide).
+ *
+ * Only counts grid hosts that are **descendants of the same slide**, not grid cells
+ * that wrap the carousel block itself (carousel-in-grid-item must still fill-slide).
  *
  * @param root - Media block root element.
  * @returns True when the slide uses structured layout rather than a single fill asset.
  */
 export function isCompositeCarouselSlideContent(root: HTMLElement | null | undefined): boolean {
   if (!root) return false;
-  return Boolean(root.closest(CAROUSEL_COMPOSITE_LAYOUT_SELECTORS));
+
+  const slide = root.closest(".nexus-carousel__slide");
+  if (!slide) return false;
+
+  return Boolean(slide.querySelector(CAROUSEL_COMPOSITE_LAYOUT_SELECTORS));
 }
 
 /**

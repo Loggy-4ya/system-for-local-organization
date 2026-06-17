@@ -55,9 +55,10 @@ To support images on card blocks, we implemented a custom Puck field with file-u
 
 ### A. Upload API (`/api/upload`)
 - **Route:** `src/app/api/upload/route.ts`
-- **Method:** `POST` (multipart form data)
-- **Destination:** `public/uploads/`
-- **Validation:** Images only, max 5MB size limit.
+- **Domain:** `shared/domains/MediaDomain.ts` — purpose-based validation + pluggable storage
+- **Method:** `POST` (multipart form data; fields: `file`, optional `purpose`, optional `ownerKey`)
+- **Local destination:** `public/uploads/{avatars|page-covers|puck-blocks|task-reports|general}/`
+- **Future:** `MEDIA_STORAGE_DRIVER=gcs` — see `.ai/docs/features/media_storage.md`
 - **Bypass:** Open dev mode when `NEXTAUTH_SECRET` is not configured.
 
 ### B. Custom Field (`ImageField`)
@@ -126,7 +127,7 @@ Root-level blocks use the **`sm`** token. Changing `--spacing-sm` updates new in
 
 **Content width band (all shell-wrapped blocks):** When **Island mode** is off, blocks still honor **Max width** / **Align** from the Island sidebar chapter — centered lg/xl band without glass chrome. Set **Max width → Full Width** for bleed within the page column. Island mode adds the glass panel, border, and padding on top of the same width band.
 
-**Page layout vs global layout:** Puck **Page Content Width** (`pageLayout.contentWidth`) applies **only** to that page's body (`PageRoot`). Header and footer always use the fixed global layout band (`GLOBAL_LAYOUT_CONTENT_WIDTH`, 1400px). Page layout presets are capped at 1400px (`xl`); legacy **Full Width** values clamp to `xl` on read.
+**Page layout vs global layout:** Puck **Page Content Width** (`pageLayout.contentWidth`) applies **only** to that page's body (`PageRoot`). Header, footer, static routes, and new Puck pages default to **Wide (1400px / `xl`)**. Per-page presets can narrow content or choose **Full Width** (`full`) for gutter-to-gutter bleed.
 
 **See also:** [puck_editor_enhancements.md §6](./puck_editor_enhancements.md#6-block-spacing--island-layout) · `npm run test:island-defaults`
 
@@ -137,7 +138,7 @@ Root-level blocks use the **`sm`** token. Changing `--spacing-sm` updates new in
 To ensure the editor canvas matches the live site exactly:
 - **`src/app/puck-editor.css`** — Overrides Puck's default opaque canvas and preview backgrounds to `transparent`.
 - **Root Background Picker** — Added `background` (site-default, solid, custom-image) to Puck's root metadata fields.
-- **`PageRoot.tsx`** — Renders the selected background. When set to `site-default`, a contained `InfiniteGrid` paints inside the Puck preview iframe on all editor breakpoints (respects **Static** / **Dynamic** `backgroundGridMotion`). **Desktop ≥901px:** `NexusEditorScrollportGrid` additionally fills letterbox gutters on the canvas shell (the iframe viewport cannot show the scrollport layer). Layout-level grid is hidden on `/edit` routes.
+- **`PageRoot.tsx`** — Renders page background (solid / custom image / transparent for site-default). **Single grid:** root `layout.tsx` `InfiniteGrid` (`#nexus-bg`) — never duplicated in the preview iframe or Puck scrollport.
 - **Grid motion** (`backgroundGridMotion`) defaults to **Dynamic** (scrolling tiles + cursor spotlight); pages may opt into **Static** (frozen tile offset, no RAF scroll loop — ambient blur and cursor glow remain). Published pages use the full animated layout-level grid from `layout.tsx`.
 
 ---
@@ -166,7 +167,7 @@ Nexus uses **Puck 0.21** (`@puckeditor/core`) with the default **plugin rail** �
 
 | Viewport | Editor UX |
 |----------|-----------|
-| **≤ 900px** (compact) | Bottom plugin rail: **Blocks**, **Outline**, **Fields**; full-screen canvas (`_experimentalFullScreenCanvas`); collapsible panel above canvas; compact Nexus header actions; Fields open as overlay (avoids clunky narrow settings) |
+| **≤ 900px** (compact) | Bottom plugin rail: **Blocks**, **Outline**, **Fields** (glass island — `--radius-lg`, `--page-content-gutter` inset, matches header bar); full-screen canvas (`_experimentalFullScreenCanvas`); collapsible panel above canvas; compact Nexus header actions; Fields open as overlay (avoids clunky narrow settings) |
 | **901px – 960px** (tight desktop) | Left vertical plugin rail; **minimal** sidebars (left 150–170px, right 190–220px) so the canvas keeps ~450px+ at ~906px viewports |
 | **961px – 1023px** (narrow desktop) | Left vertical plugin rail; narrower sidebars (left 180–200px, right 220–260px); canvas clamped inside center column |
 | **≥ 1024px** (desktop) | Left vertical plugin rail + side panel; sidebar drag range clamped (left 280–320px, right 320–400px) via `NexusSidebarWidthClamp` |
@@ -201,7 +202,9 @@ On the **preview canvas**, drag an existing block by its overlay handle and drop
 
 **Tests:** `npm run test:canvas-drop-target` · Full spec: [puck_canvas_drag_drop.md](./puck_canvas_drag_drop.md)
 
-**Auto viewport:** Canvas preview width follows measured canvas frame width when available (360 / 768 / 1280 / 100% when frame is wider). Presets never exceed the available frame. Manual icon taps work; resize re-syncs.
+**Auto viewport:** On **Full-width**, canvas preview width follows measured canvas frame width when the frame is wider than a fixed preset. **Phone / Tablet / Desktop** presets stay selected at **≥1× zoom** (letterbox gutters when the frame is wider; horizontal scroll when the frame is narrower — no shrink-to-fit squash). Auto-sync does not replace fixed presets with full-width.
+
+**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` floors auto-fit zoom at **1×** for all fixed presets — when the canvas frame is wider, letterbox gutters appear; when narrower, the canvas scrolls horizontally instead of shrinking the preview. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking.
 
 **Viewport island:** Canvas device/zoom controls styled as a centered Nexus glass pill; on compact layouts (≤900px) `_experimentalFullScreenCanvas` collapses controls into a bottom-right FAB that expands into an animated pill. When the plugin panel is closed, the expanded pill sits bottom-center; when the panel is open, it anchors top-center of the canvas so device preset buttons are not obscured by the panel resize handle.
 

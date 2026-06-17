@@ -1,7 +1,7 @@
 /**
  * @fileoverview Auth.js (NextAuth v5) configuration for Project Nexus.
  *
- * Providers: Google, Apple, Credentials (email/password + Telegram bridge).
+ * Providers: Google, Apple, Credentials (login/password + Telegram bridge).
  * Session strategy: JWT. User data loaded from MongoDB via AuthDomain.
  *
  * @module src/auth
@@ -34,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        login: { label: "Login", type: "text" },
         password: { label: "Password", type: "password" },
         bridgeToken: { label: "Bridge Token", type: "text" },
       },
@@ -57,11 +57,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        const email = credentials?.email as string | undefined;
+        const login = credentials?.login as string | undefined;
         const password = credentials?.password as string | undefined;
-        if (!email || !password) return null;
+        if (!login || !password) return null;
 
-        const user = await AuthDomain.validateCredentials(email, password);
+        const user = await AuthDomain.validateCredentials(login, password);
         if (!user) return null;
         return { id: String(user._id), role: user.role };
       },

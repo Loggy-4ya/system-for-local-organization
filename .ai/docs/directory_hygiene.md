@@ -93,10 +93,16 @@ See [testing.md](./testing.md) for the full registry and `npm run test:*` script
 |-----------|---------|
 | `public/icons/` | Favicons and app icons (`favicon.ico`, `apple-icon.png`) |
 | `public/brand/` | Brand marks (`logo.svg`) referenced by UI components |
+| `public/uploads/avatars/` | Profile avatar images |
+| `public/uploads/page-covers/` | Puck page background / cover images |
+| `public/uploads/puck-blocks/` | Inline Puck block images and videos |
+| `public/uploads/task-reports/` | Future task report attachments |
+| `public/uploads/general/` | Fallback user uploads |
 
 | Allowed | Forbidden |
 |---------|-----------|
 | Files in `icons/`, `brand/`, and future declared subfolders | `favicon.ico` or `logo.svg` at `public/` root |
+| User uploads in declared `public/uploads/*/` segments | Binary files at `public/uploads/` root or wrong segment |
 | Fonts, downloadable assets in named subfolders | Compiled `.next` output, secrets, create-next-app boilerplate (`next.svg`, `vercel.svg`) |
 | Paths imported via `src/lib/assets.ts` | Hardcoded `/logo.svg` strings scattered in components |
 

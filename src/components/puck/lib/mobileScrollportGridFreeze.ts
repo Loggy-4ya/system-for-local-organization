@@ -181,7 +181,11 @@ export function syncCompactNavRailHeight(): boolean {
   const nav = layoutInner?.querySelector(PUCK_COMPACT_LAYOUT_NAV_SELECTOR) as HTMLElement | null;
   if (!layoutInner || !nav || nav.offsetHeight <= 0) return false;
 
-  layoutInner.style.setProperty(NEXUS_COMPACT_NAV_RAIL_HEIGHT_VAR, `${nav.offsetHeight}px`);
+  const styles = getComputedStyle(nav);
+  const marginBottom = Number.parseFloat(styles.marginBottom) || 0;
+  const totalFootprint = Math.ceil(nav.offsetHeight + marginBottom);
+
+  layoutInner.style.setProperty(NEXUS_COMPACT_NAV_RAIL_HEIGHT_VAR, `${totalFootprint}px`);
   return true;
 }
 

@@ -8,7 +8,7 @@
 
 import { usePathname } from "next/navigation";
 import { SiteHeaderBar } from "@/components/ui/SiteHeaderBar";
-import { GLOBAL_LAYOUT_HEADER_SLOT_CLASS } from "@/components/puck/lib/contentWidthTokens";
+import { GLOBAL_LAYOUT_HEADER_SLOT_CLASS, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { type HeaderConfig } from "@shared/constants/globalLayout";
 
 /** Props accepted by `GlobalHeader`. */
@@ -42,7 +42,7 @@ export function GlobalHeader({
   isAuthenticated = false,
   userName = null,
   userEmail = null,
-  contentWidth = "lg",
+  contentWidth = GLOBAL_LAYOUT_CONTENT_WIDTH,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const isEditing = pathname === "/edit" || pathname.endsWith("/edit");
@@ -60,6 +60,7 @@ export function GlobalHeader({
         <SiteHeaderBar
           categories={header.categories}
           layout={header.layout}
+          userMenuItems={header.userMenu}
           showAdminPanel={showAdminPanel}
           isActive={isActive}
           isDarkTheme={isDarkTheme}

@@ -8,7 +8,7 @@ import { Suspense } from "react";
 import { StudentSignUpForm } from "@/components/auth/StudentSignUpForm";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { SiteLoader } from "@/components/ui/SiteLoader";
-import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
+import { GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 
 /**
  * Student registration page matching Figma Auth/StudentSignUp.
@@ -20,7 +20,7 @@ export default function SignUpPage() {
     <Suspense
       fallback={
         <StaticPageShell
-          contentWidth={STATIC_ROUTE_CONTENT_WIDTH["/signup"]}
+          contentWidth={GLOBAL_LAYOUT_CONTENT_WIDTH}
           className="items-center justify-center"
         >
           <SiteLoader label="Loading…" />

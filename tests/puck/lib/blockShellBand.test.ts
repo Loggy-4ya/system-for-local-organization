@@ -37,8 +37,8 @@ describe("isIslandBandActive", () => {
     );
   });
 
-  it("is true by default when island is off (lg band)", () => {
-    assert.equal(isIslandBandActive(bandProps({ islandEnabled: false })), true);
+  it("is false by default when island is off (full bleed)", () => {
+    assert.equal(isIslandBandActive(bandProps({ islandEnabled: false })), false);
   });
 
   it("is true for xl band without island chrome", () => {

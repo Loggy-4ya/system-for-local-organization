@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import {
   NEXUS_EDITOR_VIEWPORTS,
   resolveAutoViewport,
+  shouldPreserveFixedViewportPreset,
 } from "@/components/puck/lib/resolveAutoViewport";
 import {
   NEXUS_VIEWPORT_FULL_WIDTH_ATTR,
@@ -109,8 +110,8 @@ export function PuckAutoViewportSync() {
 
       syncViewportFullWidthAttribute(current.width);
 
-      // Preserve user-selected Phone / Tablet / Desktop presets on narrow viewports.
-      if (isNarrowEditor && typeof current.width === "number") {
+      // Phone / Tablet / Desktop — layout preset stays; canvas shell does not auto-switch to full-width.
+      if (shouldPreserveFixedViewportPreset(current.width)) {
         return;
       }
 

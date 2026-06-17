@@ -6,8 +6,28 @@
 
 import { normalizePagePath } from "../PagePathEditor";
 
-/** First path segments reserved for app routing (cannot be page slugs). */
-export const RESERVED_SLUG_SEGMENTS = new Set(["edit", "pages", "api"]);
+/** First path segments reserved for built-in app routes (cannot be Puck page slugs). */
+export const RESERVED_SLUG_SEGMENTS = new Set([
+  "edit",
+  "pages",
+  "api",
+  "telegram",
+  "login",
+  "signup",
+  "profile",
+  "admin",
+]);
+
+/**
+ * Whether an absolute path is owned by a built-in app route (not Puck CMS).
+ *
+ * @param normalizedPath - Path such as `/telegram` or `/profile/settings`.
+ * @returns True when the path must not be served by the Puck catch-all.
+ */
+export function isBuiltinAppRoutePath(normalizedPath: string): boolean {
+  const first = getSlugFirstSegment(normalizedPath);
+  return first !== "" && RESERVED_SLUG_SEGMENTS.has(first);
+}
 
 /**
  * Return the first segment of a normalized absolute path.

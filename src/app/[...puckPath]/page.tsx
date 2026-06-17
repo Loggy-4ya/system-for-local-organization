@@ -20,6 +20,7 @@ import type { Data } from "@puckeditor/core";
 import { auth } from "@/auth";
 import { shouldShowPageEditFab } from "@/lib/pageEditAccess";
 import { PuckClient } from "./client";
+import { isBuiltinAppRoutePath } from "@/components/puck/lib/pageSlugValidation";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,10 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
   }
 
   const { path, isEditing } = resolvePath(puckPath);
+
+  if (!isEditing && isBuiltinAppRoutePath(path)) {
+    notFound();
+  }
 
   if (isEditing && path === "/edit") {
     redirect("/pages?error=reserved-slug");

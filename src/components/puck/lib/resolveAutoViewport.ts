@@ -23,6 +23,19 @@ export const NEXUS_EDITOR_VIEWPORTS: NexusEditorViewport[] = [
 ];
 
 /**
+ * Whether the active viewport preset should survive auto-sync (Phone / Tablet / Desktop px widths).
+ *
+ * Fixed presets drive responsive layout inside the preview while the canvas shell keeps its size;
+ * auto-sync must not replace them with full-width when the canvas frame is wider.
+ *
+ * @param width - Active Puck viewport width.
+ * @returns True when auto viewport sync should not overwrite the preset.
+ */
+export function shouldPreserveFixedViewportPreset(width: number | "100%"): boolean {
+  return typeof width === "number";
+}
+
+/**
  * Pick the closest fixed viewport to the available canvas space; prefer full-width when
  * the canvas frame is wider than that preset (same rule as Puck core Canvas mount effect).
  *

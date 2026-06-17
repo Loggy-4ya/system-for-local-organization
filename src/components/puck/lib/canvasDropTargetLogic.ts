@@ -134,9 +134,22 @@ export function resolveCanvasDropZoneMeasureElement(
   dropZone: Pick<Element, "closest" | "classList"> & Element,
 ): Element {
   if (typeof dropZone.closest === "function") {
-    const slide = dropZone.closest(".nexus-carousel__slide");
-    if (slide) {
-      return slide;
+    const className = "className" in dropZone ? String(dropZone.className) : "";
+
+    if (
+      dropZone.classList?.contains?.("nexus-grid-item") ||
+      dropZone.classList?.contains?.("nexus-grid") ||
+      className.includes(NEXUS_SLOT_DROPZONE_CLASS.gridItem) ||
+      className.includes(NEXUS_SLOT_DROPZONE_CLASS.grid)
+    ) {
+      return dropZone;
+    }
+
+    if (isCarouselSlideDropZone(dropZone)) {
+      const slide = dropZone.closest(".nexus-carousel__slide");
+      if (slide) {
+        return slide;
+      }
     }
 
     if (dropZone.classList.contains("nexus-section__dropzone")) {

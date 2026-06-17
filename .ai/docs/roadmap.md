@@ -13,7 +13,8 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 
 ## Phase 1: Global Layout, Theming & Background Engine
 - [~] **Figma Design Preview:** Dark theme + strict admin shell on `58:2`/`58:17`. News (`59:17`), Editor (`59:32`), Profile (`59:47`) dark-themed. Remaining: variable bindings, light toggle previews, Foundations type/spacing specimens. See `.ai/docs/features/figma_ui_integration.md`.
-- [~] **Puck.js Integration:** `@puckeditor/core` 0.21.x installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; custom image upload API (`src/app/api/upload/route.ts`); root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`); mobile plugin rail; Outline tree drag reorder; auto viewport sync; glass viewport instrument island; three-tier responsive canvas layout (compact ≤900px, narrow desktop 901–1023px).
+- [~] **Puck.js Integration:** `@puckeditor/core` 0.21.x installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; unified media storage via `MediaDomain` + `/api/upload`; root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`); mobile plugin rail; Outline tree drag reorder; auto viewport sync; glass viewport instrument island; three-tier responsive canvas layout (compact ≤900px, narrow desktop 901–1023px).
+- [~] **Unified Media Storage:** Purpose-based upload pipeline (`avatar`, `page-cover`, `puck-block`, `task-report`) with local filesystem provider and GCS migration stub — see `.ai/docs/features/media_storage.md`.
 - [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining, root-level block default margin (`sm` / `--spacing-sm`), canvas slot reparenting + full-container drop highlights — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed) and `.ai/docs/features/puck_editor.md` §3b / §6c.
 - [~] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
 - [~] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
@@ -21,8 +22,8 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [x] **Configurable Global Layout:** MongoDB-backed configurable header categories and footer columns with live preview and Admin-only Global Layout Editor at `/admin/global-layout`.
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
-- [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, and email/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md`.
-- [~] **Bot Data Harvesting:** Telegram Login Widget merges phone, name, username, avatar into unified MongoDB record.
+- [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, Telegram Mini App, and login/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md` and `.ai/docs/features/telegram_mini_app_and_bot.md`.
+- [~] **Bot Data Harvesting:** Telegram Login Widget and Mini App merge name, username, avatar into unified MongoDB record; phone harvest via bot contact remains Phase 4.
 - [x] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields. Task/activity panels use placeholders until Phase 5.
 - [x] **Student Registration Flow:** `/signup` captures Specialty, Group, and student title chips (Starosta / Deputy / Neither).
 
@@ -34,7 +35,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [ ] **Warning System:** Track member warnings with an automatic kick-out trigger upon reaching the 3-warning limit.
 
 ## Phase 4: Ephemeral Workspaces & Telegram Automation (Workspace Domain)
-- [ ] **Telegram Core Worker:** Initialize the Telegram bot responsible for synchronizing members and managing groups.
+- [~] **Telegram Core Worker:** Web app webhook handles `/start` + Mini App open button; full group sync and commands remain planned.
 - [ ] **Dynamic Group Creation:** Automatically spawn a Telegram group (or Discord thread) and elevate the bot to Admin when a large team task is created.
 - [ ] **In-Group Command Parsing:** Enable the bot to listen to commands (`/status`, `/task_done`, `/report`) and scrape middle-state task reports (photos, videos, text).
 - [ ] **Automated Clean-up:** Automatically save final reports to MongoDB and dismantle/delete the group when the project is marked completed to prevent clutter.

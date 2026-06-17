@@ -23,6 +23,7 @@ export interface ProfileHeroProps {
  */
 function formatIdentities(user: PublicUser): string {
   const parts: string[] = [];
+  if (user.login) parts.push(`@${user.login}`);
   if (user.email) parts.push(user.email);
   if (user.username) parts.push(`Telegram @${user.username}`);
   if (user.googleId) parts.push("Google linked");

@@ -1,8 +1,10 @@
 /**
  * @fileoverview Resolve a client-reachable origin for redirects in Docker dev.
  *
- * Next.js dev with `--hostname 0.0.0.0` sets `req.nextUrl.origin` to
- * `http://0.0.0.0:3000`, which phones cannot open. Prefer `NEXTAUTH_URL`.
+ * Next.js dev with `--hostname 0.0.0.0` may yield `0.0.0.0` or `localhost` in
+ * request origins. Phones cannot reach those hosts — and `localhost` on a phone
+ * is the phone itself, not your dev machine. Prefer `NEXTAUTH_URL` set to the
+ * same LAN URL you open in the mobile browser.
  *
  * @module src/lib/publicOrigin
  */

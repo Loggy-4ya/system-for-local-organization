@@ -19,7 +19,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
 import { loadGridIcon } from "./infiniteGridIconLoader";
@@ -178,7 +177,6 @@ export function InfiniteGrid({
   scrollportLayer = false,
   ...props
 }: InfiniteGridProps) {
-  const pathname = usePathname();
   const { resolvedTheme } = useTheme();
   const isLightTheme = resolveIsLightTheme(resolvedTheme);
   const themeDefaults = isLightTheme ? LIGHT_THEME_OPTIONS : DARK_THEME_OPTIONS;
@@ -212,30 +210,10 @@ export function InfiniteGrid({
     return () => coarseMq.removeEventListener("change", updatePointerMode);
   }, []);
 
-  /** Hide layout grid when Puck editor owns the canvas (shell scrollport grid). */
-  const onEditRoute = pathname === "/edit" || pathname.endsWith("/edit");
-  const [puckEditorMounted, setPuckEditorMounted] = useState(false);
-
   useEffect(() => {
-    if (isContained) return;
-
-    const sync = () => setPuckEditorMounted(Boolean(document.querySelector(".Puck")));
-    sync();
-
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    return () => observer.disconnect();
-  }, [isContained]);
-
-  const isHidden = !isContained && (onEditRoute || puckEditorMounted);
-
-  useEffect(() => {
-    if (isHidden || !wrapperRef.current) return;
-
-    const wrapper  = wrapperRef.current;
-    const canvasS  = sharpRef.current;
-    const canvasB  = blurredRef.current;
+    const wrapper = wrapperRef.current;
+    const canvasS = sharpRef.current;
+    const canvasB = blurredRef.current;
     if (!wrapper || !canvasS || !canvasB) return;
 
     const ctxS = canvasS.getContext("2d");
@@ -728,11 +706,7 @@ export function InfiniteGrid({
       parentWindow?.document.removeEventListener("scroll", onScroll, true);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [isContained, isHidden, isStatic, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
-
-  if (isHidden) {
-    return null;
-  }
+  }, [isContained, isStatic, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
 
   const spotMask = `radial-gradient(circle at var(--mouse-x) var(--mouse-y), transparent ${options.cursorSpotInnerPercent}%, black ${options.cursorSpotOuterPercent}%)`;
 

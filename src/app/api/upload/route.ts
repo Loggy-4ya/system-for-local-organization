@@ -1,25 +1,27 @@
 /**
  * @fileoverview Media upload API route for Project Nexus.
  *
- * Accepts image (max 5MB) and video (max 50MB) uploads to `public/uploads/`.
+ * Accepts multipart uploads and delegates validation + persistence to
+ * {@link MediaDomain}. Storage backend is controlled by `MEDIA_STORAGE_DRIVER`.
  *
  * @module src/app/api/upload/route
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
+import { MediaDomain } from "@shared/domains/MediaDomain";
+import { parseMediaPurpose } from "@shared/lib/mediaStorage/mediaStorageRules";
 import { isApiAuthorised } from "@/lib/authGuards";
-
-/** Maximum upload size per media category in bytes. */
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 /**
  * Handle image and video uploads.
  *
+ * Form fields:
+ * - `file` (required) — binary payload
+ * - `purpose` (optional) — `avatar` | `page-cover` | `puck-block` | `task-report` | `general`
+ * - `ownerKey` (optional) — namespace hint for future lifecycle hooks
+ *
  * @param req - Next.js request containing multipart form data.
- * @returns JSON `{ url }` on success, or an error payload.
+ * @returns JSON `{ url, purpose, storageKey }` on success, or an error payload.
  */
 export async function POST(req: NextRequest) {
   if (!(await isApiAuthorised(req))) {
@@ -34,41 +36,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
     }
 
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-
-    if (!isImage && !isVideo) {
-      return NextResponse.json(
-        { error: "Only image and video files are allowed." },
-        { status: 400 },
-      );
-    }
-
-    const maxSize = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
-    if (file.size > maxSize) {
-      const limitLabel = isVideo ? "50MB" : "5MB";
-      return NextResponse.json(
-        { error: `File size exceeds the ${limitLabel} limit.` },
-        { status: 400 },
-      );
-    }
+    const purpose = parseMediaPurpose(formData.get("purpose"));
+    const ownerKeyRaw = formData.get("ownerKey");
+    const ownerKey =
+      typeof ownerKeyRaw === "string" && ownerKeyRaw.trim()
+        ? ownerKeyRaw.trim()
+        : undefined;
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const fileExtension = path.extname(file.name) || (isVideo ? ".mp4" : ".png");
-    const filename = `${file.name.replace(fileExtension, "").replace(/[^a-zA-Z0-9]/g, "-")}-${uniqueSuffix}${fileExtension}`;
+    const result = await MediaDomain.upload({
+      buffer,
+      originalName: file.name || "upload",
+      mimeType: file.type || "application/octet-stream",
+      purpose,
+      ownerKey,
+    });
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    const filePath = path.join(uploadDir, filename);
-    await fs.writeFile(filePath, buffer);
-
-    return NextResponse.json({ url: `/uploads/${filename}` });
+    return NextResponse.json({
+      url: result.url,
+      purpose: result.purpose,
+      storageKey: result.storageKey,
+    });
   } catch (err) {
     console.error("[API /api/upload POST]", err);
-    return NextResponse.json({ error: "Internal server error." }, { status: 500 });
+    return NextResponse.json(
+      { error: MediaDomain.messageForError(err) },
+      { status: MediaDomain.httpStatusForError(err) },
+    );
   }
 }

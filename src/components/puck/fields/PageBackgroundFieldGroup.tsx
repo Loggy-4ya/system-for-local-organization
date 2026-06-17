@@ -89,7 +89,7 @@ export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFiel
       {mode === "custom-image" ? (
         <div className="nexus-field-category">
           <MediaUploadField
-            field={{ label: "Image" }}
+            field={{ label: "Image", accept: "image", purpose: "page-cover" }}
             value={background.backgroundImage ?? ""}
             onChange={(v) => set({ backgroundImage: v })}
           />
