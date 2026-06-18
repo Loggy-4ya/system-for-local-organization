@@ -10,7 +10,7 @@ import type { Data } from "@puckeditor/core";
 import {
   findComponentById,
   findNewComponentIds,
-  isSlotShellComponentType,
+  isNestedMarginResetHostType,
   replaceComponentProps,
   walkAllComponents,
   type PuckComponentNode,
@@ -20,6 +20,7 @@ import {
   isIslandActive,
   mergeIslandAutoSpacing,
   mergeRootInsertSpacing,
+  ROOT_BLOCK_VERTICAL_MARGIN,
   type BlockShellProps,
   type SpacingProps,
 } from "./spacingFields";
@@ -75,7 +76,7 @@ function nodeStillNeedsInsertDefaults(
   if (isEligibleForAutoIsland(node, parent, allowed)) return true;
   if (shouldSeedIslandInsertSpacing(node, parent, allowed)) return true;
   if (shouldSeedRootInsertSpacing(node, parent)) return true;
-  return insertSpacingStillNeeded(node, spacing);
+  return insertSpacingStillNeeded(parent, spacing);
 }
 
 /**
@@ -179,7 +180,7 @@ export function resolveInsertDefaultsProps(
   const allowed = new Set(settings.islandDefaultComponents);
   let next: BlockShellProps = { ...props };
 
-  if (isSlotShellComponentType(params.parent?.type)) {
+  if (isNestedMarginResetHostType(params.parent?.type)) {
     const existingIsland = next.island ?? {};
     if (existingIsland.islandUserOverride !== true) {
       next = {
@@ -292,13 +293,34 @@ function marginsNeedSeeding(spacing: SpacingProps = {}): boolean {
 }
 
 /**
+ * Whether vertical margins still match the palette auto-seed defaults (SM top + bottom).
+ *
+ * @param spacing - Block spacing props.
+ * @returns True when margins look like untouched {@link withBlockShell} defaults.
+ */
+function hasAutoSeededVerticalMargins(spacing: SpacingProps = {}): boolean {
+  return (
+    spacing.marginTop === ROOT_BLOCK_VERTICAL_MARGIN &&
+    spacing.marginBottom === ROOT_BLOCK_VERTICAL_MARGIN
+  );
+}
+
+/**
  * Whether insert-time spacing still needs to be applied for a node.
  *
- * @param node - Component node.
+ * Nested grid/carousel/tab hosts intentionally use `none` — do not keep retrying root seeding.
+ *
+ * @param parent - Parent node or null at root content level.
  * @param spacing - Current spacing props.
- * @returns True when seeding should run again.
+ * @returns True when root margin seeding should run again.
  */
-function insertSpacingStillNeeded(node: PuckComponentNode, spacing: SpacingProps): boolean {
+function insertSpacingStillNeeded(
+  parent: PuckComponentNode | null,
+  spacing: SpacingProps,
+): boolean {
+  if (isNestedUnderIslandShell(parent)) {
+    return false;
+  }
   return marginsNeedSeeding(spacing);
 }
 
@@ -313,7 +335,7 @@ function isNestedUnderIslandShell(parent: PuckComponentNode | null): boolean {
 
   const parentProps = parent.props as BlockShellProps;
   if (isIslandActive(parentProps)) return true;
-  return isSlotShellComponentType(parent.type);
+  return isNestedMarginResetHostType(parent.type);
 }
 
 /**
@@ -333,7 +355,10 @@ function shouldSeedIslandInsertSpacing(
   if (!isIslandActive(node.props as BlockShellProps)) return false;
   if (isNestedUnderIslandShell(parent)) return false;
 
-  return insertSpacingStillNeeded(node, (node.props.spacing as SpacingProps | undefined) ?? {});
+  return insertSpacingStillNeeded(
+    parent,
+    (node.props.spacing as SpacingProps | undefined) ?? {},
+  );
 }
 
 /**
@@ -357,7 +382,9 @@ function shouldSeedRootInsertSpacing(
 }
 
 /**
- * Reset vertical margins on blocks inserted under an existing island shell.
+ * Reset palette auto-seeded vertical margins on blocks inserted under a composition host.
+ *
+ * Only strips the default SM/SM pair from {@link withBlockShell} — user-chosen margins are kept.
  *
  * @param node - Inserted component node.
  * @param parent - Parent node or null at root content level.
@@ -370,7 +397,7 @@ function shouldClearNestedInsertMargins(
   if (!isNestedUnderIslandShell(parent)) return false;
 
   const spacing = (node.props.spacing as SpacingProps | undefined) ?? {};
-  return !marginsNeedSeeding(spacing);
+  return hasAutoSeededVerticalMargins(spacing);
 }
 
 /**
@@ -419,7 +446,7 @@ export function stillNeedsInsertSpacing(
   if (isEligibleForAutoIsland(node, parent, allowed)) return true;
   if (shouldSeedIslandInsertSpacing(node, parent, allowed)) return true;
   if (shouldSeedRootInsertSpacing(node, parent)) return true;
-  return insertSpacingStillNeeded(node, spacing);
+  return insertSpacingStillNeeded(parent, spacing);
 }
 
 /**
@@ -528,7 +555,7 @@ export function normalizeNestedIslands(data: Data): Data {
 
     const parentProps = parent.props as BlockShellProps;
     const shouldStripChildIsland =
-      isIslandActive(parentProps) || isSlotShellComponentType(parent.type);
+      isIslandActive(parentProps) || isNestedMarginResetHostType(parent.type);
 
     if (!shouldStripChildIsland) return;
 

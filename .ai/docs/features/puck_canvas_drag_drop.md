@@ -1,6 +1,6 @@
 # Puck Canvas Drag-and-Drop — Slot Reparenting & Drop Highlights
 
-**Status:** `[~] Disabled` — `NexusCanvasDragCoordinator` unmounted from `puckEditorOverrides.tsx` (2026-06-16). Stock Puck `@dnd-kit` drafting restored (top grab → nest inside containers; bottom grab → sibling insert). Coordinator sources remain for future rework.
+**Status:** `[~] Disabled` — `NexusCanvasDragCoordinator` unmounted from `puckEditorOverrides.tsx` (2026-06-16, reaffirmed 2026-06-17 after browser regressions with remounted hybrid probe). Stock Puck `@dnd-kit` drafting restored.
 
 ---
 
@@ -25,16 +25,89 @@ Every Puck **slot** must register a CSS marker class on the slot element in edit
 | Block | Slot field | CSS class on slot | Slot composition |
 |-------|-----------|-------------------|------------------|
 | Page root | `content` | `[data-puck-dropzone]` (Puck root) | `disallow: NexusGridItem` via [`NexusGridItemPlacementGuard`](../../src/components/puck/NexusGridItemPlacementGuard.tsx) (`onAction` revert) |
-| [`NexusSection`](../../src/components/puck/blocks/layout/NexusSection.tsx) | `content` | `nexus-section__dropzone` | `disallow: ["NexusGridItem"]` |
-| [`NexusColumns`](../../src/components/puck/blocks/layout/NexusColumns.tsx) | `left`, `right` | `nexus-columns__dropzone` | `disallow: ["NexusGridItem"]` |
-| [`NexusGrid`](../../src/components/puck/blocks/layout/NexusGrid.tsx) | `content` | `nexus-grid` | `allow: ["NexusGridItem"]` |
-| [`NexusGridItem`](../../src/components/puck/blocks/layout/NexusGridItem.tsx) | `content` | `nexus-grid-item` | `disallow: ["NexusGridItem", "NexusGrid"]` |
-| [`NexusCarousel`](../../src/components/puck/blocks/content/NexusCarousel.tsx) | `slides[].content` | `nexus-carousel__dropzone` | `disallow: ["NexusGridItem"]` |
+| [`NexusSection`](../../src/components/puck/blocks/layout/NexusSection.tsx) | `content` | `nexus-section__dropzone` | Empty slot: **120px** floor + dashed outline. Occupied slot: content-sized (`min-height: 0`), append hitbox hidden. `disallow: ["NexusGridItem"]` |
+| [`NexusGrid`](../../src/components/puck/blocks/layout/NexusGrid.tsx) | `items[].content` | `nexus-grid-item` + `nexus-grid-item__dropzone` | Array-managed cells; `disallow: ["NexusGridItem", "NexusGrid"]` on cell slots |
+| [`NexusCarousel`](../../src/components/puck/blocks/content/NexusCarousel.tsx) | `slides[].content` | `nexus-carousel__dropzone` | `disallow: NexusGridItem`, `NexusCarousel` (no nested carousels) |
 | [`NexusTabs`](../../src/components/puck/blocks/content/NexusTabs.tsx) | `tabs[].panel` | `nexus-tabs__dropzone` | `disallow: ["NexusGridItem"]` |
 
 Leaf blocks (Text, Video, Image, Button, List, etc.) are **drag sources only** — they inherit shared pointer-event rules during drag; no per-block DnD code is required.
 
-**Grid Item placement policy:** `NexusGridItem` is restricted to `{gridId}:content` where the parent is `NexusGrid`. See [`puck_grid_item_zone_policy.md`](puck_grid_item_zone_policy.md) for validators, enforcement layers, and how to add `disallow` on new slots.
+**Grid cells:** Managed on `NexusGrid` via the sidebar **`items`** array (not a separate Blocks drawer entry). Legacy standalone `NexusGridItem` placement policy remains for migrated guard/tests — see [`puck_grid_item_zone_policy.md`](puck_grid_item_zone_policy.md).
+
+**Grid cell inner-slot drops** (Video/Image into `items[i].content`): see [§2a Grid item drop targeting](#2a-grid-item-drop-targeting-carousel-parity-stock-puck) below.
+
+---
+
+## 2a. Grid item drop targeting (carousel-parity, stock Puck)
+
+**Status:** `[x] Completed` (2026-06-17) — fixes palette + canvas drops into empty grid cells (e.g. Video Player) using **stock Puck `@dnd-kit`** only. `NexusCanvasDragCoordinator` remains unmounted.
+
+### Problem (why Video failed in grid cells but worked in carousel slides)
+
+Stock Puck resolves drops via **@dnd-kit collision** + DOM geometry (`elementsFromPoint`, rect intersection). Each slot renders as `[data-puck-dropzone]`; empty slots also get a thin **`DropZone-hitbox`** append strip at the bottom (designed for vertical page-root stacks, not 2D grid cells).
+
+Before carousel-parity, grid items had:
+
+| Symptom | Cause |
+|---------|--------|
+| Drop landed on section / page root | Parent zones had larger collision rects; the grid cell's Puck surface was tiny or misaligned |
+| Only a bottom sliver highlighted | Puck targeted the append hitbox, not the visible cell |
+| Tall blocks (Video) worse than Text | Large drag ghost rect missed a small target; collision favored ancestors |
+
+Carousel slides worked because they were built with **visual bounds = collision bounds** from Phase 6b onward. Grid items initially only got larger CSS `min-height` without the structural DOM/CSS that makes those heights visible to dnd-kit.
+
+### Fix — five layers (mirrors carousel slide pattern)
+
+```text
+Before:  [ Grid cell looks large ] → [ Puck zone tiny or bottom strip ] → parent wins
+After:   [ nexus-grid-item-shell ] → [ flex-filled drop zone = same rect ] → cell wins
+```
+
+| Layer | Implementation | Effect |
+|-------|----------------|--------|
+| **1. Shell architecture** | Edit: `.nexus-grid-item-shell` → `.nexus-grid-item__dropzone-shell` → `[data-puck-dropzone].nexus-grid-item__dropzone`; `puck.dragRef` on shell | Stable bounding box (~half width × 240px+) for collision |
+| **2. Flex fill** | Shell + drop zone: `display:flex; flex:1 1 auto; height:auto` (see `gridItemCellRender.tsx`, `puck-editor.css` `.nexus-grid-item--edit`) — **no `height:100%`** in CSS Grid `min-content` rows (prevents unbounded height loops) | Puck zone expands via flex inside the cell shell; empty cells keep the 240px floor only |
+| **3. Hidden append hitboxes** | `.nexus-grid-item--edit [class*="DropZone-hitbox"] { display:none; pointer-events:none }` | Full dashed cell is the target, not a ~20px bottom strip (same as carousel edit CSS) |
+| **4. Dual min-height floor** | `minEmptyHeight` prop + CSS `--nexus-grid-item-empty-min-height: 240px` from [`gridEditSizing.ts`](../../src/components/puck/lib/gridEditSizing.ts); default span **6×2** | Empty cells stay tall enough for media blocks; Puck internal sizing matches CSS |
+| **5. Drag-collapse override** | Global `html[data-puck-dragging]` collapses empty zones to `min-height:0`; grid items opt out: `html[data-puck-dragging] .nexus-grid-item--edit … { min-height: 240px !important }` | Cells stay hittable **during** the drag gesture (without this, mid-drag targeting fails) |
+
+Additional drag rules (shared with carousel):
+
+- **`pointer-events: auto`** on grid item drop zones when Puck marks `DropZone--isDestination` / hover states.
+- **120px floor** for grid items nested inside carousel slides (`.nexus-carousel__slide .nexus-grid-item-shell`) to avoid slide stretch loops.
+
+### Reference DOM (edit mode)
+
+| Block | Shell | Drop zone class | Sizing token |
+|-------|-------|-----------------|--------------|
+| Carousel slide | `.nexus-carousel__slide` + `.nexus-carousel__slide-dropzone-shell` | `nexus-carousel__dropzone` | `CAROUSEL_AUTO_MIN_HEIGHT_PX` (240px) |
+| Grid item cell | `.nexus-grid-item-shell.nexus-grid-item--edit` + `.nexus-grid-item__dropzone-shell` | `nexus-grid-item__dropzone` | `NEXUS_GRID_ITEM_EDIT_EMPTY_MIN_HEIGHT_PX` (240px) |
+
+Files: [`NexusGridItem.tsx`](../../src/components/puck/blocks/layout/NexusGridItem.tsx), [`NexusCarouselRender.tsx`](../../src/components/puck/blocks/content/NexusCarouselRender.tsx) (`renderSlideContent`), [`puck-editor.css`](../../src/app/puck-editor.css) (`.nexus-grid-item--edit`, `.nexus-carousel--edit`).
+
+### Coordinator helpers (inactive at runtime)
+
+[`resolveGridItemDropZoneAtPoint`](../../src/components/puck/lib/canvasDropTargetLogic.ts) walks `.nexus-grid-item-shell` cards (same geometric insight as `resolveCarouselSlideDropZoneAtPoint`). Used by unit tests and reserved for a future remounted `NexusCanvasDragCoordinator`; **stock Puck does not call it today** — the DOM/CSS parity above is what makes drops work.
+
+### Performance impact
+
+| Area | Impact |
+|------|--------|
+| **Runtime JS** | No new listeners; coordinator stays unmounted → **lighter** than overlay + post-drop corrective dispatch |
+| **DOM** | +2 wrapper divs per grid item in edit mode only — negligible |
+| **CSS** | Edit-scoped rules; no animation on drop zones (`transition: none`) |
+| **Layout / paint** | Empty edit cells hold 240px min-height (more paint area while empty); filled cells shrink to content. Published pages unaffected |
+| **Drag collision** | Slightly larger candidate rects — normal dnd-kit cost, not a bottleneck |
+
+### Palette vs canvas reparenting
+
+Both paths use stock Puck/dnd-kit against preview iframe drop zones. Palette drags may originate in the parent document; geometry fix helps both because collision still measures preview DOM rects.
+
+### Manual smoke (grid-specific)
+
+1. Drag **Video Player** from Blocks palette → empty **grid cell** → full dashed cell highlight (not bottom sliver) → commits.
+2. Reparent **Video Player** from page root → empty grid cell (canvas handle drag).
+3. Grid item inside carousel slide → 120px floor; drop still registers without stretching the slide loop.
 
 ---
 
@@ -150,7 +223,7 @@ Slot hit-testing during drag **does not** use the live pointer position. Instead
 | Block swaps at same level instead of nesting | Puck sibling collision; large ghost blocks hit-test; pointer-up on parent window used wrong coords and overwrote nested sticky target | Geometry fallback + nested sticky ref; `shouldKeepStickyDropTarget`; parent pointerup mapped through iframe; 320ms commit delay after Puck drag end |
 | Wrong carousel slide highlighted (slide 1 while cursor over slide 2) | Puck `DropZone--isDestination` on stale slide; drop-zone rect taller than slide card; area pick ignored pointer X | `resolveCarouselSlideDropZoneAtPoint` walks `.nexus-carousel__slide` cards; `pickInnermostDropZone` filters by slide measure rect; sticky never locks across distinct slides on same carousel |
 | Drag ghost "island" in source slide | Puck leaves `[data-dnd-dragging]` component visible in carousel slot while overlay tracks cursor; drag marker cleared before dnd ghost unmounts | Hide in-carousel drag source under `html[data-puck-dragging]` (collapse slide + dropzone shell); keep drag marker until post-commit; freeze edit-height sync + Embla scroll + slide activate during drag |
-| Dashed band below slide (not dragging) | Multi-slide `align-items: stretch` + empty sibling min-height + Puck dropzone outline/append hitbox below fill media | Per-slide `flex-start` height in multi-slide edit; hide carousel Puck dropzone outlines + hitboxes; fill-media slides `height: auto` |
+| Dashed band below slide (not dragging) | Multi-slide `align-items: stretch` + empty sibling min-height + Puck dropzone outline/append hitbox below fill media | CSS flex stretch (`equal-row-height`) in multi-slide edit; hide carousel Puck dropzone outlines + hitboxes; fill-media slides `height: auto` |
 | Append ghost at bottom of slide during drag | Source slot still counts dragged block as occupied → append-position overlay | `isCanvasDropZoneEmptyForDrag`; carousel overlay always fills slide card; hide overlay on source slide while dragging |
 | Snap to root / wrong slide | Hit-test returned page root below carousel | `resolveCarouselSlideDropZoneAtPoint` wins over root compound keys |
 | Block jumps to wrong slide after drop | Sticky nested ref overrode final pointer target; carousel layout shifted mid-drag | Commit prefers `releaseTargetRef` then `nestedStickyTargetRef`; carousel defers `scrollToEditPage` / height sync while dragging |
@@ -167,17 +240,21 @@ Slot hit-testing during drag **does not** use the live pointer position. Instead
 | Video/image overlaps slide chrome in Interactive mode | Multi-slide interactive used absolute fill without edit-height sync — slot height collapsed and iframe cover bled upward | Interactive multi-slide fill uses in-flow `aspect-ratio` layout; `--nexus-media-aspect-ratio` propagated to slide; fill dropzones excluded from `position: relative` override |
 | Video nested in carousel slide but invisible (Edit + Interactive) | Fill class applied one frame late; CSS `:has(.slide-media-fill)` + `edit-height-sync` switched to absolute cover before class existed; Puck selection overlay showed empty dropzone | `CarouselSlideMediaContext` for sync fill on first paint; `data-nexus-carousel-fill` attr; in-flow frame `aspect-ratio` only (absolute cover reserved for fixed-height); immediate YouTube poster |
 | Outline drag works, canvas does not | Separate systems | Canvas uses coordinator + Puck DnD; outline uses `NexusOutlineDragContext` |
+| Cannot drop Video into empty grid cell | Flat slot + append hitbox only; cell collapsed during drag | Apply carousel-parity shells + flex fill + hidden hitboxes — [§2a](#2a-grid-item-drop-targeting-carousel-parity-stock-puck); sync `gridEditSizing.ts` with `puck-editor.css` |
+| Grid cell highlights only at bottom | Puck `DropZone-hitbox` append strip active | Hide hitboxes under `.nexus-grid-item--edit` (same as `.nexus-carousel--edit`) |
+| Grid cell drop worked idle but failed mid-drag | `html[data-puck-dragging]` global `min-height:0` collapsed empty cells | Grid-item-specific override preserves `--nexus-grid-item-empty-min-height` during drag |
 
 ---
 
 ## 9. Manual smoke (Edit mode)
 
 1. Drag **Video Player** from root → empty **carousel slide** → commits; overlay fills slide; canvas height stable.
-2. Drag **Video Player** → **grid cell** with nested carousel → commits into slide slot.
-3. Drag **Text** between **grid columns** (reorder + reparent).
-4. Drag block into **Tab panel**, **Column**, **Section** slots.
-5. Drag **Image** into carousel slide with existing content (append area).
-6. Outline drag still works (regression).
+2. Drag **Video Player** from Blocks palette → empty **grid cell** → full cell dashed highlight → commits (see [§2a](#2a-grid-item-drop-targeting-carousel-parity-stock-puck)).
+3. Drag **Video Player** → **grid cell** with nested carousel → commits into slide slot.
+4. Drag **Text** between **grid columns** (reorder + reparent).
+5. Drag block into **Tab panel**, **Column**, **Section** slots.
+6. Drag **Image** into carousel slide with existing content (append area).
+7. Outline drag still works (regression).
 
 Run: `npm run test:canvas-drop-target && npm run test:canvas-reparent && npm run test:canvas-carousel-drag && npm run test:canvas-section-drop`
 

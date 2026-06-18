@@ -10,6 +10,7 @@ import { describe, it } from "node:test";
 
 import {
   isCompositeCarouselSlideContent,
+  resolveCarouselEditSlideFloorPx,
   resolveCarouselMediaFill,
 } from "@/components/puck/lib/carouselMediaFill";
 
@@ -48,6 +49,17 @@ describe("isCompositeCarouselSlideContent", () => {
         selector.includes("nexus-grid") ? (grid as unknown as Element) : null,
     });
     assert.equal(isCompositeCarouselSlideContent(root), true);
+  });
+});
+
+describe("resolveCarouselEditSlideFloorPx", () => {
+  it("uses edit row minimum when slide width is unknown", () => {
+    assert.equal(resolveCarouselEditSlideFloorPx(0, 240), 240);
+  });
+
+  it("uses the larger of 16:9 fill height and the auto min height", () => {
+    assert.equal(resolveCarouselEditSlideFloorPx(480, 240), 270);
+    assert.equal(resolveCarouselEditSlideFloorPx(800, 240), 450);
   });
 });
 

@@ -59,7 +59,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
   },
 
   NexusGrid: {
-    topLevelFieldKeys: ["content"],
+    topLevelFieldKeys: ["items"],
     chapters: [
       {
         id: "gridLayout",
@@ -67,37 +67,6 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
         icon: <LayoutIcon />,
         defaultOpen: true,
         fieldKeys: ["columns", "gap"],
-      },
-    ],
-  },
-
-  NexusGridItem: {
-    topLevelFieldKeys: ["content"],
-    chapters: [
-      {
-        id: "itemLayout",
-        title: "Layout",
-        icon: <LayoutIcon />,
-        defaultOpen: true,
-        fieldKeys: ["spanCol", "spanRow"],
-      },
-    ],
-  },
-
-  NexusColumns: {
-    topLevelFieldKeys: ["left", "right"],
-    chapters: [
-      {
-        id: "columnsLayout",
-        title: "Layout",
-        icon: <LayoutIcon />,
-        fieldKeys: ["ratio", "gap", "alignItems", "padding"],
-      },
-      {
-        id: "columnsAppearance",
-        title: "Appearance",
-        icon: <AppearanceIcon />,
-        fieldKeys: ["backgroundOverride"],
       },
     ],
   },

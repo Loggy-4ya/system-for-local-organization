@@ -3,6 +3,9 @@
 /**
  * @fileoverview Puck block for Body Text.
  *
+ * Sidebar editing uses {@link TiptapField} → {@link NexusRichTextEditor}
+ * (`@` mentions, `/` slash commands). Canvas/publish render uses {@link NexusRichTextView}.
+ *
  * @module src/components/puck/blocks/content/NexusText
  */
 
@@ -11,6 +14,7 @@ import { FontFamilyField } from "../../fields/FontFamilyField";
 import { FontWeightField } from "../../fields/FontWeightField";
 import { NexusColorPresetField } from "../../fields/NexusColorPresetField";
 import { TiptapField } from "../../fields/TiptapField";
+import { NexusRichTextView } from "@/components/editor/NexusRichTextView";
 import { createPresetDimensionPuckField } from "../../lib/createPresetDimensionPuckField";
 import { FONT_SIZE_OPTIONS, LINE_HEIGHT_OPTIONS } from "../../lib/fieldOptionLabels";
 import {
@@ -18,7 +22,6 @@ import {
   resolveNexusColor,
 } from "../../lib/nexusColorTokens";
 import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
-import { normalizeRichTextForRender } from "../../lib/richTextContent";
 import {
   normalizePresetDimensionValue,
   presetValuesFromOptions,
@@ -110,7 +113,6 @@ export const NexusText = {
     lineHeight?: unknown;
   }) {
     const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
-    const html = normalizeRichTextForRender(text);
     const typography = resolveBlockTypography("NexusText", fontFamily, fontWeight);
 
     const fontSizeNorm = normalizePresetDimensionValue(
@@ -157,8 +159,9 @@ export const NexusText = {
           whiteSpace: "pre-wrap",
           width: "100%",
         }}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      >
+        <NexusRichTextView html={text} enablePagePreviews />
+      </div>
     );
   },
 };

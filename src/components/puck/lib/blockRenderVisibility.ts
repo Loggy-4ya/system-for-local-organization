@@ -357,14 +357,6 @@ export const PUCK_BLOCK_VISIBILITY_REGISTRY: readonly PuckBlockVisibilitySpec[] 
     evaluate: () => ({ blockType: "NexusGrid", visibleOnPageRoot: true }),
   },
   {
-    blockType: "NexusGridItem",
-    evaluate: () => ({ blockType: "NexusGridItem", visibleOnPageRoot: true }),
-  },
-  {
-    blockType: "NexusColumns",
-    evaluate: () => ({ blockType: "NexusColumns", visibleOnPageRoot: true }),
-  },
-  {
     blockType: "NexusTabs",
     evaluate: () => ({ blockType: "NexusTabs", visibleOnPageRoot: true }),
   },

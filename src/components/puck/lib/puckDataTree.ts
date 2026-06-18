@@ -6,6 +6,17 @@
 
 import type { Data } from "@puckeditor/core";
 import { isIslandActive, type BlockShellProps } from "./spacingFields";
+import {
+  formatGridItemLabel,
+  type GridItemRecord,
+} from "./gridItemLabels";
+import {
+  NEXUS_GRID_ITEM_DEFAULT_SPAN_COL,
+  NEXUS_GRID_ITEM_DEFAULT_SPAN_ROW,
+} from "./gridEditSizing";
+
+/** Legacy standalone grid item block type (pre-array refactor). */
+const LEGACY_NEXUS_GRID_ITEM_TYPE = "NexusGridItem";
 
 /** Minimal Puck component node shape. */
 export interface PuckComponentNode {
@@ -145,8 +156,20 @@ export function findComponentById(data: Data, id: string): PuckParentRef | null 
   return found;
 }
 
+import { NEXUS_GRID_TYPE } from "./nexusGridItemZonePolicy";
+
 /** Puck block types whose slot children already live inside a framed shell. */
 export const SLOT_SHELL_COMPONENT_TYPES = new Set(["NexusCarousel", "NexusTabs"]);
+
+/**
+ * Host types whose nested children should not retain root-level auto margins on insert/move.
+ *
+ * Includes carousel/tab slot shells and {@link NEXUS_GRID_TYPE} cell slots.
+ */
+export const NESTED_MARGIN_RESET_HOST_TYPES = new Set([
+  ...SLOT_SHELL_COMPONENT_TYPES,
+  NEXUS_GRID_TYPE,
+]);
 
 /**
  * Whether a component type provides a slot shell that replaces per-block island framing.
@@ -156,6 +179,16 @@ export const SLOT_SHELL_COMPONENT_TYPES = new Set(["NexusCarousel", "NexusTabs"]
  */
 export function isSlotShellComponentType(type: string | undefined): boolean {
   return Boolean(type && SLOT_SHELL_COMPONENT_TYPES.has(type));
+}
+
+/**
+ * Whether a host type resets nested block vertical margins (grid cells, carousel slides, tabs).
+ *
+ * @param type - Puck registry key.
+ * @returns True when children should not keep root canvas SM margins.
+ */
+export function isNestedMarginResetHostType(type: string | undefined): boolean {
+  return Boolean(type && NESTED_MARGIN_RESET_HOST_TYPES.has(type));
 }
 
 /**
@@ -431,6 +464,131 @@ export function normalizeCarouselSlides(data: Data): Data {
     });
 
     result = replaceComponentProps(result, String(node.props.id), { slides: normalizedSlides });
+  });
+
+  return result;
+}
+
+/**
+ * Read slot content for a legacy {@link LEGACY_NEXUS_GRID_ITEM_TYPE} from zones or inline props.
+ *
+ * @param data - Puck document.
+ * @param itemId - Grid item component id.
+ * @param inlineContent - Optional inline slot array on the item props.
+ * @returns Normalized child component nodes.
+ */
+function readLegacyGridItemSlotContent(
+  data: Data,
+  itemId: string,
+  inlineContent: unknown,
+): PuckComponentNode[] {
+  const zones = (data.zones ?? {}) as Record<string, unknown>;
+  const zoneKey = `${itemId}:content`;
+  const zoneValue = zones[zoneKey];
+
+  if (Array.isArray(zoneValue)) {
+    return zoneValue.filter(isComponentNode);
+  }
+
+  if (Array.isArray(inlineContent)) {
+    return inlineContent.filter(isComponentNode);
+  }
+
+  return [];
+}
+
+/**
+ * Migrate legacy slot-based {@link NexusGrid} + standalone grid item blocks
+ * to the array model (`items[].content` slots).
+ *
+ * @param data - Puck document state.
+ * @returns Document with grid cells embedded in `NexusGrid.props.items`.
+ */
+export function migrateLegacyNexusGridItems(data: Data): Data {
+  let result: Data = {
+    ...data,
+    zones: { ...(data.zones ?? {}) },
+  };
+
+  walkAllComponents(result, (node) => {
+    if (node.type !== "NexusGrid") {
+      return;
+    }
+
+    const gridId = String(node.props.id ?? "");
+    if (!gridId) {
+      return;
+    }
+
+    const existingItems = Array.isArray(node.props.items)
+      ? (node.props.items as GridItemRecord[])
+      : [];
+    const zones = (result.zones ?? {}) as Record<string, unknown>;
+    const legacyZoneKey = `${gridId}:content`;
+    const legacyZone = zones[legacyZoneKey];
+    const legacyGridItems = Array.isArray(legacyZone)
+      ? legacyZone.filter(
+          (entry): entry is PuckComponentNode =>
+            isComponentNode(entry) && entry.type === LEGACY_NEXUS_GRID_ITEM_TYPE,
+        )
+      : [];
+
+    if (legacyGridItems.length === 0 && existingItems.length > 0) {
+      if (legacyZoneKey in zones) {
+        const nextZones = { ...zones };
+        delete nextZones[legacyZoneKey];
+        result = { ...result, zones: nextZones };
+      }
+      return;
+    }
+
+    if (legacyGridItems.length === 0 && existingItems.length === 0) {
+      return;
+    }
+
+    const migratedItems: GridItemRecord[] = legacyGridItems.map((gridItem, index) => {
+      const itemId = String(gridItem.props.id ?? "");
+      const content = readLegacyGridItemSlotContent(
+        result,
+        itemId,
+        gridItem.props.content,
+      );
+
+      if (itemId) {
+        const itemZoneKey = `${itemId}:content`;
+        if (itemZoneKey in (result.zones as Record<string, unknown>)) {
+          const nextZones = { ...(result.zones as Record<string, unknown>) };
+          delete nextZones[itemZoneKey];
+          result = { ...result, zones: nextZones };
+        }
+      }
+
+      const label =
+        (typeof gridItem.props.label === "string" && gridItem.props.label.trim()) ||
+        formatGridItemLabel(index);
+
+      return {
+        label,
+        spanCol:
+          (typeof gridItem.props.spanCol === "string" && gridItem.props.spanCol) ||
+          NEXUS_GRID_ITEM_DEFAULT_SPAN_COL,
+        spanRow:
+          (typeof gridItem.props.spanRow === "string" && gridItem.props.spanRow) ||
+          NEXUS_GRID_ITEM_DEFAULT_SPAN_ROW,
+        content,
+      };
+    });
+
+    const nextZones = { ...(result.zones as Record<string, unknown>) };
+    delete nextZones[legacyZoneKey];
+    result = {
+      ...result,
+      zones: nextZones,
+    };
+
+    result = replaceComponentProps(result, gridId, {
+      items: migratedItems.length > 0 ? migratedItems : existingItems,
+    });
   });
 
   return result;

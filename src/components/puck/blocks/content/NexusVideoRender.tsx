@@ -258,7 +258,6 @@ function NexusVideoBody({
         display: "flex",
         justifyContent: ALIGN_MAP[align] ?? "center",
         alignItems: "flex-start",
-        padding: editLayoutMode ? 0 : "var(--spacing-sm) 0",
         width: "100%",
         ["--nexus-media-object-fit" as string]: objectFit,
       };

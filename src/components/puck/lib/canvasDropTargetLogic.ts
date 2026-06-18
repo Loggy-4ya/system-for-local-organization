@@ -16,7 +16,6 @@ export type CanvasSlotKind =
   | "carousel-slide"
   | "tab-panel"
   | "section"
-  | "column"
   | "generic";
 
 /** Input metrics for resolving drop-target preview dimensions. */
@@ -101,7 +100,6 @@ export const NEXUS_SLOT_DROPZONE_CLASS = {
   carouselSlide: "nexus-carousel__dropzone",
   tabPanel: "nexus-tabs__dropzone",
   section: "nexus-section__dropzone",
-  column: "nexus-columns__dropzone",
 } as const;
 
 /**
@@ -138,10 +136,22 @@ export function resolveCanvasDropZoneMeasureElement(
 
     if (
       dropZone.classList?.contains?.("nexus-grid-item") ||
+      dropZone.classList?.contains?.("nexus-grid-item__dropzone") ||
       dropZone.classList?.contains?.("nexus-grid") ||
       className.includes(NEXUS_SLOT_DROPZONE_CLASS.gridItem) ||
       className.includes(NEXUS_SLOT_DROPZONE_CLASS.grid)
     ) {
+      if (
+        dropZone.classList?.contains?.("nexus-grid-item") ||
+        dropZone.classList?.contains?.("nexus-grid-item__dropzone") ||
+        className.includes(NEXUS_SLOT_DROPZONE_CLASS.gridItem)
+      ) {
+        const shell = dropZone.closest(".nexus-grid-item-shell");
+        if (shell && typeof shell.getBoundingClientRect === "function") {
+          return shell;
+        }
+      }
+
       return dropZone;
     }
 
@@ -217,9 +227,6 @@ export function resolveCanvasSlotKind(className: string): CanvasSlotKind {
   }
   if (className.includes(NEXUS_SLOT_DROPZONE_CLASS.section)) {
     return "section";
-  }
-  if (className.includes(NEXUS_SLOT_DROPZONE_CLASS.column)) {
-    return "column";
   }
   if (className.includes(NEXUS_SLOT_DROPZONE_CLASS.grid)) {
     return "grid";
@@ -1128,6 +1135,65 @@ export function resolveSectionDropZoneAtPoint(
 }
 
 /**
+ * Resolve a grid item content drop zone from pointer position on the item shell.
+ *
+ * Mirrors {@link resolveCarouselSlideDropZoneAtPoint}: walk `.nexus-grid-item-shell`
+ * cards instead of trusting inflated Puck drop-zone rects or bottom append hitboxes.
+ *
+ * @param doc - Preview iframe document.
+ * @param clientX - Pointer X in preview viewport coordinates.
+ * @param clientY - Pointer Y in preview viewport coordinates.
+ * @param draggedComponentId - Optional dragged block id to exclude self-nested zones.
+ * @returns Grid item drop zone, or null when the pointer is outside every cell shell.
+ */
+export function resolveGridItemDropZoneAtPoint(
+  doc: Document,
+  clientX: number,
+  clientY: number,
+  draggedComponentId: string | null = null,
+): HTMLElement | null {
+  if (!isPreviewDocumentReady(doc)) {
+    return null;
+  }
+
+  let bestZone: HTMLElement | null = null;
+  let bestDistanceSq = Infinity;
+
+  doc.querySelectorAll<HTMLElement>(".nexus-grid-item-shell").forEach((shell) => {
+    const shellRect = shell.getBoundingClientRect();
+    if (shellRect.width <= 0 || shellRect.height <= 0) {
+      return;
+    }
+
+    if (!isPointInsideRect(shellRect, clientX, clientY)) {
+      return;
+    }
+
+    const dropZone = shell.querySelector<HTMLElement>(
+      "[data-puck-dropzone].nexus-grid-item__dropzone, .nexus-grid-item__dropzone[data-puck-dropzone], [data-puck-dropzone].nexus-grid-item",
+    );
+    if (!dropZone) {
+      return;
+    }
+
+    if (isDropZoneInsideDraggedComponent(dropZone, draggedComponentId, doc)) {
+      return;
+    }
+
+    const centerX = shellRect.left + shellRect.width / 2;
+    const centerY = shellRect.top + shellRect.height / 2;
+    const distanceSq = (clientX - centerX) ** 2 + (clientY - centerY) ** 2;
+
+    if (distanceSq < bestDistanceSq) {
+      bestDistanceSq = distanceSq;
+      bestZone = dropZone;
+    }
+  });
+
+  return bestZone;
+}
+
+/**
  *
  * @param doc - Document to hit-test (preview iframe or parent during palette drags).
  * @param clientX - Pointer X in that document's viewport coordinates.
@@ -1213,12 +1279,19 @@ export function findDropZoneUnderPointer(
     draggedComponentId,
   );
 
-  if (!carouselSlideZone && !sectionZone) {
+  const gridItemZone = resolveGridItemDropZoneAtPoint(
+    doc,
+    clientX,
+    clientY,
+    draggedComponentId,
+  );
+
+  if (!carouselSlideZone && !sectionZone && !gridItemZone) {
     return merged;
   }
 
   if (!merged) {
-    return carouselSlideZone ?? sectionZone;
+    return carouselSlideZone ?? gridItemZone ?? sectionZone;
   }
 
   const mergedCompound = merged.getAttribute("data-puck-dropzone") ?? "";
@@ -1245,6 +1318,20 @@ export function findDropZoneUnderPointer(
     }
 
     return carouselSlideZone;
+  }
+
+  if (gridItemZone) {
+    if (isCanvasRootDropZone(mergedCompound)) {
+      return gridItemZone;
+    }
+
+    if (merged.contains(gridItemZone)) {
+      return gridItemZone;
+    }
+
+    if (isCanvasDropZoneMoreSpecific(gridItemZone, merged)) {
+      return gridItemZone;
+    }
   }
 
   if (sectionZone && isCanvasRootDropZone(mergedCompound)) {

@@ -9,10 +9,18 @@
  * @module src/components/puck/fields/PageSettingsFieldGroup
  */
 
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { FieldChapter, SettingsIcon } from "./FieldChapter";
 import { editorPagePathRef } from "../lib/editorPagePathRef";
+import {
+  getEditorPagePersisted,
+  subscribeEditorPagePersisted,
+} from "../lib/editorPagePersistedRef";
 import { setPageMetadataDraft } from "../lib/editorPageMetadataStore";
+import { deletePersistedPage } from "../lib/pageDeleteClient";
 import {
   fetchReservedPagePaths,
   validatePageSlug,
@@ -42,6 +50,7 @@ interface PageSettingsFieldGroupProps {
  * @returns Page settings chapter UI.
  */
 export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGroupProps) {
+  const router = useRouter();
   const settings: PageSettingsValue = {
     title: value?.title ?? "Untitled Page",
     slug: value?.slug ?? "",
@@ -50,6 +59,8 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
 
   const [reservedPaths, setReservedPaths] = useState<string[]>([]);
   const [pasteError, setPasteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const onChangeRef = useRef(onChange);
   const settingsRef = useRef(settings);
   onChangeRef.current = onChange;
@@ -140,6 +151,34 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   };
 
   const slugError = pasteError ?? (isHomepageSlug ? null : slugValidation.error);
+  const isPersistedPage = useSyncExternalStore(
+    subscribeEditorPagePersisted,
+    getEditorPagePersisted,
+    () => false,
+  );
+  const canDeletePage =
+    !isHomepageSlug && isPersistedPage && editorPagePathRef.currentPath !== "/";
+
+  const handleDeletePage = async () => {
+    const pagePath = editorPagePathRef.currentPath;
+    const pageTitle = settings.title.trim() || "Untitled Page";
+    const confirmed = window.confirm(
+      `Delete "${pageTitle}" (${pagePath})?\n\nThis permanently removes the page from the database. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeleteError(null);
+    setDeleting(true);
+
+    try {
+      await deletePersistedPage(pagePath);
+      router.push("/pages");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete page.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <FieldChapter title="Page Settings" icon={<SettingsIcon />}>
@@ -223,6 +262,32 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
           Preview: <code>yoursite.com/{previewSlug}</code>
         </p>
       </div>
+
+      {canDeletePage ? (
+        <div className="nexus-field-category">
+          <span className="nexus-field-category__label">Danger Zone</span>
+          <p className="nexus-page-delete-hint">
+            Permanently remove this page and its layout from the database.
+          </p>
+          <Button
+            type="button"
+            variant="destructive"
+            className="nexus-page-delete-btn"
+            disabled={deleting}
+            onClick={() => {
+              void handleDeletePage();
+            }}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            {deleting ? "Deleting…" : "Delete Page"}
+          </Button>
+          {deleteError ? (
+            <p className="nexus-page-slug-error" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </FieldChapter>
   );
 }

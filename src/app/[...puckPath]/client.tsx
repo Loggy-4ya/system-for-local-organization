@@ -12,8 +12,9 @@ import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFie
 import { ensurePageRootChapterProps } from "@/components/puck/lib/pageRootFieldProps";
 import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
 import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
-import { normalizeCarouselSlides } from "@/components/puck/lib/puckDataTree";
+import { normalizeCarouselSlides, migrateLegacyNexusGridItems } from "@/components/puck/lib/puckDataTree";
 import { setEditorPagePath } from "@/components/puck/lib/editorPagePathRef";
+import { setEditorPagePersisted } from "@/components/puck/lib/editorPagePersistedRef";
 import {
   initPageMetadataDraft,
   setPageMetadataSnapshot,
@@ -91,7 +92,8 @@ function buildEditorData(
 ): { editorData: Data; metadata: PageMetadataDraft } {
   const withContent = withDefaultEditorContent(data);
   const withCarousel = normalizeCarouselSlides(withContent);
-  const withIsland = ensureIslandOnEligibleBlocks(withCarousel, {
+  const withGrid = migrateLegacyNexusGridItems(withCarousel);
+  const withIsland = ensureIslandOnEligibleBlocks(withGrid, {
     islandDefaultComponents: resolveEffectiveIslandComponents(),
   });
   const existingProps =
@@ -137,7 +139,7 @@ function buildEditorData(
  */
 function buildViewData(payload: Data | null): Data | null {
   if (!payload) return null;
-  return ensureIslandOnEligibleBlocks(normalizeCarouselSlides(payload), {
+  return ensureIslandOnEligibleBlocks(migrateLegacyNexusGridItems(normalizeCarouselSlides(payload)), {
     islandDefaultComponents: resolveEffectiveIslandComponents(),
   });
 }
@@ -157,6 +159,7 @@ export function PuckClient({
 }: PuckClientProps) {
   const router = useRouter();
   setEditorPagePath(path);
+  setEditorPagePersisted(data !== null);
   const [initialEditorData, setInitialEditorData] = useState<Data>(() => {
     const { editorData, metadata } = buildEditorData(data, pageTitle, path);
     setPageMetadataSnapshot(metadata);
@@ -200,6 +203,7 @@ export function PuckClient({
     latestDataRef.current = next;
     setInitialEditorData(next);
     initPageMetadataDraft(metadata);
+    setEditorPagePersisted(data !== null);
     setPuckMountKey((key) => key + 1);
   }, [data, pageTitle, path, isEditing]);
 
@@ -209,6 +213,7 @@ export function PuckClient({
 
   const handlePublished = useCallback(
     (nextPath: string) => {
+      setEditorPagePersisted(true);
       if (nextPath !== path) {
         router.replace(`${nextPath}/edit`);
         return;

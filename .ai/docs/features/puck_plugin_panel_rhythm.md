@@ -52,6 +52,24 @@ Defined on `.Puck` (desktop defaults mirror Outline desktop tree):
 
 Legacy aliases (`--nexus-plugin-row-height`, `--nexus-plugin-row-pad-x`, etc.) map to the leaf tokens for older rules and mobile `--nexus-mobile-plugin-*` aliases.
 
+## Mobile scroll (≤900px)
+
+Puck 0.21 plugins render inside `PuckPluginTab` → `PuckPluginTab-body` (not `SidebarSection`). The compact slide-up panel scrolls on **`PuckPluginTab-body`**:
+
+| Layer | Role |
+|-------|------|
+| `Sidebar--left` | Fixed height (`--nexus-mobile-panel-height`), `overflow: hidden`, flex column |
+| `nexus-mobile-panel-resize-host` | `flex-shrink: 0` drag handle; `display: none` during height eases, shown only when `data-nexus-panel-row-open` (settled open) so a 32px invisible strip does not linger on close |
+| `PuckPluginTab--visible` | `flex: 1; min-height: 0` — fills remaining panel height |
+| `PuckPluginTab-body` | **Primary scrollport** — `overflow-y: auto`, `touch-action: pan-y` |
+| `.nexus-blocks-plugin` / `.nexus-outline-plugin` / `FieldsPlugin` | Natural height inside tab body (`overflow: visible`) |
+
+Height drag (`data-nexus-panel-resizing`) freezes `PuckPluginTab-body` scroll only while the handle tracks.
+
+**Open section bands (≤900px):** Collapsed sections show only the header row band. When a `FieldChapter` opens, the collapse row uses `grid-template-rows: minmax(0, auto)` (not `1fr` stretch) with the same full-width background as the header. `--nexus-mobile-plugin-section-end-gap` is `0` — no trailing spacer before the next category.
+
+**Flush category stack (≤900px):** Puck field wrappers use `display: contents` so page/block chapters stack with no panel-island gutter between rows. Chapter shells use the header band background; dividers are `border-bottom` on the header row only. Stacked chapters use `flex: 0 0 auto` so an expanded category does not grow to fill the tab scrollport.
+
 ## Typography
 
 - **Font family:** always `var(--nexus-plugin-font-family)` on `.nexus-blocks-plugin`, `.nexus-outline-plugin`, and `[class*="FieldsPlugin"]`.
@@ -74,7 +92,7 @@ Light theme uses `var(--puck-color-black)` for leaf labels (same as Outline).
 1. **Do not** introduce plugin-specific margins, font sizes, or label colors — consume `--nexus-plugin-*` tokens.
 2. **Do not** add card chrome (rounded borders, azure panel backgrounds) inside Blocks/Outline/Fields lists.
 3. **Leaf rows:** inset with `margin-inline: var(--nexus-plugin-panel-gutter-x)`; separate rows with `border-bottom: var(--nexus-editor-panel-border)` (mobile flat mode) or Outline’s transparent border + hover (desktop).
-4. **Stacked section headers** (FieldChapter, Blocks category): `margin: var(--nexus-plugin-section-header-margin-block)`; divider via sibling `border-top`, not header `border-bottom`.
+4. **Stacked section headers** (FieldChapter, Blocks category): flush band stack on mobile — solid chapter shell background (same as header row), **no** sibling `border-top` gaps; use `border-bottom` on the header row for inset dividers. Desktop keeps sibling `border-top` via global Fields rules.
 5. **Nested Outline zones only:** use `--nexus-plugin-section-title-margin-block-*` on `.nexus-outline-zone__title`.
 6. **Select + segmented controls** inside plugin panels: flat outline rows — transparent background, no box border, inset row dividers, accent hover/selected tint. Use `PuckSelectField` + `SegmentedControl`; see [puck_field_controls.md](../../.ai/docs/features/puck_field_controls.md).
 7. When adding a new plugin panel row component, mirror Outline DOM rhythm: grip → optional chevron → icon → label.

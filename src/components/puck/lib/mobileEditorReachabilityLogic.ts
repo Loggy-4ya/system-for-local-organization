@@ -58,6 +58,8 @@ export const MOBILE_EDITOR_CSS_CONTRACT = {
   blocksComponentList: ".nexus-blocks-plugin",
   mobileOnlyNavTabs: '[class*="NavItem--mobileOnly"]',
   bottomNavGridArea: "grid-area: left",
+  navActiveTintWhenPanelOpen: 'PuckLayout--leftSideBarVisible"] [class*="NavItem--active"',
+  navNeutralWhenPanelClosed: 'not([class*="PuckLayout--leftSideBarVisible"]) [class*="NavItem--active"',
 } as const;
 
 /**

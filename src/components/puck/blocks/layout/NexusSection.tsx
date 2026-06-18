@@ -6,6 +6,8 @@
  * Wraps content in a configurable shell (contained, narrow, full-width)
  * with extensive layout, border, and background settings.
  *
+ * Tests: `tests/puck/lib/canvasSectionDropTarget.test.ts` — `npm run test:canvas-section-drop`
+ *
  * @module src/components/puck/blocks/layout/NexusSection
  */
 
@@ -24,6 +26,7 @@ import {
 } from "../../lib/resolveSectionDimensions";
 import { normalizePresetDimensionValue, presetValuesFromOptions } from "../../lib/resolvePresetDimension";
 import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
+import { NEXUS_SECTION_EDIT_EMPTY_MIN_HEIGHT_PX } from "../../lib/gridEditSizing";
 import { usePageContentWidth } from "../../lib/PageContentWidthContext";
 import { resolveContentBandMaxWidth } from "../../lib/contentWidthTokens";
 
@@ -144,7 +147,7 @@ export const NexusSection = {
         >
           <Content
             className={puck?.isEditing ? "nexus-section__dropzone" : undefined}
-            minEmptyHeight={puck?.isEditing ? 120 : undefined}
+            minEmptyHeight={puck?.isEditing ? NEXUS_SECTION_EDIT_EMPTY_MIN_HEIGHT_PX : undefined}
           />
         </div>
       </section>

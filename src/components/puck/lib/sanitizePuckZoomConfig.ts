@@ -73,25 +73,54 @@ export function sanitizePuckZoomConfig(
 }
 
 /**
- * Fixed device presets (Phone / Tablet / Desktop) never use Puck shrink-to-fit — preview
- * stays at ≥1× and the canvas scrolls horizontally when the preset is wider than the frame.
- * Full-width (`100%`) keeps Puck's fit-to-canvas auto scale.
+ * Fixed device presets (Phone / Tablet / Desktop) use Puck shrink-to-fit when the canvas
+ * frame is narrower than the preset (phones / tablets / DevTools). When the frame is wider
+ * than the preset, auto-fit zoom scales up (capped) so the preview uses most of the canvas —
+ * especially important for the 360px phone preset on desktop editor columns.
+ * Full-width (`100%`) keeps Puck's fit-to-canvas auto scale unchanged.
  */
 
+/** Target fraction of canvas frame width used when letterboxing a fixed preset. */
+export const LETTERBOX_DEVICE_FRAME_USAGE = 0.72;
+
+/** Maximum auto-fit scale when letterboxing a narrow preset on a wide canvas. */
+export const LETTERBOX_DEVICE_MAX_ZOOM = 1.42;
+
 /**
- * Floor auto-fit zoom on fixed device presets so text stays readable on narrow editor columns.
+ * Resolve the auto-fit zoom target when a fixed preset is letterboxed inside a wider canvas.
+ *
+ * @param viewportWidth - Active fixed preset width in px.
+ * @param frameWidth - Measured `.PuckCanvas-inner` width in px.
+ * @returns Scale factor ≥ 1×, capped at {@link LETTERBOX_DEVICE_MAX_ZOOM}.
+ */
+export function resolveLetterboxDeviceTargetZoom(
+  viewportWidth: number,
+  frameWidth: number,
+): number {
+  return Math.min(
+    LETTERBOX_DEVICE_MAX_ZOOM,
+    Math.max(1, (frameWidth * LETTERBOX_DEVICE_FRAME_USAGE) / viewportWidth),
+  );
+}
+
+/**
+ * Resolve auto-fit zoom on fixed device presets from canvas frame vs preset width.
  *
  * @param config - Sanitized Puck zoom config.
  * @param viewportWidth - Active viewport preset width from Puck UI.
- * @param _frameWidth - Reserved — fixed presets no longer shrink when wider than the frame.
- * @returns Zoom config with auto-fit scale floored at 1× for numeric presets.
+ * @param frameWidth - Measured `.PuckCanvas-inner` width in px, when known.
+ * @returns Zoom config — shrink-to-fit preserved when the frame is narrower than the preset.
  */
 export function floorLetterboxDevicePreviewZoom(
   config: PuckZoomConfig,
   viewportWidth: number | "100%",
-  _frameWidth: number | undefined,
+  frameWidth: number | undefined,
 ): PuckZoomConfig {
   if (viewportWidth === "100%" || typeof viewportWidth !== "number") {
+    return config;
+  }
+
+  if (typeof frameWidth === "number" && frameWidth > 0 && frameWidth < viewportWidth) {
     return config;
   }
 
@@ -103,6 +132,18 @@ export function floorLetterboxDevicePreviewZoom(
 
   if (wasAutoShrinking && config.zoom < 1) {
     next.zoom = Math.max(config.zoom, 1);
+  }
+
+  if (
+    typeof frameWidth === "number" &&
+    frameWidth > viewportWidth &&
+    (wasAutoShrinking || config.zoom >= 1)
+  ) {
+    const letterboxTarget = resolveLetterboxDeviceTargetZoom(viewportWidth, frameWidth);
+    next.autoZoom = Math.max(next.autoZoom, letterboxTarget);
+    if (wasAutoShrinking || config.zoom >= 1) {
+      next.zoom = Math.max(next.zoom, letterboxTarget);
+    }
   }
 
   return next;
@@ -126,18 +167,18 @@ export function resolveDesktopLetterboxReadablePreviewZoom(
   return floorLetterboxDevicePreviewZoom(config, viewportWidth, frameWidth);
 }
 
-/** @deprecated Letterbox zoom boost removed — presets floor at 1× instead. */
-export const DESKTOP_LETTERBOX_FRAME_USAGE = 0.88;
+/** @deprecated Use {@link LETTERBOX_DEVICE_FRAME_USAGE}. */
+export const DESKTOP_LETTERBOX_FRAME_USAGE = LETTERBOX_DEVICE_FRAME_USAGE;
 
-/** @deprecated Letterbox zoom boost removed — presets floor at 1× instead. */
-export const DESKTOP_LETTERBOX_MAX_ZOOM = 1.85;
+/** @deprecated Use {@link LETTERBOX_DEVICE_MAX_ZOOM}. */
+export const DESKTOP_LETTERBOX_MAX_ZOOM = LETTERBOX_DEVICE_MAX_ZOOM;
 
-/** @deprecated Letterbox zoom boost removed — presets floor at 1× instead. */
+/** @deprecated Use {@link resolveLetterboxDeviceTargetZoom}. */
 export function resolveDesktopLetterboxTargetZoom(
   viewportWidth: number,
   frameWidth: number,
 ): number {
-  return Math.max(1, (frameWidth * DESKTOP_LETTERBOX_FRAME_USAGE) / viewportWidth);
+  return resolveLetterboxDeviceTargetZoom(viewportWidth, frameWidth);
 }
 
 /** @deprecated Use {@link floorLetterboxDevicePreviewZoom}. */

@@ -10,4 +10,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Reinstall when lockfile changes, core packages are missing, or install is incomplete.
-CMD ["sh", "-c", "if [ ! -f node_modules/.bin/next ] || [ ! -d node_modules/vaul ] || [ ! -d node_modules/@puckeditor/core ] || [ package-lock.json -nt node_modules/.install-stamp ]; then npm ci && touch node_modules/.install-stamp; fi && npm run dev"]
+CMD ["sh", "-c", "if [ ! -f node_modules/.bin/next ] || [ ! -d node_modules/vaul ] || [ ! -d node_modules/@puckeditor/core ] || [ ! -d node_modules/@tiptap/suggestion ] || [ package-lock.json -nt node_modules/.install-stamp ]; then npm ci && touch node_modules/.install-stamp; fi && npm run dev"]

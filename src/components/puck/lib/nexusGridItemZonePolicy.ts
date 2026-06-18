@@ -28,6 +28,9 @@ export const PUCK_ROOT_DROPPABLE_ID = "root:default-zone";
 /** Slot `disallow` list for every zone except {@link NEXUS_GRID_CONTENT_SLOT}. */
 export const DISALLOW_NEXUS_GRID_ITEM = [NEXUS_GRID_ITEM_TYPE] as const;
 
+/** Slot `disallow` entry — nested carousel hosts are not allowed inside carousel slides. */
+export const DISALLOW_NEXUS_CAROUSEL = ["NexusCarousel"] as const;
+
 /** Minimal Puck node index entry for parent type lookup. */
 export interface NexusGridItemZoneNode {
   /** Component payload. */

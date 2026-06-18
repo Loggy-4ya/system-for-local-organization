@@ -10,7 +10,13 @@
  */
 
 import { useEffect } from "react";
+import { PUCK_MOBILE_CANVAS_SHELL_SELECTOR } from "@/components/puck/lib/puckCanvasSelectors";
 import {
+  PUCK_COMPACT_PLUGIN_PANEL_SELECTOR,
+  syncCanvasIslandStackBottom,
+} from "@/components/puck/lib/canvasIslandStackSync";
+import {
+  PUCK_COMPACT_LAYOUT_INNER_SELECTOR,
   PUCK_COMPACT_LAYOUT_NAV_SELECTOR,
   syncCompactNavRailHeight,
   usesMobileScrollportGridBackdropMount,
@@ -27,21 +33,68 @@ export function NexusEditorScrollportGrid(): null {
   useEffect(() => {
     if (typeof document === "undefined") return;
 
+    let panelObserver: ResizeObserver | null = null;
+    let observedPanel: Element | null = null;
+
+    const bindPanelObserver = () => {
+      const panel = document.querySelector(PUCK_COMPACT_PLUGIN_PANEL_SELECTOR);
+      if (panel === observedPanel) return;
+
+      panelObserver?.disconnect();
+      observedPanel = panel;
+
+      if (panel && panelObserver) {
+        panelObserver.observe(panel);
+      }
+    };
+
     const sync = () => {
       if (!usesMobileScrollportGridViewport()) return;
       syncCompactNavRailHeight();
+      bindPanelObserver();
+      syncCanvasIslandStackBottom();
     };
 
     sync();
 
     const navRail = document.querySelector(PUCK_COMPACT_LAYOUT_NAV_SELECTOR);
+    const canvasShell = document.querySelector(PUCK_MOBILE_CANVAS_SHELL_SELECTOR);
     const navObserver =
       usesMobileScrollportGridBackdropMount() && navRail && typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(sync)
         : null;
+    const canvasObserver =
+      usesMobileScrollportGridBackdropMount() && canvasShell && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(sync)
+        : null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      panelObserver = new ResizeObserver(sync);
+    }
 
     if (navObserver && navRail) {
       navObserver.observe(navRail);
+    }
+
+    if (canvasObserver && canvasShell) {
+      canvasObserver.observe(canvasShell);
+    }
+
+    bindPanelObserver();
+
+    const layoutInner = document.querySelector(PUCK_COMPACT_LAYOUT_INNER_SELECTOR);
+    const layoutObserver =
+      layoutInner && typeof MutationObserver !== "undefined"
+        ? new MutationObserver(sync)
+        : null;
+
+    if (layoutObserver && layoutInner) {
+      layoutObserver.observe(layoutInner, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+        childList: true,
+        subtree: true,
+      });
     }
 
     window.addEventListener("resize", sync);
@@ -49,6 +102,9 @@ export function NexusEditorScrollportGrid(): null {
 
     return () => {
       navObserver?.disconnect();
+      canvasObserver?.disconnect();
+      panelObserver?.disconnect();
+      layoutObserver?.disconnect();
       window.removeEventListener("resize", sync);
       window.removeEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, sync);
     };

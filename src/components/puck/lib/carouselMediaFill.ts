@@ -30,6 +30,12 @@ export const NEXUS_MEDIA_ASPECT_ATTR = "data-nexus-media-aspect";
 /** Default aspect ratio when fill-slide media has no explicit ratio. */
 export const CAROUSEL_FILL_SLIDE_DEFAULT_ASPECT = MEDIA_ASPECT_RATIO_FALLBACK;
 
+/**
+ * Minimum equal row height for carousel slides in Puck edit mode — matches
+ * {@link CAROUSEL_AUTO_MIN_HEIGHT_PX} so empty slides stay droppable without oversized cards.
+ */
+export const CAROUSEL_EDIT_ROW_MIN_HEIGHT_PX = 240;
+
 /** Sidebar options for image carousel fill behavior. */
 export const CAROUSEL_MEDIA_FILL_OPTIONS = [
   { label: "Auto (fill in carousel)", value: "auto" },
@@ -99,6 +105,28 @@ export function parseMediaAspectRatio(
   fallback = CAROUSEL_FILL_SLIDE_DEFAULT_ASPECT,
 ): number {
   return parseMediaAspectRatioAttr(value, fallback);
+}
+
+/**
+ * Minimum slide row height in edit mode — enough for a fill-slide video/image at the slide width.
+ *
+ * @param slideWidthPx - Rendered slide card width.
+ * @param autoMinHeightPx - Carousel auto-height floor from sidebar (`CAROUSEL_AUTO_MIN_HEIGHT_PX`).
+ * @returns Pixel floor used when measuring edit row height.
+ */
+export function resolveCarouselEditSlideFloorPx(
+  slideWidthPx: number,
+  autoMinHeightPx: number,
+): number {
+  const fillMediaHeightPx =
+    slideWidthPx > 0
+      ? Math.round(slideWidthPx / CAROUSEL_FILL_SLIDE_DEFAULT_ASPECT)
+      : 0;
+  return Math.max(
+    autoMinHeightPx,
+    CAROUSEL_EDIT_ROW_MIN_HEIGHT_PX,
+    fillMediaHeightPx,
+  );
 }
 
 /**

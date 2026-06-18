@@ -17,6 +17,11 @@ import {
   injectSafePointerCaptureScript,
   installSafePointerCapture,
 } from "@/lib/safePointerCapture";
+import {
+  canvasShellNeedsVerticalScroll,
+  chainWheelDeltaToCanvasShell,
+} from "@/components/puck/lib/canvasLetterboxScrollport";
+import { usePuckPreviewMode } from "@/components/puck/lib/useNexusPuck";
 
 /** DOM id used for the injected token `<style>` element inside the preview iframe. */
 const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
@@ -24,14 +29,26 @@ const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
 /** DOM id used for preview document scroll/overflow rules inside the iframe. */
 const DOCUMENT_STYLE_ID = "nexus-puck-preview-document";
 
-/** Ensures tall page content scrolls inside the preview iframe. */
-const PREVIEW_DOCUMENT_CSS = `
+/**
+ * Preview iframe document overflow rules.
+ *
+ * Edit mode keeps the document content-sized so Puck `rootHeight` tracks blocks —
+ * the outer canvas shell owns scroll. Interactive preview fills the iframe for faithful UX.
+ *
+ * @param previewMode - Active Puck preview mode.
+ * @returns Injected stylesheet text.
+ */
+function buildPreviewDocumentCss(previewMode: "edit" | "interactive"): string {
+  const contentSized = previewMode === "edit";
+
+  return `
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  min-height: ${contentSized ? "auto" : "100%"};
+  height: ${contentSized ? "auto" : "100%"};
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: ${contentSized ? "visible" : "auto"};
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -57,6 +74,7 @@ body {
   background: transparent !important;
 }
 `;
+}
 
 /**
  * Minimal Nexus semantic tokens required by Puck block inline styles.
@@ -137,6 +155,7 @@ export interface PuckIframeThemeProps {
 export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThemeProps) {
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === "light" ? "light" : "dark";
+  const previewMode = usePuckPreviewMode();
 
   /** Sync `data-theme` before paint so iframe-contained grids read the active theme. */
   useLayoutEffect(() => {
@@ -178,7 +197,7 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
       docStyleEl.id = DOCUMENT_STYLE_ID;
       iframeDoc.head.appendChild(docStyleEl);
     }
-    docStyleEl.textContent = PREVIEW_DOCUMENT_CSS;
+    docStyleEl.textContent = buildPreviewDocumentCss(previewMode);
 
     if (iframeDoc.body) {
       iframeDoc.body.style.color = "var(--color-text-primary)";
@@ -186,7 +205,30 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
       iframeDoc.body.style.margin = "0";
       iframeDoc.body.style.background = "transparent";
     }
-  }, [iframeDoc, theme]);
+
+    const iframeWindow = iframeDoc.defaultView;
+    if (!iframeWindow) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (!canvasShellNeedsVerticalScroll()) return;
+
+      const chained = chainWheelDeltaToCanvasShell(
+        iframeWindow,
+        iframeDoc,
+        event.deltaY,
+        event.deltaX,
+      );
+      if (chained) {
+        event.preventDefault();
+      }
+    };
+
+    iframeDoc.addEventListener("wheel", onWheel, { capture: true, passive: false });
+
+    return () => {
+      iframeDoc.removeEventListener("wheel", onWheel, { capture: true });
+    };
+  }, [iframeDoc, previewMode, theme]);
 
   return <>{children}</>;
 }

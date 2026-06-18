@@ -23,7 +23,6 @@ import {
   consumePendingDoubleTapFullOpen,
   endMobilePanelCloseSettling,
   endMobilePanelLayoutMutation,
-  measureMobilePanelHeightPx,
   releaseMobilePanelSidebarForInteraction,
   resolveMobilePanelOpenHeightPx,
   scheduleMobilePanelHeightApply,
@@ -93,7 +92,8 @@ export function NexusMobilePanelOpenAnimation() {
     const targetPx = openToMaxHeight
       ? resolveMobilePanelMaxHeightPx(window.innerHeight)
       : resolveMobilePanelOpenHeightPx(window.innerHeight);
-    const currentPx = measureMobilePanelHeightPx() ?? 0;
+    // Always ease from zero — never trust a pre-open CSS var (persisted height while closed).
+    const currentPx = 0;
 
     animationCancelRef.current?.();
     animationCancelRef.current = null;

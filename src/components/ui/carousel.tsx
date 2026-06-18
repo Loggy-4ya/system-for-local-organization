@@ -21,8 +21,33 @@ type CarouselProps = {
   setApi?: (api: CarouselApi) => void
 }
 
+/**
+ * Whether Embla may evaluate breakpoint media queries for a DOM node.
+ *
+ * Puck preview iframes can briefly expose `ownerDocument.defaultView === null`
+ * before the browsing context attaches; Embla then throws on `matchMedia`.
+ *
+ * @param node - Viewport or carousel root element.
+ * @returns True when `defaultView.matchMedia` is callable.
+ */
+export function canUseCarouselMatchMedia(
+  node: Element | null | undefined,
+): boolean {
+  const ownerWindow = node?.ownerDocument?.defaultView
+  return Boolean(ownerWindow && typeof ownerWindow.matchMedia === "function")
+}
+
+/** Strip breakpoint keys until the viewport browsing context is ready. */
+function carouselOptsWithoutBreakpoints(
+  opts?: CarouselOptions,
+): CarouselOptions | undefined {
+  if (!opts?.breakpoints) return opts
+  const { breakpoints: _breakpoints, ...rest } = opts
+  return rest
+}
+
 type CarouselContextProps = {
-  carouselRef: ReturnType<typeof useEmblaCarousel>[0]
+  assignCarouselViewport: (node: HTMLDivElement | null) => void
   api: ReturnType<typeof useEmblaCarousel>[1]
   scrollPrev: () => void
   scrollNext: () => void
@@ -51,15 +76,56 @@ function Carousel({
   children,
   ...props
 }: React.ComponentProps<"div"> & CarouselProps) {
-  const [carouselRef, api] = useEmblaCarousel(
-    {
+  const [breakpointsReady, setBreakpointsReady] = React.useState(false)
+  const attachRafRef = React.useRef(0)
+
+  const emblaOpts = React.useMemo(() => {
+    const merged = {
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
-    },
-    plugins
-  )
+    } as CarouselOptions
+    return breakpointsReady ? merged : carouselOptsWithoutBreakpoints(merged)
+  }, [breakpointsReady, opts, orientation])
+
+  const [carouselRef, api] = useEmblaCarousel(emblaOpts, plugins)
   const [canScrollPrev, setCanScrollPrev] = React.useState(false)
   const [canScrollNext, setCanScrollNext] = React.useState(false)
+
+  const assignCarouselViewport = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (attachRafRef.current) {
+        cancelAnimationFrame(attachRafRef.current)
+        attachRafRef.current = 0
+      }
+
+      if (!node) {
+        setBreakpointsReady(false)
+        carouselRef(null)
+        return
+      }
+
+      const tryAttach = () => {
+        if (canUseCarouselMatchMedia(node)) {
+          carouselRef(node)
+          setBreakpointsReady(true)
+          attachRafRef.current = 0
+          return
+        }
+        attachRafRef.current = requestAnimationFrame(tryAttach)
+      }
+
+      tryAttach()
+    },
+    [carouselRef],
+  )
+
+  React.useEffect(() => {
+    return () => {
+      if (attachRafRef.current) {
+        cancelAnimationFrame(attachRafRef.current)
+      }
+    }
+  }, [])
 
   const onSelect = React.useCallback((api: CarouselApi) => {
     if (!api) return
@@ -107,7 +173,7 @@ function Carousel({
   return (
     <CarouselContext.Provider
       value={{
-        carouselRef,
+        assignCarouselViewport,
         api: api,
         opts,
         orientation:
@@ -133,11 +199,11 @@ function Carousel({
 }
 
 function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
-  const { carouselRef, orientation } = useCarousel()
+  const { assignCarouselViewport, orientation } = useCarousel()
 
   return (
     <div
-      ref={carouselRef}
+      ref={assignCarouselViewport}
       className="overflow-hidden"
       data-slot="carousel-content"
     >

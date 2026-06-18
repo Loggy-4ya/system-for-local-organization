@@ -1,6 +1,6 @@
 # Puck Grid Item zone policy
 
-**Status:** `[x] Completed` — enforced in editor (canvas drag, outline drag, drawer insert, root zone).
+**Status:** `[x] Legacy guard` — standalone **`NexusGridItem`** blocks removed from the Blocks drawer (2026-06-17). Grid cells now live on **`NexusGrid.props.items`** (array field). This document + `nexusGridItemZonePolicy.ts` remain for legacy page migration and `disallow: ["NexusGridItem"]` on other slots.
 
 ---
 
@@ -54,6 +54,7 @@ These rules complement placement policy (prevent invalid nesting *inside* a vali
 | `NexusGrid` | `content` | `allow: ["NexusGridItem"]` — only grid items in the grid |
 | `NexusGridItem` | `content` | `disallow: ["NexusGridItem", "NexusGrid"]` — no nested grids or cells |
 | All other slot hosts | various | `disallow: ["NexusGridItem"]` via shared constant |
+| `NexusCarousel` | `slides[].content` | `disallow: NexusGridItem`, `NexusCarousel` — no nested carousels |
 
 Shared constant (import in block field configs):
 
@@ -62,7 +63,7 @@ import { DISALLOW_NEXUS_GRID_ITEM } from "@/components/puck/lib/nexusGridItemZon
 // disallow: [...DISALLOW_NEXUS_GRID_ITEM]
 ```
 
-Blocks that register `disallow`: `NexusSection`, `NexusColumns`, `NexusCarousel` (per-slide `content`), `NexusTabs` (per-tab `panel`).
+Blocks that register `disallow`: `NexusSection`, `NexusCarousel` (per-slide `content`), `NexusTabs` (per-tab `panel`).
 
 ---
 
@@ -146,7 +147,7 @@ Only `NexusGrid.fields.content` uses `allow: ["NexusGridItem"]` instead of disal
 ## 7. Acceptance criteria
 
 - [x] Grid Item cannot be inserted or moved to page root.
-- [x] Grid Item cannot be placed in Section, Columns, Carousel slide, or Tab panel slots.
+- [x] Grid Item cannot be placed in Section, Carousel slide, or Tab panel slots.
 - [x] Grid Item cannot be placed inside another Grid Item’s `content` slot.
 - [x] Grid Item **can** be inserted, reordered, and moved within and between `NexusGrid` `content` zones.
 - [x] Outline drag does not show or commit invalid cross-zone targets for grid items.
@@ -157,6 +158,6 @@ Only `NexusGrid.fields.content` uses `allow: ["NexusGridItem"]` instead of disal
 ## 8. Related docs
 
 - [`puck_editor.md`](puck_editor.md) — block catalog and layout category
-- [`puck_canvas_drag_drop.md`](puck_canvas_drag_drop.md) — slot inventory and drag architecture
+- [`puck_canvas_drag_drop.md`](puck_canvas_drag_drop.md) — slot inventory and drag architecture; **[§2a inner-slot drops](./puck_canvas_drag_drop.md#2a-grid-item-drop-targeting-carousel-parity-stock-puck)** (Video/Image into a grid item's `content` slot — separate from *where* grid items may live)
 - [`puck_editor_enhancements.md`](puck_editor_enhancements.md) — grid layout implementation notes
 - [`testing.md`](../testing.md) — test registry entry `test:nexus-grid-item-zone`

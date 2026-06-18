@@ -90,8 +90,6 @@ describe("PUCK_BLOCK_VISIBILITY_REGISTRY", () => {
     const expected = [
       "NexusSection",
       "NexusGrid",
-      "NexusGridItem",
-      "NexusColumns",
       "NexusSpacer",
       "NexusHeading",
       "NexusText",

@@ -23,7 +23,6 @@ import {
   recordNavPointerDown,
   resolveActiveNavLink,
   resolveMobileNavPanelToggle,
-  resolveNavLinkFromTarget,
   shouldBlockActiveNavTab,
   type MobileNavTapState,
 } from "@/components/puck/lib/mobileNavPanelGestureLogic";
@@ -38,6 +37,7 @@ import {
   NEXUS_PANEL_EXPANDING_ATTR,
   applyMobilePanelHeight,
   cleanupCompactPanelOverlayChrome,
+  clearCompactNavTabPressChrome,
   markPendingDoubleTapFullOpen,
   scheduleMobilePanelCloseSettling,
   resolvePreExpandPanelHeightPx,
@@ -45,7 +45,6 @@ import {
   isMobilePanelHeightClosedPx,
   NEXUS_MOBILE_PANEL_CLOSE_REQUEST_EVENT,
   resetMobilePanelPersistedHeightToDefault,
-  restorePersistedPanelHeight,
   savePreExpandPanelHeight,
   type MobilePanelDismissRequestDetail,
 } from "@/components/puck/lib/mobilePanelLayout";
@@ -175,6 +174,7 @@ export function NexusMobileNavPanelGestures() {
 
       applyMobilePanelHeight("0px");
       cleanupCompactPanelOverlayChrome();
+      clearCompactNavTabPressChrome();
       scheduleMobilePanelCloseSettling(NEXUS_PANEL_CLOSE_ANIMATION_MS);
     };
 
@@ -206,6 +206,7 @@ export function NexusMobileNavPanelGestures() {
       animatingRef.current = true;
       clearAnimation();
       animatingRef.current = true;
+      clearCompactNavTabPressChrome();
 
       animationCancelRef.current = animateMobilePanelHeight(
         startHeight,
@@ -281,7 +282,6 @@ export function NexusMobileNavPanelGestures() {
       openedViaDoubleTapRef.current = false;
       leftSideBarVisibleRef.current = true;
       mobilePanelExpandedRef.current = false;
-      restorePersistedPanelHeight();
       dispatch({
         type: "setUi",
         ui: { leftSideBarVisible: true, mobilePanelExpanded: false },
@@ -561,29 +561,13 @@ export function NexusMobileNavPanelGestures() {
       blockActiveNavEvent(event);
     };
 
-    const onDocumentTouchEnd = (event: TouchEvent) => {
-      if (!isPrimaryTouchTap(event)) return;
-      if (!resolveNavLinkFromTarget(event.target)) return;
-      blockActiveNavEvent(event);
-    };
-
-    const onDocumentPointerUp = (event: PointerEvent) => {
-      if (!isPrimaryPointerTap(event)) return;
-      if (!resolveNavLinkFromTarget(event.target)) return;
-      blockActiveNavEvent(event);
-    };
-
-    const onDocumentClickCapture = (event: MouseEvent) => {
-      if (!resolveNavLinkFromTarget(event.target)) return;
-      blockActiveNavEvent(event);
-    };
-
+    /*
+     * Press-phase capture only — blocks Puck's native active-tab handler.
+     * Tap completion stays on the active NavItem-link so icon + label share one target.
+     */
     document.addEventListener("touchstart", onDocumentTouchStart, NAV_TOUCH_LISTENER_OPTIONS);
-    document.addEventListener("touchend", onDocumentTouchEnd, NAV_TOUCH_LISTENER_OPTIONS);
     document.addEventListener("pointerdown", onDocumentPointerDown, NAV_POINTER_LISTENER_OPTIONS);
     document.addEventListener("mousedown", onDocumentMouseDown, NAV_POINTER_LISTENER_OPTIONS);
-    document.addEventListener("pointerup", onDocumentPointerUp, NAV_POINTER_LISTENER_OPTIONS);
-    document.addEventListener("click", onDocumentClickCapture, NAV_POINTER_LISTENER_OPTIONS);
 
     const onDismissRequest = (event: Event) => {
       const detail = (event as CustomEvent<MobilePanelDismissRequestDetail>).detail;
@@ -603,11 +587,8 @@ export function NexusMobileNavPanelGestures() {
       navObserver?.disconnect();
       detachActiveLinkListeners();
       document.removeEventListener("touchstart", onDocumentTouchStart, NAV_TOUCH_LISTENER_OPTIONS);
-      document.removeEventListener("touchend", onDocumentTouchEnd, NAV_TOUCH_LISTENER_OPTIONS);
       document.removeEventListener("pointerdown", onDocumentPointerDown, NAV_POINTER_LISTENER_OPTIONS);
       document.removeEventListener("mousedown", onDocumentMouseDown, NAV_POINTER_LISTENER_OPTIONS);
-      document.removeEventListener("pointerup", onDocumentPointerUp, NAV_POINTER_LISTENER_OPTIONS);
-      document.removeEventListener("click", onDocumentClickCapture, NAV_POINTER_LISTENER_OPTIONS);
       document.documentElement.removeAttribute(NEXUS_PANEL_CLOSING_ATTR);
       document.documentElement.removeAttribute(NEXUS_PANEL_EXPANDING_ATTR);
       document.documentElement.removeAttribute(NEXUS_PANEL_COLLAPSING_ATTR);

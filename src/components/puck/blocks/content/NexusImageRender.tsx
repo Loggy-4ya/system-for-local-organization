@@ -159,7 +159,6 @@ function NexusImageBody({
     : {
         display: "flex",
         justifyContent: ALIGN_MAP[align] ?? "center",
-        padding: "var(--spacing-sm) 0",
         width: "100%",
         ["--nexus-media-object-fit" as string]: objectFit,
       };

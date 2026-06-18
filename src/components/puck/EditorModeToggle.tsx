@@ -10,6 +10,7 @@
 
 import { MousePointerClick, Pencil } from "lucide-react";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
+import { resolveEditorModeToggleUiPatch } from "./lib/editorModePanelSnapshot";
 import { applyMobilePanelHeight } from "./lib/mobilePanelLayout";
 import { useNexusPuck } from "./lib/useNexusPuck";
 
@@ -35,20 +36,7 @@ export function EditorModeToggle({
   const handleToggle = () => {
     dispatch({
       type: "setUi",
-      ui: (ui) => {
-        const enteringInteractive = ui.previewMode === "edit";
-
-        return {
-          previewMode: enteringInteractive ? "interactive" : "edit",
-          ...(enteringInteractive
-            ? {
-                leftSideBarVisible: false,
-                mobilePanelExpanded: false,
-                rightSideBarVisible: false,
-              }
-            : {}),
-        };
-      },
+      ui: (ui) => resolveEditorModeToggleUiPatch(ui),
       recordHistory: false,
     });
 

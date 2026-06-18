@@ -51,7 +51,7 @@ function resolveViewportZoomMount(): HTMLElement | null {
   }
 
   return document.querySelector(
-    '.Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"]) [class*="ViewportControls-zoom_"]',
+    '.Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"])[class*="ViewportControls--isExpanded"] [class*="ViewportControls-zoom_"]',
   ) as HTMLElement | null;
 }
 

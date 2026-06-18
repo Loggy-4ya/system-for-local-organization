@@ -28,6 +28,12 @@ import { isAnyCanvasDragActive } from "@/components/puck/lib/canvasDropTargetLog
 import {
   PUCK_CANVAS_INNER_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
+import {
+  clampPuckRootHeightToPreviewContent,
+} from "@/components/puck/lib/previewContentHeight";
+import {
+  syncDesktopLetterboxCanvasScrollport,
+} from "@/components/puck/lib/canvasLetterboxScrollport";
 import { matchesDesktopEditorLayout } from "@/components/puck/lib/desktopEditorScrollport";
 import {
   floorLetterboxDevicePreviewZoom,
@@ -52,11 +58,11 @@ interface PuckViewportZoomAppStore {
 }
 
 /**
- * Apply letterbox zoom floor from the active viewport preset and canvas frame width.
+ * Apply letterbox zoom from the active viewport preset and canvas frame width.
  *
  * @param appStore - Puck internal app store.
  * @param config - Candidate zoom config.
- * @returns Sanitized config with letterbox floor when applicable.
+ * @returns Sanitized config with letterbox scale when applicable.
  */
 function applyLetterboxZoomFloor(
   appStore: PuckInternalAppStore,
@@ -138,7 +144,7 @@ function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
   }
 
   if (matchesDesktopEditorLayout()) {
-    inner.style.removeProperty("height");
+    syncDesktopLetterboxCanvasScrollport(config);
     return;
   }
 
@@ -166,6 +172,7 @@ function clearCanvasInnerScrollportHeight(): void {
   clearMobilePreviewViewportOverrides();
   const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
   inner?.style.removeProperty("height");
+  inner?.style.removeProperty("min-height");
 }
 
 /**
@@ -273,6 +280,7 @@ export function NexusPuckZoomGuard(): null {
 
       let sanitized = sanitizePuckZoomConfig(next, zoomFallbackRef.current);
       sanitized = applyLetterboxZoomFloor(appStore, sanitized);
+      sanitized = clampPuckRootHeightToPreviewContent(sanitized);
 
       zoomFallbackRef.current = sanitized;
       originalSetZoom(sanitized);

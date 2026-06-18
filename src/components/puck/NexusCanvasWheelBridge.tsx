@@ -11,7 +11,11 @@
  */
 
 import { useEffect } from "react";
-import { PUCK_CANVAS_INNER_SELECTOR } from "@/components/puck/lib/puckCanvasSelectors";
+import {
+  canvasShellNeedsVerticalScroll,
+  chainWheelDeltaToCanvasShell,
+} from "@/components/puck/lib/canvasLetterboxScrollport";
+import { PUCK_CANVAS_INNER_SELECTOR, PUCK_CANVAS_SHELL_SELECTOR } from "@/components/puck/lib/puckCanvasSelectors";
 import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Preview iframe id assigned by Puck `AutoFrame`. */
@@ -43,6 +47,17 @@ export function NexusCanvasWheelBridge() {
 
       const target = event.target;
       if (target instanceof Node && iframe.contains(target)) {
+        return;
+      }
+
+      if (canvasShellNeedsVerticalScroll()) {
+        const shell = document.querySelector(PUCK_CANVAS_SHELL_SELECTOR) as HTMLElement | null;
+        shell?.scrollBy({
+          top: event.deltaY,
+          left: event.deltaX,
+          behavior: "auto",
+        });
+        event.preventDefault();
         return;
       }
 

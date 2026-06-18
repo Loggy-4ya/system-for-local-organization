@@ -45,6 +45,9 @@ interface PageRootBodyProps extends PageRootProps {
  * Shared PageRoot layout — background, optional editor chrome, and content gutter.
  *
  * Site-default grid is the global `InfiniteGrid` in root layout (`#nexus-bg`), not here.
+ * Edit layout uses content-sized height so the canvas scrollport tracks blocks, not viewport fill.
+ *
+ * Tests: `tests/puck/lib/previewContentHeight.test.ts` — `npm run test:preview-content-height`
  *
  * @param props - Page settings, appearance, and chrome flags.
  * @returns Page shell JSX.
@@ -57,6 +60,8 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
   const widthStyle = contentWidthContainerStyle(contentWidth ?? DEFAULT_CONTENT_WIDTH);
   const pageWidthToken = (contentWidth ?? DEFAULT_CONTENT_WIDTH) as ContentWidthToken;
   const isPublishedView = !showEditorBackground;
+  const isInteractivePreview = showEditorBackground && !isPuckEditMode;
+  const useContentSizedLayout = isPublishedView || isPuckEditMode;
 
   if (background === "solid") {
     bgStyles.backgroundColor = resolveAccentPreset(backgroundPreset);
@@ -74,8 +79,8 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
     <div
       style={{
         position: "relative",
-        minHeight: isPublishedView ? undefined : "100%",
-        height: showEditorBackground && !isPuckEditMode ? "100%" : undefined,
+        minHeight: isInteractivePreview ? "100%" : undefined,
+        height: isInteractivePreview ? "100%" : undefined,
         width: "100%",
         display: "flex",
         flexDirection: "column",
@@ -90,14 +95,14 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
           zIndex: 1,
           display: "flex",
           flexDirection: "column",
-          flex: isPublishedView ? undefined : 1,
+          flex: useContentSizedLayout ? undefined : 1,
         }}
       >
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            flex: isPublishedView ? undefined : 1,
+            flex: useContentSizedLayout ? undefined : 1,
             boxSizing: "border-box",
             ...widthStyle,
             ...(isPublishedView ? pageContentTopGutterStyle() : pageContentBlockGutterStyle()),

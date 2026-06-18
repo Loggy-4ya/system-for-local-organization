@@ -2,8 +2,9 @@
  * @fileoverview Puck page data API route for Project Nexus.
  *
  * Provides two operations:
- *  - `GET /api/puck?path=<path>` — load the Puck layout data for a given page path.
- *  - `POST /api/puck`            — save (upsert) Puck layout data for a page path.
+ *  - `GET /api/puck?path=<path>`    — load the Puck layout data for a given page path.
+ *  - `POST /api/puck`               — save (upsert) Puck layout data for a page path.
+ *  - `DELETE /api/puck?path=<path>` — remove a Puck-managed page from MongoDB.
  *
  * Both endpoints connect to MongoDB via the shared `connectDB` helper and use
  * the `Page` Mongoose model. Saving requires a valid session or legacy bearer token.
@@ -14,8 +15,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import Page, { type PuckData } from "@shared/models/Page";
+import { PageDomain, PageDomainError } from "@shared/domains/PageDomain";
 import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
-import { isApiAuthorised } from "@/lib/authGuards";
+import { getOptionalSession, isApiAuthorised } from "@/lib/authGuards";
+import { canEditPages } from "@/lib/pageEditAccess";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -207,6 +210,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[API /api/puck POST]", err);
+    return NextResponse.json({ error: "Internal server error." }, { status: 500 });
+  }
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+
+/**
+ * Delete a Puck-managed page document by path.
+ *
+ * @param req - Next.js request containing `?path=` query parameter.
+ * @returns `{ ok: true }` on success, or an error payload.
+ */
+export async function DELETE(req: NextRequest) {
+  if (!(await isApiAuthorised(req))) {
+    return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+  }
+
+  const session = await getOptionalSession();
+  if (session && !canEditPages(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  const path = req.nextUrl.searchParams.get("path");
+  if (!path) {
+    return NextResponse.json(
+      { error: "Query parameter `path` is required." },
+      { status: 400 },
+    );
+  }
+
+  if (isReservedSlugPath(path.trim())) {
+    return NextResponse.json(
+      { error: `The path "${path.trim()}" is reserved and cannot be deleted as a page.` },
+      { status: 400 },
+    );
+  }
+
+  try {
+    await PageDomain.deleteByPath(path);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    if (err instanceof PageDomainError) {
+      return NextResponse.json({ error: err.message }, { status: err.httpStatus });
+    }
+    console.error("[API /api/puck DELETE]", err);
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }

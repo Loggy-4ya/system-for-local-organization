@@ -29,6 +29,7 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  canUseCarouselMatchMedia,
   type CarouselApi,
 } from "@/components/ui/carousel";
 import {
@@ -67,7 +68,9 @@ import { useCarouselNavController } from "../../lib/useCarouselNavController";
 import {
   CAROUSEL_SLIDE_MEDIA_FILL_CLASS,
   NEXUS_CAROUSEL_FILL_ATTR,
+  CAROUSEL_EDIT_ROW_MIN_HEIGHT_PX,
   measureFillSlideComponentHeight,
+  resolveCarouselEditSlideFloorPx,
 } from "../../lib/carouselMediaFill";
 
 /** Puck slot component for slide content. */
@@ -130,33 +133,68 @@ function useNoopPortalRef() {
  * @returns Pixel height spanning all grid rows.
  */
 function measureGridLayoutHeight(grid: HTMLElement): number {
-  const saved = {
-    height: grid.style.height,
-    minHeight: grid.style.minHeight,
-  };
-  grid.style.height = "auto";
-  grid.style.minHeight = "0";
+  const host =
+    grid.closest<HTMLElement>(".nexus-grid-host") ??
+    (grid.parentElement instanceof HTMLElement ? grid.parentElement : grid);
 
-  const childSaves: Array<{ el: HTMLElement; height: string; minHeight: string }> = [];
-  for (const child of grid.children) {
-    if (!(child instanceof HTMLElement)) continue;
-    childSaves.push({
-      el: child,
-      height: child.style.height,
-      minHeight: child.style.minHeight,
+  const slide = grid.closest<HTMLElement>(".nexus-carousel__slide");
+  const dropzoneShell = slide?.querySelector<HTMLElement>(".nexus-carousel__slide-dropzone-shell");
+
+  const touched: Array<{
+    el: HTMLElement;
+    height: string;
+    minHeight: string;
+    slideHeightVar?: string;
+  }> = [];
+
+  const resetEl = (el: HTMLElement, trackSlideVar = false) => {
+    touched.push({
+      el,
+      height: el.style.height,
+      minHeight: el.style.minHeight,
+      slideHeightVar: trackSlideVar
+        ? el.style.getPropertyValue("--nexus-carousel-slide-height")
+        : undefined,
     });
-    child.style.height = "auto";
-    child.style.minHeight = "0";
-  }
+    el.style.setProperty("height", "auto", "important");
+    el.style.setProperty("min-height", "0", "important");
+    if (trackSlideVar) {
+      el.style.removeProperty("--nexus-carousel-slide-height");
+    }
+  };
 
-  void grid.offsetHeight;
+  resetEl(grid);
+  if (slide) {
+    resetEl(slide, true);
+  }
+  if (dropzoneShell) {
+    resetEl(dropzoneShell);
+  }
+  host.querySelectorAll<HTMLElement>(
+    ".nexus-grid-item-shell, .nexus-grid-item__dropzone-shell, .nexus-grid [data-puck-dropzone]",
+  ).forEach((el) => resetEl(el));
+
+  void host.offsetHeight;
   const measured = grid.getBoundingClientRect().height;
 
-  grid.style.height = saved.height;
-  grid.style.minHeight = saved.minHeight;
-  childSaves.forEach(({ el, height, minHeight }) => {
-    el.style.height = height;
-    el.style.minHeight = minHeight;
+  touched.forEach(({ el, height, minHeight, slideHeightVar }) => {
+    if (height) {
+      el.style.height = height;
+    } else {
+      el.style.removeProperty("height");
+    }
+    if (minHeight) {
+      el.style.minHeight = minHeight;
+    } else {
+      el.style.removeProperty("min-height");
+    }
+    if (slideHeightVar !== undefined) {
+      if (slideHeightVar) {
+        el.style.setProperty("--nexus-carousel-slide-height", slideHeightVar);
+      } else {
+        el.style.removeProperty("--nexus-carousel-slide-height");
+      }
+    }
   });
 
   return measured;
@@ -213,6 +251,40 @@ function measureSlideNaturalHeight(
   });
 
   return Math.max(floorPx, flowHeight, fillHeight);
+}
+
+/**
+ * Measure slide content height with slide stretch styles temporarily cleared.
+ *
+ * @param slide - Carousel slide root element.
+ * @param floorPx - Minimum height for empty slides.
+ * @param fallbackFillWidthPx - Width for fill media when the slide is collapsed.
+ * @returns Content-driven pixel height without row-height-sync stretch in layout.
+ */
+function measureSlideNaturalHeightDetached(
+  slide: HTMLElement,
+  floorPx: number,
+  fallbackFillWidthPx: number,
+): number {
+  const saved = {
+    height: slide.style.height,
+    minHeight: slide.style.minHeight,
+  };
+  slide.style.setProperty("height", "auto", "important");
+  slide.style.setProperty("min-height", "0", "important");
+  void slide.offsetHeight;
+  const measured = measureSlideNaturalHeight(slide, floorPx, fallbackFillWidthPx);
+  if (saved.height) {
+    slide.style.height = saved.height;
+  } else {
+    slide.style.removeProperty("height");
+  }
+  if (saved.minHeight) {
+    slide.style.minHeight = saved.minHeight;
+  } else {
+    slide.style.removeProperty("min-height");
+  }
+  return measured;
 }
 
 /**
@@ -537,6 +609,8 @@ function NexusCarouselBody({
 
   const [api, setApi] = useState<CarouselApi>();
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselIndexRef = useRef(carouselIndex);
+  carouselIndexRef.current = carouselIndex;
   const [viewportWidth, setViewportWidth] = useState(0);
   /** Viewer-only pause for autoplay — not persisted to Puck props. */
   const [isAutoplayPaused, setIsAutoplayPaused] = useState(false);
@@ -585,6 +659,18 @@ function NexusCarouselBody({
   const emblaScroll = resolveCarouselEmblaScrollOptions();
   const emblaBreakpointsBase = emblaScroll.breakpoints;
 
+  const visibleSlideCount = resolveVisibleSlideCountAtWidth(
+    slidesPerView,
+    paginationViewportWidth,
+  );
+  /** Edit-mode drop-zone / row floor — auto min height + 16:9 fill height at slide width. */
+  const editDropZoneMinHeightPx = editLayoutMode
+    ? resolveCarouselEditSlideFloorPx(
+        viewportWidth > 0 ? viewportWidth / Math.max(1, visibleSlideCount) : 0,
+        autoMinHeightPx,
+      )
+    : autoMinHeightPx;
+
   const carouselSizeStyle: CSSProperties = {
     ...(useSingleFrame ? { borderRadius: resolvedBorderRadius } : undefined),
     ["--nexus-carousel-slide-radius" as string]: resolvedBorderRadius,
@@ -597,6 +683,11 @@ function NexusCarouselBody({
       : {
           ["--nexus-carousel-auto-min-height" as string]: `${autoMinHeightPx}px`,
         }),
+    ...(editLayoutMode && !hasFixedHeight
+      ? {
+          ["--nexus-carousel-edit-min-height" as string]: `${editDropZoneMinHeightPx}px`,
+        }
+      : undefined),
     ...(resolvedMaxHeight
       ? {
           ["--nexus-carousel-max-height" as string]: resolvedMaxHeight,
@@ -605,10 +696,15 @@ function NexusCarouselBody({
       : undefined),
   };
 
-  const visibleSlideCount = resolveVisibleSlideCountAtWidth(
-    slidesPerView,
-    paginationViewportWidth,
-  );
+  /** One slide visible at the current breakpoint (phone spv-auto, spv-1). */
+  const singleVisibleLayout =
+    viewportWidth > 0 &&
+    resolveVisibleSlideCountAtWidth(slidesPerView, viewportWidth) === 1;
+  /** Equal-height slide cards — flex stretch when 2+ slides visible (interactive + multi-slide edit). */
+  const equalRowLayout =
+    viewportWidth > 0 &&
+    visibleSlideCount >= 2 &&
+    (!editLayoutMode || !singleSlideEditView);
   const allSlidesFitInView = count <= visibleSlideCount;
   /** All slides visible at once — lock Embla transform so drop zones stay on screen. */
   const editStaticFit = multiSlideEditWysiwyg && allSlidesFitInView;
@@ -1078,13 +1174,16 @@ function NexusCarouselBody({
 
   useEffect(() => {
     if (!api) return;
-    api.reInit({
+    const reInitOpts: Parameters<NonNullable<CarouselApi>["reInit"]>[0] = {
       loop: emblaLoop,
       containScroll: emblaContainScroll,
       slidesToScroll: emblaScroll.slidesToScroll,
-      breakpoints: emblaBreakpoints,
       duration: emblaMotion.duration,
-    });
+    };
+    if (canUseCarouselMatchMedia(rootRef.current)) {
+      reInitOpts.breakpoints = emblaBreakpoints;
+    }
+    api.reInit(reInitOpts);
     requestAnimationFrame(() => {
       if (editStaticFit) {
         return;
@@ -1147,108 +1246,275 @@ function NexusCarouselBody({
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root) return undefined;
-
-    if (!editLayoutMode) {
-      root.style.removeProperty("--nexus-carousel-edit-height");
-      root.classList.remove("nexus-carousel--has-grid-slide");
-      root.classList.remove("nexus-carousel--in-grid-cell");
-      return undefined;
-    }
+    if (!root || hasFixedHeight) return undefined;
 
     let rafId = 0;
     let lastSyncedHeight = -1;
+    let lastPerSlideHeights: number[] = [];
+    let lastObservedWidth = -1;
+    let lastObservedHeight = -1;
 
-    const syncEditTrackHeight = () => {
+    const clearRowHeightSync = () => {
       if (!rootRef.current) return;
-      if (isPreviewCanvasDragActive(rootRef.current)) return;
+      rootRef.current.classList.remove("nexus-carousel--row-height-sync");
+      rootRef.current.style.removeProperty("--nexus-carousel-row-height");
+      lastSyncedHeight = -1;
+    };
 
-      const inGridCell = Boolean(rootRef.current.closest(".nexus-grid-item"));
-      rootRef.current.classList.toggle("nexus-carousel--in-grid-cell", inGridCell);
+    const clearPerSlideHeightSync = () => {
+      if (!rootRef.current) return;
+      rootRef.current.classList.remove("nexus-carousel--per-slide-height-sync");
+      rootRef.current
+        .querySelectorAll<HTMLElement>(".nexus-carousel__slide")
+        .forEach((slide) => {
+          slide.style.removeProperty("--nexus-carousel-slide-height");
+        });
+      lastPerSlideHeights = [];
+    };
 
-      const slideEls = rootRef.current.querySelectorAll<HTMLElement>(".nexus-carousel__slide");
+    /** Grid-in-slide carousels skip row sync only (per-slide edit measures grids intrinsically). */
+    const shouldSkipRowHeightSync = () => {
+      if (!rootRef.current) return false;
+      if (editLayoutMode) return false;
+      return Boolean(
+        rootRef.current.querySelector(".nexus-carousel__slide .nexus-grid"),
+      );
+    };
+
+    const syncCarouselRowHeight = () => {
+      if (!rootRef.current) return;
+      if (editLayoutMode && isPreviewCanvasDragActive(rootRef.current)) return;
+
+      const rootEl = rootRef.current;
+
+      const inGridCell = Boolean(rootEl.closest(".nexus-grid-item"));
+      rootEl.classList.toggle("nexus-carousel--in-grid-cell", inGridCell);
+
+      const slideEls = rootEl.querySelectorAll<HTMLElement>(".nexus-carousel__slide");
       const hasGridSlide = Array.from(slideEls).some((slide) =>
         Boolean(slide.querySelector(".nexus-grid")),
       );
+      rootEl.classList.toggle("nexus-carousel--has-grid-slide", hasGridSlide);
 
-      if (hasGridSlide || inGridCell) {
-        rootRef.current.classList.toggle("nexus-carousel--has-grid-slide", hasGridSlide);
-        rootRef.current.classList.remove("nexus-carousel--all-fill-only");
-        rootRef.current.classList.remove("nexus-carousel--edit-height-sync");
-        rootRef.current.style.removeProperty("--nexus-carousel-edit-height");
-        syncPuckOverlay();
-        return;
-      }
-
-      rootRef.current.classList.remove("nexus-carousel--has-grid-slide");
-
-      const slides = Array.from(slideEls);
       const allFillOnly =
-        slides.length > 0 && slides.every((slide) => slideContainsOnlyFillMedia(slide));
+        slideEls.length > 0 &&
+        Array.from(slideEls).every((slide) => slideContainsOnlyFillMedia(slide));
+      rootEl.classList.toggle("nexus-carousel--all-fill-only", allFillOnly);
 
-      if (allFillOnly) {
-        rootRef.current.classList.add("nexus-carousel--all-fill-only");
-        rootRef.current.classList.remove("nexus-carousel--edit-height-sync");
-        rootRef.current.style.removeProperty("--nexus-carousel-edit-height");
-        syncPuckOverlay();
+      const measuredRootWidth = rootEl.getBoundingClientRect().width;
+      const measuredVisibleCount = Math.max(
+        1,
+        resolveVisibleSlideCountAtWidth(slidesPerView, measuredRootWidth || viewportWidth),
+      );
+
+      /**
+       * Multi-slide interactive + multi-slide edit — CSS flex stretch only (adaptive height).
+       * Single-visible interactive keeps row sync below (active slide only).
+       */
+      const useCssEqualRowHeight =
+        measuredVisibleCount >= 2 && (!editLayoutMode || !singleSlideEditView);
+
+      if (useCssEqualRowHeight) {
+        clearRowHeightSync();
+        clearPerSlideHeightSync();
+        if (editLayoutMode) {
+          requestAnimationFrame(() => syncPuckOverlay());
+        }
         return;
       }
 
-      rootRef.current.classList.remove("nexus-carousel--all-fill-only");
+      /** Published phone + single-slide edit — viewport follows active slide, not the tallest off-screen sibling. */
+      const measureActiveSlideOnly =
+        (!editLayoutMode && measuredVisibleCount === 1) ||
+        (editLayoutMode && singleSlideEditView);
 
-      const rootWidth = rootRef.current.getBoundingClientRect().width;
-      const visibleSlideCount = Math.max(
-        1,
-        resolveVisibleSlideCountAtWidth(slidesPerView, rootWidth || viewportWidth),
+      /** Single-slide edit — per-slide height on the active card only. */
+      if (editLayoutMode && singleSlideEditView) {
+        clearRowHeightSync();
+        rootEl.classList.add("nexus-carousel--per-slide-height-sync");
+
+        const fallbackFillWidthPx = singleSlideEditView
+          ? measuredRootWidth
+          : measuredRootWidth / measuredVisibleCount;
+
+        const activeIndex = Math.min(
+          Math.max(0, activeSlideIndexRef.current),
+          Math.max(0, slideEls.length - 1),
+        );
+
+        const slideIndicesToSync = singleSlideEditView
+          ? [activeIndex]
+          : Array.from({ length: slideEls.length }, (_, index) => index);
+
+        let heightsChanged = false;
+
+        slideEls.forEach((slide, idx) => {
+          const grid = slide.querySelector<HTMLElement>(".nexus-grid");
+
+          if (grid) {
+            slide.style.removeProperty("--nexus-carousel-slide-height");
+            if (lastPerSlideHeights[idx] !== -1) {
+              heightsChanged = true;
+            }
+            lastPerSlideHeights[idx] = -1;
+            return;
+          }
+
+          if (!slideIndicesToSync.includes(idx)) {
+            slide.style.removeProperty("--nexus-carousel-slide-height");
+            if (lastPerSlideHeights[idx] !== -1) {
+              heightsChanged = true;
+            }
+            lastPerSlideHeights[idx] = -1;
+            return;
+          }
+
+          const slideWidthPx = slide.getBoundingClientRect().width;
+          const slideFloorPx = resolveCarouselEditSlideFloorPx(slideWidthPx, autoMinHeightPx);
+          let slideHeightPx = Math.max(
+            slideFloorPx,
+            measureSlideNaturalHeightDetached(slide, slideFloorPx, fallbackFillWidthPx),
+          );
+
+          if (maxHeightCapPx !== undefined && Number.isFinite(maxHeightCapPx)) {
+            slideHeightPx = Math.min(slideHeightPx, maxHeightCapPx);
+          }
+
+          slideHeightPx = Math.max(slideHeightPx, CAROUSEL_EDIT_ROW_MIN_HEIGHT_PX);
+
+          if (lastPerSlideHeights[idx] !== slideHeightPx) {
+            heightsChanged = true;
+          }
+          lastPerSlideHeights[idx] = slideHeightPx;
+          slide.style.setProperty("--nexus-carousel-slide-height", `${slideHeightPx}px`);
+        });
+
+        if (heightsChanged) {
+          requestAnimationFrame(() => {
+            syncPuckOverlay();
+            requestAnimationFrame(() => syncPuckOverlay());
+          });
+        }
+        return;
+      }
+
+      clearPerSlideHeightSync();
+
+      if (slideEls.length === 0) {
+        clearRowHeightSync();
+        return;
+      }
+
+      const fallbackFillWidthPx = measureActiveSlideOnly
+        ? measuredRootWidth
+        : measuredRootWidth / measuredVisibleCount;
+
+      const activeIndex = Math.min(
+        Math.max(
+          0,
+          editLayoutMode ? activeSlideIndexRef.current : carouselIndexRef.current,
+        ),
+        slideEls.length - 1,
       );
-      const fallbackFillWidthPx = singleSlideEditView
-        ? rootWidth
-        : rootWidth / visibleSlideCount;
 
-      let measuredMaxHeight = autoMinHeightPx;
-      slideEls.forEach((slide) => {
-        measuredMaxHeight = Math.max(
-          measuredMaxHeight,
-          measureSlideNaturalHeight(slide, autoMinHeightPx, fallbackFillWidthPx),
+      const slidesToMeasure =
+        measureActiveSlideOnly && slideEls.length > 0
+          ? [slideEls[activeIndex] as HTMLElement]
+          : Array.from(slideEls);
+
+      let rowHeightPx = autoMinHeightPx;
+      slidesToMeasure.forEach((slide) => {
+        const slideWidthPx = slide.getBoundingClientRect().width;
+        const slideFloorPx = editLayoutMode
+          ? resolveCarouselEditSlideFloorPx(slideWidthPx, autoMinHeightPx)
+          : autoMinHeightPx;
+        rowHeightPx = Math.max(
+          rowHeightPx,
+          measureSlideNaturalHeightDetached(slide, slideFloorPx, fallbackFillWidthPx),
         );
       });
 
       if (maxHeightCapPx !== undefined && Number.isFinite(maxHeightCapPx)) {
-        measuredMaxHeight = Math.min(measuredMaxHeight, maxHeightCapPx);
+        rowHeightPx = Math.min(rowHeightPx, maxHeightCapPx);
       }
 
-      if (measuredMaxHeight === lastSyncedHeight) return;
-      lastSyncedHeight = measuredMaxHeight;
+      if (editLayoutMode) {
+        rowHeightPx = Math.max(rowHeightPx, CAROUSEL_EDIT_ROW_MIN_HEIGHT_PX);
+      }
 
-      rootRef.current.classList.add("nexus-carousel--edit-height-sync");
-      rootRef.current.style.setProperty("--nexus-carousel-edit-height", `${measuredMaxHeight}px`);
-      syncPuckOverlay();
+      if (rowHeightPx === lastSyncedHeight) {
+        return;
+      }
+      lastSyncedHeight = rowHeightPx;
+
+      rootEl.classList.add("nexus-carousel--row-height-sync");
+      rootEl.style.setProperty("--nexus-carousel-row-height", `${rowHeightPx}px`);
+
+      if (editLayoutMode) syncPuckOverlay();
     };
 
-    const scheduleSyncEditTrackHeight = () => {
+    const scheduleRowHeightSync = () => {
       cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(syncEditTrackHeight);
+      rafId = requestAnimationFrame(syncCarouselRowHeight);
     };
 
-    scheduleSyncEditTrackHeight();
+    scheduleRowHeightSync();
 
-    const observer = new ResizeObserver(scheduleSyncEditTrackHeight);
+    const observer = new ResizeObserver((entries) => {
+      if (shouldSkipRowHeightSync()) return;
+
+      const entry = entries[0];
+      if (!entry) return;
+      const width = entry.contentRect.width;
+      const height = entry.contentRect.height;
+      if (
+        width > 0 &&
+        lastObservedWidth > 0 &&
+        Math.abs(width - lastObservedWidth) < 1 &&
+        height > 0 &&
+        lastObservedHeight > 0 &&
+        Math.abs(height - lastObservedHeight) < 1 &&
+        (rootRef.current?.classList.contains("nexus-carousel--row-height-sync") ||
+          rootRef.current?.classList.contains("nexus-carousel--per-slide-height-sync"))
+      ) {
+        return;
+      }
+      if (width > 0) {
+        lastObservedWidth = width;
+      }
+      if (height > 0) {
+        lastObservedHeight = height;
+      }
+      scheduleRowHeightSync();
+    });
     observer.observe(root);
-    root.querySelectorAll(".nexus-carousel__slide").forEach((node) => {
-      observer.observe(node);
+
+    const mutationObserver = new MutationObserver(() => {
+      if (shouldSkipRowHeightSync()) return;
+      scheduleRowHeightSync();
+    });
+    mutationObserver.observe(root, {
+      childList: true,
+      subtree: true,
     });
 
     return () => {
       cancelAnimationFrame(rafId);
       observer.disconnect();
+      mutationObserver.disconnect();
+      clearRowHeightSync();
+      clearPerSlideHeightSync();
     };
   }, [
-    maxHeightCapPx,
+    activeSlideIndex,
     autoMinHeightPx,
+    carouselIndex,
     count,
     editLayoutMode,
-    singleSlideEditView,
+    hasFixedHeight,
+    maxHeightCapPx,
     slidesPerView,
+    singleSlideEditView,
     syncPuckOverlay,
     viewportWidth,
   ]);
@@ -1372,6 +1638,8 @@ function NexusCarouselBody({
         emblaLoop && "nexus-carousel--loop",
         !emblaLoop && "nexus-carousel--no-loop",
         singleSlideEditView && "nexus-carousel--edit-single-slide",
+        singleVisibleLayout && "nexus-carousel--single-visible",
+        equalRowLayout && "nexus-carousel--equal-row-height",
         editStaticFit && "nexus-carousel--edit-static-fit",
         staticFit && "nexus-carousel--static-fit",
         multiSlideEditWysiwyg && "nexus-carousel--edit-wysiwyg",
@@ -1419,7 +1687,7 @@ function NexusCarouselBody({
         <CarouselContent
           className={cn(
             "ml-0 flex flex-nowrap",
-            (hasFixedHeight || editLayoutMode) && "items-stretch",
+            (hasFixedHeight || equalRowLayout) && "items-stretch",
             hasFixedHeight && "nexus-carousel__track--fixed h-full",
             editLayoutMode && "nexus-carousel__track--edit",
           )}
@@ -1430,8 +1698,7 @@ function NexusCarouselBody({
                 key={idx}
                 className={cn(
                   "pl-0",
-                  editLayoutMode && "self-stretch",
-                  hasFixedHeight && "h-full self-stretch",
+                  (hasFixedHeight || equalRowLayout) && "h-full self-stretch",
                 )}
               >
                 <div
@@ -1449,7 +1716,11 @@ function NexusCarouselBody({
                   onClick={editLayoutMode ? (event) => handleSlideActivate(idx, event) : undefined}
                 >
                   <CarouselSlideMediaProvider>
-                    {renderSlideContent(slide.content, editLayoutMode, autoMinHeightPx)}
+                    {renderSlideContent(
+                      slide.content,
+                      editLayoutMode,
+                      editDropZoneMinHeightPx,
+                    )}
                   </CarouselSlideMediaProvider>
                 </div>
               </CarouselItem>

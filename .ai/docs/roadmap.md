@@ -45,7 +45,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [ ] **Asynchronous Acknowledgements:** Implement explicit confirmation triggers for dispatched tasks (flagged as "Delivered, Unacknowledged" until confirmed).
 - [ ] **Constant Reminders System:** Allow admins to create long-term scheduled reminders dispatched to users or specific roles via Telegram/Discord.
 - [ ] **Community Interactions:** Build comment sections for news posts, allowing ordinary users to comment, propose ideas, and submit applications.
-- [ ] **Notion-Style Text Editor:** Build the rich text editor for writing news, pages, and reports.
+- [~] **Notion-Style Text Editor:** Site-wide TipTap kit with `@` user/page mentions — see `.ai/docs/features/nexus_rich_text_editor.md`. Page hover preview cards remain planned.
 - [ ] **News Hub:** Implement the news layout with multiple categories (Current, Sport, Announcements) and tile covers.
 
 ---

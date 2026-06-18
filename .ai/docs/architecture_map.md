@@ -39,7 +39,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
 | `src/app/admin/global-layout/` | Admin Global Layout Editor page | Active |
-| `src/app/api/puck/` | REST API for loading/saving Puck page layouts to MongoDB | Active |
+| `src/app/api/puck/` | REST API for loading/saving/deleting Puck page layouts to MongoDB | Active |
 | `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
 | `src/app/api/global-layout/` | REST API for global layout settings | Active |
 | `src/app/api/upload/` | REST API for media uploads via {@link MediaDomain} | Active |
@@ -51,6 +51,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/api/auth/` | Auth.js handler, register, Telegram widget + Mini App verify | Active |
 | `src/app/api/telegram/` | Telegram Bot API webhook (`/api/telegram/webhook`) | Active |
 | `src/app/api/profile/` | PATCH user profile; DELETE `/api/profile/telegram` unlink | Active |
+| `src/app/api/mentions/` | Mention autocomplete for rich text editor (`/api/mentions/search`) | Active |
 | `src/auth.ts` | Auth.js configuration (providers, callbacks, session) | Active |
 | `src/auth.config.ts` | Edge-safe Auth.js config for middleware | Active |
 | `src/middleware.ts` | Route protection for `/profile/*`, `/admin/*`; `Accept-CH` for theme hints | Active |
@@ -61,12 +62,14 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/` | Reusable UI primitives bound to design tokens | Active |
 | `src/components/background/` | `InfiniteGrid` dual-canvas client component (`isContained` + `isStatic` freezes scroll only); `infiniteGridIconLoader.ts` for WebKit-safe SVG rasterization; `logo-grid.svg` for both themes; `z-index:0` stacking | Active |
 | `src/components/ui/` | Shared UI: Shadcn/Base UI primitives (`button`, `card`, `carousel`, `accordion`, `select`, `command`, `dialog`, `drawer`, `spinner`), `SiteLoader`, `GlobalHeader`, `SiteHeaderBar`, `ThemeProvider` | Active |
+| `src/components/editor/` | Site-wide TipTap rich text editor with `@` mentions (`NexusRichTextEditor`, `NexusRichTextView`, TipTap extensions) | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
 | `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `CoverMediaFrame`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
-| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `nexusGridItemZonePolicy.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
+| `src/components/puck/lib/` | Shared helpers (`puckDataTree.ts`, `applyIslandDefaultsOnInsert.ts`, `nexusGridItemZonePolicy.ts`, `gridEditSizing.ts`, `canvasDropTargetLogic.ts`, `pageRootFieldProps.ts`, `blockFieldChapters.tsx`, `spacingFields.tsx`, `contentWidthTokens.ts`, …) | Active — **no** `*.test.ts` (tests live in `tests/puck/lib/`) |
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`) | Active |
-| `src/lib/` | App-local utilities and constants (no React, no routes) — includes `mediaUploadClient.ts`, `assets.ts`, `dragAutoScrollLogic.ts` | Active |
+| `src/lib/` | App-local utilities and constants (no React, no routes) — includes `mediaUploadClient.ts`, `assets.ts`, `dragAutoScrollLogic.ts`, `nexusEditor/` | Active |
+| `src/lib/nexusEditor/` | Rich text sanitizer, mention query client, slash command catalog for {@link NexusRichTextEditor} | Active |
 | `src/lib/mediaUploadClient.ts` | App-wide browser upload helper (`POST /api/upload` + purpose) | Active |
 
 ## `tests/` Sub-directories
@@ -94,6 +97,9 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/domains/TelegramBotDomain.ts` | Telegram Bot API webhook dispatch (`/start`, Mini App button) | Active |
 | `shared/lib/verifyTelegramWebAppInitData.ts` | HMAC verification for Telegram Mini App `initData` | Active |
 | `shared/domains/MediaDomain.ts` | Media upload validation + storage provider orchestration | Active |
+| `shared/domains/PageDomain.ts` | Puck page persistence mutations (delete by path) | Active |
+| `shared/domains/MentionDomain.ts` | User + page mention search for rich text `@` autocomplete | Active |
+| `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
 | `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
 | `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS stub) | Active |
 | `shared/validation/` | Centralized Zod validation schemas and format utilities | Active |

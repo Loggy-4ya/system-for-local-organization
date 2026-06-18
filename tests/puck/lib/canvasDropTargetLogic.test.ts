@@ -29,6 +29,7 @@ import {
   resolveCanvasDropOverlayGeometry,
   resolveCanvasDropTargetMetrics,
   resolveCanvasDropProbePoint,
+  resolveGridItemDropZoneAtPoint,
   resolveCanvasSlotKind,
   resolveSectionDropZoneAtPoint,
   resolveCanvasDropZoneMeasureElement,
@@ -929,7 +930,72 @@ describe("setCanvasDragMarker", () => {
   });
 });
 
+describe("resolveGridItemDropZoneAtPoint — shell card hit-test", () => {
+  it("resolves the grid item drop zone from pointer position on the cell shell", () => {
+    const dropZone = {
+      className: "nexus-grid-item nexus-grid-item__dropzone",
+      classList: {
+        contains: (name: string) =>
+          name === "nexus-grid-item" || name === "nexus-grid-item__dropzone",
+      },
+      getAttribute: (name: string) =>
+        name === "data-puck-dropzone" ? "grid-item-1:content" : null,
+      contains: () => false,
+      closest: () => null,
+      getBoundingClientRect: () => ({
+        left: 48,
+        right: 348,
+        top: 520,
+        bottom: 760,
+        width: 300,
+        height: 240,
+      }),
+    } as unknown as HTMLElement;
+
+    const shell = {
+      className: "nexus-grid-item-shell nexus-grid-item--edit",
+      classList: { contains: (name: string) => name === "nexus-grid-item-shell" },
+      querySelector: () => dropZone,
+      getBoundingClientRect: () => ({
+        left: 40,
+        right: 360,
+        top: 512,
+        bottom: 768,
+        width: 320,
+        height: 256,
+      }),
+    } as unknown as HTMLElement;
+
+    const previewDoc = {
+      documentElement: {},
+      querySelectorAll: (selector: string) =>
+        selector === ".nexus-grid-item-shell" ? [shell] : [],
+    } as unknown as Document;
+
+    const zone = resolveGridItemDropZoneAtPoint(previewDoc, 120, 600, null);
+    assert.equal(zone?.getAttribute("data-puck-dropzone"), "grid-item-1:content");
+  });
+});
+
 describe("resolveCanvasDropZoneMeasureElement", () => {
+  it("uses the grid item shell for cell bounds", () => {
+    const shell = {
+      getBoundingClientRect: () => ({ width: 320, height: 256 }),
+    };
+    const dropZone = {
+      classList: {
+        contains: (name: string) =>
+          name === "nexus-grid-item" || name === "nexus-grid-item__dropzone",
+      },
+      closest: (selector: string) =>
+        selector === ".nexus-grid-item-shell" ? shell : null,
+      getBoundingClientRect: () => ({ width: 300, height: 240 }),
+    } as unknown as HTMLElement;
+
+    assert.equal(resolveCanvasDropZoneMeasureElement(dropZone), shell);
+    assert.equal(getCanvasDropZoneMeasureRect(dropZone).height, 256);
+  });
+
   it("keeps grid cell bounds when the slot is inside a carousel slide", () => {
     const slide = {
       getBoundingClientRect: () => ({ width: 400, height: 280 }),

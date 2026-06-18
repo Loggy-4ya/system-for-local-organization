@@ -5,6 +5,7 @@
  */
 
 import type { Data } from "@puckeditor/core";
+import { DEFAULT_CONTENT_WIDTH } from "./contentWidthTokens";
 import { ISLAND_DEFAULTS, SPACING_DEFAULTS } from "./spacingFields";
 
 /** Shared spacing defaults for starter child blocks (no island — parent section owns the shell). */

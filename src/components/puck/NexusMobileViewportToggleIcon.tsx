@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * @fileoverview Mobile viewport FAB icon — reflects the active canvas preset when collapsed.
+ * @fileoverview Viewport FAB icon — reflects the active canvas preset when collapsed.
  *
- * Puck's fullScreen toggle always renders a monitor icon when collapsed. On phones this
- * enhancer portals the matching preset icon (phone / tablet / desktop / full-width).
+ * Puck's toggle always renders a monitor icon when collapsed. This enhancer portals
+ * the matching preset icon (phone / tablet / desktop / full-width) on desktop and compact.
  *
  * @module src/components/puck/NexusMobileViewportToggleIcon
  */
@@ -14,17 +14,10 @@ import { createPortal } from "react-dom";
 import { Expand, Monitor, Smartphone, Tablet } from "lucide-react";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
 import { NEXUS_EDITOR_VIEWPORTS } from "@/components/puck/lib/resolveAutoViewport";
-import { matchesCompactEditorViewport, PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
+import { PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Cached toggle node for stable `useSyncExternalStore` snapshots. */
 let cachedToggleButton: HTMLButtonElement | null = null;
-
-/**
- * @returns Whether the editor is in Puck's mobile chrome breakpoint.
- */
-function isMobileEditorChrome(): boolean {
-  return matchesCompactEditorViewport();
-}
 
 /** Shared Lucide props for the collapsed viewport toggle glyph. */
 const VIEWPORT_TOGGLE_ICON_PROPS = { size: 16, strokeWidth: 2 } as const;
@@ -53,18 +46,18 @@ function renderViewportToggleIcon(width: number | "100%"): ReactNode {
 }
 
 /**
- * Locate Puck's collapsed fullScreen viewport toggle button.
+ * Locate Puck's collapsed viewport toggle button (desktop top FAB or compact bottom FAB).
  *
  * @returns Toggle button, or null when unavailable or tray is expanded.
  */
 function getCollapsedToggleButton(): HTMLButtonElement | null {
-  if (typeof document === "undefined" || !isMobileEditorChrome()) {
+  if (typeof document === "undefined") {
     cachedToggleButton = null;
     return null;
   }
 
   const button = document.querySelector(
-    '.Puck [class*="ViewportControls--fullScreen"]:not([class*="ViewportControls--isExpanded"]) [class*="ViewportControls-toggleButton_"]',
+    '.Puck [class*="ViewportControls"]:not([class*="ViewportControls--isExpanded"]) [class*="ViewportControls-toggleButton_"]',
   ) as HTMLButtonElement | null;
 
   if (button === cachedToggleButton) {
@@ -100,7 +93,7 @@ function subscribeCollapsedToggle(onStoreChange: () => void): () => void {
 }
 
 /**
- * Portals the active viewport preset icon into Puck's collapsed mobile FAB.
+ * Portals the active viewport preset icon into Puck's collapsed viewport FAB.
  *
  * @returns null — renders via portal when the native toggle exists.
  */

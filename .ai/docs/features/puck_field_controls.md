@@ -67,6 +67,7 @@ Effective inset to label text ≈ **20px** desktop (12 + 8), **24px** mobile (12
 | Use default `.nexus-segmented__btn` outside plugin scope | Base styles use grey fill + rounded borders (marketing forms) |
 | Add `glass-panel` / card wrappers inside chapter bodies | Breaks Blocks/Outline/Fields parity |
 | Add `width: 100%` without `margin-inline: var(--nexus-plugin-panel-gutter-x)` | Controls bleed to panel edges |
+| Custom `border-top` / extra padding on a subsection inside a `FieldChapter` | Breaks divider rhythm — use `.nexus-field-category` `border-bottom` from `puck-editor.css` |
 | Duplicate divider logic per field file | Dividers come from `.nexus-field-category` + `.nexus-sidebar-field` CSS |
 
 ## Related

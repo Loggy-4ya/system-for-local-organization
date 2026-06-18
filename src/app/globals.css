@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./tw-animate.css";
 @import "./shadcn-tailwind.css";
+@import "./nexus-editor.css";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Nexus Design System — CSS Custom Properties
@@ -554,6 +555,26 @@ body {
   text-decoration-color: var(--color-accent-user);
 }
 
+.nexus-rich-text .nexus-mention {
+  vertical-align: baseline;
+}
+
+.nexus-rich-text hr {
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin: 0.75em 0;
+}
+
+.nexus-rich-text pre {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  margin: 0 0 0.65em;
+  overflow-x: auto;
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
 /* ── Carousel (NexusCarousel published output) ──────────────────────────── */
 .nexus-carousel {
   --nexus-carousel-gap: 0.75rem;
@@ -653,6 +674,61 @@ body {
   min-height: var(--nexus-carousel-auto-min-height, 240px);
 }
 
+/* Row-height sync — viewport matches measured content row (edit + interactive). */
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) .nexus-carousel__swipe-host,
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport {
+  height: var(--nexus-carousel-row-height);
+  max-height: var(--nexus-carousel-max-height, none);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] {
+  height: 100%;
+  max-height: var(--nexus-carousel-max-height, none);
+}
+
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
+  align-items: stretch;
+  height: 100%;
+}
+
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"] {
+  align-self: stretch;
+}
+
+.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height) .nexus-carousel__slide {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.nexus-carousel--edit.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide {
+  min-height: var(--nexus-carousel-row-height);
+}
+
+/* Occupied slots stay content-sized at the top of equal-height slide cards (interactive only). */
+.nexus-carousel--interactive.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide
+  [data-puck-dropzone][class*="DropZone--hasChildren"],
+.nexus-carousel--interactive.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide
+  .nexus-carousel__dropzone,
+.nexus-carousel--interactive.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height)
+  .nexus-carousel__slide-dropzone-shell {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--single-visible:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__viewport {
+  min-height: 0;
+}
+
 .nexus-carousel__slide {
   display: flex;
   flex-direction: column;
@@ -693,8 +769,9 @@ body {
 }
 
 .nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
-  .nexus-carousel__slide-dropzone-shell,
-.nexus-carousel--edit .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
+  .nexus-carousel__slide-dropzone-shell:not(:has(.nexus-grid)),
+.nexus-carousel--edit:not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide:has([data-puck-component]):not(:has(.nexus-carousel__slide-media-fill))
   [data-puck-dropzone] {
   flex: 1 1 auto;
   height: auto;
@@ -1039,7 +1116,13 @@ body {
 .nexus-carousel--edit.nexus-carousel--in-grid-cell .nexus-carousel__slide {
   flex: 0 0 auto;
   height: auto;
-  overflow: visible;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide:has(.nexus-grid),
+.nexus-carousel--edit.nexus-carousel--in-grid-cell .nexus-carousel__slide:has(.nexus-grid) {
+  min-height: 0;
 }
 
 [data-puck-dragging] .nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide,
@@ -1206,13 +1289,121 @@ body {
   }
 }
 
-/* Auto-height carousels — equalize slide heights to tallest slide in the track */
+/* Auto-height carousels — equal row when multiple slides are visible. */
 .nexus-carousel [data-slot="carousel-content"] > .flex {
   flex-wrap: nowrap !important;
 }
 
-.nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex {
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-content"]
+  > .flex {
   align-items: stretch;
+}
+
+/* Adaptive auto height — no 240px viewport floor when row is content-sized. */
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__swipe-host,
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__viewport {
+  height: auto;
+  min-height: 0;
+  max-height: var(--nexus-carousel-max-height, none);
+  overflow: hidden;
+}
+
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-content"] {
+  height: auto;
+  max-height: var(--nexus-carousel-max-height, none);
+}
+
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-content"]
+  > .flex {
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-item"] {
+  align-self: stretch;
+}
+
+.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide {
+  height: auto;
+  min-height: 0;
+}
+
+/* Interactive multi-slide — occupied slots stay content-sized; empty slides follow stretch. */
+.nexus-carousel--interactive.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--interactive.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide
+  .nexus-carousel__dropzone,
+.nexus-carousel--interactive.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide
+  [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-carousel--interactive.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide:not(:has([data-puck-component])) {
+  min-height: 0;
+}
+
+.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync):not(.nexus-carousel--equal-row-height)
+  [data-slot="carousel-content"]
+  > .flex {
+  align-items: flex-start;
+}
+
+/*
+ * Single-visible interactive fallback before row sync paints.
+ */
+.nexus-carousel--spv-1:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync) [data-slot="carousel-content"] > .flex {
+  align-items: flex-start;
+}
+
+.nexus-carousel--spv-1:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync) [data-slot="carousel-item"],
+.nexus-carousel--spv-1:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync) .nexus-carousel__slide {
+  height: auto;
+}
+
+.nexus-carousel--spv-1:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync) .nexus-carousel__viewport {
+  height: auto;
+  min-height: 0;
+}
+
+@container nexus-carousel (max-width: 639px) {
+  .nexus-carousel--spv-auto:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+    [data-slot="carousel-content"]
+    > .flex {
+    align-items: flex-start;
+  }
+
+  .nexus-carousel--spv-auto:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+    [data-slot="carousel-item"],
+  .nexus-carousel--spv-auto:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+    .nexus-carousel__slide {
+    height: auto;
+  }
+
+  .nexus-carousel--spv-auto:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+    .nexus-carousel__viewport {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-item"],
+.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide {
+  height: auto;
+  min-height: 0;
 }
 
 .nexus-carousel:not(.nexus-carousel--fixed-height) [data-slot="carousel-item"],
@@ -2287,10 +2478,10 @@ html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [dat
 
 @media (min-width: 1024px) {
   .nexus-theme-toggle.nexus-editor-header-btn {
-    height: var(--site-header-theme-toggle-height);
-    min-height: var(--site-header-theme-toggle-height);
-    min-width: var(--site-header-theme-toggle-width);
-    width: var(--site-header-theme-toggle-width);
+    height: var(--site-header-desktop-chip-height);
+    min-height: var(--site-header-desktop-chip-height);
+    min-width: var(--site-header-theme-toggle-track-width);
+    width: var(--site-header-theme-toggle-track-width);
   }
 }
 

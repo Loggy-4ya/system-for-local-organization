@@ -5,6 +5,9 @@
  */
 
 import { clearMobilePreviewViewportOverrides } from "@/components/puck/lib/mobilePanelPreviewSync";
+import {
+  isCompactPluginPanelOpen,
+} from "@/components/puck/lib/canvasIslandStackSync";
 import { recordMobileScrollportShellMetrics } from "@/components/puck/lib/mobileScrollportGridFreeze";
 import {
   clampMobilePanelHeightPx,
@@ -69,20 +72,39 @@ export const NEXUS_PANEL_ROW_OPEN_ATTR = "data-nexus-panel-row-open";
 export function applyMobilePanelHeight(value: string): void {
   document.documentElement.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
 
+  syncPanelRowOpenAttr(value);
+
+  const layout = resolveLayoutInner();
+  if (!layout) {
+    return;
+  }
+
+  const current = layout.style.getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR);
+  if (current === value) {
+    return;
+  }
+
+  layout.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
+}
+
+/**
+ * Sync `data-nexus-panel-row-open` from the height token (deferred while height eases).
+ *
+ * @param value - CSS length applied to `--nexus-mobile-panel-height`.
+ */
+function syncPanelRowOpenAttr(value: string): void {
   const parsed = Number.parseFloat(value);
-  if (Number.isFinite(parsed) && parsed > 0) {
+  const heightEasing =
+    document.documentElement.hasAttribute(NEXUS_PANEL_OPENING_ATTR) ||
+    document.documentElement.hasAttribute(NEXUS_PANEL_CLOSING_ATTR) ||
+    document.documentElement.hasAttribute(NEXUS_PANEL_EXPANDING_ATTR) ||
+    document.documentElement.hasAttribute(NEXUS_PANEL_COLLAPSING_ATTR);
+
+  if (Number.isFinite(parsed) && parsed > 0 && !heightEasing) {
     document.documentElement.setAttribute(NEXUS_PANEL_ROW_OPEN_ATTR, "");
   } else {
     document.documentElement.removeAttribute(NEXUS_PANEL_ROW_OPEN_ATTR);
   }
-
-  const layout = resolveLayoutInner();
-  if (!layout) return;
-
-  const current = layout.style.getPropertyValue(NEXUS_MOBILE_PANEL_HEIGHT_VAR);
-  if (current === value) return;
-
-  layout.style.setProperty(NEXUS_MOBILE_PANEL_HEIGHT_VAR, value);
 }
 
 /**
@@ -240,7 +262,7 @@ export function resetCompactPanelSidebarScroll(): void {
 
   sidebar
     .querySelectorAll<HTMLElement>(
-      '[class*="SidebarSection-content"], [class*="FieldsPlugin"], .nexus-outline-plugin, [class*="Drawer"]',
+      '[class*="PuckPluginTab-body"], [class*="SidebarSection-content"], [class*="FieldsPlugin"], .nexus-outline-plugin, [class*="Drawer"]',
     )
     .forEach((scrollEl) => {
       scrollEl.scrollTop = 0;
@@ -249,9 +271,17 @@ export function resetCompactPanelSidebarScroll(): void {
 
 /**
  * Restore persisted compact panel height when valid.
+ *
+ * When the plugin panel is closed, keeps `--nexus-mobile-panel-height` at `0px` so open
+ * animations always ease from zero (persisted height is read from storage on open instead).
  */
 export function restorePersistedPanelHeight(): void {
   if (typeof window === "undefined") return;
+
+  if (!isCompactPluginPanelOpen()) {
+    applyMobilePanelHeight("0px");
+    return;
+  }
 
   try {
     const raw = localStorage.getItem(NEXUS_MOBILE_PANEL_HEIGHT_STORAGE_KEY);
@@ -587,8 +617,8 @@ export function shouldSkipMobilePanelOpenAnimation(
 /**
  * Animate compact plugin panel height between two pixel values.
  *
- * Uses the native `grid-template-rows` CSS transition (compact ≤900px) instead of
- * per-frame JS writes so weak devices perform one compositor-friendly pass.
+ * Uses the registered `@property --nexus-mobile-panel-height` CSS transition on
+ * `PuckLayout-inner` instead of per-frame JS writes so weak devices perform one pass.
  *
  * @param fromPx - Starting height in px.
  * @param toPx - Target height in px.
@@ -638,27 +668,29 @@ export function animateMobilePanelHeight(
     }
 
     applyMobilePanelHeight(`${toPx}px`);
-    options?.onComplete?.();
 
     if (options?.htmlAttr === NEXUS_PANEL_CLOSING_ATTR) {
+      options?.onComplete?.();
+      document.documentElement.removeAttribute(options.htmlAttr);
+      syncPanelRowOpenAttr(`${toPx}px`);
+      endMobilePanelLayoutMutation();
       if (activePanelHeightAnimationCancel === cancel) {
         activePanelHeightAnimationCancel = null;
       }
       return;
     }
 
-    const finalizeMutation = () => {
-      if (options?.htmlAttr) {
-        document.documentElement.removeAttribute(options.htmlAttr);
-      }
+    options?.onComplete?.();
 
-      endMobilePanelLayoutMutation();
-      if (activePanelHeightAnimationCancel === cancel) {
-        activePanelHeightAnimationCancel = null;
-      }
-    };
+    if (options?.htmlAttr) {
+      document.documentElement.removeAttribute(options.htmlAttr);
+    }
 
-    finalizeMutation();
+    syncPanelRowOpenAttr(`${toPx}px`);
+    endMobilePanelLayoutMutation();
+    if (activePanelHeightAnimationCancel === cancel) {
+      activePanelHeightAnimationCancel = null;
+    }
   };
 
   const cancel = () => {
@@ -777,19 +809,39 @@ const PANEL_MUTATION_ATTRS = [
 ] as const;
 
 /**
- * Clear animation flags so the slide-up plugin panel accepts scroll and pointer input.
+ * Clear resize-only flags so the slide-up plugin panel accepts scroll and pointer input.
  *
- * Call after open/expand/collapse animations finish or when skipping height easing.
+ * Opening/closing/expanding/collapsing attrs are owned by {@link animateMobilePanelHeight}
+ * — removing them here caused header/island settle snaps before the ease finished.
  */
 export function releaseMobilePanelSidebarForInteraction(): void {
   if (typeof document === "undefined") return;
 
-  document.documentElement.removeAttribute(NEXUS_PANEL_OPENING_ATTR);
-  document.documentElement.removeAttribute(NEXUS_PANEL_CLOSING_ATTR);
-  document.documentElement.removeAttribute(NEXUS_PANEL_EXPANDING_ATTR);
-  document.documentElement.removeAttribute(NEXUS_PANEL_COLLAPSING_ATTR);
-  document.documentElement.removeAttribute(NEXUS_PANEL_LAYOUT_MUTATING_ATTR);
-  endMobilePanelLayoutMutation();
+  document.documentElement.removeAttribute(NEXUS_PANEL_RESIZING_ATTR);
+}
+
+/**
+ * Clear stuck focus / press state on compact bottom-rail nav tabs after panel dismiss.
+ *
+ * Touch taps can leave `:hover` or focus on the active tab; blur every nav link so
+ * closed-panel styling wins immediately.
+ */
+export function clearCompactNavTabPressChrome(): void {
+  if (typeof document === "undefined") return;
+
+  document.querySelectorAll('.Puck [class*="NavItem-link"]').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.blur();
+    }
+  });
+
+  const activeElement = document.activeElement;
+  if (
+    activeElement instanceof HTMLElement &&
+    activeElement.closest('.Puck [class*="PuckLayout-nav"]')
+  ) {
+    activeElement.blur();
+  }
 }
 
 /**
@@ -822,6 +874,7 @@ export function resetCompactPanelChromeAfterClose(): void {
 
   applyMobilePanelHeight("0px");
   cleanupCompactPanelOverlayChrome();
+  clearCompactNavTabPressChrome();
   endMobilePanelCloseSettling();
   endMobilePanelLayoutMutation();
 }

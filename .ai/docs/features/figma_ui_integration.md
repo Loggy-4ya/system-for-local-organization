@@ -256,7 +256,6 @@ Review and approval interface for student submissions:
 | `Tag/Role` | Merged into `NexusUserBadge` | User & Data | `136:30` | Implemented |
 | `Section` | `NexusSection` | Layout | — | Implemented |
 | `Grid` | `NexusGrid` | Layout | — | Implemented |
-| `Columns` | `NexusColumns` | Layout | — | Implemented |
 | `Spacer` / `Divider` | `NexusSpacer` *(Spacer & Divider)* | Layout | — | Implemented (merged; style presets for space, line, section break) |
 | `Sidebar/Admin` | `AdminSidebar` | Sidebar | `138:42` | Planned (Phase 3) |
 | `NavItem` | `NexusNavItem` | Navigation | `137:25` | Planned (Phase 3) |

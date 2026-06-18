@@ -236,7 +236,10 @@ function PuckHeaderActionsOverride() {
         <span className="nexus-puck-header-actions__error">{error}</span>
       ) : null}
 
-      <ThemeToggle className="nexus-editor-header-btn nexus-puck-header-actions__theme" />
+      <ThemeToggle
+        variant="sidebar"
+        className="nexus-editor-header-btn nexus-puck-header-actions__theme"
+      />
 
       <Link
         href="/pages"

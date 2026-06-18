@@ -17,9 +17,7 @@ All components are registered under `src/components/puck/config.tsx` and organiz
 ### A. Layout Category
 For structural composition and nested drag-and-drop grids:
 - **`NexusSection`** — Wraps content in the standard `.page-shell` container to enforce consistent horizontal alignment and vertical padding.
-- **`NexusGrid`** — CSS grid container (1–12 columns, configurable gap). Slot composition: `content` **allow** `NexusGridItem` only (no direct `NexusGrid` children).
-- **`NexusGridItem`** — Grid cell with column/row span. **Placement:** only inside `NexusGrid` `content` (valid zone: `{gridId}:content`). Full policy spec: [`puck_grid_item_zone_policy.md`](puck_grid_item_zone_policy.md). Slot composition: `content` **disallow** `NexusGridItem` and `NexusGrid`.
-- **`NexusColumns`** — Fixed 2-column split with asymmetrical ratio controls (e.g. 50/50, 60/40, 70/30).
+- **`NexusGrid`** — CSS grid container (1–12 columns, configurable gap). **Grid cells** are managed via the block sidebar `items` array (add / remove / drag-reorder like carousel slides). Each cell has column/row span + a nested `content` slot. Canvas: drag empty cell chrome to reorder cells; drag blocks into cell slots as before. Legacy standalone `NexusGridItem` blocks migrate on load via `migrateLegacyNexusGridItems`.
 - **`NexusSpacer`** *(sidebar label: **Spacer & Divider**)* — Single layout block for vertical spacing **and** horizontal rules. One top-level **Style Preset** bundles height, line visibility, thickness, width, color, and alignment. Preset groups:
   - **Space** — XS → 2XL (gap only)
   - **Divider** — full-width thin/medium/thick; centered 50% / 20%
@@ -189,24 +187,26 @@ Nexus uses **Puck 0.21** (`@puckeditor/core`) with the default **plugin rail** �
 
 ### 6c. Canvas drag-and-drop (slot reparenting)
 
-> **2026-06-16:** `NexusCanvasDragCoordinator` is **unmounted** — stock Puck pointer collision is active (top grab → nest in containers; bottom grab → sibling insert). Coordinator sources remain for a future fix.
+> **2026-06-17:** Custom canvas drag coordinator **disabled** again — stock Puck `@dnd-kit` collision only (browser regressions with hybrid probe / post-drop overrides). Coordinator sources remain unmounted for future rework.
 
-On the **preview canvas**, drag an existing block by its overlay handle and drop it into any slot (carousel slide, grid cell, tab panel, column, section). Nexus slot CSS classes (`nexus-*__dropzone`) remain on layout blocks for Puck's native drop zones.
+> **2026-06-16:** Coordinator was briefly unmounted while stock Puck collision was evaluated.
+
+On the **preview canvas**, drag an existing block by its overlay handle and drop it into any slot (carousel slide, grid cell, tab panel, column, section). Nexus slot CSS classes (`nexus-*__dropzone`) remain on layout blocks for Puck's native drop zones. **Grid cell inner drops** (e.g. Video into an empty cell) use carousel-parity shell + flex fill + hidden append hitboxes — see [`puck_canvas_drag_drop.md` §2a](./puck_canvas_drag_drop.md#2a-grid-item-drop-targeting-carousel-parity-stock-puck).
 
 | File | Role |
 |------|------|
 | [`NexusCanvasDragCoordinator.tsx`](../../src/components/puck/NexusCanvasDragCoordinator.tsx) | *(disabled)* Overlay drop previews + post-drop reparent — not mounted |
 | [`canvasDropTargetLogic.ts`](../../src/components/puck/lib/canvasDropTargetLogic.ts) | Pure sizing math — used only when coordinator is enabled |
 | [`puck-editor.css`](../../src/app/puck-editor.css) | `[data-puck-dragging]` helpers (partially inactive without coordinator marker) |
-| Layout slot blocks | `nexus-section__dropzone`, `nexus-columns__dropzone`, `nexus-grid`, `nexus-grid-item`, carousel/tabs markers |
+| Layout slot blocks | `nexus-section__dropzone`, `nexus-grid`, `nexus-grid-item`, carousel/tabs markers |
 
 **Tests:** `npm run test:canvas-drop-target` · Full spec: [puck_canvas_drag_drop.md](./puck_canvas_drag_drop.md)
 
-**Auto viewport:** On **Full-width**, canvas preview width follows measured canvas frame width when the frame is wider than a fixed preset. **Phone / Tablet / Desktop** presets stay selected at **≥1× zoom** (letterbox gutters when the frame is wider; horizontal scroll when the frame is narrower — no shrink-to-fit squash). Auto-sync does not replace fixed presets with full-width.
+**Auto viewport:** On **Full-width**, canvas preview width follows measured canvas frame width when the frame is wider than a fixed preset. **Phone / Tablet / Desktop** presets stay selected; auto-sync does not replace them with full-width.
 
-**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` floors auto-fit zoom at **1×** for all fixed presets — when the canvas frame is wider, letterbox gutters appear; when narrower, the canvas scrolls horizontally instead of shrinking the preview. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking.
+**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` via `floorLetterboxDevicePreviewZoom`: when the canvas frame is **wider** than the preset, auto-fit zoom scales up moderately (capped at **1.42×**, targeting **72%** of frame width) so narrow phone presets fill the canvas without overshooting; when the frame is **narrower** (phones, tablets, DevTools), Puck **shrink-to-fit** scales the preview down so the full device width stays visible without horizontal clipping. `canvasLetterboxScrollport.ts` expands the inner scrollport and chains wheel events to the canvas shell when scaled previews overflow vertically. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking. **Edit-mode canvas bounds:** `PageRoot` + preview iframe CSS stay **content-sized** (no `min-height: 100%` stretch); `previewContentHeight.ts` clamps Puck `rootHeight` to measured page content so the letterbox grid does not scroll through empty infinity (`npm run test:preview-content-height`).
 
-**Viewport island:** Canvas device/zoom controls styled as a centered Nexus glass pill; on compact layouts (≤900px) `_experimentalFullScreenCanvas` collapses controls into a bottom-right FAB that expands into an animated pill. When the plugin panel is closed, the expanded pill sits bottom-center; when the panel is open, it anchors top-center of the canvas so device preset buttons are not obscured by the panel resize handle.
+**Viewport island:** Canvas device/zoom controls styled as a Nexus glass pill. **Desktop collapsed:** preset FAB in the **top-right** of the canvas. **Desktop expanded:** pill **horizontally centered** with the **close (X) on the left**. **Compact:** collapsed FAB bottom-right; expanded pill bottom-center (panel closed) or top-center (panel open). Tap FAB to expand, X to close.
 
 **Compact panel resize:** When a bottom-rail tab is open (≤900px), drag the handle on the panel top edge to resize height (160px min, `min(60vh, 480px)` max). **Drag down past the minimum to dismiss** — release below ~35% of start height (capped at 120px) fully closes the panel (`leftSideBarVisible: false`) and resets persisted height to the default (~30vh) so the next section-tab open animates to default height. **Blocks palette placement:** while drafting a block from the **Blocks** tab toward the canvas, the panel auto-closes as soon as the palette drag starts (touch-safe) or when the finger/pointer leaves the panel overlay — so the canvas stays clear for drop placement. Canvas taps, canvas reparent drags, and Outline/Fields sidebar drags do **not** trigger this path. Double-tap the active tab to expand to max or restore the previous height; single-tap the active tab to close with a smooth animation (preserves resized height); opening a tab animates the panel from 0 to the persisted height. The maximize button is hidden; nav tabs are spread evenly across the bar. Height persists in `nexus-mobile-panel-height` localStorage.
 
@@ -237,7 +237,7 @@ src/components/puck/
 ├── root/
 │   └── PageRoot.tsx        # Root layout & background picker
 └── blocks/
-    ├── layout/             # Section, Grid, Columns, Spacer & Divider (NexusSpacer)
+    ├── layout/             # Section, Grid, Spacer & Divider (NexusSpacer)
     ├── content/            # Heading, Text, Button, Tabs, Input
     ├── news/               # NewsCard
     └── user/               # UserBadge, StatCard, Avatar
@@ -261,6 +261,12 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 - **Safety Guards:** The homepage at `/` is **not** Puck-managed (see `src/app/page.tsx` in code). Visiting `/edit` redirects to Page Manager. Puck pages use `/<slug>/edit`. Slugs `edit`, `pages`, and `api` are reserved. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
 - **Page edit FAB:** Published Puck CMS routes (any MongoDB page except the code-only homepage) show a fixed bottom-right **Edit** button for `Admin` and `StudentCouncil` sessions (`PageEditFab`, `pageEditAccess.ts`). Links to `/<path>/edit`; hidden in editor mode.
 - **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
+
+### D. Page Deletion
+- **Sidebar control:** `PageSettingsFieldGroup` shows a **Danger Zone** with **Delete Page** when the open editor route maps to an existing MongoDB document (`editorPagePersistedRef` store + `useSyncExternalStore`). Unpublished drafts opened from Page Manager (no document yet) hide the control until the first successful publish.
+- **Confirmation:** Browser `confirm()` dialog names the page title and path before the request is sent.
+- **API:** `DELETE /api/puck?path=<path>` — session or legacy bearer auth; `Admin` / `StudentCouncil` when auth is enabled (`canEditPages`). Delegates to `PageDomain.deleteByPath`.
+- **Guards:** Homepage (`/`) and reserved app-route slugs cannot be deleted. On success the client navigates to `/pages`.
 
 ### C. Unified Custom Field Styling
 - Custom fields (`ImageField`, `NexusColorPresetField`, `MediaUploadField`) use `.nexus-puck-field` in `puck-editor.css`.
@@ -288,7 +294,7 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Block spacing & islands | `SpacingFieldGroup` + `IslandFieldGroup` custom fields in `spacingFields.tsx` |
 | Dark theme contrast | Grey + azure token remap in `puck-editor.css`; hover/selection overrides for Outline and array lists |
 | Interactive preview mode | `EditorModeToggle.tsx` — toggles Puck `previewMode` (`edit` \| `interactive`); `PageRoot` keeps contained grid via `NexusEditorCanvasContext` (no duplicate header in canvas) |
-| Rich body text | `TiptapField.tsx` + `richTextContent.ts` — StarterKit editor; sanitized HTML via `.nexus-rich-text` |
+| Rich body text | `TiptapField.tsx` → `NexusRichTextEditor` (`@` mentions, `/` slash commands); canvas via `NexusRichTextView` + `nexusEditorContent.ts` |
 | Carousel | `NexusCarousel.tsx` — multi-slide carousel with media upload per slide |
 | Functional tabs | `NexusTabs.tsx` — per-tab Puck slots for nested block content |
 | Inline links | `@tiptap/extension-link` — accent-colored links in body text |

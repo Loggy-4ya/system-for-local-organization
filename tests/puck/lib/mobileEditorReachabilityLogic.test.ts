@@ -229,6 +229,17 @@ describe("puck-editor.css mobile panel layout", () => {
     );
   });
 
+  it("neutralizes active nav tint when the compact plugin panel is closed", () => {
+    assert.match(
+      PUCK_EDITOR_CSS,
+      /\.Puck:not\(\[class\*="PuckLayout--leftSideBarVisible"\]\) \[class\*="NavItem--active"\]/,
+    );
+    assert.match(
+      PUCK_EDITOR_CSS,
+      /\[class\*="PuckLayout--leftSideBarVisible"\] \[class\*="NavItem--active"\]/,
+    );
+  });
+
   it("hides Sidebar--left only when PuckLayout wrapper lacks leftSideBarVisible", () => {
     assert.doesNotMatch(
       PUCK_EDITOR_CSS,

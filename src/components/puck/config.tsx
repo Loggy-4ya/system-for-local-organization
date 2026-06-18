@@ -18,8 +18,6 @@ import { PageRoot } from "./root/PageRoot";
 
 import { NexusSection } from "./blocks/layout/NexusSection";
 import { NexusGrid } from "./blocks/layout/NexusGrid";
-import { NexusGridItem } from "./blocks/layout/NexusGridItem";
-import { NexusColumns } from "./blocks/layout/NexusColumns";
 import { NexusSpacer } from "./blocks/layout/NexusSpacer";
 
 import { NexusHeading } from "./blocks/content/NexusHeading";
@@ -121,8 +119,6 @@ export const puckConfig = {
   components: {
     NexusSection: shellBlock("NexusSection", NexusSection as any, ROOT_SHELL_SPACING),
     NexusGrid: shellBlock("NexusGrid", NexusGrid as any),
-    NexusGridItem: chapterOnlyBlock("NexusGridItem", NexusGridItem as any),
-    NexusColumns: shellBlock("NexusColumns", NexusColumns as any),
     NexusSpacer: shellBlock("NexusSpacer", NexusSpacer as any),
 
     NexusHeading: shellBlock("NexusHeading", NexusHeading as any),
@@ -150,8 +146,6 @@ export const puckConfig = {
       components: [
         "NexusSection",
         "NexusGrid",
-        "NexusGridItem",
-        "NexusColumns",
         "NexusSpacer",
       ],
     },

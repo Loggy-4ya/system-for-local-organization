@@ -100,4 +100,91 @@ describe("resolveInsertDefaultsProps move trigger", () => {
 
     assert.equal(result.island?.islandEnabled, false);
   });
+
+  it("clears vertical margins when image is inserted into a grid cell", () => {
+    const result = resolveInsertDefaultsProps(
+      "NexusImage",
+      shellProps(false, { marginTop: "sm", marginBottom: "sm" }),
+      {
+        trigger: "insert",
+        parent: {
+          type: "NexusGrid",
+          props: shellProps(false),
+        },
+      },
+      settings,
+    );
+
+    assert.equal(result.spacing?.marginTop, "none");
+    assert.equal(result.spacing?.marginBottom, "none");
+  });
+
+  it("clears vertical margins when video is inserted into a grid cell", () => {
+    const result = resolveInsertDefaultsProps(
+      "NexusVideo",
+      shellProps(false, { marginTop: "sm", marginBottom: "sm" }),
+      {
+        trigger: "insert",
+        parent: {
+          type: "NexusGrid",
+          props: shellProps(false),
+        },
+      },
+      settings,
+    );
+
+    assert.equal(result.spacing?.marginTop, "none");
+    assert.equal(result.spacing?.marginBottom, "none");
+  });
+
+  it("keeps root SM margins when image is inserted on the page root", () => {
+    const result = resolveInsertDefaultsProps(
+      "NexusImage",
+      shellProps(false, { marginTop: "none", marginBottom: "none" }),
+      {
+        trigger: "insert",
+        parent: null,
+      },
+      settings,
+    );
+
+    assert.notEqual(result.spacing?.marginTop, "none");
+    assert.notEqual(result.spacing?.marginBottom, "none");
+  });
+
+  it("preserves user-chosen vertical margins inside a grid cell on move", () => {
+    const result = resolveInsertDefaultsProps(
+      "NexusVideo",
+      shellProps(false, { marginTop: "md", marginBottom: "lg" }),
+      {
+        trigger: "move",
+        parent: {
+          type: "NexusGrid",
+          props: shellProps(false),
+        },
+      },
+      settings,
+    );
+
+    assert.equal(result.spacing?.marginTop, "md");
+    assert.equal(result.spacing?.marginBottom, "lg");
+  });
+
+  it("does not reset user SM margins inside a grid cell after insert defaults ran", () => {
+    const result = resolveInsertDefaultsProps(
+      "NexusVideo",
+      shellProps(false, { marginTop: "sm", marginBottom: "sm" }),
+      {
+        trigger: "load",
+        parent: {
+          type: "NexusGrid",
+          props: shellProps(false),
+        },
+      },
+      settings,
+    );
+
+    assert.equal(result.spacing?.marginTop, "sm");
+    assert.equal(result.spacing?.marginBottom, "sm");
+  });
 });

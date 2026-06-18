@@ -10,7 +10,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   applyMobilePanelHeight,
-  beginMobilePanelLayoutMutation,
   clearCompactPanelSidebarLayout,
   endMobilePanelLayoutMutation,
   measureMobilePanelHeightPx,
@@ -210,7 +209,6 @@ export function NexusMobilePanelResizer() {
       };
 
       document.documentElement.setAttribute(NEXUS_PANEL_RESIZING_ATTR, "");
-      beginMobilePanelLayoutMutation();
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
 
