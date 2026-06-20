@@ -356,6 +356,86 @@ body {
   }
 }
 
+/* ── Site broadcast toasts (institution-wide announcements) ─────────────── */
+.site-broadcast-toast-host {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.site-broadcast-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid transparent;
+  background-color: var(--color-bg-panel);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  animation: auth-alert-in 220ms ease-out;
+}
+
+.site-broadcast-toast__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-broadcast-toast__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.site-broadcast-toast__body {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.site-broadcast-toast__dismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.site-broadcast-toast__dismiss:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.site-broadcast-toast--info {
+  border-color: color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+}
+
+.site-broadcast-toast--success {
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.site-broadcast-toast--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+
+.site-broadcast-toast--error {
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+}
+
 
 .accent-pill {
   display: inline-flex;

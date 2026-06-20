@@ -10,6 +10,23 @@
  */
 
 import mongoose, { Document, Model, Schema } from "mongoose";
+import type {
+  IUserOrganizationMembership,
+  IUserQualityScores,
+  IUserSocialGroupActivity,
+  IUserSocialLink,
+  IUserSociumRole,
+} from "@shared/models/userTypes";
+
+export type {
+  IUserOrganizationMembership,
+  IUserQualityScores,
+  IUserSocialGroupActivity,
+  IUserSocialLink,
+  IUserSociumRole,
+  SociumRoleKind,
+  SociumRoleSource,
+} from "@shared/models/userTypes";
 
 // ── Enumerations ─────────────────────────────────────────────────────────────
 
@@ -66,11 +83,18 @@ export interface IUser extends Document {
   /** Telegram numeric user ID. Null until Telegram account is linked. */
   telegramId: number | null;
 
-  /** Verified phone number harvested by the Telegram bot on first contact. */
+  /**
+   * Contact phone number — user-provided in profile settings or synced from Telegram bot.
+   * Optional for general students (recommended). **Required** for self-government members
+   * and before submitting a membership application.
+   */
   phone: string | null;
 
-  /** Display name — merged from platform identity or user-provided. */
+  /** Given / first name — merged from platform identity or user-provided. */
   name: string;
+
+  /** Family name / surname — optional; combined with {@link name} for full display. */
+  surname: string | null;
 
   /**
    * Telegram username handle (without `@`).
@@ -83,6 +107,18 @@ export interface IUser extends Document {
 
   /** RBAC role controlling dashboard visibility and action permissions. */
   role: UserRole;
+
+  /**
+   * Hierarchy index — **0 is highest** authority.
+   * @see {@link AccessLevelIndex} in `shared/constants/accessControl.ts`
+   */
+  accessLevelIndex: number;
+
+  /**
+   * Permission keys explicitly delegated by a higher-tier user.
+   * Combined with tier defaults from `access_control_settings`.
+   */
+  delegatedPermissions: string[];
 
   /**
    * Academic specialty string, e.g. `"Software Engineering"`.
@@ -98,9 +134,39 @@ export interface IUser extends Document {
 
   /**
    * Student council title from registration chips (Starosta / Deputy / Neither).
-   * Distinct from RBAC {@link UserRole}.
+   * Distinct from RBAC {@link UserRole}. Synced into {@link sociumRoles}.
    */
   studentTitle: StudentTitle | null;
+
+  /**
+   * Socium (student-life) roles — starosta, student, self-government positions, custom.
+   * @see {@link IUserSociumRole}
+   */
+  sociumRoles: IUserSociumRole[];
+
+  /**
+   * Social group activity affiliations (catalog keys + denormalized labels).
+   * Assigned by admin when attaching roles to students.
+   */
+  socialGroupActivities: IUserSocialGroupActivity[];
+
+  /**
+   * External organization memberships outside self-government.
+   * Assigned by admin when attaching roles to students.
+   */
+  organizations: IUserOrganizationMembership[];
+
+  /** User-authored social media profile links. */
+  socialLinks: IUserSocialLink[];
+
+  /** Self-authored about / bio note. */
+  about: string | null;
+
+  /**
+   * Quality-of-work scores for self-government members.
+   * Auto-initialized when a self-government socium role is assigned.
+   */
+  qualityScores: IUserQualityScores | null;
 
   /** User accent colour family for chrome theming. */
   accentFamily: AccentFamily;
@@ -122,6 +188,15 @@ export interface IUser extends Document {
    * Reaching 3 triggers an automatic workspace kick-out.
    */
   warnings: number;
+
+  /**
+   * Whether the student opted in to apply for self-government membership at signup.
+   * Does not grant roles — administrators review applications separately.
+   */
+  selfGovernmentApplicationIntent: boolean;
+
+  /** Timestamp when the user accepted personal data processing (signup consent). */
+  personalDataConsentAt: Date | null;
 
   /** Timestamp when the document was first created. */
   createdAt: Date;
@@ -150,6 +225,7 @@ const UserSchema = new Schema<IUser>(
     telegramId:   { type: Number, default: null, sparse: true, index: true },
     phone:        { type: String, default: null },
     name:         { type: String, required: true, trim: true },
+    surname:      { type: String, default: null, trim: true },
     username:     { type: String, default: null, trim: true },
     avatar:       { type: String, default: null },
     role: {
@@ -157,11 +233,81 @@ const UserSchema = new Schema<IUser>(
       enum: ["Admin", "StudentCouncil", "Student"] satisfies UserRole[],
       default: "Student",
     },
+    accessLevelIndex: { type: Number, default: 6, min: 0, max: 6, index: true },
+    delegatedPermissions: { type: [String], default: [] },
     specialty:    { type: String, default: null, trim: true },
     group:        { type: String, default: null, trim: true, index: true },
     studentTitle: {
       type: String,
       enum: ["Starosta", "Deputy", "Neither"] satisfies StudentTitle[],
+      default: null,
+    },
+    sociumRoles: {
+      type: [
+        {
+          roleKey: { type: String, required: true, trim: true },
+          roleLabel: { type: String, required: true, trim: true },
+          kind: {
+            type: String,
+            enum: [
+              "starosta",
+              "group_deputy",
+              "student",
+              "teacher",
+              "self_government_member",
+              "self_government_head",
+              "self_government_deputy",
+              "custom",
+            ],
+            required: true,
+          },
+          source: { type: String, enum: ["self", "admin", "system"], required: true },
+          bodyKey: { type: String, default: null, trim: true },
+          bodyTitle: { type: String, default: null, trim: true },
+          assignedAt: { type: Date, required: true, default: Date.now },
+          assignedByUserId: { type: String, default: null },
+        },
+      ],
+      default: [],
+    },
+    socialGroupActivities: {
+      type: [
+        {
+          activityKey: { type: String, required: true, trim: true },
+          activityLabel: { type: String, required: true, trim: true },
+          assignedAt: { type: Date, required: true, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    organizations: {
+      type: [
+        {
+          organizationKey: { type: String, required: true, trim: true },
+          organizationLabel: { type: String, required: true, trim: true },
+          assignedAt: { type: Date, required: true, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    socialLinks: {
+      type: [
+        {
+          platform: { type: String, required: true, trim: true, lowercase: true },
+          label: { type: String, default: null, trim: true },
+          url: { type: String, required: true, trim: true },
+        },
+      ],
+      default: [],
+    },
+    about: { type: String, default: null, trim: true, maxlength: 2000 },
+    qualityScores: {
+      type: {
+        averageScore: { type: Number, default: 0, min: 0, max: 100 },
+        ratingCount: { type: Number, default: 0, min: 0 },
+        initializedAt: { type: Date, required: true },
+        lastUpdatedAt: { type: Date, required: true },
+      },
       default: null,
     },
     accentFamily: {
@@ -177,6 +323,8 @@ const UserSchema = new Schema<IUser>(
     lastTelegramSyncAt: { type: Date, default: null },
     stars:     { type: Number, default: 0, min: 0 },
     warnings:  { type: Number, default: 0, min: 0, max: 3 },
+    selfGovernmentApplicationIntent: { type: Boolean, default: false },
+    personalDataConsentAt: { type: Date, default: null },
   },
   {
     timestamps: true,

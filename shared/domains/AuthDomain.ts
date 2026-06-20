@@ -15,10 +15,35 @@ import User, {
   type AccentFamily,
   type AccentShade,
   type IUser,
+  type IUserSocialLink,
   type StudentTitle,
   type UserRole,
 } from "@shared/models/User";
+import { UserPublishedContent } from "@shared/models/UserEngagement";
+import {
+  applyStudentTitleSociumSync,
+  buildInitialSociumStateFromSignupRole,
+  formatUserFullName,
+  type SignupSociumRole,
+} from "@shared/lib/userSociumHelpers";
+import type { AccessLevelIndex, PermissionKey } from "@shared/constants/accessControl";
+import {
+  accessLevelForStarostaRegistration,
+  accessLevelForTeacherRegistration,
+  defaultStudentAccessLevel,
+  inferAccessLevelIndex,
+} from "@shared/lib/accessControlLogic";
+import { phoneIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
+import { normalizePhoneInput } from "@shared/validation/phoneSchema";
 import { registerSchema } from "@shared/validation/authSchemas";
+import {
+  isApprovedAcademicLabel,
+  normalizeAcademicLabel,
+  slugifyAcademicCatalogLabel,
+} from "@shared/lib/academicCatalogLogic";
+import { splitPersonName } from "@shared/lib/splitPersonName";
+import { mongooseDocToPlain } from "@shared/lib/mongoosePlainObject";
+import AcademicCatalog from "@shared/models/AcademicCatalog";
 import {
   verifyTelegramWebAppInitData,
   type TelegramWebAppUser,
@@ -32,10 +57,25 @@ export interface RegisterCredentialsInput {
   email?: string | null;
   password: string;
   name: string;
+  surname?: string | null;
+  phone?: string | null;
   specialty?: string | null;
   group?: string | null;
   studentTitle?: StudentTitle | null;
+  signupSociumRole?: SignupSociumRole;
+  applyForSelfGovernment?: boolean;
+  personalDataConsent?: boolean;
 }
+
+/** Linked OAuth provider ids for credential error messaging. */
+export type LinkedOAuthProvider = "google" | "apple" | "telegram";
+
+/** Discriminated result for credentials login resolution. */
+export type CredentialsLoginResolution =
+  | { status: "success"; user: IUser }
+  | { status: "not_found" }
+  | { status: "oauth_only"; providers: LinkedOAuthProvider[] }
+  | { status: "invalid_password" };
 
 /** OAuth profile shape from Google or Apple providers. */
 export interface OAuthProfileInput {
@@ -63,12 +103,23 @@ export interface PublicUser {
   login: string | null;
   email: string | null;
   name: string;
+  surname: string | null;
+  fullName: string;
   username: string | null;
   avatar: string | null;
   role: UserRole;
+  accessLevelIndex: AccessLevelIndex;
+  delegatedPermissions: PermissionKey[];
+  effectivePermissions?: PermissionKey[];
   specialty: string | null;
   group: string | null;
   studentTitle: StudentTitle | null;
+  sociumRoles: IUser["sociumRoles"];
+  socialGroupActivities: IUser["socialGroupActivities"];
+  organizations: IUser["organizations"];
+  socialLinks: IUserSocialLink[];
+  about: string | null;
+  qualityScores: IUser["qualityScores"];
   accentFamily: AccentFamily;
   accentShade: AccentShade;
   stars: number;
@@ -77,6 +128,8 @@ export interface PublicUser {
   appleId: string | null;
   telegramId: number | null;
   phone: string | null;
+  selfGovernmentApplicationIntent: boolean;
+  personalDataConsentAt: Date | null;
   lastTelegramSyncAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -99,12 +152,27 @@ export type TelegramMiniAppAuthenticateResult =
 /** Patch payload for profile settings updates. */
 export interface ProfileUpdateInput {
   name?: string;
+  surname?: string | null;
   specialty?: string | null;
   group?: string | null;
   studentTitle?: StudentTitle | null;
   avatar?: string | null;
+  about?: string | null;
+  socialLinks?: IUserSocialLink[];
+  phone?: string | null;
   accentFamily?: AccentFamily;
   accentShade?: AccentShade;
+  /** When true, records {@link IUser.personalDataConsentAt}. */
+  personalDataConsent?: boolean;
+}
+
+/** Published content row for profile feed. */
+export interface PublicPublishedContentItem {
+  id: string;
+  contentType: "news" | "social_interactivity";
+  title: string;
+  href: string;
+  publishedAt: Date;
 }
 
 const BCRYPT_ROUNDS = 12;
@@ -131,18 +199,28 @@ export const AuthDomain = {
   async registerWithCredentials(input: RegisterCredentialsInput): Promise<IUser> {
     await connectDB();
 
+    const signupSociumRole: SignupSociumRole =
+      input.signupSociumRole ??
+      (input.studentTitle === "Starosta" ? "Starosta" : "Student");
+
     const parsed = registerSchema.parse({
       login: input.login,
       email: input.email ?? null,
       password: input.password,
+      confirmPassword: input.password,
       name: input.name || input.login,
+      surname: input.surname ?? null,
+      phone: input.phone ?? null,
       specialty: input.specialty,
       group: input.group,
-      studentTitle: input.studentTitle ?? "Neither",
+      signupSociumRole,
+      applyForSelfGovernment: input.applyForSelfGovernment ?? false,
+      personalDataConsent: input.personalDataConsent ?? true,
     });
 
     const login = parsed.login;
     const email = parsed.email ?? null;
+    const phone = parsed.phone ?? null;
 
     const existingLogin = await User.findOne({ login });
     if (existingLogin) {
@@ -157,18 +235,108 @@ export const AuthDomain = {
     }
 
     const passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
+    const studentTitle = parsed.studentTitle;
+    const { sociumRoles, qualityScores } = buildInitialSociumStateFromSignupRole(
+      parsed.signupSociumRole,
+    );
+    const accessLevelIndex =
+      parsed.signupSociumRole === "Starosta"
+        ? accessLevelForStarostaRegistration(null)
+        : parsed.signupSociumRole === "Teacher"
+          ? accessLevelForTeacherRegistration(null)
+          : defaultStudentAccessLevel();
 
     const user = await User.create({
       login,
       email,
       passwordHash,
       name: parsed.name || login,
+      surname: parsed.surname,
+      phone,
       specialty: parsed.specialty,
       group: parsed.group,
-      studentTitle: parsed.studentTitle,
+      studentTitle,
+      sociumRoles,
+      qualityScores,
+      accessLevelIndex,
+      delegatedPermissions: [],
+      selfGovernmentApplicationIntent: parsed.applyForSelfGovernment,
+      personalDataConsentAt: new Date(),
+    });
+
+    await queuePendingAcademicCatalogEntries({
+      specialty: parsed.specialty,
+      group: parsed.group,
+      submittedByUserId: String(user._id),
     });
 
     return user;
+  },
+
+  /**
+   * List approved specialty and group labels for signup dropdowns.
+   *
+   * Falls back to distinct values already stored on user documents when the catalog
+   * has not been seeded yet.
+   *
+   * @returns Sorted unique approved labels for each kind.
+   */
+  async listSignupAcademicOptions(): Promise<{ specialties: string[]; groups: string[] }> {
+    await connectDB();
+
+    const [catalogSpecialties, catalogGroups, userSpecialties, userGroups] = await Promise.all([
+      AcademicCatalog.find({ kind: "specialty", status: "approved" })
+        .sort({ label: 1 })
+        .lean(),
+      AcademicCatalog.find({ kind: "group", status: "approved" })
+        .sort({ label: 1 })
+        .lean(),
+      User.distinct("specialty", { specialty: { $nin: [null, ""] } }),
+      User.distinct("group", { group: { $nin: [null, ""] } }),
+    ]);
+
+    const specialties = mergeUniqueLabels(
+      catalogSpecialties.map((row) => row.label),
+      userSpecialties.filter((value): value is string => Boolean(value)),
+    );
+
+    const groups = mergeUniqueLabels(
+      catalogGroups.map((row) => row.label),
+      userGroups.filter((value): value is string => Boolean(value)),
+    );
+
+    return { specialties, groups };
+  },
+
+  /**
+   * Resolve credentials login with explicit failure reasons for UX messaging.
+   *
+   * @param login - User login handle.
+   * @param password - Plain-text password.
+   * @returns Discriminated login resolution — never throws.
+   */
+  async resolveCredentialsLogin(
+    login: string,
+    password: string,
+  ): Promise<CredentialsLoginResolution> {
+    await connectDB();
+
+    const normalized = login.trim().toLowerCase();
+    const user = await User.findOne({ login: normalized }).select("+passwordHash");
+    if (!user) {
+      return { status: "not_found" };
+    }
+
+    if (!user.passwordHash) {
+      return { status: "oauth_only", providers: listLinkedOAuthProviders(user) };
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return { status: "invalid_password" };
+    }
+
+    return { status: "success", user };
   },
 
   /**
@@ -179,16 +347,8 @@ export const AuthDomain = {
    * @returns Matching user document or null when invalid.
    */
   async validateCredentials(login: string, password: string): Promise<IUser | null> {
-    await connectDB();
-
-    const normalized = login.trim().toLowerCase();
-    const user = await User.findOne({ login: normalized }).select("+passwordHash");
-    if (!user?.passwordHash) return null;
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return null;
-
-    return user;
+    const resolution = await AuthDomain.resolveCredentialsLogin(login, password);
+    return resolution.status === "success" ? resolution.user : null;
   },
 
   /**
@@ -215,6 +375,36 @@ export const AuthDomain = {
   async findOrCreateFromApple(profile: OAuthProfileInput): Promise<IUser> {
     await connectDB();
     return mergeOAuthUser("appleId", profile);
+  },
+
+  /**
+   * Link a Google OAuth profile to an existing Nexus account (profile settings flow).
+   *
+   * Populates `email` and `emailVerified` from the Google profile. Does not create
+   * a new user document.
+   *
+   * @param userId - Target user MongoDB id.
+   * @param profile - Verified Google OAuth profile.
+   * @returns Updated user document.
+   * @throws When user not found, Google id/email already belongs to another account,
+   *   or a different Google account is already linked to this user.
+   */
+  async linkGoogleProfile(userId: string, profile: OAuthProfileInput): Promise<IUser> {
+    await connectDB();
+    return linkOAuthProfileToUser(userId, "googleId", profile);
+  },
+
+  /**
+   * Link an Apple OAuth profile to an existing Nexus account (profile settings flow).
+   *
+   * @param userId - Target user MongoDB id.
+   * @param profile - Verified Apple OAuth profile.
+   * @returns Updated user document.
+   * @throws When user not found or Apple id/email conflicts with another account.
+   */
+  async linkAppleProfile(userId: string, profile: OAuthProfileInput): Promise<IUser> {
+    await connectDB();
+    return linkOAuthProfileToUser(userId, "appleId", profile);
   },
 
   /**
@@ -285,14 +475,23 @@ export const AuthDomain = {
       throw new Error("This Telegram account is already linked to Nexus.");
     }
 
+    const signupSociumRole: SignupSociumRole =
+      input.signupSociumRole ??
+      (input.studentTitle === "Starosta" ? "Starosta" : "Student");
+
     const parsed = registerSchema.parse({
       login: input.login,
       email: input.email ?? null,
       password: input.password,
+      confirmPassword: input.password,
       name: input.name || input.login,
+      surname: input.surname ?? null,
+      phone: input.phone ?? null,
       specialty: input.specialty,
       group: input.group,
-      studentTitle: input.studentTitle ?? "Neither",
+      signupSociumRole,
+      applyForSelfGovernment: input.applyForSelfGovernment ?? false,
+      personalDataConsent: input.personalDataConsent ?? true,
     });
 
     const login = parsed.login;
@@ -313,19 +512,43 @@ export const AuthDomain = {
     const passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
     const syncAt = new Date();
     const name = formatTelegramDisplayName(verified.user) || parsed.name || login;
+    const studentTitle = parsed.studentTitle;
+    const { sociumRoles, qualityScores } = buildInitialSociumStateFromSignupRole(
+      parsed.signupSociumRole,
+    );
+    const accessLevelIndex =
+      parsed.signupSociumRole === "Starosta"
+        ? accessLevelForStarostaRegistration(null)
+        : parsed.signupSociumRole === "Teacher"
+          ? accessLevelForTeacherRegistration(null)
+          : defaultStudentAccessLevel();
 
     const user = await User.create({
       login,
       email,
       passwordHash,
       name,
+      surname: parsed.surname,
+      phone: parsed.phone ?? null,
       specialty: parsed.specialty,
       group: parsed.group,
-      studentTitle: parsed.studentTitle,
+      studentTitle,
+      sociumRoles,
+      qualityScores,
+      accessLevelIndex,
+      delegatedPermissions: [],
+      selfGovernmentApplicationIntent: parsed.applyForSelfGovernment,
+      personalDataConsentAt: new Date(),
       telegramId: verified.user.id,
       username: verified.user.username ?? null,
       avatar: verified.user.photo_url ?? null,
       lastTelegramSyncAt: syncAt,
+    });
+
+    await queuePendingAcademicCatalogEntries({
+      specialty: parsed.specialty,
+      group: parsed.group,
+      submittedByUserId: String(user._id),
     });
 
     return user;
@@ -391,11 +614,13 @@ export const AuthDomain = {
 
     const name = [payload.first_name, payload.last_name].filter(Boolean).join(" ");
     const syncAt = new Date();
+    const split = splitPersonName(name);
 
     let user = await User.findOne({ telegramId: payload.id });
 
     if (user) {
-      user.name = name || user.name;
+      user.name = split.name || name || user.name;
+      if (split.surname) user.surname = split.surname;
       user.username = payload.username ?? user.username;
       user.avatar = payload.photo_url ?? user.avatar;
       user.lastTelegramSyncAt = syncAt;
@@ -405,7 +630,8 @@ export const AuthDomain = {
 
     user = await User.create({
       telegramId: payload.id,
-      name: name || `Telegram User ${payload.id}`,
+      name: split.name || name || `Telegram User ${payload.id}`,
+      surname: split.surname,
       username: payload.username ?? null,
       avatar: payload.photo_url ?? null,
       lastTelegramSyncAt: syncAt,
@@ -440,12 +666,39 @@ export const AuthDomain = {
     if (!user) throw new Error("User not found.");
 
     if (patch.name !== undefined) user.name = patch.name.trim();
+    if (patch.surname !== undefined) user.surname = patch.surname?.trim() || null;
     if (patch.specialty !== undefined) user.specialty = patch.specialty?.trim() || null;
     if (patch.group !== undefined) user.group = patch.group?.trim() || null;
-    if (patch.studentTitle !== undefined) user.studentTitle = patch.studentTitle;
+    if (patch.studentTitle !== undefined) {
+      user.studentTitle = patch.studentTitle;
+      applyStudentTitleSociumSync(user);
+      if (patch.studentTitle === "Starosta") {
+        user.accessLevelIndex = accessLevelForStarostaRegistration(user.accessLevelIndex);
+      }
+    }
     if (patch.avatar !== undefined) user.avatar = patch.avatar;
+    if (patch.about !== undefined) user.about = patch.about?.trim() || null;
+    if (patch.socialLinks !== undefined) user.socialLinks = patch.socialLinks;
+    if (patch.phone !== undefined) {
+      const nextPhone = normalizePhoneInput(patch.phone);
+      const memberContext = {
+        name: user.name,
+        surname: user.surname,
+        phone: user.phone,
+        specialty: user.specialty,
+        group: user.group,
+        sociumRoles: user.sociumRoles ?? [],
+      };
+      if (phoneIsRequiredForUser(memberContext) && !nextPhone) {
+        throw new Error("Phone number is required for self-government members.");
+      }
+      user.phone = nextPhone;
+    }
     if (patch.accentFamily !== undefined) user.accentFamily = patch.accentFamily;
     if (patch.accentShade !== undefined) user.accentShade = patch.accentShade;
+    if (patch.personalDataConsent === true && !user.personalDataConsentAt) {
+      user.personalDataConsentAt = new Date();
+    }
 
     await user.save();
     return user;
@@ -482,34 +735,75 @@ export const AuthDomain = {
   },
 
   /**
+   * List recent published community content for a user's profile feed.
+   *
+   * @param userId - Author user id.
+   * @param limit - Maximum rows to return.
+   * @returns Published content items newest first.
+   */
+  async getPublishedContentForUser(
+    userId: string,
+    limit = 10,
+  ): Promise<PublicPublishedContentItem[]> {
+    await connectDB();
+
+    const rows = await UserPublishedContent.find({ authorUserId: userId })
+      .sort({ publishedAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return rows.map((row) => ({
+      id: String(row._id),
+      contentType: row.contentType,
+      title: row.title,
+      href: row.href,
+      publishedAt: row.publishedAt,
+    }));
+  },
+
+  /**
    * Convert a Mongoose user document to a safe public representation.
    *
    * @param doc - User document (passwordHash is never included).
    * @returns Public user object for API and session payloads.
    */
   toPublicUser(doc: IUser): PublicUser {
+    const plain = mongooseDocToPlain(doc);
+
     return {
-      id: String(doc._id),
-      login: doc.login,
-      email: doc.email,
-      name: doc.name,
-      username: doc.username,
-      avatar: doc.avatar,
-      role: doc.role,
-      specialty: doc.specialty,
-      group: doc.group,
-      studentTitle: doc.studentTitle,
-      accentFamily: doc.accentFamily,
-      accentShade: doc.accentShade,
-      stars: doc.stars,
-      warnings: doc.warnings,
-      googleId: doc.googleId,
-      appleId: doc.appleId,
-      telegramId: doc.telegramId,
-      phone: doc.phone,
-      lastTelegramSyncAt: doc.lastTelegramSyncAt,
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
+      id: String(plain._id),
+      login: plain.login ?? null,
+      email: plain.email ?? null,
+      name: plain.name,
+      surname: plain.surname ?? null,
+      fullName: formatUserFullName(plain.name, plain.surname ?? null),
+      username: plain.username ?? null,
+      avatar: plain.avatar ?? null,
+      role: plain.role,
+      accessLevelIndex: inferAccessLevelIndex(plain),
+      delegatedPermissions: (plain.delegatedPermissions ?? []) as PermissionKey[],
+      specialty: plain.specialty ?? null,
+      group: plain.group ?? null,
+      studentTitle: plain.studentTitle ?? null,
+      sociumRoles: plain.sociumRoles ?? [],
+      socialGroupActivities: plain.socialGroupActivities ?? [],
+      organizations: plain.organizations ?? [],
+      socialLinks: plain.socialLinks ?? [],
+      about: plain.about ?? null,
+      qualityScores: plain.qualityScores,
+      accentFamily: plain.accentFamily,
+      accentShade: plain.accentShade,
+      stars: plain.stars,
+      warnings: plain.warnings,
+      googleId: plain.googleId ?? null,
+      appleId: plain.appleId ?? null,
+      telegramId: plain.telegramId ?? null,
+      phone: plain.phone ?? null,
+      selfGovernmentApplicationIntent: plain.selfGovernmentApplicationIntent ?? false,
+      personalDataConsentAt: plain.personalDataConsentAt ?? null,
+      lastTelegramSyncAt: plain.lastTelegramSyncAt ?? null,
+      createdAt: plain.createdAt,
+      updatedAt: plain.updatedAt,
     };
   },
 };
@@ -539,30 +833,82 @@ async function mergeOAuthUser(
       user.email = email;
       user.emailVerified = profile.emailVerified ?? user.emailVerified ?? new Date();
     }
-    if (profile.name) user.name = profile.name;
+    if (profile.name) {
+      const split = splitPersonName(profile.name);
+      user.name = split.name || user.name;
+      if (split.surname) user.surname = split.surname;
+    }
     if (profile.image) user.avatar = profile.image;
     await user.save();
     return user;
   }
 
+  const split = splitPersonName(profile.name || "Nexus User");
+
   user = await User.create({
     [idField]: profile.providerId,
     email,
     emailVerified: email ? (profile.emailVerified ?? new Date()) : null,
-    name: profile.name || "Nexus User",
+    name: split.name || profile.name || "Nexus User",
+    surname: split.surname,
     avatar: profile.image ?? null,
+    personalDataConsentAt: null,
   });
 
   return user;
 }
 
 /**
- * Verify Telegram Login Widget HMAC hash per official Telegram docs.
+ * Link an OAuth provider identity onto an existing user document.
  *
- * @param payload - Widget callback payload.
- * @param botToken - Bot token used as HMAC secret seed.
- * @throws When computed hash does not match payload hash.
+ * @param userId - Target user MongoDB id.
+ * @param idField - Provider-specific id field on the User schema.
+ * @param profile - Normalised OAuth profile.
+ * @returns Updated user document.
+ * @throws When user not found or provider id/email conflicts with another account.
  */
+async function linkOAuthProfileToUser(
+  userId: string,
+  idField: "googleId" | "appleId",
+  profile: OAuthProfileInput,
+): Promise<IUser> {
+  const email = profile.email?.trim().toLowerCase() || null;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  const existingProviderId = user[idField];
+  if (existingProviderId && existingProviderId !== profile.providerId) {
+    throw new Error(`A different ${idField === "googleId" ? "Google" : "Apple"} account is already linked.`);
+  }
+
+  const existingByProvider = await User.findOne({
+    [idField]: profile.providerId,
+    _id: { $ne: userId },
+  });
+  if (existingByProvider) {
+    throw new Error("This OAuth account is linked to another Nexus user.");
+  }
+
+  if (email) {
+    const existingByEmail = await User.findOne({ email, _id: { $ne: userId } });
+    if (existingByEmail) {
+      throw new Error("This OAuth email is linked to another Nexus user.");
+    }
+
+    user.email = email;
+    user.emailVerified = profile.emailVerified ?? user.emailVerified ?? new Date();
+  }
+
+  user[idField] = profile.providerId;
+  if (profile.name) user.name = profile.name;
+  if (profile.image) user.avatar = profile.image;
+  await user.save();
+  return user;
+}
+
 /**
  * Format a display name from Telegram Web App user fields.
  *
@@ -613,6 +959,104 @@ function verifyTelegramHash(payload: TelegramWidgetPayload, botToken: string): v
 
   if (computed !== hash) {
     throw new Error("Invalid Telegram authentication hash.");
+  }
+}
+
+/**
+ * Merge catalog and legacy user labels into a sorted unique list.
+ *
+ * @param primary - Preferred labels (catalog approved).
+ * @param fallback - Legacy labels from user documents.
+ * @returns Case-insensitive unique labels sorted alphabetically.
+ */
+function mergeUniqueLabels(primary: string[], fallback: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  for (const label of [...primary, ...fallback]) {
+    const normalized = label.trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(normalized);
+  }
+
+  return merged.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+/**
+ * List OAuth providers linked on a user without a password hash.
+ *
+ * @param user - User document with provider id fields.
+ * @returns Provider slugs for error messaging.
+ */
+function listLinkedOAuthProviders(user: IUser): LinkedOAuthProvider[] {
+  const providers: LinkedOAuthProvider[] = [];
+  if (user.googleId) providers.push("google");
+  if (user.appleId) providers.push("apple");
+  if (user.telegramId) providers.push("telegram");
+  return providers;
+}
+
+/**
+ * Queue pending academic catalog rows when a signup value is not yet approved.
+ *
+ * @param params - Submitted specialty/group and submitting user id.
+ */
+async function queuePendingAcademicCatalogEntries(params: {
+  specialty: string | null;
+  group: string | null;
+  submittedByUserId: string;
+}): Promise<void> {
+  const [approvedSpecialties, approvedGroups] = await Promise.all([
+    AcademicCatalog.find({ kind: "specialty", status: "approved" }).lean(),
+    AcademicCatalog.find({ kind: "group", status: "approved" }).lean(),
+  ]);
+
+  const entries: Array<{ kind: "specialty" | "group"; label: string }> = [];
+  const specialty = normalizeAcademicLabel(params.specialty);
+  const group = normalizeAcademicLabel(params.group);
+
+  if (
+    specialty &&
+    !isApprovedAcademicLabel(
+      specialty,
+      approvedSpecialties.map((row) => row.label),
+    )
+  ) {
+    entries.push({ kind: "specialty", label: specialty });
+  }
+
+  if (
+    group &&
+    !isApprovedAcademicLabel(
+      group,
+      approvedGroups.map((row) => row.label),
+    )
+  ) {
+    entries.push({ kind: "group", label: group });
+  }
+
+  for (const entry of entries) {
+    const key = slugifyAcademicCatalogLabel(entry.label);
+    if (!key) continue;
+
+    await AcademicCatalog.updateOne(
+      { kind: entry.kind, key },
+      {
+        $setOnInsert: {
+          kind: entry.kind,
+          key,
+          label: entry.label,
+          status: "pending",
+          submittedByUserId: params.submittedByUserId,
+          reviewedAt: null,
+          reviewedByUserId: null,
+        },
+      },
+      { upsert: true },
+    );
   }
 }
 

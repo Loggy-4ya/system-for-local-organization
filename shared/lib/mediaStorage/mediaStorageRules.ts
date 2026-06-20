@@ -32,13 +32,15 @@ const FALLBACK_EXTENSION: Record<MediaKind, string> = {
   video: ".mp4",
 };
 
+/** Image MIME types rejected for XSS (embedded scripts in SVG). */
+const BLOCKED_IMAGE_MIME_TYPES = new Set(["image/svg+xml"]);
+
 /** Common MIME → extension map for safe filename generation. */
 const MIME_EXTENSION_MAP: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/webp": ".webp",
   "image/gif": ".gif",
-  "image/svg+xml": ".svg",
   "video/mp4": ".mp4",
   "video/webm": ".webm",
   "video/quicktime": ".mov",
@@ -91,6 +93,12 @@ export function assertMediaUploadAllowed(params: {
 
   if (!kind) {
     throw new MediaStorageValidationError("Only image and video files are allowed.");
+  }
+
+  if (kind === "image" && BLOCKED_IMAGE_MIME_TYPES.has(mimeType.toLowerCase())) {
+    throw new MediaStorageValidationError(
+      "SVG uploads are not allowed. Use PNG, JPEG, WebP, or GIF.",
+    );
   }
 
   if (!policy.allowedKinds.includes(kind)) {

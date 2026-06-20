@@ -8,6 +8,8 @@ import { InfiniteGrid } from "@/components/background/InfiniteGrid";
 import { HeaderSessionBridge } from "@/components/ui/HeaderSessionBridge";
 import { FooterSessionBridge } from "@/components/ui/FooterSessionBridge";
 import { SessionProvider } from "@/components/auth/SessionProvider";
+import { SiteBroadcastToastHost } from "@/components/notifications/SiteBroadcastToastHost";
+import { ProfileOnboardingRedirect } from "@/components/profile/ProfileOnboardingRedirect";
 import { SITE_ICONS } from "@/lib/assets";
 import { NEXUS_THEME_OPTIONS } from "@/lib/resolveStoredThemeIsDark";
 import { auth } from "@/auth";
@@ -111,6 +113,7 @@ export default async function RootLayout({
           disableTransitionOnChange={false}
         >
           <SessionProvider session={session}>
+            <ProfileOnboardingRedirect />
             {/* Fixed full-viewport background — persists across route changes */}
             <InfiniteGrid />
             {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}
@@ -120,6 +123,7 @@ export default async function RootLayout({
                 {children}
               </main>
               <FooterSessionBridge />
+              <SiteBroadcastToastHost />
             </div>
           </SessionProvider>
         </ThemeProvider>

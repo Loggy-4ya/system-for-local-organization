@@ -11,6 +11,7 @@
 import { useGetPuck } from "@puckeditor/core";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { cn } from "@/lib/utils";
+import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
 import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
 import {
@@ -135,11 +136,12 @@ function NexusVideoBody({
   onSelectInCarousel,
   syncSelectionOverlay,
 }: NexusVideoBodyProps) {
+  const safeUrl = sanitizeMediaUrl(url);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
   const inCarouselSlide = useCarouselSlideMedia();
   const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide, layoutRoot);
-  const youTubeId = extractYouTubeId(url);
+  const youTubeId = extractYouTubeId(safeUrl);
   const [youTubePosterUrl, setYouTubePosterUrl] = useState<string | null>(() =>
     editLayoutMode && youTubeId
       ? `https://img.youtube.com/vi/${youTubeId}/hqdefault.jpg`
@@ -163,7 +165,7 @@ function NexusVideoBody({
     }
 
     const ratio = resolveVideoDisplayAspectRatio(
-      url,
+      safeUrl,
       aspectRatioPreset,
       aspectRatioCustom,
       resolveMediaAspectRatioNumeric,
@@ -212,9 +214,9 @@ function NexusVideoBody({
 
   const fit = normalizeMediaFitMode(mediaFit);
   const objectFit = mediaFitToObjectFit(fit);
-  const embedUrl = getVideoEmbedUrl(url, autoplay, controls);
+  const embedUrl = getVideoEmbedUrl(safeUrl, autoplay, controls);
   const ratio = resolveVideoDisplayAspectRatio(
-    url,
+    safeUrl,
     aspectRatioPreset,
     aspectRatioCustom,
     resolveMediaAspectRatioNumeric,
@@ -277,7 +279,7 @@ function NexusVideoBody({
       };
 
   const renderMedia = () => {
-    if (!url) {
+    if (!safeUrl) {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <span style={{ fontSize: "28px" }}>📹</span>
@@ -318,7 +320,7 @@ function NexusVideoBody({
 
     return (
       <video
-        src={url}
+        src={safeUrl}
         controls={controls === "yes"}
         autoPlay={autoplay === "yes"}
         muted={autoplay === "yes"}
@@ -341,7 +343,7 @@ function NexusVideoBody({
   );
 
   const editBadge =
-    editLayoutMode && url ? (
+    editLayoutMode && safeUrl ? (
       <span className="nexus-video__edit-badge">Play in Interactive mode</span>
     ) : null;
 

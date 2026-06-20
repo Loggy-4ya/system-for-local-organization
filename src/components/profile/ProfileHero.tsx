@@ -25,7 +25,8 @@ function formatIdentities(user: PublicUser): string {
   const parts: string[] = [];
   if (user.login) parts.push(`@${user.login}`);
   if (user.email) parts.push(user.email);
-  if (user.username) parts.push(`Telegram @${user.username}`);
+  if (user.phone) parts.push(user.phone);
+  if (user.telegramId && user.username) parts.push(`Telegram @${user.username}`);
   if (user.googleId) parts.push("Google linked");
   if (user.appleId) parts.push("Apple linked");
   return parts.join(" · ") || "No linked accounts";
@@ -75,7 +76,7 @@ export function ProfileHero({ user }: ProfileHeroProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-[28px] font-semibold text-[var(--color-text-primary)]">
-              {user.name}
+              {user.fullName}
             </h1>
             {subtitle && (
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
@@ -93,6 +94,13 @@ export function ProfileHero({ user }: ProfileHeroProps) {
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">
+          {user.sociumRoles
+            .filter((role) => role.kind !== "student")
+            .map((role) => (
+              <span key={`${role.roleKey}-${role.bodyKey ?? "global"}`} className="badge badge-group">
+                {role.roleLabel}
+              </span>
+            ))}
           {user.studentTitle && user.studentTitle !== "Neither" && (
             <span className="badge badge-group">{user.studentTitle}</span>
           )}

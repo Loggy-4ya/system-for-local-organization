@@ -24,6 +24,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
 | `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
 | `.cursor/rules/` | File-targeted Cursor agent rules (`.mdc`) | Puck sidebar chapter policy, file-specific constraints | Runtime `.ts` / `.tsx`, tests |
+| `scripts/` | CLI maintenance jobs (orphan upload cleanup, future migrations) | `*.ts` runnable via `npm run job:*` | Application UI, long-running servers |
 | `docker-compose.yml` | Container orchestration for stateless services | Service definitions, env wiring | Application logic |
 
 ## `src/` Sub-directories
@@ -33,23 +34,36 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/` | App Router routes, root layout, API handlers | Active |
 | `src/app/loading.tsx` | Root Suspense fallback — `SiteLoader` over layout InfiniteGrid | Active |
 | `src/app/layout.tsx` | Root layout: Inter font, ThemeProvider, InfiniteGrid, GlobalHeader | Active |
+| `src/app/not-found.tsx` | Custom 404 — compact `StaticPageShell` so global footer stays in viewport (replaces Next.js `100vh` default) | Active |
 | `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.); spacing scale (`--spacing-sm` = default root-level Puck block vertical margin) | Active |
 | `src/lib/utils.ts` | Shadcn `cn()` helper (`clsx` + `tailwind-merge`) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
+| `src/app/admin/` | Administration hub — area picker at `/admin` | Active |
 | `src/app/admin/global-layout/` | Admin Global Layout Editor page | Active |
+| `src/app/admin/user-access/` | Admin User Access & permissions matrix editor | Active |
+| `src/app/admin/users/` | Admin User Directory page | Active |
 | `src/app/api/puck/` | REST API for loading/saving/deleting Puck page layouts to MongoDB | Active |
 | `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
+| `src/app/api/access-control/` | REST API for singleton access-control settings | Active |
+| `src/app/api/admin/broadcasts/` | POST institution-wide broadcast messages | Active |
+| `src/app/api/admin/users/` | REST API for searching, listing, and updating directory users | Active |
+| `src/app/api/notifications/broadcasts/` | GET active web toasts; POST dismiss per user | Active |
 | `src/app/api/global-layout/` | REST API for global layout settings | Active |
 | `src/app/api/upload/` | REST API for media uploads via {@link MediaDomain} | Active |
+| `src/app/api/upload/from-url/` | POST remote HTTPS image import → local storage via {@link MediaDomain.uploadFromUrl} | Active |
+| `src/app/api/admin/jobs/media-orphan-cleanup/` | POST scan `public/uploads/` vs MongoDB refs; delete orphans | Active |
+| `src/app/api/admin/jobs/process-scheduled-events/` | GET/POST claim and execute due scheduled background tasks | Active |
 | `src/app/(marketing)/` | Hardcoded landing and public marketing pages (excluded from Puck) | Planned |
 | `src/app/(dashboard)/` | Hardcoded admin dashboard shell (excluded from Puck) | Planned |
 | `src/app/(auth)/` | Authentication flows (`/login`, `/signup`) | Active |
 | `src/app/telegram/` | Telegram Mini App entry (`/telegram`) | Active |
 | `src/app/(profile)/` | User profile dashboard (`/profile`) and settings (`/profile/settings`) | Active |
 | `src/app/api/auth/` | Auth.js handler, register, Telegram widget + Mini App verify | Active |
+| `src/app/api/auth/signup-options/` | GET approved specialty/group labels for signup dropdowns | Active |
 | `src/app/api/telegram/` | Telegram Bot API webhook (`/api/telegram/webhook`) | Active |
+| `src/app/api/profile/completeness/` | GET membership profile readiness summary | Active |
 | `src/app/api/profile/` | PATCH user profile; DELETE `/api/profile/telegram` unlink | Active |
 | `src/app/api/mentions/` | Mention autocomplete for rich text editor (`/api/mentions/search`) | Active |
 | `src/auth.ts` | Auth.js configuration (providers, callbacks, session) | Active |
@@ -58,6 +72,10 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/lib/resolveStoredThemeIsDark.ts` | SSR helper — resolves dark/light from theme cookie + color-scheme client hint | Active |
 | `src/components/auth/` | Auth UI: `AuthShell`, OAuth row, role chips, forms | Active |
 | `src/components/profile/` | Profile dashboard and settings components | Active |
+| `src/components/admin/` | Administration hub shell (`AdminHubShell`) | Active |
+| `src/components/access-control/` | User access hierarchy & permission matrix editor UI | Active |
+| `src/components/ui/NexusSurfaceCard.tsx` | Reusable glass-panel link card (Puck-style, Tailwind) | Active |
+| `src/components/notifications/` | Site-wide broadcast toast host (`SiteBroadcastToastHost`) | Active |
 | `src/components/global-layout/` | Global Layout editor components (Header, Footer, Preview, IconPicker) | Active |
 | `src/components/` | Reusable UI primitives bound to design tokens | Active |
 | `src/components/background/` | `InfiniteGrid` dual-canvas client component (`isContained` + `isStatic` freezes scroll only); `infiniteGridIconLoader.ts` for WebKit-safe SVG rasterization; `logo-grid.svg` for both themes; `z-index:0` stacking | Active |
@@ -86,22 +104,49 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | Path | Purpose | Status |
 |------|---------|--------|
 | `shared/lib/db.ts` | Mongoose connection helper with global cache | Active |
-| `shared/models/User.ts` | Unified User schema (cross-platform auth, RBAC, gamification) | Active |
+| `shared/models/AccessControlSettings.ts` | Singleton access hierarchy and permission matrix | Active |
+| `shared/models/User.ts` | Unified User schema (cross-platform auth, RBAC, socium identity, gamification) | Active |
+| `shared/models/userTypes.ts` | Shared TypeScript types for socium roles, affiliations, social links, quality scores | Active |
+| `shared/models/AcademicCatalog.ts` | Admin-reviewed specialty and group catalog (`academic_catalog`) | Active |
+| `shared/models/SociumCatalog.ts` | Admin-configurable socium role, activity, and organization catalogs | Active |
+| `shared/models/UserEngagement.ts` | Community engagement stubs — comments, survey participation, published content feed | Active |
+| `shared/models/SystemBroadcast.ts` | Institution-wide broadcast messages | Active |
+| `shared/models/UserBroadcastReceipt.ts` | Per-user broadcast delivery and dismissal receipts | Active |
 | `shared/models/Page.ts` | Puck page layout schema (path → puckData) | Active |
 | `shared/models/EditorSettings.ts` | Singleton Puck editor settings (`islandDefaultComponents`) | Active |
 | `shared/models/GlobalLayout.ts` | Singleton Global Layout configuration model | Active |
+| `shared/models/SystemScheduledEvent.ts` | System scheduled events queue model | Active |
 | `shared/constants/editorSettings.ts` | Client-safe editor settings seed constants | Active |
 | `shared/constants/globalLayout.ts` | Global Layout seed constants and whitelists | Active |
 | `shared/domains/` | Consolidated domain engines (one file per domain) | Active |
+| `shared/constants/broadcastChannels.ts` | Broadcast delivery channel registry (`web_toast`, `telegram_dm`, …) | Active |
+| `shared/constants/scheduledEventTypes.ts` | Registry of recognized background event types | Active |
+| `shared/constants/accessControl.ts` | Seven-tier hierarchy, permission keys, default matrix | Active |
+| `shared/domains/BroadcastDomain.ts` | System-wide broadcast send, web toast query, dismiss | Active |
+| `shared/domains/AccessControlDomain.ts` | Access-control settings load/update and permission resolution | Active |
 | `shared/domains/AuthDomain.ts` | Auth registration, OAuth merge, Telegram widget + Mini App, profile mutations | Active |
 | `shared/domains/TelegramBotDomain.ts` | Telegram Bot API webhook dispatch (`/start`, Mini App button) | Active |
-| `shared/lib/verifyTelegramWebAppInitData.ts` | HMAC verification for Telegram Mini App `initData` | Active |
+| `shared/lib/accessControlLogic.ts` | Pure hierarchy rank, effective permissions, delegation checks | Active |
+| `shared/lib/directoryRedaction.ts` | User Directory field-level PII redaction and DTO mapping | Active |
+| `shared/lib/passwordStrength.ts` | Signup password strength assessment | Active |
+| `shared/lib/academicCatalogLogic.ts` | Specialty/group catalog slug and approval helpers | Active |
+| `shared/lib/splitPersonName.ts` | OAuth full-name → given name + surname split | Active |
+| `shared/lib/userProfileCompleteness.ts` | Membership application profile gaps; phone requirement rules | Active |
+| `shared/lib/userSociumHelpers.ts` | Full name formatting, socium role sync, quality score init, publish eligibility | Active |
+| `shared/lib/scheduledEventLogic.ts` | Pure state transition, exponential backoff, and locking logic | Active |
+| `shared/lib/scheduledEventHandlers/` | Background task handler registrations | Active |
 | `shared/domains/MediaDomain.ts` | Media upload validation + storage provider orchestration | Active |
 | `shared/domains/PageDomain.ts` | Puck page persistence mutations (delete by path) | Active |
+| `shared/domains/SchedulerDomain.ts` | Central background task scheduler and execution engine | Active |
 | `shared/domains/MentionDomain.ts` | User + page mention search for rich text `@` autocomplete | Active |
 | `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
 | `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
 | `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS stub) | Active |
+| `shared/lib/safeHref.ts` | Hyperlink allowlist for Puck blocks and rich text | Active |
+| `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, GCS, HTTPS) | Active |
+| `shared/lib/nexusRichTextSanitize.ts` | TipTap HTML allowlist + mention anchor normalization | Active |
+| `shared/lib/puckContentSanitize.ts` | Deep-walk Puck JSON sanitization on page save | Active |
+| `src/lib/contentSecurityPolicy.ts` | CSP header builder for middleware | Active |
 | `shared/validation/` | Centralized Zod validation schemas and format utilities | Active |
 
 ## `.ai/docs/` Sub-directories

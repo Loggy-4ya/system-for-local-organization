@@ -78,11 +78,24 @@ export class GlobalLayoutDomain {
     }
 
     if (!doc) {
-      doc = await GlobalLayout.create({
-        _id: GLOBAL_LAYOUT_ID,
-        header: DEFAULT_GLOBAL_LAYOUT.header,
-        footer: DEFAULT_GLOBAL_LAYOUT.footer,
-      });
+      doc = await GlobalLayout.findOneAndUpdate(
+        { _id: GLOBAL_LAYOUT_ID },
+        {
+          $setOnInsert: {
+            header: DEFAULT_GLOBAL_LAYOUT.header,
+            footer: DEFAULT_GLOBAL_LAYOUT.footer,
+          },
+        },
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+      );
+    }
+
+    if (!doc) {
+      const fallback = await GlobalLayout.findById(GLOBAL_LAYOUT_ID);
+      if (!fallback) {
+        throw new Error("Failed to load or seed global layout settings.");
+      }
+      return fallback;
     }
 
     return doc;

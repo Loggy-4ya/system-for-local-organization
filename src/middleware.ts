@@ -11,6 +11,7 @@ import NextAuth from "next-auth";
 import { acceptClientHintsHeader } from "@teispace/next-themes/server";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
+import { buildContentSecurityPolicy } from "@/lib/contentSecurityPolicy";
 import { publicUrl } from "@/lib/publicOrigin";
 
 const { auth } = NextAuth(authConfig);
@@ -26,7 +27,9 @@ export default auth((req) => {
     return Response.redirect(loginUrl);
   }
 
-  if (pathname.startsWith("/admin") && req.auth?.user?.role !== "Admin") {
+  const legacyAdminOnly = pathname.startsWith("/admin/global-layout");
+
+  if (legacyAdminOnly && req.auth?.user?.role !== "Admin") {
     const profileUrl = publicUrl("/profile", req);
     return Response.redirect(profileUrl);
   }
@@ -40,6 +43,10 @@ export default auth((req) => {
     },
   });
   response.headers.set("Accept-CH", acceptClientHintsHeader());
+  response.headers.set(
+    "Content-Security-Policy",
+    buildContentSecurityPolicy({ isDev: process.env.NODE_ENV !== "production" }),
+  );
   return response;
 });
 

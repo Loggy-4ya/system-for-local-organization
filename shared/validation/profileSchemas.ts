@@ -7,6 +7,30 @@
  */
 
 import { z } from "zod";
+import { optionalPhoneSchema, requiredPhoneSchema } from "@shared/validation/phoneSchema";
+
+/** Shared social link entry validation. */
+export const socialLinkSchema = z.object({
+  platform: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, "Platform is required.")
+    .max(32, "Platform must be under 32 characters."),
+  label: z
+    .string()
+    .trim()
+    .max(64, "Label must be under 64 characters.")
+    .nullable()
+    .optional()
+    .or(z.literal(""))
+    .transform((val) => (val === "" || val === undefined ? null : val)),
+  url: z
+    .string()
+    .trim()
+    .url("Social link must be a valid URL.")
+    .max(2048, "URL must be under 2048 characters."),
+});
 
 /**
  * Schema for PATCH /api/profile server-side validation.
@@ -19,6 +43,15 @@ export const profileUpdateSchema = z
       .min(1, "Name is required.")
       .max(100, "Name must be under 100 characters.")
       .optional(),
+    surname: z
+      .string()
+      .trim()
+      .max(100, "Surname must be under 100 characters.")
+      .nullable()
+      .optional()
+      .or(z.literal(""))
+      .transform((val) => (val === "" || val === undefined ? null : val)),
+    phone: optionalPhoneSchema.optional(),
     specialty: z
       .string()
       .trim()
@@ -53,6 +86,15 @@ export const profileUpdateSchema = z
         if (!val) return true;
         return val.startsWith("http://") || val.startsWith("https://") || val.startsWith("/");
       }, "Avatar must be a valid URL or path."),
+    about: z
+      .string()
+      .trim()
+      .max(2000, "About must be under 2000 characters.")
+      .nullable()
+      .optional()
+      .or(z.literal(""))
+      .transform((val) => (val === "" || val === undefined ? null : val)),
+    socialLinks: z.array(socialLinkSchema).max(10, "Maximum 10 social links.").optional(),
     accentFamily: z
       .enum(["blue", "red", "yellow", "green", "purple"] as const, {
         message: "Invalid accent family.",
@@ -65,8 +107,55 @@ export const profileUpdateSchema = z
       .optional(),
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
+    /** When true, validates required OAuth onboarding fields and consent. */
+    completeOAuthOnboarding: z.boolean().optional(),
+    /** Required when {@link completeOAuthOnboarding} is true. */
+    personalDataConsent: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.completeOAuthOnboarding) {
+      if (!data.surname?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Surname is required.",
+          path: ["surname"],
+        });
+      }
+
+      const phoneResult = requiredPhoneSchema.safeParse(data.phone ?? null);
+      if (!phoneResult.success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: phoneResult.error.issues[0]?.message ?? "Phone number is required.",
+          path: ["phone"],
+        });
+      }
+
+      if (!data.specialty?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Specialty is required.",
+          path: ["specialty"],
+        });
+      }
+
+      if (!data.group?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Group is required.",
+          path: ["group"],
+        });
+      }
+
+      if (data.personalDataConsent !== true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "You must consent to personal data processing.",
+          path: ["personalDataConsent"],
+        });
+      }
+    }
+
     if (data.newPassword && !data.currentPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -90,6 +179,8 @@ export const profileUpdateSchema = z
 export const clientProfileSettingsSchema = profileUpdateSchema
   .extend({
     confirmPassword: z.string().optional(),
+    personalDataConsent: z.boolean().optional(),
+    completeOAuthOnboarding: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.newPassword && data.newPassword !== data.confirmPassword) {

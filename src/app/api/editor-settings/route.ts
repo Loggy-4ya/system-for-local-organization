@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     await EditorSettings.findByIdAndUpdate(
       EDITOR_SETTINGS_ID,
       { islandDefaultComponents: list },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
 
     return NextResponse.json({ ok: true, islandDefaultComponents: list });

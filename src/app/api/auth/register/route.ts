@@ -34,16 +34,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { login, email, password, name, specialty, group, studentTitle } = parsed.data;
+    const {
+      login,
+      email,
+      password,
+      name,
+      surname,
+      phone,
+      specialty,
+      group,
+      studentTitle,
+      applyForSelfGovernment,
+    } = parsed.data;
 
     const user = await AuthDomain.registerWithCredentials({
       login,
       email: email ?? null,
       password,
       name: name?.trim() || login,
+      surname: surname ?? null,
+      phone: phone ?? null,
       specialty: specialty ?? null,
       group: group ?? null,
-      studentTitle: studentTitle || null,
+      studentTitle,
+      signupSociumRole: parsed.signupSociumRole,
+      applyForSelfGovernment: applyForSelfGovernment ?? false,
+      personalDataConsent: true,
     });
 
     return NextResponse.json(

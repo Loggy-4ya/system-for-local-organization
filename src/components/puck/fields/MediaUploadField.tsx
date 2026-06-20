@@ -8,7 +8,7 @@
 
 import { FieldLabel } from "@puckeditor/core";
 import { useCallback, useRef, useState } from "react";
-import { uploadMediaFile, type MediaAccept } from "../lib/mediaUpload";
+import { uploadMediaFile, importMediaImageFromUrl, isImportableRemoteMediaUrl, type MediaAccept } from "../lib/mediaUpload";
 import type { MediaPurpose } from "@shared/constants/mediaStorage";
 
 /** Props for the media upload field renderer. */
@@ -36,6 +36,7 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
     accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*";
 
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +70,31 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
     [accept, purpose, onChange],
   );
 
+  const canImportRemoteImage = accept === "image" || accept === "both";
+  const showImportLink =
+    canImportRemoteImage && isImportableRemoteMediaUrl(value) && !uploading && !importing;
+
+  /**
+   * Download a remote image URL and replace the field value with a local path.
+   */
+  const handleImportFromUrl = useCallback(async () => {
+    if (!value?.trim() || !canImportRemoteImage) return;
+
+    setImporting(true);
+    setError(null);
+    try {
+      const localUrl = await importMediaImageFromUrl(value, { purpose });
+      onChange(localUrl);
+    } catch (err: unknown) {
+      console.error("[MediaUploadField import]", err);
+      setError((err as Error)?.message || "Image import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }, [canImportRemoteImage, onChange, purpose, value]);
+
+  const busy = uploading || importing;
+
   return (
     <FieldLabel label={field.label || "Media"}>
       <div className="nexus-puck-field" style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
@@ -78,6 +104,17 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
           onChange={(e) => onChange(e.target.value)}
           placeholder="Media URL (e.g. /uploads/file.png)"
         />
+
+        {showImportLink && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleImportFromUrl()}
+            style={{ width: "100%" }}
+          >
+            {importing ? "Importing…" : "Import image from link"}
+          </button>
+        )}
 
         <div
           role="button"
@@ -102,18 +139,18 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
             borderRadius: 4,
             padding: "16px 12px",
             textAlign: "center",
-            cursor: uploading ? "not-allowed" : "pointer",
+            cursor: busy ? "not-allowed" : "pointer",
             background: dragOver ? "var(--puck-color-grey-11)" : "var(--puck-color-white)",
             fontSize: 13,
             color: "var(--puck-color-black)",
           }}
         >
-          {uploading ? "Uploading…" : "Drop file here or click to upload"}
+          {uploading ? "Uploading…" : importing ? "Importing…" : "Drop file here or click to upload"}
         </div>
 
         <button
           type="button"
-          disabled={uploading}
+          disabled={busy}
           onClick={() => fileInputRef.current?.click()}
           style={{ width: "100%" }}
         >

@@ -106,10 +106,12 @@ export async function submitTelegramBridgeSignIn(
  * Register a student account then sign in, returning inline errors on failure.
  *
  * @param payload - Validated signup fields.
+ * @param confirmPassword - Password confirmation echoed to the register API.
  * @returns Auth result; field errors are returned for register validation failures.
  */
 export async function submitStudentSignup(
   payload: SignupInput,
+  confirmPassword: string,
 ): Promise<CredentialsAuthResult> {
   const res = await fetch("/api/auth/register", {
     method: "POST",
@@ -118,9 +120,15 @@ export async function submitStudentSignup(
       login: payload.login,
       email: payload.email,
       password: payload.password,
+      confirmPassword,
+      name: payload.name,
+      surname: payload.surname,
+      phone: payload.phone,
       specialty: payload.specialty,
       group: payload.group,
-      studentTitle: payload.studentTitle,
+      signupSociumRole: payload.signupSociumRole,
+      applyForSelfGovernment: payload.applyForSelfGovernment,
+      personalDataConsent: true,
     }),
   });
 

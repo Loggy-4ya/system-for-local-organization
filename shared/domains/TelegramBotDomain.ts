@@ -54,6 +54,17 @@ export function resolveTelegramMiniAppUrl(): string {
  */
 export const TelegramBotDomain = {
   /**
+   * Send a plain-text direct message to a Telegram user chat.
+   *
+   * @param botToken - BotFather token.
+   * @param chatId - Telegram user/chat id (private DM uses numeric user id).
+   * @param text - Message body (plain text).
+   */
+  async sendDirectMessage(botToken: string, chatId: number, text: string): Promise<void> {
+    await sendTelegramMessage(botToken, chatId, { text });
+  },
+
+  /**
    * Dispatch a Telegram Bot API update.
    *
    * @param update - Parsed webhook JSON body.

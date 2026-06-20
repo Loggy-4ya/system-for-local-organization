@@ -11,6 +11,16 @@
  */
 export const AUTH_ERROR_MESSAGES: Record<string, string> = {
   credentials: "Invalid login or password.",
+  account_not_found:
+    "No account exists with this login. Please create an account first.",
+  oauth_only:
+    "This account signs in with a linked provider. Continue with Google, Apple, or Telegram instead of a password.",
+  oauth_only_google:
+    "This account uses Google sign-in. Continue with Google instead of a password.",
+  oauth_only_apple:
+    "This account uses Apple sign-in. Continue with Apple instead of a password.",
+  oauth_only_telegram:
+    "This account uses Telegram sign-in. Continue with Telegram instead of a password.",
   signin: "Account created but sign-in failed. Please log in.",
   login_exists: "This login is already taken.",
   email_exists: "An account with this email already exists.",
@@ -39,6 +49,19 @@ export function getAuthErrorMessage(code: string | null | undefined): string | n
   // Auth.js credentials provider error code
   if (normalized === "credentialssignin") {
     return AUTH_ERROR_MESSAGES.credentials;
+  }
+
+  if (normalized === "accountnotfound" || normalized === "account_not_found") {
+    return AUTH_ERROR_MESSAGES.account_not_found;
+  }
+
+  if (normalized === "oauthonly" || normalized === "oauth_only") {
+    return AUTH_ERROR_MESSAGES.oauth_only;
+  }
+
+  if (normalized.startsWith("oauth_only_")) {
+    const key = normalized.replace(/-/g, "_");
+    return AUTH_ERROR_MESSAGES[key] ?? AUTH_ERROR_MESSAGES.oauth_only;
   }
 
   // Check for common raw error messages and map them to stable codes

@@ -15,6 +15,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [~] **Figma Design Preview:** Dark theme + strict admin shell on `58:2`/`58:17`. News (`59:17`), Editor (`59:32`), Profile (`59:47`) dark-themed. Remaining: variable bindings, light toggle previews, Foundations type/spacing specimens. See `.ai/docs/features/figma_ui_integration.md`.
 - [~] **Puck.js Integration:** `@puckeditor/core` 0.21.x installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; unified media storage via `MediaDomain` + `/api/upload`; root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`); mobile plugin rail; Outline tree drag reorder; auto viewport sync; glass viewport instrument island; three-tier responsive canvas layout (compact ≤900px, narrow desktop 901–1023px).
 - [~] **Unified Media Storage:** Purpose-based upload pipeline (`avatar`, `page-cover`, `puck-block`, `task-report`) with local filesystem provider and GCS migration stub — see `.ai/docs/features/media_storage.md`.
+- [~] **Content Security (XSS):** Safe href/media URL helpers, Puck save sanitization, render-time guards, SVG upload block, CSP middleware — see `.ai/docs/features/content_security.md`.
 - [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining, root-level block default margin (`sm` / `--spacing-sm`), canvas slot reparenting + full-container drop highlights — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed) and `.ai/docs/features/puck_editor.md` §3b / §6c.
 - [~] **Infinite Background Engine:** `InfiniteGrid` React Client Component (`src/components/background/InfiniteGrid.tsx`) — dual-canvas, RAF animation, mouse-tracking CSS Custom Properties, radial vignette. Mounted in root layout.
 - [~] **Global Next.js Routing:** Root layout with ThemeProvider, InfiniteGrid, GlobalHeader; `@shared/*` tsconfig path alias for server-side model imports.
@@ -24,10 +25,13 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 ## Phase 2: Authentication & User Profiles (Auth Domain)
 - [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, Telegram Mini App, and login/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md` and `.ai/docs/features/telegram_mini_app_and_bot.md`.
 - [~] **Bot Data Harvesting:** Telegram Login Widget and Mini App merge name, username, avatar into unified MongoDB record; phone harvest via bot contact remains Phase 4.
-- [x] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields. Task/activity panels use placeholders until Phase 5.
-- [x] **Student Registration Flow:** `/signup` captures Specialty, Group, and student title chips (Starosta / Deputy / Neither).
+- [~] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields. Extended socium identity, about, social links — see [user_model_and_social_identity.md](./features/user_model_and_social_identity.md). Task/activity panels use placeholders until Phase 5.
+- [~] **Student Registration Flow:** `/signup` — two-column name/surname, phone, password strength + confirm, creatable specialty/group dropdowns, socium role (Student/Starosta), self-government application intent, personal data consent. See [signin_identity_matrix.md](./features/signin_identity_matrix.md).
 
 ## Phase 3: The Admin Dashboard & Complex Tables (Admin Domain)
+- [x] **Access Control & Hierarchy:** Seven-tier permission matrix, `/admin/user-access` editor, User Directory and per-user assignments — see [access_control_and_hierarchy.md](./features/access_control_and_hierarchy.md).
+- [x] **Administration Hub:** `/admin` area picker with `NexusSurfaceCard` tiles — see [admin_hub.md](./features/admin_hub.md).
+- [~] **System Broadcasts:** `POST /api/admin/broadcasts` — web toasts + Telegram DM to all users — see [system_broadcasts.md](./features/system_broadcasts.md). Admin compose UI deferred.
 - [ ] **Leaderboard & Gamification:** Calculate and display user "Stars" as the sum of coins and crystals earned over the study period.
 <!-- - [ ] **Task & Marks Table UI:** Implement the massive tracking table with support for a 1-12 marking scale (classwork, independent work, exams). -->
 - [ ] **Calendar Mode:** Build the table view where rows are users, columns are days/weeks, and cells display accomplished tasks.
@@ -41,10 +45,11 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [ ] **Automated Clean-up:** Automatically save final reports to MongoDB and dismantle/delete the group when the project is marked completed to prevent clutter.
 
 ## Phase 5: Task Management, Editors & Community
+- [~] **Scheduled Events Engine:** Core background task scheduler, MongoDB queue model, shared auth, API routes, and in-process/CLI runners (foundation completed).
 - [ ] **Task Core Engine:** Handle task CRUD operations, start/end times, and enforce reassignment limits (fixed amount for ordinary users, unlimited for admins).
 - [ ] **Asynchronous Acknowledgements:** Implement explicit confirmation triggers for dispatched tasks (flagged as "Delivered, Unacknowledged" until confirmed).
 - [ ] **Constant Reminders System:** Allow admins to create long-term scheduled reminders dispatched to users or specific roles via Telegram/Discord.
-- [ ] **Community Interactions:** Build comment sections for news posts, allowing ordinary users to comment, propose ideas, and submit applications.
+- [~] **Community Interactions:** Build comment sections for news posts, allowing ordinary users to comment, propose ideas, and submit applications. Foundation models in `UserEngagement.ts` — see [user_model_and_social_identity.md](./features/user_model_and_social_identity.md).
 - [~] **Notion-Style Text Editor:** Site-wide TipTap kit with `@` user/page mentions — see `.ai/docs/features/nexus_rich_text_editor.md`. Page hover preview cards remain planned.
 - [ ] **News Hub:** Implement the news layout with multiple categories (Current, Sport, Announcements) and tile covers.
 

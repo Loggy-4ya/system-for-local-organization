@@ -69,12 +69,20 @@ export function PageManagerShell({ pages, notice, showAdminSettings = false }: P
           </div>
 
           {showAdminSettings && (
-            <Link
-              href="/admin/global-layout"
-              className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors shrink-0"
-            >
-              Global Layout Editor
-            </Link>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Link
+                href="/admin/global-layout"
+                className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors"
+              >
+                Global Layout Editor
+              </Link>
+              <Link
+                href="/admin/user-access"
+                className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors"
+              >
+                User Access Settings
+              </Link>
+            </div>
           )}
         </div>
 

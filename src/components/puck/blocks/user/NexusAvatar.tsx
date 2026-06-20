@@ -9,6 +9,7 @@
  */
 
 import React from "react";
+import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { ImageField } from "../../fields/ImageField";
 
 export const NexusAvatar = {
@@ -60,6 +61,7 @@ export const NexusAvatar = {
     shape: "circle" | "rounded" | "square";
     name: string;
   }) {
+    const safeImage = sanitizeMediaUrl(image);
     const sizePixels = {
       sm: 28,
       md: 40,
@@ -90,10 +92,10 @@ export const NexusAvatar = {
           flexShrink: 0,
         }}
       >
-        {image ? (
+        {safeImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={image}
+            src={safeImage}
             alt={name}
             style={{
               width: "100%",

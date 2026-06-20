@@ -7,6 +7,8 @@
  */
 
 import "@/lib/safePointerCaptureInstall";
+import "@puckeditor/core/puck.css";
+import "@/app/puck-editor.css";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
 import { ensurePageRootChapterProps } from "@/components/puck/lib/pageRootFieldProps";

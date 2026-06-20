@@ -11,6 +11,8 @@ import fs from "fs/promises";
 import path from "path";
 import { LOCAL_UPLOADS_ROOT_SEGMENT } from "@shared/constants/mediaStorage";
 import { MEDIA_PURPOSE_POLICIES } from "@shared/constants/mediaStorage";
+import { listLocalUploadInventory } from "@shared/lib/mediaStorage/localUploadInventory";
+import type { LocalUploadInventoryEntry } from "@shared/lib/mediaStorage/orphanUploadCleanupLogic";
 import {
   buildLocalPublicUrl,
   buildLocalStorageKey,
@@ -72,5 +74,14 @@ export class LocalFilesystemMediaProvider implements MediaStorageProvider {
     const safeKey = storageKey.replace(/^\/+/, "").replace(/\.\./g, "");
     const filePath = path.join(this.projectRoot, LOCAL_UPLOADS_ROOT_SEGMENT, safeKey);
     await fs.unlink(filePath).catch(() => undefined);
+  }
+
+  /**
+   * List all managed files under `public/uploads/` segment folders.
+   *
+   * @returns Inventory entries for orphan cleanup scans.
+   */
+  async listInventory(): Promise<LocalUploadInventoryEntry[]> {
+    return listLocalUploadInventory(this.projectRoot);
   }
 }

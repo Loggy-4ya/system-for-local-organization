@@ -53,6 +53,15 @@ export interface MediaStorageProvider {
    * @param storageKey - Key returned from a prior upload.
    */
   delete?(storageKey: string): Promise<void>;
+
+  /**
+   * List stored objects for orphan cleanup scans (optional — local + GCS providers).
+   *
+   * @returns Files/objects with provider storage keys and last-modified timestamps.
+   */
+  listInventory?(): Promise<
+    import("@shared/lib/mediaStorage/orphanUploadCleanupLogic").LocalUploadInventoryEntry[]
+  >;
 }
 
 /** Environment configuration consumed by provider resolution. */

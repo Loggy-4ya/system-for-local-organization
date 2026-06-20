@@ -7,13 +7,35 @@
  * @module src/auth
  */
 
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
 import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
-import { AuthDomain } from "@shared/domains/AuthDomain";
+import { cookies } from "next/headers";
+import { AuthDomain, type OAuthProfileInput } from "@shared/domains/AuthDomain";
 import { verifyTelegramBridgeToken } from "@/lib/telegramBridge";
+import { OAUTH_LINK_USER_COOKIE } from "@/lib/oauthLinkCookie";
 import { authConfig } from "@/auth.config";
+
+/** Thrown when no credentials account exists for the submitted login. */
+class AccountNotFoundError extends CredentialsSignin {
+  code = "account_not_found";
+}
+
+/** Thrown when the account only supports OAuth / Telegram sign-in. */
+class OAuthOnlyError extends CredentialsSignin {
+  code = "oauth_only";
+
+  /**
+   * @param providers - Linked provider slugs for targeted messaging.
+   */
+  constructor(providers: Array<"google" | "apple" | "telegram">) {
+    super();
+    if (providers.length === 1) {
+      this.code = `oauth_only_${providers[0]}`;
+    }
+  }
+}
 
 /**
  * Auth.js configuration and exported helpers.
@@ -61,8 +83,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!login || !password) return null;
 
-        const user = await AuthDomain.validateCredentials(login, password);
-        if (!user) return null;
+        const resolution = await AuthDomain.resolveCredentialsLogin(login, password);
+
+        if (resolution.status === "not_found") {
+          throw new AccountNotFoundError();
+        }
+
+        if (resolution.status === "oauth_only") {
+          throw new OAuthOnlyError(resolution.providers);
+        }
+
+        if (resolution.status === "invalid_password") {
+          return null;
+        }
+
+        const user = resolution.user;
         return { id: String(user._id), role: user.role };
       },
     }),
@@ -79,31 +114,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ account, profile }) {
       if (!account || account.provider === "credentials") return true;
 
+      const cookieStore = await cookies();
+      const linkUserId = cookieStore.get(OAUTH_LINK_USER_COOKIE)?.value ?? null;
+
       try {
-        if (account.provider === "google" && profile) {
-          const p = profile as { sub?: string; email?: string; name?: string; picture?: string; email_verified?: boolean };
-          await AuthDomain.findOrCreateFromGoogle({
-            providerId: p.sub ?? account.providerAccountId,
-            email: p.email ?? null,
-            name: p.name ?? "Nexus User",
-            image: p.picture ?? null,
-            emailVerified: p.email_verified ? new Date() : null,
-          });
+        const oauthProfile = normalizeOAuthProfile(account, profile);
+
+        if (linkUserId) {
+          if (account.provider === "google") {
+            await AuthDomain.linkGoogleProfile(linkUserId, oauthProfile);
+          } else if (account.provider === "apple") {
+            await AuthDomain.linkAppleProfile(linkUserId, oauthProfile);
+          } else {
+            return false;
+          }
+
+          cookieStore.delete(OAUTH_LINK_USER_COOKIE);
+          return true;
         }
 
-        if (account.provider === "apple" && profile) {
-          const p = profile as { sub?: string; email?: string; name?: string; picture?: string; email_verified?: boolean };
-          await AuthDomain.findOrCreateFromApple({
-            providerId: p.sub ?? account.providerAccountId,
-            email: p.email ?? null,
-            name: p.name ?? "Nexus User",
-            image: p.picture ?? null,
-            emailVerified: p.email_verified ? new Date() : null,
-          });
+        if (account.provider === "google") {
+          await AuthDomain.findOrCreateFromGoogle(oauthProfile);
+        }
+
+        if (account.provider === "apple") {
+          await AuthDomain.findOrCreateFromApple(oauthProfile);
         }
 
         return true;
       } catch {
+        cookieStore.delete(OAUTH_LINK_USER_COOKIE);
         return false;
       }
     },
@@ -162,9 +202,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.sub) {
         const user = await AuthDomain.getUserById(token.sub);
         if (user) {
+          const publicUser = AuthDomain.toPublicUser(user);
+          const { AccessControlDomain } = await import("@shared/domains/AccessControlDomain");
+          const effectivePermissions = await AccessControlDomain.resolvePermissionsForUser(user);
           session.user = {
-            ...AuthDomain.toPublicUser(user),
-            emailVerified: user.emailVerified,
+            ...publicUser,
+            effectivePermissions,
+            emailVerified: user.emailVerified ?? null,
           } as typeof session.user;
         }
       }
@@ -173,3 +217,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+/**
+ * Normalise an Auth.js OAuth profile into {@link OAuthProfileInput}.
+ *
+ * @param account - Auth.js provider account payload.
+ * @param profile - Auth.js provider profile payload.
+ * @returns Normalised OAuth profile for AuthDomain.
+ */
+function normalizeOAuthProfile(
+  account: { providerAccountId: string },
+  profile: unknown,
+): OAuthProfileInput {
+  const p = profile as {
+    sub?: string;
+    email?: string;
+    name?: string;
+    picture?: string;
+    email_verified?: boolean;
+  };
+
+  return {
+    providerId: p.sub ?? account.providerAccountId,
+    email: p.email ?? null,
+    name: p.name ?? "Nexus User",
+    image: p.picture ?? null,
+    emailVerified: p.email_verified ? new Date() : null,
+  };
+}

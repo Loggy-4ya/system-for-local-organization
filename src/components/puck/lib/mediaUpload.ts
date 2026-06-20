@@ -7,6 +7,8 @@
  */
 
 export {
+  importMediaImageFromUrl,
+  isImportableRemoteMediaUrl,
   uploadMediaFile,
   type MediaAccept,
   type UploadMediaFileOptions,

@@ -8,8 +8,6 @@
 
 import "@/lib/safePointerCaptureInstall";
 import { Puck, fieldsPlugin } from "@puckeditor/core";
-import "@puckeditor/core/puck.css";
-import "../puck-editor.css";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
 import { normalizePagePath } from "@/components/puck/PagePathEditor";

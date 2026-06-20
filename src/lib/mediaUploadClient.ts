@@ -79,3 +79,71 @@ export async function uploadMediaFile(
 
   return data.url;
 }
+
+/**
+ * Test whether a field value looks like a remote HTTP(S) URL worth importing.
+ *
+ * Local `/uploads/` paths and empty values are excluded.
+ *
+ * @param value - URL string from a media field.
+ * @returns True when import-from-link may be offered.
+ */
+export function isImportableRemoteMediaUrl(value: string | undefined | null): boolean {
+  if (!value?.trim()) return false;
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/uploads/")) return false;
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Download a remote image via `/api/upload/from-url` and return the local public path.
+ *
+ * @param url - HTTPS (or HTTP) image URL to import.
+ * @param options - Purpose and optional owner key (images only).
+ * @returns Local URL path (e.g. `/uploads/puck-blocks/foo.png`).
+ * @throws When the server rejects the import or returns no URL.
+ */
+export async function importMediaImageFromUrl(
+  url: string,
+  options: Omit<UploadMediaFileOptions, "accept"> = {},
+): Promise<string> {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    throw new Error("Image URL is required.");
+  }
+
+  const res = await fetch("/api/upload/from-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: trimmed,
+      purpose: options.purpose,
+      ownerKey: options.ownerKey,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    let errMsg = "Image import failed.";
+    try {
+      const parsed = JSON.parse(errText) as { error?: string };
+      errMsg = parsed.error || errMsg;
+    } catch {
+      errMsg = errText || errMsg;
+    }
+    throw new Error(errMsg);
+  }
+
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) {
+    throw new Error("No URL returned from server.");
+  }
+
+  return data.url;
+}

@@ -14,6 +14,8 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 
 **Credentials model:** Students sign in with a unique **`login`** handle (3–32 chars, lowercase alphanumeric plus `.`, `-`, `_`). **Email is optional** at signup — used only as a linked contact/OAuth merge field, not for credentials sign-in.
 
+**Sign-in confusion matrix:** See [signin_identity_matrix.md](./signin_identity_matrix.md) for OAuth-only vs credentials error discrimination and deferred admin review queues.
+
 ---
 
 ## Route map
@@ -23,10 +25,11 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | `/login` | Page | Login/password sign-in + OAuth row |
 | `/signup` | Page | Student registration — login, optional linked email (Figma `57:17`) |
 | `/profile` | Page | Read-only profile dashboard (Figma `59:47`) |
-| `/profile/settings` | Page | Editable user info |
+| `/profile/settings` | Page | Editable user info; `?onboarding=1` for OAuth/Telegram profile completion gate |
 | `/telegram` | Page | Telegram Mini App entry (auto-login / onboarding) |
 | `/api/auth/[...nextauth]` | API | Auth.js handler |
 | `/api/auth/register` | API | POST credentials signup (JSON API) |
+| `/api/auth/signup-options` | API | GET approved specialty/group labels for signup dropdowns |
 | `/api/auth/login` | API | POST form login fallback (redirect) — primary UI uses client `signIn` |
 | `/api/auth/signup` | API | POST form register fallback — primary UI uses `/api/auth/register` + client `signIn` |
 | `/api/auth/telegram` | API | POST Telegram widget verification |
@@ -34,6 +37,7 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | `/api/auth/telegram/mini-app/register` | API | POST Mini App onboarding registration |
 | `/api/telegram/webhook` | API | Bot webhook (`/start` → Open Nexus button) |
 | `/api/profile` | API | PATCH profile fields |
+| `/api/profile/completeness` | API | GET membership profile readiness gaps |
 | `/api/profile/telegram` | API | DELETE unlink Telegram (session required) |
 
 ---
@@ -62,14 +66,27 @@ sequenceDiagram
 
 ## User model extensions
 
+See full specification: [user_model_and_social_identity.md](./user_model_and_social_identity.md).
+
 | Field | Type | Notes |
 |-------|------|-------|
 | `login` | `string \| null` | Unique credentials handle; sparse unique index |
+| `passwordHash` | `string \| null` | bcrypt; never exposed |
+| `name` | `string` | Given / first name |
+| `surname` | `string \| null` | Family name; combined as `fullName` in API |
+| `phone` | `string \| null` | Contact number; optional (recommended) for students, required for self-government members |
+| `selfGovernmentApplicationIntent` | `boolean` | Signup checkbox — student wants to apply for self-government (admin reviews) |
+| `personalDataConsentAt` | `Date \| null` | Timestamp when user accepted personal data processing at signup |
 | `email` | `string \| null` | Optional linked email; sparse unique index; OAuth merge |
 | `emailVerified` | `Date \| null` | Set on OAuth verify |
-| `passwordHash` | `string \| null` | bcrypt; never exposed |
 | `appleId` | `string \| null` | Apple `sub` |
-| `studentTitle` | `Starosta \| Deputy \| Neither \| null` | Registration chips |
+| `studentTitle` | `Starosta \| Deputy \| Neither \| null` | Registration chips; synced to `sociumRoles` |
+| `sociumRoles` | `IUserSociumRole[]` | Socium identity array (starosta, self-gov, custom) |
+| `socialGroupActivities` | `IUserSocialGroupActivity[]` | Admin-assigned activity categories |
+| `organizations` | `IUserOrganizationMembership[]` | External org memberships |
+| `socialLinks` | `IUserSocialLink[]` | User-editable social media URLs |
+| `about` | `string \| null` | Self-authored bio note |
+| `qualityScores` | `IUserQualityScores \| null` | Auto-init for self-government members |
 | `accentFamily` | `blue \| red \| yellow \| green \| purple` | Default `blue` |
 | `accentShade` | `soft \| medium \| strong` | Default `medium` |
 | `lastTelegramSyncAt` | `Date \| null` | Profile sync card |
@@ -91,15 +108,16 @@ TELEGRAM_BOT_TOKEN=       # BotFather token for widget + Mini App initData + bot
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET=  # Optional webhook header validation
 ADMIN_SEED_LOGIN=         # Admin credentials seed (required with ADMIN_SEED_PASSWORD)
-ADMIN_SEED_EMAIL=         # Optional linked email for seeded admin
 ADMIN_SEED_PASSWORD=
 ```
+
+`ADMIN_SEED_EMAIL` / `ADMIN_EMAIL` are **deprecated** — used only to locate legacy email-only seed documents during migration. New seed users are created **without email**; email is populated when Google OAuth is linked from `/profile/settings`.
 
 `docker-compose.yml` loads secrets from `.env.local`. Do **not** hardcode `NEXTAUTH_URL` in Compose — set it in `.env.local` so it matches how you open the app (scheme, host, and port in the browser address bar).
 
 **Phone / LAN testing:** If you open the app as `http://192.168.x.x:8080` on your phone, `NEXTAUTH_URL` must use that same LAN IP — **not** `http://localhost:8080`. On a phone, `localhost` is the phone itself, so auth redirects and session cookies target the wrong host and sign-in appears to fail.
 
-**Default admin (dev):** Set `ADMIN_SEED_LOGIN` + `ADMIN_SEED_PASSWORD` in `.env.local`. Sign in on `/login` with the **login handle** (e.g. `admin`), not email. `ADMIN_SEED_EMAIL` is optional. On first load, `seedAdminUser()` creates the admin or **backfills `login`** on a legacy email-only seed document and resets its password from env.
+**Default admin (dev):** Set `ADMIN_SEED_LOGIN` + `ADMIN_SEED_PASSWORD` in `.env.local`. Sign in on `/login` with the **login handle** (e.g. `admin`), not email. The seed user is **minimal** — login, password, `Admin` role, and system hierarchy index only. No Telegram, no seeded email, and **no** specialty, group, student title, or socium profile fields (configure those in `/profile/settings` or admin tools). Email is populated when Google OAuth is linked from **Connected accounts**. On first load, `seedAdminUser()` creates the admin, **clears Telegram** on an existing seed login match, or **backfills `login`** on a legacy email-only seed document.
 
 ---
 
@@ -130,6 +148,8 @@ Not emitted by Nexus application code. Brave and some wallet extensions assign t
 | `validateCredentials` | Login handle + password |
 | `findOrCreateFromGoogle` | OAuth merge by `googleId` or email |
 | `findOrCreateFromApple` | OAuth merge by `appleId` or email |
+| `linkGoogleProfile` | Link Google onto an existing account (profile settings); sets email from OAuth |
+| `linkAppleProfile` | Link Apple onto an existing account (profile settings) |
 | `verifyTelegramLoginWidget` | HMAC verify + link Telegram identity |
 | `authenticateTelegramMiniApp` | Mini App initData → returning user or onboarding |
 | `registerFromTelegramMiniApp` | First-time Mini App registration + `telegramId` link |
@@ -148,9 +168,14 @@ All authentication and profile settings forms are validated using **Zod** schema
 
 - **Login:** Trimmed, lowercased, 3–32 characters; `[a-z0-9._-]` only.
 - **Linked email (signup):** Optional; trimmed, lowercased, valid email format, max 254 characters when provided.
-- **Password:** Minimum 8 characters, max 128 characters.
-- **Specialty / Group:** Optional, trimmed, max 120 characters when present. Empty strings are transformed to `null`.
-- **Student Title:** Must be one of `Starosta | Deputy | Neither` (defaults to `Neither`).
+- **Password:** Minimum 8 characters, max 128; must pass {@link assessPasswordStrength} (mixed character classes, not equal to login, not common weak passwords). Signup requires matching `confirmPassword`.
+- **Phone:** Optional at signup; international format via {@link optionalPhoneSchema}.
+- **Specialty / Group:** Optional, max 120 chars. Signup uses creatable dropdowns backed by `academic_catalog` — user-typed values queue as `pending` for admin review (see [signin_identity_matrix.md](./signin_identity_matrix.md)).
+- **Socium role (signup):** `Student` (default), `Starosta`, or `Teacher` — select control; maps to socium kinds. Other roles are admin-assigned.
+- **Group:** Numeric only (1–4 digits, e.g. `42`).
+- **Membership intent:** `applyForSelfGovernment` boolean — records intent, does not grant roles.
+- **Personal data consent:** `personalDataConsent: true` required at signup; stored as `personalDataConsentAt`.
+- **Student Title (legacy):** `Starosta | Deputy | Neither` — signup exposes Student/Starosta chips; `Deputy` remains editable in profile settings.
 - **Display Name:** Required, trimmed, 1–100 characters.
 - **Accent Family:** Must be one of `blue | red | yellow | green | purple`.
 - **Accent Shade:** Must be one of `soft | medium | strong`.
@@ -174,6 +199,32 @@ We use two reusable design system components for displaying errors and success m
 
 ---
 
+## OAuth / Telegram profile onboarding
+
+Users who first sign in via **Google**, **Apple**, or the **Telegram Login Widget** receive a sparse MongoDB record (name, optional email/avatar). Before browsing the rest of the app they must complete:
+
+| Field | Required |
+|-------|----------|
+| Surname | Yes |
+| Phone | Yes |
+| Specialty | Yes |
+| Group | Yes |
+| Personal data consent | Yes (`personalDataConsentAt`) |
+
+**Flow:**
+
+1. After OAuth sign-in, default callback is `/profile/settings?onboarding=1`.
+2. `ProfileOnboardingRedirect` in the root layout calls `enforceProfileOnboarding()` on every authenticated page (uses `x-pathname` from middleware).
+3. Incomplete accounts redirect to `/profile/settings?onboarding=1` (exempt: `/login`, `/signup`, `/profile/settings`, `/telegram`).
+4. `PATCH /api/profile` with `completeOAuthOnboarding: true` validates required fields; returns `onboardingComplete: true` when done.
+5. Client redirects to `/profile` after successful completion.
+
+**Not gated:** Credentials signup users (no linked external id), Telegram Mini App first-time flow (`/telegram` onboarding form), returning users with a complete profile.
+
+Logic: `shared/lib/userProfileCompleteness.ts` — `userNeedsProfileOnboarding()`.
+
+---
+
 ## Middleware
 
 Protects `/profile/*` and `/admin/*`. Unauthenticated users redirect to `/login?callbackUrl=…`.
@@ -184,12 +235,14 @@ Dev bypass: when `NEXTAUTH_SECRET` is unset, API write guards allow all requests
 
 ## Acceptance criteria
 
-- [x] Sign up with login/password + optional linked email + specialty/group/student title
+- [x] Sign up with login/password, phone, password confirmation + strength check, optional linked email, creatable specialty/group, socium role (Student/Starosta), membership intent checkbox, personal data consent
+- [x] Credentials login distinguishes unknown login (sign up first) from OAuth-only accounts (use provider)
 - [x] Sign in via Google, Apple, Telegram widget, Telegram Mini App, or credentials (inline errors, no full-page reload on bad password)
 - [x] Profile settings can unlink Telegram when another sign-in method exists
 - [x] Identities merge into one `users` document
 - [x] `/profile` read-only dashboard with live user data
 - [x] `/profile/settings` saves editable fields
+- [x] OAuth / Telegram sparse accounts redirect to `/profile/settings?onboarding=1` until required fields + consent are saved
 - [x] GlobalHeader shows avatar + admin nav from session
 - [x] Protected API routes use `auth()` session check (legacy bearer fallback for Puck editor)
 

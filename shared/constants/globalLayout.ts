@@ -178,7 +178,7 @@ export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [
     adminOnly: true,
     items: [
       { id: "pages", href: "/pages", label: "Create Page", icon: "Plus" },
-      { id: "admin", href: "/admin/global-layout", label: "Global Layout", icon: "Shield", adminOnly: true },
+      { id: "admin", href: "/admin", label: "Administration", icon: "Shield", adminOnly: true },
     ],
   },
 ];

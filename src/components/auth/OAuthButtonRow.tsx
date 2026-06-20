@@ -9,11 +9,14 @@
 import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { OAUTH_LINK_USER_COOKIE } from "@/lib/oauthLinkCookie";
 
 /** Props for {@link OAuthButtonRow}. */
 export interface OAuthButtonRowProps {
   /** Post-auth redirect path. */
   callbackUrl?: string;
+  /** When set, OAuth sign-in links the provider onto this existing user instead of creating a new account. */
+  linkUserId?: string | null;
 }
 
 /** Telegram widget user payload shape. */
@@ -39,9 +42,36 @@ declare global {
  * @param props - See {@link OAuthButtonRowProps}.
  * @returns OAuth button row JSX.
  */
-export function OAuthButtonRow({ callbackUrl = "/profile" }: OAuthButtonRowProps) {
+export function OAuthButtonRow({
+  callbackUrl = "/profile/settings?onboarding=1",
+  linkUserId = null,
+}: OAuthButtonRowProps) {
   const telegramRef = useRef<HTMLDivElement>(null);
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+
+  /**
+   * Set a short-lived cookie so Auth.js merges OAuth into the signed-in account.
+   *
+   * @param userId - MongoDB user id to link.
+   */
+  const setOAuthLinkCookie = useCallback((userId: string) => {
+    document.cookie = `${OAUTH_LINK_USER_COOKIE}=${encodeURIComponent(userId)}; path=/; max-age=300; samesite=lax`;
+  }, []);
+
+  /**
+   * Start OAuth sign-in, optionally linking to an existing account.
+   *
+   * @param provider - Auth.js provider id.
+   */
+  const handleOAuthSignIn = useCallback(
+    (provider: "google" | "apple") => {
+      if (linkUserId) {
+        setOAuthLinkCookie(linkUserId);
+      }
+      void signIn(provider, { callbackUrl });
+    },
+    [callbackUrl, linkUserId, setOAuthLinkCookie],
+  );
 
   /**
    * Handle Telegram widget callback — verify server-side then bridge to session.
@@ -106,7 +136,7 @@ export function OAuthButtonRow({ callbackUrl = "/profile" }: OAuthButtonRowProps
           type="button"
           variant="outline"
           className="flex-1"
-          onClick={() => signIn("google", { callbackUrl })}
+          onClick={() => handleOAuthSignIn("google")}
         >
           Google
         </Button>
@@ -114,7 +144,7 @@ export function OAuthButtonRow({ callbackUrl = "/profile" }: OAuthButtonRowProps
           type="button"
           variant="outline"
           className="flex-1"
-          onClick={() => signIn("apple", { callbackUrl })}
+          onClick={() => handleOAuthSignIn("apple")}
         >
           Apple
         </Button>

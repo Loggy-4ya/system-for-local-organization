@@ -50,29 +50,34 @@ describe("loginSchema", () => {
 });
 
 describe("signupSchema", () => {
+  const validSignupPayload = {
+    login: "student_nexus",
+    password: "River-2026!",
+    confirmPassword: "River-2026!",
+    personalDataConsent: true as const,
+  };
+
   it("passes validation for valid signup fields without email", () => {
     const result = signupSchema.safeParse({
-      login: "student_nexus",
-      password: "newpassword123",
+      ...validSignupPayload,
       specialty: "Software Engineering",
-      group: "SE-42",
-      studentTitle: "Starosta",
+      group: "42",
+      signupSociumRole: "Starosta",
     });
     assert.equal(result.success, true);
     if (result.success) {
       assert.equal(result.data.login, "student_nexus");
       assert.equal(result.data.email, null);
       assert.equal(result.data.specialty, "Software Engineering");
-      assert.equal(result.data.group, "SE-42");
+      assert.equal(result.data.group, "42");
       assert.equal(result.data.studentTitle, "Starosta");
     }
   });
 
   it("passes validation with optional linked email", () => {
     const result = signupSchema.safeParse({
-      login: "student_nexus",
+      ...validSignupPayload,
       email: "  STUDENT@nexus.edu  ",
-      password: "newpassword123",
     });
     assert.equal(result.success, true);
     if (result.success) {
@@ -80,23 +85,47 @@ describe("signupSchema", () => {
     }
   });
 
-  it("fails validation for short password", () => {
+  it("fails validation for weak password", () => {
     const result = signupSchema.safeParse({
       login: "student_nexus",
-      password: "short",
+      password: "password",
+      confirmPassword: "password",
+      personalDataConsent: true,
     });
     assert.equal(result.success, false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
       assert.ok(errors.password);
-      assert.equal(errors.password[0], "Password must be at least 8 characters.");
+    }
+  });
+
+  it("fails validation when passwords do not match", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      confirmPassword: "Different-2026!",
+    });
+    assert.equal(result.success, false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      assert.ok(errors.confirmPassword);
+    }
+  });
+
+  it("fails validation without personal data consent", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      personalDataConsent: false,
+    });
+    assert.equal(result.success, false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      assert.ok(errors.personalDataConsent);
     }
   });
 
   it("transforms empty specialty and group to null", () => {
     const result = signupSchema.safeParse({
-      login: "student_nexus",
-      password: "password123",
+      ...validSignupPayload,
       specialty: "",
       group: "   ",
     });
@@ -107,17 +136,61 @@ describe("signupSchema", () => {
     }
   });
 
-  it("fails validation for invalid student title", () => {
+  it("maps Student socium role to Neither student title", () => {
     const result = signupSchema.safeParse({
-      login: "student_nexus",
-      password: "password123",
-      studentTitle: "Rector",
+      ...validSignupPayload,
+      signupSociumRole: "Student",
+    });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.studentTitle, "Neither");
+    }
+  });
+
+  it("fails validation for non-numeric group", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      group: "SE-42",
     });
     assert.equal(result.success, false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
-      assert.ok(errors.studentTitle);
-      assert.equal(errors.studentTitle[0], "Invalid student title.");
+      assert.ok(errors.group);
+    }
+  });
+
+  it("accepts numeric group values", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      group: "42",
+    });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.group, "42");
+    }
+  });
+
+  it("maps Teacher socium role and preserves signupSociumRole", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      signupSociumRole: "Teacher",
+    });
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.signupSociumRole, "Teacher");
+      assert.equal(result.data.studentTitle, "Neither");
+    }
+  });
+
+  it("fails validation for invalid socium role", () => {
+    const result = signupSchema.safeParse({
+      ...validSignupPayload,
+      signupSociumRole: "Deputy",
+    });
+    assert.equal(result.success, false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      assert.ok(errors.signupSociumRole);
     }
   });
 });

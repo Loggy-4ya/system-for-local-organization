@@ -11,6 +11,7 @@
  */
 
 import React from "react";
+import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { ImageField } from "../../fields/ImageField";
 import { SHADOW_DEPTH_OPTIONS } from "../../lib/fieldOptionLabels";
 
@@ -86,6 +87,7 @@ export const NexusUserBadge = {
     shadowDepth: string;
   }) {
     const isVertical = layout === "vertical";
+    const safeAvatar = sanitizeMediaUrl(avatar);
 
     return (
       <div
@@ -120,10 +122,10 @@ export const NexusUserBadge = {
             flexShrink: 0,
           }}
         >
-          {avatar ? (
+          {safeAvatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={avatar}
+              src={safeAvatar}
               alt={name}
               style={{
                 width: "100%",

@@ -16,6 +16,9 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import Page, { type PuckData } from "@shared/models/Page";
 import { PageDomain, PageDomainError } from "@shared/domains/PageDomain";
+import { sanitizePuckDataForStorage } from "@shared/lib/puckContentSanitize";
+import { readMediaStorageEnvConfig } from "@shared/lib/mediaStorage/resolveMediaStorageProvider";
+import { mediaReferenceContextFromConfig } from "@shared/lib/mediaStorage/uploadReferenceUtils";
 import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
 import { getOptionalSession, isApiAuthorised } from "@/lib/authGuards";
 import { canEditPages } from "@/lib/pageEditAccess";
@@ -151,6 +154,12 @@ export async function POST(req: NextRequest) {
 
   const effectivePreviousPath = previousPath || normalizedPath;
 
+  const mediaContext = mediaReferenceContextFromConfig(readMediaStorageEnvConfig());
+  const sanitizedPuckData = sanitizePuckDataForStorage(
+    puckData,
+    mediaContext,
+  ) as PuckData;
+
   try {
     await connectDB();
 
@@ -170,12 +179,12 @@ export async function POST(req: NextRequest) {
         {
           $set: {
             path: normalizedPath,
-            puckData,
+            puckData: sanitizedPuckData,
             ...(title !== undefined && { title }),
             ...(published !== undefined && { published }),
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!updated) {
@@ -198,12 +207,12 @@ export async function POST(req: NextRequest) {
         { path: normalizedPath },
         {
           $set: {
-            puckData,
+            puckData: sanitizedPuckData,
             ...(title !== undefined && { title }),
             ...(published !== undefined && { published }),
           },
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: "after" }
       );
     }
 

@@ -1,6 +1,6 @@
 # Media Storage — Unified Upload Architecture
 
-**Status:** In progress (local filesystem active; GCS stub wired for deployment).
+**Status:** In progress (local filesystem active; GCS provider + orphan cleanup implemented).
 
 ## Goal
 
@@ -38,7 +38,7 @@ flowchart LR
     Rules[mediaStorageRules]
     Provider[resolveMediaStorageProvider]
     Local[LocalFilesystemMediaProvider]
-    GCS[GcsMediaProvider stub]
+    GCS[GcsMediaProvider]
   end
 
   Puck --> Client
@@ -59,12 +59,22 @@ flowchart LR
 |------|------|
 | `shared/constants/mediaStorage.ts` | Purpose keys, size limits, storage folder segments |
 | `shared/lib/mediaStorage/mediaStorageRules.ts` | Pure validation + filename/URL helpers (unit tested) |
+| `shared/lib/mediaStorage/localUploadInventory.ts` | List files under `public/uploads/` for orphan scans |
+| `shared/lib/mediaStorage/uploadReferenceUtils.ts` | Parse `/uploads/…` paths; walk JSON for references |
+| `shared/lib/mediaStorage/orphanUploadCleanupLogic.ts` | Orphan detection + min-age rules |
 | `shared/lib/mediaStorage/localFilesystemProvider.ts` | Dev/default writer to `public/uploads/` |
-| `shared/lib/mediaStorage/gcsMediaProvider.ts` | Deployment stub — throws until SDK wired |
+| `shared/lib/mediaStorage/gcsMediaProvider.ts` | GCS upload, delete, and bucket inventory listing |
+| `shared/lib/mediaStorage/gcsObjectKey.ts` | GCS public URL build/parse for reference scanning |
 | `shared/lib/mediaStorage/resolveMediaStorageProvider.ts` | Env-driven provider factory + singleton cache |
 | `shared/domains/MediaDomain.ts` | Single domain entry: validate → persist → return URL |
 | `src/app/api/upload/route.ts` | Multipart API; auth via `isApiAuthorised` |
-| `src/lib/mediaUploadClient.ts` | App-wide browser upload helper |
+| `src/app/api/upload/from-url/route.ts` | JSON remote image import API |
+| `src/app/api/admin/jobs/media-orphan-cleanup/route.ts` | HTTP trigger for orphan cleanup job |
+| `shared/lib/mediaStorage/remoteImageImport.ts` | SSRF-safe HTTPS fetch + raster MIME sniff for link import |
+| `scripts/mediaOrphanCleanup.ts` | CLI orphan cleanup entrypoint |
+| `src/instrumentation.ts` | Optional in-process cleanup scheduler |
+| `src/lib/mediaOrphanCleanupScheduler.ts` | Interval runner for orphan cleanup |
+| `src/lib/mediaUploadClient.ts` | App-wide browser upload + import helpers |
 
 ---
 
@@ -94,6 +104,33 @@ flowchart LR
 
 **Errors:** `400` validation (MIME, size, purpose), `401` unauthorised, `500` provider failure.
 
+### `POST /api/upload/from-url`
+
+**Auth:** Same as `/api/upload`.
+
+**JSON body:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `url` | Yes | Public **HTTPS** URL of a raster image (PNG, JPEG, GIF, WebP) |
+| `purpose` | No | Same purpose keys as multipart upload. Purpose must allow images. |
+| `ownerKey` | No | Optional namespace hint |
+
+**Behaviour:**
+
+1. Validates URL (HTTPS only, no credentials, blocked hosts/IPs).
+2. Resolves DNS and rejects private/link-local/metadata addresses (SSRF guard).
+3. Follows redirects manually (max 5) — each hop re-validated.
+4. Enforces purpose image size limit while streaming the body.
+5. Sniffs magic bytes (SVG/HTML rejected even if `Content-Type` lies).
+6. Persists via the same `MediaDomain.upload` pipeline → `/uploads/{segment}/…`.
+
+**Success (200):** Same JSON shape as multipart upload.
+
+**Errors:** `400` invalid URL, blocked host, unsupported file, or size limit; `401` unauthorised; `500` provider failure.
+
+**Client:** `importMediaImageFromUrl()` in `src/lib/mediaUploadClient.ts`; Puck `MediaUploadField` shows **Import image from link** when the field value is an HTTPS URL (not already under `/uploads/`).
+
 ---
 
 ## Local filesystem layout
@@ -122,17 +159,63 @@ URLs are root-relative (`/uploads/avatars/...`) and served by Next.js static hos
 | `MEDIA_STORAGE_DRIVER` | `local` | `local` or `gcs` |
 | `GCS_MEDIA_BUCKET` | — | Required when driver is `gcs` |
 | `GCS_MEDIA_PUBLIC_BASE_URL` | — | Optional CDN/base URL prefix for public GCS objects |
+| `MEDIA_ORPHAN_MIN_AGE_HOURS` | `24` | Minimum file age (hours) before an unreferenced upload may be deleted |
+| `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS` | — | When set to a positive number, Next.js server runs cleanup on that interval via `src/instrumentation.ts` |
+| `MEDIA_ORPHAN_CLEANUP_CRON_SECRET` | — | Bearer token for `POST /api/admin/jobs/media-orphan-cleanup` (Admin session also accepted) |
 
 See `.env.local.example`.
 
 ---
 
-## Deployment migration (future)
+## Orphan upload cleanup
+
+Unreferenced upload objects are removed by comparing storage inventory to MongoDB references:
+
+| Driver | Inventory source |
+|--------|------------------|
+| `local` | Files under `public/uploads/{segment}/` |
+| `gcs` | Objects in `GCS_MEDIA_BUCKET` with prefixes `avatars/`, `puck-blocks/`, etc. |
+
+Reference scanning recognises both `/uploads/…` paths (local) and GCS/CDN absolute URLs when `MEDIA_STORAGE_DRIVER=gcs`.
+
+| Source | Fields scanned |
+|--------|----------------|
+| `users` | `avatar` |
+| `pages` | entire `puckData` JSON (images, videos, page backgrounds) |
+
+**Safety:** files newer than `MEDIA_ORPHAN_MIN_AGE_HOURS` are never deleted (protects uploads not yet saved to MongoDB).
+
+**Triggers (local or GCS):**
+
+| Method | Command / endpoint |
+|--------|-------------------|
+| CLI dry-run | `npm run job:media-orphan-cleanup:dry-run` |
+| CLI delete | `npm run job:media-orphan-cleanup` |
+| HTTP cron | `GET` or `POST` on `/api/admin/jobs/media-orphan-cleanup` with `?dryRun=true` or `{ "dryRun": true }` |
+| In-process schedule | Set `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24` |
+
+**Auth for HTTP job:** Unified `CRON_SECRET` or `NEXUS_CRON_SECRET` Bearer token (Vercel Cron friendly), legacy `MEDIA_ORPHAN_CLEANUP_CRON_SECRET`, or an Admin session. See [scheduled_events.md](./scheduled_events.md) for hosting configurations.
+
+Example host cron (daily at 03:00):
+
+```bash
+curl -sS -X POST \
+  -H "Authorization: Bearer $MEDIA_ORPHAN_CLEANUP_CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun":false}' \
+  "$NEXTAUTH_URL/api/admin/jobs/media-orphan-cleanup"
+```
+
+**GCS auth:** set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON path, or run on GCP with Application Default Credentials. The account needs `storage.objects.list`, `storage.objects.delete`, and `storage.objects.create` on the media bucket.
+
+---
+
+## Deployment migration
 
 1. Set `MEDIA_STORAGE_DRIVER=gcs` and provision `GCS_MEDIA_BUCKET`.
-2. Implement `GcsMediaProvider.upload` using `@google-cloud/storage` (or signed upload URLs).
-3. Optionally add a one-off migration script to copy `public/uploads/**` into the bucket.
-4. Update `next.config.ts` `images.remotePatterns` if avatars/covers are served from a CDN hostname.
+2. Optionally set `GCS_MEDIA_PUBLIC_BASE_URL` to your CDN origin.
+3. Optionally run a one-off migration script to copy `public/uploads/**` into the bucket (same `{segment}/{filename}` keys).
+4. Update `next.config.ts` `images.remotePatterns` for avatars/covers served from the CDN hostname.
 
 No changes required in:
 
@@ -155,6 +238,9 @@ await uploadMediaFile(file, { accept: "image", purpose: "page-cover" });
 
 // Puck block (default purpose when omitted in API)
 await uploadMediaFile(file, { accept: "both", purpose: "puck-block" });
+
+// Import remote HTTPS image into local storage
+await importMediaImageFromUrl("https://cdn.example.com/photo.png", { purpose: "puck-block" });
 ```
 
 ---
@@ -163,16 +249,11 @@ await uploadMediaFile(file, { accept: "both", purpose: "puck-block" });
 
 - [x] Single domain entry (`MediaDomain.upload`) for all server-side uploads
 - [x] Purpose-based validation (MIME + size) centralised in `mediaStorageRules.ts`
+- [x] SVG uploads rejected at validation (`image/svg+xml` blocked; raster only)
 - [x] Local provider writes to segmented folders under `public/uploads/`
-- [x] GCS provider stub + env wiring for future deployment
-- [x] App-wide client helper (`src/lib/mediaUploadClient.ts`)
-- [x] Profile avatar upload uses `purpose=avatar`
-- [x] Page background upload uses `purpose=page-cover`
-- [x] Puck block fields use `purpose=puck-block`
-- [x] Unit tests for validation rules
-- [ ] GCS provider implementation (deferred to deployment)
+- [x] GCS provider (`upload`, `delete`, `listInventory`) via `@google-cloud/storage`
+- [x] Periodic orphan upload cleanup (DB reference scan; local + GCS)
 - [ ] Task report UI integration (Phase 5)
-- [ ] Orphan file cleanup when avatar/cover replaced (future enhancement)
 
 ---
 

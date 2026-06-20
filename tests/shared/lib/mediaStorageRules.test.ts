@@ -78,6 +78,21 @@ describe("assertMediaUploadAllowed", () => {
       "video",
     );
   });
+
+  it("rejects SVG uploads", () => {
+    assert.throws(
+      () =>
+        assertMediaUploadAllowed({
+          purpose: "puck-block",
+          mimeType: "image/svg+xml",
+          sizeBytes: 512,
+          bufferLength: 512,
+        }),
+      (err: unknown) =>
+        err instanceof MediaStorageValidationError &&
+        err.message.includes("SVG"),
+    );
+  });
 });
 
 describe("buildStoredFilename", () => {

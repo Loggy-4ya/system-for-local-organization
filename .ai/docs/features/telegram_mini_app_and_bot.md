@@ -126,7 +126,7 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 |--------|------|
 | `shared/lib/verifyTelegramWebAppInitData.ts` | Parse + HMAC-verify Mini App `initData` |
 | `shared/domains/AuthDomain.ts` | `authenticateTelegramMiniApp`, `registerFromTelegramMiniApp`, `unlinkTelegram` |
-| `shared/domains/TelegramBotDomain.ts` | Webhook dispatch, `/start` + Web App button |
+| `shared/domains/TelegramBotDomain.ts` | Webhook dispatch, `/start` + Web App button, `sendDirectMessage()` for broadcasts |
 | `src/lib/telegramBridge.ts` | Short-lived bridge token for Auth.js Credentials provider |
 | `src/components/telegram/TelegramMiniAppEntry.tsx` | Client auto-login + onboarding |
 | `src/app/api/telegram/webhook/route.ts` | Telegram Bot API webhook |

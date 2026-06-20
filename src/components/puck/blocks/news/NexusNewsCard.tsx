@@ -18,6 +18,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { sanitizeUserHref } from "@shared/lib/safeHref";
+import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { ImageField } from "../../fields/ImageField";
 import { SHADOW_DEPTH_OPTIONS } from "../../lib/fieldOptionLabels";
 
@@ -118,6 +120,8 @@ export const NexusNewsCard = {
     hoverEffect: "no" | "yes";
     href?: string;
   }) {
+    const safeImage = sanitizeMediaUrl(image);
+    const safeHref = sanitizeUserHref(href);
     const cardElement = (
       <Card
         className={cn(
@@ -130,9 +134,9 @@ export const NexusNewsCard = {
         }}
       >
         <div className="relative flex h-40 items-center justify-center overflow-hidden bg-secondary">
-          {image ? (
+          {safeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt={title} className="h-full w-full object-cover" />
+            <img src={safeImage} alt={title} className="h-full w-full object-cover" />
           ) : (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span style={{ fontSize: "24px" }}>📰</span>
@@ -166,9 +170,9 @@ export const NexusNewsCard = {
       </Card>
     );
 
-    if (href) {
+    if (safeHref) {
       return (
-        <a href={href} className="block no-underline">
+        <a href={safeHref} className="block no-underline">
           {cardElement}
         </a>
       );

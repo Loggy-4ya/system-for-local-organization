@@ -150,11 +150,11 @@ export function GlobalLayoutEditorShell({ initialConfig }: GlobalLayoutEditorShe
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <Link
-                href="/pages"
+                href="/admin"
                 className="global-layout-editor__btn-text inline-flex items-center gap-1.5 text-xs text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors hover:bg-zinc-700/10 dark:hover:bg-zinc-300/5 border border-zinc-700/10 dark:border-zinc-300/5"
               >
                 <ArrowLeft size={12} />
-                <span>Back to Page Manager</span>
+                <span>Back to Administration</span>
               </Link>
             </div>
             <h1 className="text-2xl font-bold text-(--color-text-primary) tracking-tight">

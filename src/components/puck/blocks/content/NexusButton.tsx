@@ -10,6 +10,7 @@
  */
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { sanitizeUserHref } from "@shared/lib/safeHref";
 import {
   BUTTON_SIZE_OPTIONS,
   RADIUS_EXTENDED_SELECT_OPTIONS,
@@ -134,6 +135,7 @@ export const NexusButton = {
     iconPosition: "left" | "right";
     href?: string;
   }) {
+    const safeHref = sanitizeUserHref(href);
     const shadcnVariant = VARIANT_MAP[variant];
     const shadcnSize = SIZE_MAP[size] ?? "default";
     const radiusNorm = normalizePresetDimensionValue(
@@ -169,10 +171,10 @@ export const NexusButton = {
       </>
     );
 
-    if (href) {
+    if (safeHref) {
       return (
         <a
-          href={href}
+          href={safeHref}
           className={cn(className, "no-underline")}
           style={style}
         >

@@ -16,6 +16,7 @@ import {
   type MouseEvent,
 } from "react";
 import { cn } from "@/lib/utils";
+import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
 import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
 import { syncPuckComponentOverlayAfterLayout } from "../../lib/puckOverlaySync";
@@ -87,6 +88,7 @@ function NexusImageBody({
   onSelectInCarousel,
   syncSelectionOverlay,
 }: NexusImageBodyProps) {
+  const safeImage = sanitizeMediaUrl(image);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
   const inCarouselSlide = useCarouselSlideMedia();
@@ -187,14 +189,14 @@ function NexusImageBody({
   const renderImage = () => (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={image}
+      src={safeImage}
       alt={alt}
       className="nexus-media-cover__media"
       draggable={false}
     />
   );
 
-  const mediaContent = image ? renderImage() : renderEmpty();
+  const mediaContent = safeImage ? renderImage() : renderEmpty();
 
   if (fillSlide) {
     return (
@@ -217,7 +219,7 @@ function NexusImageBody({
 
   return (
     <div ref={assignRootRef} className={rootClass} style={rootStyle}>
-      {image ? (
+      {safeImage ? (
         useAspectFrame ? (
           <div
             className="relative overflow-hidden bg-muted"
