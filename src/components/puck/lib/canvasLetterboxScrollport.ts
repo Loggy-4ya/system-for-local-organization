@@ -10,18 +10,49 @@
  * @module src/components/puck/lib/canvasLetterboxScrollport
  */
 
-import { matchesDesktopEditorLayout } from "@/components/puck/lib/desktopEditorScrollport";
 import {
   PUCK_CANVAS_INNER_SELECTOR,
   PUCK_CANVAS_SHELL_SELECTOR,
+  PUCK_MOBILE_CANVAS_SHELL_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
 import {
-  resolvePuckScaledRootHeightPx,
-  type PuckZoomConfig,
-} from "@/components/puck/lib/sanitizePuckZoomConfig";
+  resolveLetterboxVisualHeightPx,
+  shouldExpandLetterboxScrollport,
+} from "@/components/puck/lib/letterboxScrollportLogic";
+import {
+  isPuckInteractivePreviewMode,
+  resolvePuckPreviewModeFromAppStore,
+} from "@/components/puck/lib/puckPreviewMode";
+import { resolvePuckAppStore, type PuckZoomConfig } from "@/components/puck/lib/sanitizePuckZoomConfig";
 
 /** Puck preview root id — receives zoom transform. */
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
+
+/**
+ * Whether letterbox canvas-inner expansion should be skipped (interactive preview).
+ *
+ * Prefers Puck app store over the html attribute so mode toggles apply in the same frame.
+ *
+ * @returns True when preview mode is interactive.
+ */
+function isInteractivePreviewScrollportMode(): boolean {
+  const appStore = resolvePuckAppStore();
+  if (appStore) {
+    return resolvePuckPreviewModeFromAppStore(appStore) === "interactive";
+  }
+
+  return isPuckInteractivePreviewMode();
+}
+
+/** Whether the inner scrollport is expanded beyond the shell viewport. */
+let letterboxScrollportExpanded = false;
+
+/**
+ * Reset letterbox expansion state — for tests and guard teardown.
+ */
+export function resetLetterboxScrollportState(): void {
+  letterboxScrollportExpanded = false;
+}
 
 /**
  * Resolve the desktop canvas shell scroll container.
@@ -30,7 +61,10 @@ const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
  */
 export function resolveCanvasShellScroller(): HTMLElement | null {
   if (typeof document === "undefined") return null;
-  return document.querySelector(PUCK_CANVAS_SHELL_SELECTOR) as HTMLElement | null;
+  return (
+    (document.querySelector(PUCK_CANVAS_SHELL_SELECTOR) as HTMLElement | null) ??
+    (document.querySelector(PUCK_MOBILE_CANVAS_SHELL_SELECTOR) as HTMLElement | null)
+  );
 }
 
 /**
@@ -50,30 +84,46 @@ export function canvasShellNeedsVerticalScroll(): boolean {
  * @param config - Optional sanitized zoom config for height fallback math.
  */
 export function syncDesktopLetterboxCanvasScrollport(config?: PuckZoomConfig): void {
-  if (typeof document === "undefined" || !matchesDesktopEditorLayout()) {
+  if (typeof document === "undefined") {
     return;
   }
 
   const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
-  const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
-  if (!inner || !root) {
+  if (!inner) {
     return;
   }
 
-  const measured = root.getBoundingClientRect().height;
-  const fallback = config !== undefined ? resolvePuckScaledRootHeightPx(config) : null;
-  const visualHeight = measured > 0 && Number.isFinite(measured) ? measured : fallback;
+  if (isInteractivePreviewScrollportMode()) {
+    inner.style.removeProperty("height");
+    inner.style.removeProperty("min-height");
+    letterboxScrollportExpanded = false;
+    return;
+  }
+
+  const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
+  if (!root) {
+    return;
+  }
+
+  const measuredRootHeight = root.getBoundingClientRect().height;
+  const visualHeight = resolveLetterboxVisualHeightPx(config, measuredRootHeight);
 
   if (visualHeight === null || visualHeight <= 0) {
     inner.style.removeProperty("height");
     inner.style.removeProperty("min-height");
+    letterboxScrollportExpanded = false;
     return;
   }
 
   const shell = resolveCanvasShellScroller();
   const shellViewportHeight = shell?.clientHeight ?? 0;
-  const needsExpandedScrollport =
-    shellViewportHeight > 0 && visualHeight > shellViewportHeight + 1;
+  const needsExpandedScrollport = shouldExpandLetterboxScrollport(
+    visualHeight,
+    shellViewportHeight,
+    letterboxScrollportExpanded,
+  );
+
+  letterboxScrollportExpanded = needsExpandedScrollport;
 
   if (needsExpandedScrollport) {
     const heightPx = `${Math.ceil(visualHeight)}px`;

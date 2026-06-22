@@ -202,23 +202,8 @@ describe("profileUpdateSchema", () => {
       specialty: "Computer Science",
       group: "CS-101",
       studentTitle: "Deputy",
-      accentFamily: "purple",
-      accentShade: "strong",
     });
     assert.equal(result.success, true);
-  });
-
-  it("fails validation for invalid accent family", () => {
-    const result = profileUpdateSchema.safeParse({
-      name: "John Doe",
-      accentFamily: "orange",
-    });
-    assert.equal(result.success, false);
-    if (!result.success) {
-      const errors = result.error.flatten().fieldErrors;
-      assert.ok(errors.accentFamily);
-      assert.equal(errors.accentFamily[0], "Invalid accent family.");
-    }
   });
 
   it("fails validation if newPassword is set but currentPassword is empty", () => {
@@ -277,5 +262,13 @@ describe("clientProfileSettingsSchema", () => {
       confirmPassword: "newpassword123",
     });
     assert.equal(result.success, true);
+  });
+
+  it("fails validation when name contains blocked language", () => {
+    const result = profileUpdateSchema.safeParse({ name: "oh shit" });
+    assert.equal(result.success, false);
+    if (!result.success) {
+      assert.ok(result.error.flatten().fieldErrors.name);
+    }
   });
 });

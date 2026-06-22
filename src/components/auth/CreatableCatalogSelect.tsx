@@ -41,6 +41,8 @@ export interface CreatableCatalogSelectProps {
   className?: string;
   /** When true, custom entry accepts digits only (used for group number). */
   numericOnly?: boolean;
+  /** Fired when the custom text input loses focus (content-policy live validation). */
+  onBlur?: () => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function CreatableCatalogSelect({
   disabled = false,
   className,
   numericOnly = false,
+  onBlur,
 }: CreatableCatalogSelectProps) {
   const listId = useId();
   const [customEntryActive, setCustomEntryActive] = useState(false);
@@ -142,6 +145,7 @@ export function CreatableCatalogSelect({
           list={numericOnly ? undefined : listId}
           value={value}
           onChange={(e) => handleCustomInput(e.target.value)}
+          onBlur={numericOnly ? undefined : onBlur}
           placeholder={placeholder}
           disabled={disabled}
           inputMode={numericOnly ? "numeric" : "text"}

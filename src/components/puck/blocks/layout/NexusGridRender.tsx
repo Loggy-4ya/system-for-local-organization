@@ -6,27 +6,24 @@
  * Each cell is a Puck array slot (`items[].content`). Cell order can be changed from
  * the sidebar array (native Puck drag) or by dragging cell shells on the canvas.
  *
+ * Tests: `tests/puck/lib/gridRowHeightSync.test.ts` — `npm run test:grid-row-height-sync`
+ *
  * @module src/components/puck/blocks/layout/NexusGridRender
  */
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useGetPuck, type PuckAction, type Data } from "@puckeditor/core";
+import { Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findComponentById, replaceComponentProps } from "../../lib/puckDataTree";
+import { selectPuckComponentById } from "../../lib/selectPuckComponentById";
+import { useNexusPuck, usePuckPreviewMode } from "../../lib/useNexusPuck";
+import { usePuckOverlayPortalRef } from "../../lib/usePuckOverlayPortal";
 import {
   NEXUS_GRID_ITEM_DEFAULT_SPAN_COL,
   NEXUS_GRID_ITEM_DEFAULT_SPAN_ROW,
-  resolveCarouselAwareGridCellSpanRow,
   resolveCarouselAwareGridGap,
+  resolveGridEditCellSpanRow,
 } from "../../lib/gridEditSizing";
 import {
   reorderGridItemArray,
@@ -34,6 +31,20 @@ import {
   type GridItemArrayEntry,
 } from "../../lib/gridItemArrayReorder";
 import { resolveGridCellPlacements } from "../../lib/gridCellPlacement";
+import {
+  applyGridRowHeightSync,
+  clearGridRowHeightSync,
+  expandGridRowTracksToCarouselSlideHeight,
+  gridAllCellsHaveContentFromItems,
+  type GridCellContentRecord,
+  measureGridRowTrackHeightsFromDom,
+  readCarouselGridSlideHeightAnchorPx,
+  resolveGridRowAbsoluteMinPx,
+} from "../../lib/gridRowHeightSync";
+import {
+  syncPuckComponentOverlayAfterLayout,
+  type PuckOverlaySyncStore,
+} from "../../lib/puckOverlaySync";
 import {
   GridItemCellShell,
   type GridItemContentComponent,
@@ -66,6 +77,12 @@ interface NexusGridPuckStore {
 interface NexusGridBodyProps extends NexusGridRenderProps {
   /** Puck store accessor for cell reorder dispatch (editor shell only). */
   getPuck?: () => NexusGridPuckStore;
+  /** Select the parent grid block in the Puck sidebar (editor shell only). */
+  onSelectGrid?: () => void;
+  /** Whether every cell slot currently holds nested blocks (editor shell only). */
+  allCellsFilled?: boolean;
+  /** Registers grid settings chrome as a Puck overlay portal (editor shell only). */
+  controlsPortalRef?: (node: HTMLElement | null) => void;
 }
 
 /** Active canvas cell drag session. */
@@ -141,6 +158,41 @@ function resolveGridCellReactKey(
 }
 
 /**
+ * Whether a pointer/click target should select the parent grid block (not a nested block).
+ *
+ * @param target - Event target element.
+ * @param root - Grid host root element.
+ * @returns True when the grid block should be selected in the Puck sidebar.
+ */
+function shouldSelectGridFromTarget(target: EventTarget | null, root: HTMLElement | null): boolean {
+  if (!(target instanceof HTMLElement) || !root) {
+    return false;
+  }
+
+  if (
+    target.closest(".nexus-carousel__edit-select") ||
+    target.closest(".nexus-grid__edit-select")
+  ) {
+    return false;
+  }
+
+  const nestedComponent = target.closest("[data-puck-component]");
+  const gridComponent = root.closest("[data-puck-component]");
+  if (nestedComponent && gridComponent && nestedComponent !== gridComponent) {
+    return false;
+  }
+
+  if (target.closest("[data-puck-dropzone]")) {
+    const dropzone = target.closest("[data-puck-dropzone]");
+    if (dropzone instanceof Element && dropzone.matches('[class*="DropZone--hasChildren"]')) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Shared grid layout body — no Puck store hooks (safe inside `<Render>`).
  *
  * @param props - Grid body props.
@@ -153,11 +205,15 @@ function NexusGridBody({
   items = [],
   puck,
   getPuck,
+  onSelectGrid,
+  allCellsFilled = false,
+  controlsPortalRef,
 }: NexusGridBodyProps) {
   const editLayoutMode = Boolean(puck?.isEditing);
   const cols = parseInt(columns, 10) || 12;
   const rootRef = useRef<HTMLDivElement>(null);
   const dragSessionRef = useRef<GridCellDragSession | null>(null);
+  const lastRowHeightsKeyRef = useRef<string>("");
   const [draggingFromIndex, setDraggingFromIndex] = useState<number | null>(null);
   const [inCarouselSlide, setInCarouselSlide] = useState(false);
 
@@ -174,10 +230,10 @@ function NexusGridBody({
         cols,
         items.map((item) => ({
           spanCol: Number.parseInt(item.spanCol ?? NEXUS_GRID_ITEM_DEFAULT_SPAN_COL, 10),
-          spanRow: resolveCarouselAwareGridCellSpanRow(item.spanRow, inCarouselSlide),
+          spanRow: resolveGridEditCellSpanRow(item.spanRow, inCarouselSlide, editLayoutMode),
         })),
       ),
-    [cols, inCarouselSlide, items],
+    [cols, editLayoutMode, inCarouselSlide, items],
   );
 
   const gridStyle: CSSProperties = {
@@ -294,11 +350,184 @@ function NexusGridBody({
     }
   }, [editLayoutMode, endCellDrag]);
 
+  /**
+   * Select the grid block when clicking chrome that is not a nested Puck block.
+   *
+   * @param event - Click on the grid host shell.
+   */
+  const handleGridHostClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!editLayoutMode || !onSelectGrid) {
+        return;
+      }
+
+      if (!shouldSelectGridFromTarget(event.target, rootRef.current)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onSelectGrid();
+    },
+    [editLayoutMode, onSelectGrid],
+  );
+
+  const handleCellShellClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!editLayoutMode || !onSelectGrid) {
+        return;
+      }
+
+      if (!shouldSelectGridFromTarget(event.target, rootRef.current)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onSelectGrid();
+    },
+    [editLayoutMode, onSelectGrid],
+  );
+
+  useEffect(() => {
+    const host = rootRef.current;
+    if (!host || !editLayoutMode || !onSelectGrid) {
+      return undefined;
+    }
+
+    /**
+     * Capture pointer events before Puck drop-zone handlers swallow grid selection.
+     *
+     * @param event - Pointer down on the grid host shell.
+     */
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      if (!shouldSelectGridFromTarget(event.target, host)) {
+        return;
+      }
+
+      onSelectGrid();
+    };
+
+    host.addEventListener("pointerdown", handlePointerDownCapture, true);
+    return () => {
+      host.removeEventListener("pointerdown", handlePointerDownCapture, true);
+    };
+  }, [editLayoutMode, onSelectGrid]);
+
+  useLayoutEffect(() => {
+    const host = rootRef.current;
+    const grid = host?.querySelector<HTMLElement>(".nexus-grid") ?? null;
+    if (!host || !grid || items.length === 0) {
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const scheduleSync = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+
+        if (typeof document !== "undefined" && document.documentElement.hasAttribute("data-puck-dragging")) {
+          return;
+        }
+
+        const rowAbsoluteMinPx = resolveGridRowAbsoluteMinPx(grid, inCarouselSlide);
+        const slideAnchorPx = inCarouselSlide
+          ? (readCarouselGridSlideHeightAnchorPx(
+              grid.closest<HTMLElement>(".nexus-carousel__slide") ?? grid,
+            ) ?? 0)
+          : 0;
+        const applyMeasuredRowHeights = () => {
+          let rowHeightsPx = measureGridRowTrackHeightsFromDom(
+            grid,
+            cellPlacements,
+            inCarouselSlide,
+          );
+          if (inCarouselSlide) {
+            rowHeightsPx = expandGridRowTracksToCarouselSlideHeight(
+              grid,
+              rowHeightsPx,
+              cellPlacements,
+            );
+          }
+          const nextKey = `${rowAbsoluteMinPx}:${slideAnchorPx}:${rowHeightsPx.join(",")}`;
+          if (nextKey === lastRowHeightsKeyRef.current) {
+            return false;
+          }
+          lastRowHeightsKeyRef.current = nextKey;
+          applyGridRowHeightSync(grid, rowHeightsPx, rowAbsoluteMinPx);
+          if (id && getPuck) {
+            syncPuckComponentOverlayAfterLayout(getPuck() as unknown as PuckOverlaySyncStore, id);
+          }
+          return true;
+        };
+
+        applyMeasuredRowHeights();
+        requestAnimationFrame(() => {
+          applyMeasuredRowHeights();
+          requestAnimationFrame(() => {
+            applyMeasuredRowHeights();
+          });
+        });
+      });
+    };
+
+    scheduleSync();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(scheduleSync)
+        : null;
+
+    resizeObserver?.observe(grid);
+    grid.querySelectorAll<HTMLElement>("[data-nexus-grid-cell-index]").forEach((shell) => {
+      resizeObserver?.observe(shell);
+    });
+    grid.querySelectorAll<HTMLElement>(".nexus-video").forEach((video) => {
+      resizeObserver?.observe(video);
+    });
+
+    const mutationObserver = new MutationObserver(scheduleSync);
+    mutationObserver.observe(grid, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      resizeObserver?.disconnect();
+      mutationObserver.disconnect();
+      lastRowHeightsKeyRef.current = "";
+      clearGridRowHeightSync(grid);
+    };
+  }, [cellPlacements, getPuck, id, items.length, resolvedGap, cols, editLayoutMode, inCarouselSlide]);
+
+  const assignHostRef = useCallback((node: HTMLDivElement | null) => {
+    rootRef.current = node;
+  }, []);
+
   return (
     <div
-      ref={rootRef}
-      className={cn("nexus-grid-host", editLayoutMode && "nexus-grid-host--edit")}
+      ref={assignHostRef}
+      className={cn(
+        "nexus-grid-host",
+        editLayoutMode && "nexus-grid-host--edit",
+        allCellsFilled && editLayoutMode && "nexus-grid-host--all-cells-filled",
+      )}
       style={{ width: "100%" }}
+      onClick={handleGridHostClick}
     >
       <div
         className={cn("nexus-grid", editLayoutMode && "nexus-grid--edit")}
@@ -316,9 +545,28 @@ function NexusGridBody({
             isDraggingCell={draggingFromIndex === index}
             placement={cellPlacements[index] ?? { gridColumn: "1 / span 1", gridRow: "1 / span 1" }}
             onCellPointerDown={editLayoutMode ? handleCellPointerDown : undefined}
+            onCellClick={editLayoutMode ? handleCellShellClick : undefined}
           />
         ))}
       </div>
+
+      {editLayoutMode && onSelectGrid ? (
+        <div className="nexus-grid__controls">
+          <button
+            ref={controlsPortalRef}
+            type="button"
+            className="nexus-grid__edit-select"
+            aria-label="Grid settings"
+            title="Grid settings"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectGrid();
+            }}
+          >
+            <Settings2 className="nexus-grid__edit-select-icon" aria-hidden />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -330,9 +578,39 @@ function NexusGridBody({
  * @returns Grid with edit-mode canvas cell reorder.
  */
 function NexusGridEditorShell(props: NexusGridRenderProps) {
+  const previewMode = usePuckPreviewMode();
+  const editLayoutMode = previewMode !== "interactive";
   const getPuck = useGetPuck() as () => NexusGridPuckStore;
+  const controlsPortalRef = usePuckOverlayPortalRef(editLayoutMode);
+  const allCellsFilled = useNexusPuck((state) => {
+    if (!props.id) {
+      return false;
+    }
 
-  return <NexusGridBody {...props} getPuck={getPuck} />;
+    const match = findComponentById(state.appState.data, props.id);
+    if (!match) {
+      return false;
+    }
+
+    return gridAllCellsHaveContentFromItems(
+      match.node.props.items as GridCellContentRecord[] | undefined,
+    );
+  });
+
+  const selectGrid = useCallback(() => {
+    selectPuckComponentById(getPuck(), props.id);
+  }, [getPuck, props.id]);
+
+  return (
+    <NexusGridBody
+      {...props}
+      puck={{ ...props.puck, isEditing: editLayoutMode }}
+      getPuck={getPuck}
+      onSelectGrid={selectGrid}
+      allCellsFilled={allCellsFilled}
+      controlsPortalRef={controlsPortalRef}
+    />
+  );
 }
 
 /**

@@ -11,11 +11,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, RotateCcw, Save, Shield, SlidersHorizontal, Users } from "lucide-react";
+import { ArrowLeft, Shield, SlidersHorizontal, Users } from "lucide-react";
 import type { AccessControlSettingsConfig } from "@shared/constants/accessControl";
+import { AdminEditorActionToolbar } from "@/components/admin/AdminEditorActionToolbar";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
-import { Button } from "@/components/ui/button";
 import { GlobalLayoutEditorStatusBanner } from "@/components/global-layout/GlobalLayoutEditorStatusBanner";
 import { AccessHierarchyPanel } from "@/components/access-control/AccessHierarchyPanel";
 import { AccessPermissionsMatrix } from "@/components/access-control/AccessPermissionsMatrix";
@@ -127,10 +127,10 @@ export function UserAccessEditorShell({ initialConfig }: UserAccessEditorShellPr
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
-      className="global-layout-editor py-12"
+      className="global-layout-editor py-8 md:py-12"
       innerClassName="global-layout-editor__stack"
     >
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md dark:border-zinc-300/10">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 dark:border-zinc-300/10">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1.5">
             <Link
@@ -150,33 +150,22 @@ export function UserAccessEditorShell({ initialConfig }: UserAccessEditorShellPr
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSaving || !isDirty}
-              onClick={handleReset}
-              className="global-layout-editor__btn-text"
-            >
-              <RotateCcw size={16} />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              disabled={isSaving || !isDirty}
-              onClick={handleSave}
-              className="global-layout-editor__btn-text shadow-md"
-            >
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-              {isSaving ? "Saving…" : "Save Changes"}
-            </Button>
+          <div className="hidden shrink-0 lg:block">
+            <AdminEditorActionToolbar
+              onReset={handleReset}
+              onSave={handleSave}
+              resetDisabled={!isDirty}
+              saveDisabled={!isDirty}
+              isSaving={isSaving}
+              useEditorButtonStyle
+            />
           </div>
         </div>
       </div>
 
       <GlobalLayoutEditorStatusBanner status={status} />
 
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md md:p-8 dark:border-zinc-300/10">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 lg:p-8 dark:border-zinc-300/10">
         <div
           ref={tabListRef}
           className="global-layout-editor__tabs"
@@ -247,6 +236,22 @@ export function UserAccessEditorShell({ initialConfig }: UserAccessEditorShellPr
           )}
         </div>
       </div>
+
+      {isDirty ? <div className="h-16 lg:hidden" aria-hidden="true" /> : null}
+
+      {isDirty ? (
+        <div className="admin-mobile-toolbar lg:hidden">
+          <AdminEditorActionToolbar
+            onReset={handleReset}
+            onSave={handleSave}
+            resetDisabled={!isDirty}
+            saveDisabled={!isDirty}
+            isSaving={isSaving}
+            useEditorButtonStyle
+            className="w-full justify-end"
+          />
+        </div>
+      ) : null}
     </StaticPageShell>
   );
 }

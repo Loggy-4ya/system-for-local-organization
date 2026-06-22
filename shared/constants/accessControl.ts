@@ -38,13 +38,16 @@ export type AccessLevelKey =
 export type PermissionKey =
   | "access_control.manage_settings"
   | "users.view_directory"
+  | "users.edit_profile"
   | "users.assign_access_level"
   | "users.assign_socium_roles"
   | "users.assign_affiliations"
   | "users.delegate_permissions"
+  | "users.delete"
   | "tasks.dispatch"
   | "tasks.receive"
-  | "news.publish"
+  | "pages.create"
+  | "pages.edit_own"
   | "news.publish"
   | "community.moderate"
   | "notifications.broadcast";
@@ -53,12 +56,16 @@ export type PermissionKey =
 export const ALL_PERMISSION_KEYS: PermissionKey[] = [
   "access_control.manage_settings",
   "users.view_directory",
+  "users.edit_profile",
   "users.assign_access_level",
   "users.assign_socium_roles",
   "users.assign_affiliations",
   "users.delegate_permissions",
+  "users.delete",
   "tasks.dispatch",
   "tasks.receive",
+  "pages.create",
+  "pages.edit_own",
   "news.publish",
   "community.moderate",
   "notifications.broadcast",
@@ -68,12 +75,16 @@ export const ALL_PERMISSION_KEYS: PermissionKey[] = [
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "access_control.manage_settings": "Manage access-control settings",
   "users.view_directory": "View user directory",
+  "users.edit_profile": "Edit user general profile fields",
   "users.assign_access_level": "Assign hierarchy level to users",
   "users.assign_socium_roles": "Assign socium roles",
   "users.assign_affiliations": "Assign activities & organizations",
   "users.delegate_permissions": "Delegate permissions downward",
+  "users.delete": "Delete user accounts",
   "tasks.dispatch": "Dispatch tasks",
   "tasks.receive": "Receive tasks",
+  "pages.create": "Create new Puck pages",
+  "pages.edit_own": "Edit pages you authored",
   "news.publish": "Publish news & social interactivity",
   "community.moderate": "Moderate community content",
   "notifications.broadcast": "Send system-wide broadcasts",
@@ -164,27 +175,35 @@ export const DEFAULT_LEVEL_PERMISSIONS: Record<AccessLevelIndex, PermissionKey[]
   0: [...ALL_PERMISSION_KEYS],
   1: [
     "users.view_directory",
+    "users.edit_profile",
     "users.assign_access_level",
     "users.assign_socium_roles",
     "users.assign_affiliations",
     "users.delegate_permissions",
+    "users.delete",
     "tasks.dispatch",
     "tasks.receive",
+    "pages.create",
+    "pages.edit_own",
     "news.publish",
     "community.moderate",
     "notifications.broadcast",
   ],
   2: [
     "users.view_directory",
+    "users.edit_profile",
     "users.assign_access_level",
     "users.assign_socium_roles",
     "users.assign_affiliations",
     "users.delegate_permissions",
+    "users.delete",
     "tasks.dispatch",
+    "pages.create",
+    "pages.edit_own",
     "news.publish",
     "notifications.broadcast",
   ],
-  3: ["users.view_directory", "tasks.receive", "news.publish"],
+  3: ["users.view_directory", "tasks.receive", "pages.create", "pages.edit_own", "news.publish"],
   4: ["tasks.receive"],
   5: ["users.view_directory", "tasks.dispatch", "tasks.receive"],
   6: ["tasks.receive"],
@@ -199,12 +218,16 @@ export const DEFAULT_GRANT_RULES: Record<AccessLevelIndex, LevelGrantRule> = {
   1: {
     assignableLevelIndices: [2, 3, 4, 5, 6],
     delegatablePermissions: [
+      "users.edit_profile",
       "users.assign_access_level",
       "users.assign_socium_roles",
       "users.assign_affiliations",
       "users.delegate_permissions",
+      "users.delete",
       "tasks.dispatch",
       "tasks.receive",
+      "pages.create",
+      "pages.edit_own",
       "news.publish",
       "community.moderate",
       "notifications.broadcast",
@@ -213,18 +236,22 @@ export const DEFAULT_GRANT_RULES: Record<AccessLevelIndex, LevelGrantRule> = {
   2: {
     assignableLevelIndices: [1, 3, 4, 5, 6],
     delegatablePermissions: [
+      "users.edit_profile",
       "users.assign_access_level",
       "users.assign_socium_roles",
       "users.assign_affiliations",
       "users.delegate_permissions",
+      "users.delete",
       "tasks.dispatch",
+      "pages.create",
+      "pages.edit_own",
       "news.publish",
       "notifications.broadcast",
     ],
   },
   3: {
     assignableLevelIndices: [4, 5, 6],
-    delegatablePermissions: ["tasks.receive", "news.publish"],
+    delegatablePermissions: ["tasks.receive", "pages.create", "pages.edit_own", "news.publish"],
   },
   4: {
     assignableLevelIndices: [6],
@@ -269,4 +296,20 @@ export function outranksInHierarchy(
   targetIndex: AccessLevelIndex,
 ): boolean {
   return actorIndex < targetIndex;
+}
+
+/**
+ * Whether an actor may administer a target at the same tier or below.
+ *
+ * Lower index = higher authority. Peers share the same `accessLevelIndex`.
+ *
+ * @param actorIndex - Acting user's level index.
+ * @param targetIndex - Target user's level index.
+ * @returns True when actor is at or above target in hierarchy (same level allowed).
+ */
+export function meetsOrOutranksInHierarchy(
+  actorIndex: AccessLevelIndex,
+  targetIndex: AccessLevelIndex,
+): boolean {
+  return actorIndex <= targetIndex;
 }

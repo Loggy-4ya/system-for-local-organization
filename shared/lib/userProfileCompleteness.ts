@@ -2,7 +2,7 @@
  * @fileoverview Profile completeness checks for self-government membership gating.
  *
  * Before applying for self-government membership, users must complete all
- * required profile fields (including phone).
+ * required profile fields (including phone and profile photo).
  *
  * Tests: `tests/shared/lib/userProfileCompleteness.test.ts` — `npm run test:profile-completeness`
  *
@@ -19,7 +19,9 @@ export type ProfileCompletenessField =
   | "surname"
   | "phone"
   | "specialty"
-  | "group";
+  | "group"
+  | "avatar"
+  | "telegram";
 
 /** Additional onboarding-only requirement (consent checkbox, not a stored string field). */
 export type ProfileOnboardingExtraField = "personalDataConsent";
@@ -33,6 +35,8 @@ export const PROFILE_FIELD_LABELS: Record<ProfileCompletenessField, string> = {
   phone: "Phone number",
   specialty: "Specialty",
   group: "Group",
+  avatar: "Profile photo",
+  telegram: "Telegram account",
 };
 
 /** Labels for OAuth onboarding-only requirements. */
@@ -40,13 +44,42 @@ export const OAUTH_ONBOARDING_EXTRA_LABELS: Record<ProfileOnboardingExtraField, 
   personalDataConsent: "Personal data processing consent",
 };
 
-/** Fields required before a self-government membership application. */
+/** Stored profile fields required before a self-government membership application. */
+export const MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS: Exclude<
+  ProfileCompletenessField,
+  "telegram"
+>[] = ["surname", "phone", "specialty", "group", "avatar"];
+
+/** @deprecated Use {@link MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS} plus Telegram linkage. */
 export const MEMBERSHIP_APPLICATION_REQUIRED_FIELDS: ProfileCompletenessField[] = [
-  "surname",
-  "phone",
-  "specialty",
-  "group",
+  ...MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS,
+  "telegram",
 ];
+
+/**
+ * Human-readable list of membership-required fields for UI copy.
+ *
+ * @returns Comma-separated labels with a final "and" (Oxford-style for two+ items).
+ */
+export function listMembershipRequiredFieldLabels(): string {
+  const labels = MEMBERSHIP_APPLICATION_REQUIRED_FIELDS.map((key) => PROFILE_FIELD_LABELS[key]);
+  if (labels.length <= 1) return labels[0] ?? "";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
+/** Signup / profile banner — all fields required when applying for self-government. */
+export const SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT = `All of the following are required to apply for self-government membership: ${listMembershipRequiredFieldLabels()}.`;
+
+/** Per-field hint when the self-government application checkbox is active. */
+export const SELF_GOVERNMENT_APPLICATION_FIELD_HINT =
+  "Required for self-government application — see the requirements notice for the full list.";
+
+/** Error when a single membership field is missing on submit. */
+export const SELF_GOVERNMENT_APPLICATION_FIELD_ERROR = `Complete all required fields for self-government application: ${listMembershipRequiredFieldLabels()}.`;
+
+/** Profile settings — members and applicants must keep the full set on file. */
+export const SELF_GOVERNMENT_MEMBER_PROFILE_HINT = `Self-government members and applicants must keep a complete profile: ${listMembershipRequiredFieldLabels()}.`;
 
 /** Minimal user slice for completeness evaluation. */
 export interface ProfileCompletenessSlice {
@@ -55,7 +88,12 @@ export interface ProfileCompletenessSlice {
   phone: string | null;
   specialty: string | null;
   group: string | null;
+  avatar?: string | null;
   sociumRoles: IUserSociumRole[];
+  /** True when the user checked self-government application intent at signup. */
+  selfGovernmentApplicationIntent?: boolean;
+  /** Linked Telegram user id — required for self-government applicants and members. */
+  telegramId?: number | null;
 }
 
 /** User slice for OAuth / Telegram onboarding gate evaluation. */
@@ -89,6 +127,58 @@ export function phoneIsRequiredForUser(user: ProfileCompletenessSlice): boolean 
 }
 
 /**
+ * Whether a profile photo is mandatory for this user.
+ *
+ * Required for current self-government members and for users who declared
+ * self-government application intent at signup.
+ *
+ * @param user - Profile slice.
+ * @returns True when avatar must not be cleared.
+ */
+export function avatarIsRequiredForUser(user: ProfileCompletenessSlice): boolean {
+  return (
+    userIsSelfGovernmentMember(user) ||
+    Boolean(user.selfGovernmentApplicationIntent)
+  );
+}
+
+/**
+ * Whether signup must collect a profile photo before account creation.
+ *
+ * @param applyForSelfGovernment - Self-government application checkbox on signup.
+ * @returns True when the signup form should block submit without a photo.
+ */
+export function avatarIsRequiredAtSignup(applyForSelfGovernment: boolean): boolean {
+  return applyForSelfGovernment;
+}
+
+/**
+ * Whether a linked Telegram account is mandatory for this user.
+ *
+ * Required for current self-government members and for users who declared
+ * self-government application intent at signup.
+ *
+ * @param user - Profile slice.
+ * @returns True when Telegram must remain linked.
+ */
+export function telegramIsRequiredForUser(user: ProfileCompletenessSlice): boolean {
+  return (
+    userIsSelfGovernmentMember(user) ||
+    Boolean(user.selfGovernmentApplicationIntent)
+  );
+}
+
+/**
+ * Whether signup must collect a Telegram connection before account creation.
+ *
+ * @param applyForSelfGovernment - Self-government application checkbox on signup.
+ * @returns True when the signup form should block submit without Telegram.
+ */
+export function telegramIsRequiredAtSignup(applyForSelfGovernment: boolean): boolean {
+  return applyForSelfGovernment;
+}
+
+/**
  * List profile fields still empty for membership application.
  *
  * @param user - Profile slice.
@@ -99,12 +189,35 @@ export function getMembershipProfileGaps(
 ): ProfileCompletenessField[] {
   const gaps: ProfileCompletenessField[] = [];
 
-  if (!user.surname?.trim()) gaps.push("surname");
-  if (!user.phone?.trim()) gaps.push("phone");
-  if (!user.specialty?.trim()) gaps.push("specialty");
-  if (!user.group?.trim()) gaps.push("group");
+  for (const field of MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS) {
+    const value = user[field];
+    if (typeof value !== "string" || !value.trim()) {
+      gaps.push(field);
+    }
+  }
+
+  if (telegramIsRequiredForUser(user) && !user.telegramId) {
+    gaps.push("telegram");
+  }
 
   return gaps;
+}
+
+/**
+ * Whether a self-government applicant or member must finish profile compliance
+ * (including Telegram linkage) before browsing the app.
+ *
+ * @param user - Profile slice with optional Telegram id.
+ * @returns True when settings onboarding redirect should run.
+ */
+export function userNeedsSelfGovernmentProfileCompliance(
+  user: ProfileCompletenessSlice,
+): boolean {
+  if (!telegramIsRequiredForUser(user)) {
+    return false;
+  }
+
+  return getMembershipProfileGaps(user).length > 0;
 }
 
 /**
@@ -183,6 +296,8 @@ export function isProfileReadyForMembershipApplication(
 export function buildProfileCompletenessSummary(user: ProfileCompletenessSlice): {
   isSelfGovernmentMember: boolean;
   phoneRequired: boolean;
+  avatarRequired: boolean;
+  telegramRequired: boolean;
   readyForMembershipApplication: boolean;
   missingFields: ProfileCompletenessField[];
   missingFieldLabels: string[];
@@ -191,6 +306,8 @@ export function buildProfileCompletenessSummary(user: ProfileCompletenessSlice):
   return {
     isSelfGovernmentMember: userIsSelfGovernmentMember(user),
     phoneRequired: phoneIsRequiredForUser(user),
+    avatarRequired: avatarIsRequiredForUser(user),
+    telegramRequired: telegramIsRequiredForUser(user),
     readyForMembershipApplication: missingFields.length === 0,
     missingFields,
     missingFieldLabels: missingFields.map((key) => PROFILE_FIELD_LABELS[key]),

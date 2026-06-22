@@ -13,9 +13,9 @@
 import { useEffect } from "react";
 import {
   canvasShellNeedsVerticalScroll,
-  chainWheelDeltaToCanvasShell,
 } from "@/components/puck/lib/canvasLetterboxScrollport";
 import { PUCK_CANVAS_INNER_SELECTOR, PUCK_CANVAS_SHELL_SELECTOR } from "@/components/puck/lib/puckCanvasSelectors";
+import { usePuckPreviewMode } from "@/components/puck/lib/useNexusPuck";
 import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Preview iframe id assigned by Puck `AutoFrame`. */
@@ -27,6 +27,8 @@ const PREVIEW_FRAME_ID = "preview-frame";
  * @returns null
  */
 export function NexusCanvasWheelBridge() {
+  const previewMode = usePuckPreviewMode();
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -50,7 +52,7 @@ export function NexusCanvasWheelBridge() {
         return;
       }
 
-      if (canvasShellNeedsVerticalScroll()) {
+      if (previewMode !== "interactive" && canvasShellNeedsVerticalScroll()) {
         const shell = document.querySelector(PUCK_CANVAS_SHELL_SELECTOR) as HTMLElement | null;
         shell?.scrollBy({
           top: event.deltaY,
@@ -102,7 +104,7 @@ export function NexusCanvasWheelBridge() {
       media.removeEventListener("change", attach);
       observer?.disconnect();
     };
-  }, []);
+  }, [previewMode]);
 
   return null;
 }

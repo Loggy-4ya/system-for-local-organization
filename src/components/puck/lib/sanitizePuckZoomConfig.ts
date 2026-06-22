@@ -207,13 +207,27 @@ export function resolvePuckViewportWidthFromAppStore(
 }
 
 /**
+ * Resolve the CSS transform scale Puck applies to `#puck-canvas-root`.
+ *
+ * Puck 0.21 sets `transform: scale(zoom)` only — `autoZoom` is metadata for the zoom UI
+ * and shrink-to-fit bookkeeping, not a second transform factor.
+ *
+ * @param config - Sanitized Puck zoom config.
+ * @returns Visual scale factor applied to the canvas root.
+ */
+export function resolvePuckPreviewVisualScale(config: PuckZoomConfig): number {
+  return config.zoom;
+}
+
+/**
  * Resolve the visual (post-transform) height of `#puck-canvas-root` for scrollport sizing.
  *
  * @param config - Sanitized Puck zoom config.
  * @returns Estimated scaled height in px, or null when not computable.
  */
 export function resolvePuckScaledRootHeightPx(config: PuckZoomConfig): number | null {
-  const scaled = config.rootHeight * config.zoom * config.autoZoom;
+  const scale = resolvePuckPreviewVisualScale(config);
+  const scaled = config.rootHeight * scale;
   if (!Number.isFinite(scaled) || scaled <= 0) {
     return null;
   }

@@ -11,7 +11,7 @@ import {
   type AccessLevelIndex,
   type PermissionKey,
   isAccessLevelIndex,
-  outranksInHierarchy,
+  meetsOrOutranksInHierarchy,
 } from "@shared/constants/accessControl";
 import type { UserRole } from "@shared/models/User";
 import type { IUserSociumRole } from "@shared/models/userTypes";
@@ -37,11 +37,12 @@ export function inferAccessLevelIndex(user: {
   sociumRoles?: IUserSociumRole[];
   studentTitle?: "Starosta" | "Deputy" | "Neither" | null;
 }): AccessLevelIndex {
+  /** Legacy `Admin` role always resolves to tier 0 — even when `accessLevelIndex` was never backfilled. */
+  if (user.role === "Admin") return 0;
+
   if (user.accessLevelIndex != null && isAccessLevelIndex(user.accessLevelIndex)) {
     return user.accessLevelIndex;
   }
-
-  if (user.role === "Admin") return 0;
 
   const socium = user.sociumRoles ?? [];
   if (
@@ -110,9 +111,9 @@ export function hasPermission(
  * Whether an actor may manage (assign roles/levels to) a target user.
  *
  * Rules:
- * 1. Actor must strictly outrank target in hierarchy **or** hold `users.assign_access_level`.
+ * 1. Actor must be at or above target in hierarchy (peers at the same tier included).
  * 2. Actor must hold `users.assign_access_level` **or** `users.assign_socium_roles`.
- * 3. Target level must appear in actor grant rule `assignableLevelIndices` when assigning levels.
+ * 3. Target level must appear in actor grant rule `assignableLevelIndices` unless actor and target share the same tier (peer socium/profile management).
  *
  * @param actor - Acting user slice.
  * @param target - Target user slice.
@@ -124,10 +125,14 @@ export function canManageUserAccess(
   target: AccessControlUserSlice,
   settings: AccessControlSettingsConfig,
 ): boolean {
+  if (actor.role === "Admin") {
+    return true;
+  }
+
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 
@@ -137,6 +142,10 @@ export function canManageUserAccess(
 
   if (!canAssign) {
     return false;
+  }
+
+  if (actorIndex === targetIndex) {
+    return true;
   }
 
   const rule = settings.grantRules[actorIndex];
@@ -161,7 +170,7 @@ export function canDelegatePermission(
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 
@@ -222,6 +231,9 @@ export function defaultStudentAccessLevel(): AccessLevelIndex {
 /**
  * Whether an actor can view the user directory.
  *
+ * Legacy `Admin` role always passes — mirrors {@link requirePermission} and
+ * `/admin/users` page guards when the matrix omits `users.view_directory`.
+ *
  * @param actor - Acting user access slice.
  * @param settings - Singleton configuration.
  * @returns True when permitted.
@@ -230,7 +242,71 @@ export function canActorViewDirectory(
   actor: AccessControlUserSlice,
   settings: AccessControlSettingsConfig,
 ): boolean {
+  if (actor.role === "Admin") {
+    return true;
+  }
+
   return hasPermission(actor, settings, "users.view_directory");
+}
+
+/**
+ * Whether an actor can edit another user's general profile fields in the directory.
+ *
+ * Legacy `Admin` role always passes. Otherwise requires same-tier-or-below rank and
+ * {@link PermissionKey | users.edit_profile}.
+ *
+ * @param actor - Acting user access slice.
+ * @param target - Target user access slice.
+ * @param settings - Singleton configuration.
+ * @returns True when permitted.
+ */
+export function canActorEditProfile(
+  actor: AccessControlUserSlice,
+  target: AccessControlUserSlice,
+  settings: AccessControlSettingsConfig,
+): boolean {
+  if (actor.role === "Admin") {
+    return true;
+  }
+
+  const actorIndex = inferAccessLevelIndex(actor);
+  const targetIndex = inferAccessLevelIndex(target);
+
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
+    return false;
+  }
+
+  return hasPermission(actor, settings, "users.edit_profile");
+}
+
+/**
+ * Whether an actor can permanently delete another user's account from the directory.
+ *
+ * Legacy `Admin` role always passes (except self — enforced in the domain). Otherwise
+ * requires same-tier-or-below rank and {@link PermissionKey | users.delete}.
+ *
+ * @param actor - Acting user access slice.
+ * @param target - Target user access slice.
+ * @param settings - Singleton configuration.
+ * @returns True when account deletion is permitted.
+ */
+export function canActorDeleteUser(
+  actor: AccessControlUserSlice,
+  target: AccessControlUserSlice,
+  settings: AccessControlSettingsConfig,
+): boolean {
+  if (actor.role === "Admin") {
+    return true;
+  }
+
+  const actorIndex = inferAccessLevelIndex(actor);
+  const targetIndex = inferAccessLevelIndex(target);
+
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
+    return false;
+  }
+
+  return hasPermission(actor, settings, "users.delete");
 }
 
 /**
@@ -248,10 +324,14 @@ export function canActorAssignAccessLevel(
   newIndex: AccessLevelIndex,
   settings: AccessControlSettingsConfig,
 ): boolean {
+  if (actor.role === "Admin") {
+    return newIndex >= 1 && newIndex <= 6;
+  }
+
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 
@@ -285,10 +365,14 @@ export function canActorAssignSociumRoles(
   target: AccessControlUserSlice,
   settings: AccessControlSettingsConfig,
 ): boolean {
+  if (actor.role === "Admin") {
+    return true;
+  }
+
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 
@@ -311,7 +395,7 @@ export function canActorAssignAffiliations(
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 
@@ -336,7 +420,7 @@ export function canActorModifyDelegatedPermissions(
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
 
-  if (!outranksInHierarchy(actorIndex, targetIndex)) {
+  if (!meetsOrOutranksInHierarchy(actorIndex, targetIndex)) {
     return false;
   }
 

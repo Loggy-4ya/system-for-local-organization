@@ -6,15 +6,16 @@
  * @module src/components/global-layout/EditorField
  */
 
-import React, { type ReactNode } from "react";
+import React, { type ReactNode, useId } from "react";
 import { Label } from "@/components/ui/label";
+import { NexusFieldHint } from "@/components/ui/NexusFieldHint";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link EditorField}. */
 export interface EditorFieldProps {
   /** Uppercase field label. */
   label: string;
-  /** Optional helper copy below the label row. */
+  /** Optional helper copy surfaced via an info icon (tooltip / popover). */
   hint?: string;
   /** Associated control id for accessibility. */
   htmlFor?: string;
@@ -40,16 +41,32 @@ export function EditorField({
   children,
   className,
 }: EditorFieldProps) {
+  const hintId = useId();
+
   return (
     <div className={cn("global-layout-editor__field", className)}>
       <div className="global-layout-editor__field-head">
-        <Label htmlFor={htmlFor} className="global-layout-editor__field-label">
-          {label}
-        </Label>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <Label htmlFor={htmlFor} className="global-layout-editor__field-label">
+            {label}
+          </Label>
+          {hint ? (
+            <NexusFieldHint
+              text={hint}
+              label={`About ${label}`}
+              hintId={hintId}
+              size="md"
+            />
+          ) : null}
+        </div>
         {valueBadge ? <div className="shrink-0">{valueBadge}</div> : null}
       </div>
-      {hint ? <p className="global-layout-editor__field-hint">{hint}</p> : null}
-      <div className="global-layout-editor__field-control">{children}</div>
+      <div
+        className="global-layout-editor__field-control"
+        {...(hint && htmlFor ? { "data-hint-id": hintId } : {})}
+      >
+        {children}
+      </div>
     </div>
   );
 }

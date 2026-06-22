@@ -90,6 +90,8 @@ export interface GridItemCellShellProps {
   placement: GridCellPlacement;
   /** Pointer down on empty cell chrome for canvas reorder. */
   onCellPointerDown?: React.PointerEventHandler<HTMLDivElement>;
+  /** Click empty cell chrome to select the parent grid block. */
+  onCellClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
 /**
@@ -107,6 +109,7 @@ export function GridItemCellShell({
   isDraggingCell,
   placement,
   onCellPointerDown,
+  onCellClick,
 }: GridItemCellShellProps) {
   const shellStyle = gridItemShellStyle(placement);
 
@@ -133,6 +136,7 @@ export function GridItemCellShell({
       style={shellStyle}
       data-nexus-grid-cell-index={cellIndex}
       onPointerDown={onCellPointerDown}
+      onClick={onCellClick}
     >
       {renderGridItemCellContent(Content, true, inCarouselSlide)}
     </div>

@@ -10,6 +10,7 @@ import React from "react";
 import { FontFamilyField } from "../../fields/FontFamilyField";
 import { FontWeightField } from "../../fields/FontWeightField";
 import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
+import { useInterpolatedNexusValue } from "../../lib/nexusPageVariablesContext";
 
 export const NexusQuote = {
   label: "Blockquote",
@@ -57,6 +58,8 @@ export const NexusQuote = {
     fontFamily?: FontFamilyToken;
     fontWeight?: FontWeightToken;
   }) {
+    const resolvedText = useInterpolatedNexusValue(text);
+    const resolvedAuthor = useInterpolatedNexusValue(author ?? "");
     const typography = resolveBlockTypography("NexusQuote", fontFamily, fontWeight, "italic");
 
     return (
@@ -81,12 +84,12 @@ export const NexusQuote = {
             lineHeight: 1.5,
             color: "var(--color-text-primary)",
             fontWeight: typography.fontWeight,
-            marginBottom: author ? "var(--spacing-xs)" : "0px",
+            marginBottom: resolvedAuthor ? "var(--spacing-xs)" : "0px",
           }}
         >
-          “{text}”
+          “{resolvedText}”
         </p>
-        {author && (
+        {resolvedAuthor ? (
           <cite
             style={{
               fontSize: "0.8125rem",
@@ -96,9 +99,9 @@ export const NexusQuote = {
               fontFamily: typography.fontFamily,
             }}
           >
-            — {author}
+            — {resolvedAuthor}
           </cite>
-        )}
+        ) : null}
       </blockquote>
     );
   },

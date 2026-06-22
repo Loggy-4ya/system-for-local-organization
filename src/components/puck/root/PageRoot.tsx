@@ -11,6 +11,7 @@ import { PageBackgroundFieldGroup } from "../fields/PageBackgroundFieldGroup";
 import { PageLayoutFieldGroup } from "../fields/PageLayoutFieldGroup";
 import type { PageSettingsValue } from "../fields/PageSettingsFieldGroup";
 import { PageSettingsFieldGroup } from "../fields/PageSettingsFieldGroup";
+import { PagePublicationFieldGroup } from "../fields/PagePublicationFieldGroup";
 import { resolveAccentPreset } from "../fields/AccentPresetField";
 import {
   contentWidthContainerStyle,
@@ -22,6 +23,7 @@ import {
   type ContentWidthToken,
 } from "../lib/contentWidthTokens";
 import { PageContentWidthProvider } from "../lib/PageContentWidthContext";
+import { NexusPageVariablesFromRoot } from "../lib/nexusPageVariablesContext";
 import {
   resolvePageRootAppearance,
   type PageRootStoredProps,
@@ -46,6 +48,7 @@ interface PageRootBodyProps extends PageRootProps {
  *
  * Site-default grid is the global `InfiniteGrid` in root layout (`#nexus-bg`), not here.
  * Edit layout uses content-sized height so the canvas scrollport tracks blocks, not viewport fill.
+ * `NexusPuckZoomGuard` syncs Puck `rootHeight` reactively via `previewContentHeight.ts`.
  *
  * Tests: `tests/puck/lib/previewContentHeight.test.ts` — `npm run test:preview-content-height`
  *
@@ -61,7 +64,7 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
   const pageWidthToken = (contentWidth ?? DEFAULT_CONTENT_WIDTH) as ContentWidthToken;
   const isPublishedView = !showEditorBackground;
   const isInteractivePreview = showEditorBackground && !isPuckEditMode;
-  const useContentSizedLayout = isPublishedView || isPuckEditMode;
+  const useContentSizedLayout = isPublishedView || isPuckEditMode || isInteractivePreview;
 
   if (background === "solid") {
     bgStyles.backgroundColor = resolveAccentPreset(backgroundPreset);
@@ -80,7 +83,6 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
       style={{
         position: "relative",
         minHeight: isInteractivePreview ? "100%" : undefined,
-        height: isInteractivePreview ? "100%" : undefined,
         width: "100%",
         display: "flex",
         flexDirection: "column",
@@ -109,7 +111,12 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
             ["--nexus-page-content-max-width" as string]: resolveContentWidth(pageWidthToken),
           }}
         >
-          <PageContentWidthProvider value={pageWidthToken}>{children}</PageContentWidthProvider>
+          <NexusPageVariablesFromRoot
+            pageSettings={props.pageSettings}
+            pagePublication={props.pagePublication}
+          >
+            <PageContentWidthProvider value={pageWidthToken}>{children}</PageContentWidthProvider>
+          </NexusPageVariablesFromRoot>
         </div>
       </div>
     </div>
@@ -138,6 +145,11 @@ export const PageRoot = {
       label: "",
       render: PageSettingsFieldGroup as never,
     },
+    pagePublication: {
+      type: "custom" as const,
+      label: "",
+      render: PagePublicationFieldGroup as never,
+    },
     pageLayout: {
       type: "custom" as const,
       label: "",
@@ -154,6 +166,14 @@ export const PageRoot = {
       title: "Untitled Page",
       slug: "",
       slugLocked: false,
+      categories: [],
+    },
+    pagePublication: {
+      description: "",
+      coverImage: "",
+      publishAt: null,
+      commentsEnabled: true,
+      delegatedEditors: [],
     },
     pageLayout: {
       contentWidth: DEFAULT_CONTENT_WIDTH,

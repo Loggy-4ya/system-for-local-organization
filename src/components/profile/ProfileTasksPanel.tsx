@@ -1,123 +1,139 @@
 /**
- * @fileoverview Placeholder tasks panel for profile dashboard until Phase 5 Task engine.
+ * @fileoverview Assigned tasks panel on user profile dashboards.
  *
  * @module src/components/profile/ProfileTasksPanel
  */
 
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import type { TaskListRow } from "@shared/domains/TaskDomain";
+import { TASK_STATUS_LABELS } from "@shared/constants/taskSettings";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** Placeholder task row descriptor. */
-interface PlaceholderTask {
-  title: string;
-  meta: string;
-  badge?: { label: string; variant: "warning" | "success" };
-  action: string;
-  actionVariant?: "secondary" | "ghost";
+/** Props for {@link ProfileTasksPanel}. */
+export interface ProfileTasksPanelProps {
+  /** Profile owner whose assigned tasks are listed. */
+  userId: string;
+  /** When true, hide action buttons (viewing another member). */
+  readOnly?: boolean;
 }
 
-const TABS = ["Current", "Sport", "Announcements"] as const;
-
-const PLACEHOLDER_TASKS: PlaceholderTask[] = [
-  {
-    title: "Lab Report #3",
-    meta: "Due Friday · Delivered, Unacknowledged",
-    badge: { label: "Warn 2/3", variant: "warning" },
-    action: "Confirm",
-    actionVariant: "secondary",
-  },
-  {
-    title: "Team Presentation",
-    meta: "Completed · +12 coins",
-    badge: { label: "Done", variant: "success" },
-    action: "Done",
-    actionVariant: "secondary",
-  },
-  {
-    title: "Council Budget Review",
-    meta: "Assigned · Due Monday",
-    action: "Open",
-    actionVariant: "ghost",
-  },
-  {
-    title: "Spring Event Proposal",
-    meta: "Submitted · Awaiting vote",
-    action: "View",
-    actionVariant: "ghost",
-  },
-];
+/**
+ * Format task meta line for list rows.
+ *
+ * @param task - Task list row.
+ * @returns Secondary line text.
+ */
+function formatTaskMeta(task: TaskListRow): string {
+  const due = task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString()}` : "No due date";
+  return `${due} · ${TASK_STATUS_LABELS[task.status]}`;
+}
 
 /**
- * Tabbed task list with Figma placeholder content.
+ * Tabbed assigned-task list backed by GET `/api/tasks`.
  *
+ * @param props - Profile owner id and read-only flag.
  * @returns Tasks panel JSX.
  */
-export function ProfileTasksPanel() {
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Current");
+export function ProfileTasksPanel({ userId, readOnly = false }: ProfileTasksPanelProps) {
+  const [tasks, setTasks] = useState<TaskListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        scope: "assigned",
+        assigneeUserId: userId,
+        limit: "8",
+      });
+      const res = await fetch(`/api/tasks?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to load tasks.");
+      const data = (await res.json()) as { tasks: TaskListRow[] };
+      setTasks(data.tasks ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tasks.");
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  /** Acknowledge a dispatched task. */
+  async function handleAcknowledge(taskId: string) {
+    const res = await fetch(`/api/tasks/${taskId}/acknowledge`, { method: "POST" });
+    if (res.ok) void loadTasks();
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-2">
-      <div
-        className="inline-flex w-fit gap-1 rounded-[var(--radius-lg)] border border-[var(--color-border-default)] p-1"
-        role="tablist"
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "rounded-[6px] px-4 py-2 text-xs font-medium transition-colors",
-              activeTab === tab
-                ? "bg-[var(--color-accent-user)] text-[#0f172a]"
-                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-            )}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Assigned tasks</h2>
+        {!readOnly && (
+          <Link href="/tasks" className="text-xs text-[var(--color-accent-user)] hover:underline">
+            Manage all
+          </Link>
+        )}
       </div>
 
+      {loading && (
+        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">Loading tasks…</p>
+      )}
+      {error && (
+        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">{error}</p>
+      )}
+      {!loading && !error && tasks.length === 0 && (
+        <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
+          No open tasks assigned.
+        </p>
+      )}
+
       <div className="flex flex-col gap-2">
-        {activeTab === "Current" ? (
-          PLACEHOLDER_TASKS.map((task) => (
-            <div
-              key={task.title}
-              className="glass-panel flex items-center gap-3 rounded-[var(--radius-md)] px-4 py-3"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  {task.title}
-                </p>
-                <p className="text-xs text-[var(--color-text-secondary)]">{task.meta}</p>
-              </div>
-              {task.badge && (
-                <span
-                  className={`badge ${task.badge.variant === "warning" ? "badge-warning" : "badge-success"}`}
-                >
-                  {task.badge.label}
-                </span>
-              )}
-              <Button
-                variant={task.actionVariant === "ghost" ? "ghost" : "outline"}
-                size="sm"
-                type="button"
-                disabled
+        {tasks.map((task) => (
+          <div
+            key={task.id}
+            className="glass-panel flex items-center gap-3 rounded-[var(--radius-md)] px-4 py-3"
+          >
+            <div className="min-w-0 flex-1">
+              <Link
+                href={`/tasks/${task.id}`}
+                className="text-sm font-semibold text-[var(--color-text-primary)] hover:underline"
               >
-                {task.action}
-              </Button>
+                {task.title}
+              </Link>
+              <p className="text-xs text-[var(--color-text-secondary)]">{formatTaskMeta(task)}</p>
             </div>
-          ))
-        ) : (
-          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No {activeTab.toLowerCase()} tasks yet.
-          </p>
-        )}
+            <span
+              className={cn(
+                "badge",
+                task.status === "overdue" ? "badge-warning" : "badge-group",
+              )}
+            >
+              {TASK_STATUS_LABELS[task.status]}
+            </span>
+            {!readOnly && task.status === "dispatched" && (
+              <Button variant="outline" size="sm" type="button" onClick={() => handleAcknowledge(task.id)}>
+                Confirm
+              </Button>
+            )}
+            {!readOnly && task.status !== "dispatched" && (
+              <Link
+                href={`/tasks/${task.id}`}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                Open
+              </Link>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -10,6 +10,10 @@
  */
 
 import mongoose, { Document, Model, Schema } from "mongoose";
+import {
+  shouldUnsetUserOptionalUniqueField,
+  USER_OPTIONAL_UNIQUE_STRING_FIELDS,
+} from "@shared/lib/stripUserOptionalUniqueFields";
 import type {
   IUserOrganizationMembership,
   IUserQualityScores,
@@ -17,6 +21,7 @@ import type {
   IUserSocialLink,
   IUserSociumRole,
 } from "@shared/models/userTypes";
+import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 
 export type {
   IUserOrganizationMembership,
@@ -43,16 +48,6 @@ export type UserRole = "Admin" | "StudentCouncil" | "Student";
  * Distinct from RBAC {@link UserRole}.
  */
 export type StudentTitle = "Starosta" | "Deputy" | "Neither";
-
-/**
- * User accent colour family (maps to CSS `--accent-{family}-{shade}` tokens).
- */
-export type AccentFamily = "blue" | "red" | "yellow" | "green" | "purple";
-
-/**
- * User accent shade within a family.
- */
-export type AccentShade = "soft" | "medium" | "strong";
 
 // ── Document Interface ────────────────────────────────────────────────────────
 
@@ -168,12 +163,6 @@ export interface IUser extends Document {
    */
   qualityScores: IUserQualityScores | null;
 
-  /** User accent colour family for chrome theming. */
-  accentFamily: AccentFamily;
-
-  /** User accent shade within {@link accentFamily}. */
-  accentShade: AccentShade;
-
   /** Last successful Telegram Login Widget or bot sync timestamp. */
   lastTelegramSyncAt: Date | null;
 
@@ -198,6 +187,15 @@ export interface IUser extends Document {
   /** Timestamp when the user accepted personal data processing (signup consent). */
   personalDataConsentAt: Date | null;
 
+  /**
+   * Preferred delivery channels for institution notifications (tasks, broadcasts, calendar).
+   * @see {@link TaskReminderChannel}
+   */
+  notificationChannels: TaskReminderChannel[];
+
+  /** When the user answered the browser notification permission prompt (enable or dismiss). */
+  webNotificationPromptAt: Date | null;
+
   /** Timestamp when the document was first created. */
   createdAt: Date;
 
@@ -211,13 +209,14 @@ export interface IUser extends Document {
  * Mongoose schema for the User model.
  *
  * Indexing strategy:
+ *  - `login` and `email` use partial unique indexes (only when non-empty strings).
  *  - `googleId` and `telegramId` are sparsely indexed (many docs will be null).
  *  - `group` is indexed to support Admin dashboard queries filtered by group.
  */
 const UserSchema = new Schema<IUser>(
   {
-    login:        { type: String, default: null, sparse: true, unique: true, trim: true, lowercase: true, index: true },
-    email:        { type: String, default: null, sparse: true, unique: true, trim: true, lowercase: true },
+    login:        { type: String, trim: true, lowercase: true },
+    email:        { type: String, trim: true, lowercase: true },
     emailVerified:{ type: Date, default: null },
     passwordHash: { type: String, default: null, select: false },
     googleId:     { type: String, default: null, sparse: true, index: true },
@@ -310,26 +309,69 @@ const UserSchema = new Schema<IUser>(
       },
       default: null,
     },
-    accentFamily: {
-      type: String,
-      enum: ["blue", "red", "yellow", "green", "purple"] satisfies AccentFamily[],
-      default: "blue",
-    },
-    accentShade: {
-      type: String,
-      enum: ["soft", "medium", "strong"] satisfies AccentShade[],
-      default: "medium",
-    },
     lastTelegramSyncAt: { type: Date, default: null },
     stars:     { type: Number, default: 0, min: 0 },
     warnings:  { type: Number, default: 0, min: 0, max: 3 },
     selfGovernmentApplicationIntent: { type: Boolean, default: false },
     personalDataConsentAt: { type: Date, default: null },
+    notificationChannels: {
+      type: [String],
+      enum: ["web", "telegram"],
+      default: ["web"],
+    },
+    webNotificationPromptAt: { type: Date, default: null },
   },
   {
     timestamps: true,
     collection: "users",
   }
+);
+
+UserSchema.pre("validate", function unsetOptionalUniqueNulls() {
+  for (const field of USER_OPTIONAL_UNIQUE_STRING_FIELDS) {
+    if (shouldUnsetUserOptionalUniqueField(this.get(field))) {
+      this.set(field, undefined);
+      if (this._doc && field in this._doc) {
+        delete this._doc[field as keyof typeof this._doc];
+      }
+    }
+  }
+});
+
+/**
+ * Unset optional unique string fields instead of persisting null — prevents E11000
+ * duplicate key errors on `email_1` / `login_1` for users without linked email/login.
+ */
+UserSchema.pre("save", function unsetOptionalUniqueNullsOnSave() {
+  for (const field of USER_OPTIONAL_UNIQUE_STRING_FIELDS) {
+    if (shouldUnsetUserOptionalUniqueField(this.get(field))) {
+      this.set(field, undefined);
+      if (this._doc && field in this._doc) {
+        delete this._doc[field as keyof typeof this._doc];
+      }
+    }
+  }
+});
+
+/** Partial filter — non-empty string only (`$ne` is unsupported in partial indexes). */
+const NON_EMPTY_STRING_PARTIAL_FILTER = { $gt: "" } as const;
+
+/** Unique only when a non-empty login handle is stored. */
+UserSchema.index(
+  { login: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { login: NON_EMPTY_STRING_PARTIAL_FILTER },
+  },
+);
+
+/** Unique only when a non-empty linked email is stored. */
+UserSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { email: NON_EMPTY_STRING_PARTIAL_FILTER },
+  },
 );
 
 // ── Model Registration ─────────────────────────────────────────────────────────

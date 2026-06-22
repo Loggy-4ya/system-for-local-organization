@@ -11,7 +11,12 @@ import NextAuth from "next-auth";
 import { acceptClientHintsHeader } from "@teispace/next-themes/server";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
-import { buildContentSecurityPolicy } from "@/lib/contentSecurityPolicy";
+import {
+  buildContentSecurityPolicy,
+  CSP_NONCE_HEADER,
+  generateCspNonce,
+  isCspNonceEnabled,
+} from "@/lib/contentSecurityPolicy";
 import { publicUrl } from "@/lib/publicOrigin";
 
 const { auth } = NextAuth(authConfig);
@@ -19,7 +24,11 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isProtected =
-    pathname.startsWith("/profile") || pathname.startsWith("/admin");
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/tasks") ||
+    pathname.startsWith("/task-groups") ||
+    pathname.startsWith("/users/");
 
   if (isProtected && !req.auth) {
     const loginUrl = publicUrl("/login", req);
@@ -37,16 +46,23 @@ export default auth((req) => {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", pathname);
 
+  const isDev = process.env.NODE_ENV !== "production";
+  const useNonce = isCspNonceEnabled();
+  const nonce = useNonce ? generateCspNonce() : undefined;
+  const csp = buildContentSecurityPolicy({ isDev, nonce });
+
+  if (nonce) {
+    requestHeaders.set(CSP_NONCE_HEADER, nonce);
+    requestHeaders.set("Content-Security-Policy", csp);
+  }
+
   const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
   response.headers.set("Accept-CH", acceptClientHintsHeader());
-  response.headers.set(
-    "Content-Security-Policy",
-    buildContentSecurityPolicy({ isDev: process.env.NODE_ENV !== "production" }),
-  );
+  response.headers.set("Content-Security-Policy", csp);
   return response;
 });
 

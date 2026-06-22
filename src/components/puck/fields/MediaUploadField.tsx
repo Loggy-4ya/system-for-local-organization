@@ -8,7 +8,14 @@
 
 import { FieldLabel } from "@puckeditor/core";
 import { useCallback, useRef, useState } from "react";
-import { uploadMediaFile, importMediaImageFromUrl, isImportableRemoteMediaUrl, type MediaAccept } from "../lib/mediaUpload";
+import { SettingsMediaPreview } from "@/components/media/SettingsMediaPreview";
+import { cn } from "@/lib/utils";
+import {
+  uploadMediaFileWithCrop,
+  importMediaImageFromUrl,
+  isImportableRemoteMediaUrl,
+  type MediaAccept,
+} from "../lib/mediaUpload";
 import type { MediaPurpose } from "@shared/constants/mediaStorage";
 
 /** Props for the media upload field renderer. */
@@ -21,6 +28,14 @@ interface MediaUploadFieldProps {
   };
   value: string;
   onChange: (value: string) => void;
+  /** When true, use taller contain preview readable in sidebar settings. */
+  showReadablePreview?: boolean;
+  /** Alt text shown below readable preview when provided. */
+  altText?: string;
+  /** Called when alt text changes (optional). */
+  onAltTextChange?: (value: string) => void;
+  /** Skip Puck {@link FieldLabel} when the parent chapter already shows a label. */
+  hideFieldLabel?: boolean;
 }
 
 /**
@@ -29,7 +44,15 @@ interface MediaUploadFieldProps {
  * @param props - Puck custom field props.
  * @returns Upload zone, URL input, and optional preview.
  */
-export function MediaUploadField({ field, value, onChange }: MediaUploadFieldProps) {
+export function MediaUploadField({
+  field,
+  value,
+  onChange,
+  showReadablePreview = true,
+  altText,
+  onAltTextChange,
+  hideFieldLabel = false,
+}: MediaUploadFieldProps) {
   const accept = field.accept ?? "both";
   const purpose = field.purpose ?? "puck-block";
   const acceptAttr =
@@ -42,8 +65,7 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isVideo =
-    value?.match(/\.(mp4|webm|ogg|mov)(\?|$)/i) ||
-    value?.includes("video");
+    value?.match(/\.(mp4|webm|ogg|mov)(\?|$)/i) || value?.includes("video");
 
   /**
    * Process a selected or dropped file through the upload API.
@@ -55,7 +77,8 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
       setUploading(true);
       setError(null);
       try {
-        const url = await uploadMediaFile(file, { accept, purpose });
+        const url = await uploadMediaFileWithCrop(file, { accept, purpose });
+        if (!url) return;
         onChange(url);
       } catch (err: unknown) {
         console.error("[MediaUploadField]", err);
@@ -95,108 +118,115 @@ export function MediaUploadField({ field, value, onChange }: MediaUploadFieldPro
 
   const busy = uploading || importing;
 
-  return (
-    <FieldLabel label={field.label || "Media"}>
-      <div className="nexus-puck-field" style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-        <input
-          type="text"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Media URL (e.g. /uploads/file.png)"
-        />
+  const body = (
+    <div className="nexus-media-upload-field">
+      <input
+        type="text"
+        className="nexus-puck-input nexus-media-upload-field__url"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Media URL (e.g. /uploads/file.png)"
+      />
 
-        {showImportLink && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void handleImportFromUrl()}
-            style={{ width: "100%" }}
-          >
-            {importing ? "Importing…" : "Import image from link"}
-          </button>
-        )}
-
-        <div
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) void handleFile(file);
-          }}
-          onClick={() => fileInputRef.current?.click()}
-          style={{
-            border: `1px dashed ${dragOver ? "var(--color-accent-user)" : "var(--puck-color-grey-09)"}`,
-            borderRadius: 4,
-            padding: "16px 12px",
-            textAlign: "center",
-            cursor: busy ? "not-allowed" : "pointer",
-            background: dragOver ? "var(--puck-color-grey-11)" : "var(--puck-color-white)",
-            fontSize: 13,
-            color: "var(--puck-color-black)",
-          }}
-        >
-          {uploading ? "Uploading…" : importing ? "Importing…" : "Drop file here or click to upload"}
-        </div>
-
+      {showImportLink ? (
         <button
           type="button"
+          className="nexus-media-upload-field__import"
           disabled={busy}
-          onClick={() => fileInputRef.current?.click()}
-          style={{ width: "100%" }}
+          onClick={() => void handleImportFromUrl()}
         >
-          {uploading ? "Uploading…" : "Choose file"}
+          {importing ? "Importing…" : "Import image from link"}
         </button>
+      ) : null}
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept={acceptAttr}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-          style={{ display: "none" }}
-        />
-
-        {error && (
-          <p style={{ color: "var(--color-danger)", fontSize: 11, margin: 0 }}>{error}</p>
+      <div
+        role="button"
+        tabIndex={0}
+        className={cn(
+          "nexus-media-upload-field__dropzone",
+          dragOver && "nexus-media-upload-field__dropzone--active",
+          busy && "nexus-media-upload-field__dropzone--busy",
         )}
-
-        {value && (
-          <div
-            style={{
-              width: "100%",
-              height: 120,
-              borderRadius: 4,
-              border: "1px solid var(--puck-color-grey-09)",
-              background: "var(--puck-color-white)",
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {isVideo ? (
-              <video src={value} style={{ maxWidth: "100%", maxHeight: "100%" }} controls muted />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={value} alt="Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-            )}
-          </div>
-        )}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) void handleFile(file);
+        }}
+        onClick={() => !busy && fileInputRef.current?.click()}
+      >
+        {uploading ? "Uploading…" : importing ? "Importing…" : "Drop file here or click to upload"}
       </div>
-    </FieldLabel>
+
+      <button
+        type="button"
+        className="nexus-media-upload-field__choose"
+        disabled={busy}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {uploading ? "Uploading…" : "Choose file"}
+      </button>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept={acceptAttr}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+        }}
+        className="nexus-media-upload-field__file-input"
+      />
+
+      {error ? <p className="nexus-media-upload-field__error">{error}</p> : null}
+
+      {value && showReadablePreview ? (
+        <SettingsMediaPreview src={value} alt={altText || field.label || "Preview"} />
+      ) : null}
+
+      {value && !showReadablePreview ? (
+        <div className="nexus-media-upload-field__preview-compact">
+          {isVideo ? (
+            <video src={value} className="nexus-media-upload-field__preview-media" controls muted />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt="Preview"
+              className="nexus-media-upload-field__preview-media"
+            />
+          )}
+        </div>
+      ) : null}
+
+      {onAltTextChange ? (
+        <div className="nexus-media-upload-field__alt">
+          <span className="nexus-field-category__label">Alt Text</span>
+          <input
+            type="text"
+            className="nexus-puck-input"
+            value={altText ?? ""}
+            onChange={(e) => onAltTextChange(e.target.value)}
+            placeholder="Describe the image for accessibility"
+          />
+        </div>
+      ) : null}
+    </div>
   );
+
+  if (hideFieldLabel) {
+    return body;
+  }
+
+  return <FieldLabel label={field.label || "Media"}>{body}</FieldLabel>;
 }
 
 export default MediaUploadField;

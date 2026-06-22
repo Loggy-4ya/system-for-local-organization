@@ -1,10 +1,17 @@
 /**
  * @fileoverview Pure password strength assessment for signup and password changes.
  *
+ * Weak-password denylist: {@link module:shared/constants/contentPolicy}.
+ *
  * Tests: `tests/shared/lib/passwordStrength.test.ts` — `npm run test:password-strength`
  *
  * @module shared/lib/passwordStrength
  */
+
+import {
+  CONTENT_POLICY_WEAK_PASSWORD_MESSAGE,
+} from "@shared/constants/contentPolicy";
+import { isWeakPolicyPassword } from "@shared/lib/contentPolicy";
 
 /** Result of {@link assessPasswordStrength}. */
 export interface PasswordStrengthAssessment {
@@ -15,20 +22,6 @@ export interface PasswordStrengthAssessment {
   /** Human-readable issues for inline form feedback. */
   issues: string[];
 }
-
-const COMMON_WEAK_PASSWORDS = new Set([
-  "password",
-  "password1",
-  "password123",
-  "12345678",
-  "123456789",
-  "qwerty123",
-  "letmein1",
-  "welcome1",
-  "nexus123",
-  "student123",
-  "admin123",
-]);
 
 /**
  * Assess whether a password meets Nexus signup strength rules.
@@ -61,8 +54,8 @@ export function assessPasswordStrength(
     issues.push("Password cannot be the same as your login.");
   }
 
-  if (COMMON_WEAK_PASSWORDS.has(password.trim().toLowerCase())) {
-    issues.push("This password is too common. Choose something more unique.");
+  if (isWeakPolicyPassword(password)) {
+    issues.push(CONTENT_POLICY_WEAK_PASSWORD_MESSAGE);
   }
 
   if (/^(.)\1+$/.test(password)) {

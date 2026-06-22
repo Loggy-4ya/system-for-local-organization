@@ -10,6 +10,7 @@ export {
   importMediaImageFromUrl,
   isImportableRemoteMediaUrl,
   uploadMediaFile,
+  uploadMediaFileWithCrop,
   type MediaAccept,
   type UploadMediaFileOptions,
 } from "@/lib/mediaUploadClient";

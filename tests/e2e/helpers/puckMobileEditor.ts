@@ -85,7 +85,31 @@ export interface PuckMobileLayoutGeometry {
 
 /** Default Puck editor URL path (override with `PUCK_E2E_EDIT_PATH`). */
 export const DEFAULT_PUCK_E2E_EDIT_PATH =
-  process.env.PUCK_E2E_EDIT_PATH ?? "/testest/edit";
+  process.env.PUCK_E2E_EDIT_PATH ?? "/test1/edit";
+
+/** Admin seed credentials for browser automation (override via env). */
+const PUCK_E2E_LOGIN = process.env.PUCK_E2E_LOGIN ?? "admin";
+const PUCK_E2E_PASSWORD = process.env.PUCK_E2E_PASSWORD ?? "your_secure_password_here";
+
+/**
+ * Sign in with seeded admin credentials when the editor route requires auth.
+ *
+ * @param page - Playwright page.
+ * @param callbackPath - Post-login destination (typically an `/…/edit` path).
+ */
+export async function loginForPuckEditor(
+  page: Page,
+  callbackPath = DEFAULT_PUCK_E2E_EDIT_PATH,
+): Promise<void> {
+  const callback = resolvePuckEditorPath(callbackPath);
+  await page.goto(`/login?callbackUrl=${encodeURIComponent(callback)}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.fill('input[name="login"], input[autocomplete="username"]', PUCK_E2E_LOGIN);
+  await page.fill('input[name="password"], input[type="password"]', PUCK_E2E_PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.locator(".Puck").waitFor({ state: "visible", timeout: 30_000 });
+}
 
 /**
  * Expand the mobile viewport preset pill and tap a preset by index (0=Phone, 1=Tablet, 2=Desktop, 3=Full-width).

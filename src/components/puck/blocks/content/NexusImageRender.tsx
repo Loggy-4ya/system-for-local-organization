@@ -17,7 +17,7 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
-import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
+import { useCarouselSlideMedia, useCarouselSlideComposite } from "../../CarouselSlideMediaContext";
 import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
 import { syncPuckComponentOverlayAfterLayout } from "../../lib/puckOverlaySync";
 import {
@@ -34,6 +34,7 @@ import {
   ratioToMediaAspectAttr,
 } from "../../lib/mediaAspectRatio";
 import { usePuckPreviewMode } from "../../lib/useNexusPuck";
+import { useInterpolatedNexusValue } from "../../lib/nexusPageVariablesContext";
 
 /** Props for {@link NexusImageRender}. */
 export interface NexusImageRenderProps {
@@ -88,11 +89,19 @@ function NexusImageBody({
   onSelectInCarousel,
   syncSelectionOverlay,
 }: NexusImageBodyProps) {
-  const safeImage = sanitizeMediaUrl(image);
+  const resolvedImage = useInterpolatedNexusValue(image);
+  const resolvedAlt = useInterpolatedNexusValue(alt);
+  const safeImage = sanitizeMediaUrl(resolvedImage);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
   const inCarouselSlide = useCarouselSlideMedia();
-  const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide, layoutRoot);
+  const compositeCarouselSlide = useCarouselSlideComposite();
+  const fillSlide = resolveCarouselMediaFill(
+    carouselFill,
+    inCarouselSlide,
+    layoutRoot,
+    compositeCarouselSlide,
+  );
 
   const assignRootRef = useCallback((node: HTMLDivElement | null) => {
     rootRef.current = node;
@@ -190,7 +199,7 @@ function NexusImageBody({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={safeImage}
-      alt={alt}
+      alt={resolvedAlt}
       className="nexus-media-cover__media"
       draggable={false}
     />

@@ -8,7 +8,7 @@
  * @module shared/models/Page
  */
 
-import mongoose, { Document, Model, Schema } from "mongoose";
+import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
 // ── Document Interface ────────────────────────────────────────────────────────
 
@@ -52,6 +52,49 @@ export interface IPage extends Document {
    */
   published: boolean;
 
+  /**
+   * Obsidian-style category tags for filtering and Page Manager display.
+   * Synced from `root.props.pageSettings.categories` on Puck publish.
+   */
+  categories: string[];
+
+  /** Short summary for news cards, SEO, and Page Manager. */
+  description: string;
+
+  /** Hero/cover image URL (`/uploads/page-covers/…`) — distinct from page background. */
+  coverImage: string;
+
+  /** Original author — set on first save; only admins may reassign. */
+  authorUserId?: Types.ObjectId;
+
+  /**
+   * Scheduled go-live timestamp. When set in the future the page stays hidden
+   * until {@link SchedulerDomain} executes a `publish_page` event.
+   */
+  publishAt: Date | null;
+
+  /** When true, the public comment section is enabled for this page. */
+  commentsEnabled: boolean;
+
+  /** Monotonic public view counter (anonymous + authenticated). */
+  viewCount: number;
+
+  /** Denormalized like count synced from {@link PageLike}. */
+  likeCount: number;
+
+  /** Users granted edit access to this specific page by an administrator. */
+  delegatedEditorUserIds: Types.ObjectId[];
+
+  /**
+   * Active publisher invite link metadata.
+   * Plain tokens are never stored — only a SHA-256 hash.
+   */
+  publisherInvite?: {
+    tokenHash: string;
+    expiresAt: Date;
+    createdBy: Types.ObjectId;
+  } | null;
+
   /** Timestamp when the document was first created. */
   createdAt: Date;
 
@@ -91,11 +134,64 @@ const PageSchema = new Schema<IPage>(
       type: Boolean,
       default: false,
     },
+    categories: {
+      type: [String],
+      default: () => [],
+    },
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 2000,
+    },
+    coverImage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    authorUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    publishAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    commentsEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    viewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    likeCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    delegatedEditorUserIds: {
+      type: [Schema.Types.ObjectId],
+      ref: "User",
+      default: () => [],
+    },
+    publisherInvite: {
+      type: {
+        tokenHash: { type: String, required: true, trim: true },
+        expiresAt: { type: Date, required: true },
+        createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      },
+      default: null,
+    },
   },
   {
     timestamps: true,
     collection: "pages",
-  }
+  },
 );
 
 // ── Model Registration ─────────────────────────────────────────────────────────

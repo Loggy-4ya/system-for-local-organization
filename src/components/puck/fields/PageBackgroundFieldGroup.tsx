@@ -8,6 +8,7 @@
 
 import { AccentPresetField } from "./AccentPresetField";
 import { BackgroundIcon, FieldChapter } from "./FieldChapter";
+import { FieldLabelRow } from "./FieldLabelRow";
 import { MediaUploadField } from "./MediaUploadField";
 import { PuckSelectField } from "./PuckSelectField";
 import { SegmentedControl } from "./SegmentedControl";
@@ -45,7 +46,7 @@ export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFiel
   };
 
   return (
-    <FieldChapter title="Background" icon={<BackgroundIcon />}>
+    <FieldChapter title="Page Background" icon={<BackgroundIcon />}>
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">Style</span>
         <PuckSelectField
@@ -88,10 +89,13 @@ export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFiel
 
       {mode === "custom-image" ? (
         <div className="nexus-field-category">
+          <FieldLabelRow label="Image" hint="Full-page background image behind content." />
           <MediaUploadField
             field={{ label: "Image", accept: "image", purpose: "page-cover" }}
             value={background.backgroundImage ?? ""}
             onChange={(v) => set({ backgroundImage: v })}
+            hideFieldLabel
+            showReadablePreview
           />
         </div>
       ) : null}

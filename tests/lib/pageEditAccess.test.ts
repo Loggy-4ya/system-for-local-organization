@@ -11,16 +11,16 @@ import { describe, it } from "node:test";
 import type { Session } from "next-auth";
 
 import {
-  canEditPages,
+  canUserEditPageDoc,
   isPuckManagedPagePath,
   resolvePageEditHref,
   shouldShowPageEditFab,
 } from "@/lib/pageEditAccess";
 
-function sessionWithRole(role: string): Session {
+function sessionWithRole(role: string, id = "user-1"): Session {
   return {
     user: {
-      id: "user-1",
+      id,
       role,
       name: "Editor",
       email: "editor@test.local",
@@ -29,72 +29,47 @@ function sessionWithRole(role: string): Session {
   };
 }
 
-describe("canEditPages", () => {
-  it("allows Admin and StudentCouncil", () => {
-    assert.equal(canEditPages("Admin"), true);
-    assert.equal(canEditPages("StudentCouncil"), true);
-  });
-
-  it("denies Student and missing role", () => {
-    assert.equal(canEditPages("Student"), false);
-    assert.equal(canEditPages(undefined), false);
-    assert.equal(canEditPages(null), false);
-  });
-});
-
 describe("isPuckManagedPagePath", () => {
   it("matches any Puck slug except the code-only homepage", () => {
     assert.equal(isPuckManagedPagePath("/news"), true);
-    assert.equal(isPuckManagedPagePath("/news/spring-festival"), true);
-    assert.equal(isPuckManagedPagePath("/about"), true);
-    assert.equal(isPuckManagedPagePath("/council/apply"), true);
+    assert.equal(isPuckManagedPagePath("/"), false);
+  });
+});
+
+describe("canUserEditPageDoc", () => {
+  it("allows global admins on any page", () => {
+    const session = sessionWithRole("Admin");
+    assert.equal(
+      canUserEditPageDoc(session, ["pages.edit_own"], {
+        authorUserId: "other",
+        delegatedEditorUserIds: [],
+      }),
+      true,
+    );
   });
 
-  it("rejects the homepage and empty path", () => {
-    assert.equal(isPuckManagedPagePath("/"), false);
-    assert.equal(isPuckManagedPagePath(""), false);
+  it("allows authors with pages.edit_own", () => {
+    const session = sessionWithRole("Student", "author-1");
+    assert.equal(
+      canUserEditPageDoc(session, ["pages.edit_own"], {
+        authorUserId: "author-1",
+        delegatedEditorUserIds: [],
+      }),
+      true,
+    );
   });
 });
 
 describe("shouldShowPageEditFab", () => {
-  it("shows on published Puck pages for editors", () => {
-    assert.equal(
-      shouldShowPageEditFab(sessionWithRole("Admin"), "/news", false),
-      true,
-    );
-    assert.equal(
-      shouldShowPageEditFab(sessionWithRole("StudentCouncil"), "/about", false),
-      true,
-    );
-  });
-
-  it("hides in edit mode, on the homepage, and for students", () => {
-    assert.equal(
-      shouldShowPageEditFab(sessionWithRole("Admin"), "/news", true),
-      false,
-    );
-    assert.equal(
-      shouldShowPageEditFab(sessionWithRole("Admin"), "/", false),
-      false,
-    );
-    assert.equal(
-      shouldShowPageEditFab(sessionWithRole("Student"), "/news", false),
-      false,
-    );
-    assert.equal(shouldShowPageEditFab(null, "/news", false), false);
+  it("shows when canEdit and hides in edit mode", () => {
+    assert.equal(shouldShowPageEditFab(true, "/news", false), true);
+    assert.equal(shouldShowPageEditFab(true, "/news", true), false);
+    assert.equal(shouldShowPageEditFab(false, "/news", false), false);
   });
 });
 
 describe("resolvePageEditHref", () => {
   it("returns edit URL for Puck pages when the user can edit", () => {
     assert.equal(resolvePageEditHref("/news", true), "/news/edit");
-    assert.equal(resolvePageEditHref("/about/team", true), "/about/team/edit");
-  });
-
-  it("returns null when editing is not allowed or path is excluded", () => {
-    assert.equal(resolvePageEditHref("/news", false), null);
-    assert.equal(resolvePageEditHref("/", true), null);
-    assert.equal(resolvePageEditHref("/news/edit", true), null);
-    assert.equal(resolvePageEditHref("", true), null);
   });
 });

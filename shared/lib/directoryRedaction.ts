@@ -2,7 +2,7 @@
  * @fileoverview Data Transfer Object (DTO) and field-level redaction logic for the User Directory.
  *
  * Ensures that sensitive Personal Identifiable Information (PII) like email, phone,
- * login, and telegramId are only exposed to authorized actors who strictly outrank
+ * login, and telegramId are only exposed to authorized actors who are at or above
  * the target user in the institutional hierarchy or hold the legacy Admin role.
  *
  * @module shared/lib/directoryRedaction
@@ -12,6 +12,7 @@ import {
   type AccessControlSettingsConfig,
   type AccessLevelIndex,
   type PermissionKey,
+  meetsOrOutranksInHierarchy,
   outranksInHierarchy,
 } from "@shared/constants/accessControl";
 import {
@@ -20,9 +21,12 @@ import {
   hasPermission,
   canManageUserAccess,
   canDelegatePermission,
+  canActorEditProfile,
+  canActorDeleteUser,
 } from "@shared/lib/accessControlLogic";
 import { formatUserFullName } from "@shared/lib/userSociumHelpers";
-import type { IUser } from "@shared/models/User";
+import type { IUser, StudentTitle } from "@shared/models/User";
+import type { IUserSocialLink } from "@shared/models/userTypes";
 
 /**
  * Slim, stable shape for user directory rows and detail views.
@@ -49,25 +53,39 @@ export interface DirectoryUserRow {
   group: string | null;
   /** Denormalized list of socium role labels. */
   sociumRoleLabels: string[];
+  /** Denormalized social group activity labels for directory discovery. */
+  socialGroupActivityLabels: string[];
+  /** Denormalized external organization labels for directory discovery. */
+  organizationLabels: string[];
+  /** Student council title from registration. */
+  studentTitle: StudentTitle | null;
+  /** Self-authored about / bio note. */
+  about: string | null;
+  /** User-authored social media profile links. */
+  socialLinks: IUserSocialLink[];
 
   // ── Redactable PII Fields ──────────────────────────────────────────────────
-  /** Unique login handle. Redacted if actor does not outrank target. */
+  /** Unique login handle. Redacted if actor cannot administer target tier. */
   login: string | null;
-  /** Email address. Redacted if actor does not outrank target. */
+  /** Email address. Redacted if actor cannot administer target tier. */
   email: string | null;
-  /** Contact phone number. Redacted if actor does not outrank target. */
+  /** Contact phone number. Redacted if actor cannot administer target tier. */
   phone: string | null;
-  /** Telegram numeric ID. Redacted if actor does not outrank target. */
+  /** Telegram numeric ID. Redacted if actor cannot administer target tier. */
   telegramId: number | null;
+  /** Whether Google OAuth is linked. Null when PII is redacted — never exposes provider tokens/IDs. */
+  linkedGoogle: boolean | null;
+  /** Whether Apple OAuth is linked. Null when PII is redacted — never exposes provider tokens/IDs. */
+  linkedApple: boolean | null;
 
   // ── Redactable Access Fields ───────────────────────────────────────────────
-  /** Explicitly delegated permissions. Redacted if actor does not hold users.delegate_permissions and outrank target. */
+  /** Explicitly delegated permissions. Redacted when actor lacks delegate permission for target tier. */
   delegatedPermissions: PermissionKey[] | null;
-  /** Full socium role assignment objects. Redacted if actor does not hold users.assign_socium_roles and outrank target. */
+  /** Full socium role assignment objects. Redacted when actor lacks socium assign permission for target tier. */
   sociumRoles: IUser["sociumRoles"] | null;
-  /** Social group activity affiliations. Redacted if actor does not hold users.assign_affiliations and outrank target. */
+  /** Social group activity affiliations. Redacted when actor lacks affiliation assign permission for target tier. */
   socialGroupActivities: IUser["socialGroupActivities"] | null;
-  /** External organization memberships. Redacted if actor does not hold users.assign_affiliations and outrank target. */
+  /** External organization memberships. Redacted when actor lacks affiliation assign permission for target tier. */
   organizations: IUser["organizations"] | null;
 
   // ── Computed Capabilities for UI Gating ────────────────────────────────────
@@ -81,6 +99,10 @@ export interface DirectoryUserRow {
   canAssignAffiliations: boolean;
   /** Whether the actor can delegate new permissions to this user. */
   canDelegate: boolean;
+  /** Whether the actor can edit general profile fields for this user. */
+  canEditProfile: boolean;
+  /** Whether the actor can permanently delete this user's account. */
+  canDelete: boolean;
 }
 
 /**
@@ -99,10 +121,7 @@ export function toDirectoryRow(
   const actorIndex = inferAccessLevelIndex(actor);
   const targetIndex = inferAccessLevelIndex(target);
   const isLegacyAdmin = actor.role === "Admin";
-
-  // Actor must strictly outrank target OR be a legacy Admin to see PII
-  const outranks = outranksInHierarchy(actorIndex, targetIndex);
-  const canSeePII = outranks || isLegacyAdmin;
+  const canAdministerTier = meetsOrOutranksInHierarchy(actorIndex, targetIndex);
 
   // Find the label for the target's access level
   const levelDef = settings.levels.find((l) => l.index === targetIndex);
@@ -110,6 +129,8 @@ export function toDirectoryRow(
 
   // Build socium role labels list for always-visible summary
   const sociumRoleLabels = (target.sociumRoles ?? []).map((r) => r.roleLabel);
+  const socialGroupActivityLabels = (target.socialGroupActivities ?? []).map((a) => a.activityLabel);
+  const organizationLabels = (target.organizations ?? []).map((o) => o.organizationLabel);
 
   // Map target to AccessControlUserSlice for logic checks
   const targetSlice: AccessControlUserSlice = {
@@ -120,16 +141,26 @@ export function toDirectoryRow(
     studentTitle: target.studentTitle,
   };
 
+  // Legacy Admin, strict outrank, or same-tier peer with users.edit_profile
+  const canSeePII =
+    isLegacyAdmin ||
+    (canAdministerTier &&
+      (outranksInHierarchy(actorIndex, targetIndex) ||
+        canActorEditProfile(actor, targetSlice, settings)));
+
   // Compute capabilities for UI gating
   const canManage = canManageUserAccess(actor, targetSlice, settings);
   const canAssignLevel =
-    hasPermission(actor, settings, "users.assign_access_level") && canManage;
+    actor.role === "Admin" ||
+    (hasPermission(actor, settings, "users.assign_access_level") && canManage);
   const canAssignSocium =
     hasPermission(actor, settings, "users.assign_socium_roles") && canManage;
   const canAssignAffiliations =
-    hasPermission(actor, settings, "users.assign_affiliations") && outranks;
+    hasPermission(actor, settings, "users.assign_affiliations") && canAdministerTier;
   const canDelegate =
-    hasPermission(actor, settings, "users.delegate_permissions") && outranks;
+    hasPermission(actor, settings, "users.delegate_permissions") && canAdministerTier;
+  const canEditProfile = canActorEditProfile(actor, targetSlice, settings);
+  const canDelete = canActorDeleteUser(actor, targetSlice, settings);
 
   return {
     id: String(target._id),
@@ -142,12 +173,19 @@ export function toDirectoryRow(
     specialty: target.specialty,
     group: target.group,
     sociumRoleLabels,
+    socialGroupActivityLabels,
+    organizationLabels,
+    studentTitle: target.studentTitle,
+    about: target.about,
+    socialLinks: target.socialLinks ?? [],
 
     // Redacted PII
     login: canSeePII ? target.login : null,
     email: canSeePII ? target.email : null,
     phone: canSeePII ? target.phone : null,
     telegramId: canSeePII ? target.telegramId : null,
+    linkedGoogle: canSeePII ? Boolean(target.googleId) : null,
+    linkedApple: canSeePII ? Boolean(target.appleId) : null,
 
     // Redacted Access Fields
     delegatedPermissions:
@@ -162,5 +200,7 @@ export function toDirectoryRow(
     canAssignSocium,
     canAssignAffiliations,
     canDelegate,
+    canEditProfile,
+    canDelete,
   };
 }

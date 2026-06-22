@@ -6,10 +6,12 @@
 
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { OAUTH_LINK_USER_COOKIE } from "@/lib/oauthLinkCookie";
+import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
 
 /** Props for {@link OAuthButtonRow}. */
 export interface OAuthButtonRowProps {
@@ -20,15 +22,7 @@ export interface OAuthButtonRowProps {
 }
 
 /** Telegram widget user payload shape. */
-interface TelegramUser {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-}
+type TelegramUser = TelegramWidgetPayload;
 
 declare global {
   interface Window {
@@ -46,6 +40,7 @@ export function OAuthButtonRow({
   callbackUrl = "/profile/settings?onboarding=1",
   linkUserId = null,
 }: OAuthButtonRowProps) {
+  const router = useRouter();
   const telegramRef = useRef<HTMLDivElement>(null);
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
 
@@ -81,6 +76,20 @@ export function OAuthButtonRow({
   const handleTelegramAuth = useCallback(
     async (user: TelegramUser) => {
       try {
+        if (linkUserId) {
+          const res = await fetch("/api/profile/telegram", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(user),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? "Failed to link Telegram.");
+
+          router.push(callbackUrl);
+          router.refresh();
+          return;
+        }
+
         const res = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -99,7 +108,7 @@ export function OAuthButtonRow({
         alert(err instanceof Error ? err.message : "Telegram sign-in failed.");
       }
     },
-    [callbackUrl]
+    [callbackUrl, linkUserId, router],
   );
 
   useEffect(() => {

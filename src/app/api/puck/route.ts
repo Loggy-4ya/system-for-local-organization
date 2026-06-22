@@ -6,9 +6,6 @@
  *  - `POST /api/puck`               — save (upsert) Puck layout data for a page path.
  *  - `DELETE /api/puck?path=<path>` — remove a Puck-managed page from MongoDB.
  *
- * Both endpoints connect to MongoDB via the shared `connectDB` helper and use
- * the `Page` Mongoose model. Saving requires a valid session or legacy bearer token.
- *
  * @module src/app/api/puck/route
  */
 
@@ -16,12 +13,23 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@shared/lib/db";
 import Page, { type PuckData } from "@shared/models/Page";
 import { PageDomain, PageDomainError } from "@shared/domains/PageDomain";
-import { sanitizePuckDataForStorage } from "@shared/lib/puckContentSanitize";
+import { sanitizePuckDataForStorageWithReport } from "@shared/lib/puckContentSanitize";
+import {
+  assertPageTitleContentPolicy,
+  getFirstPuckContentPolicyViolation,
+} from "@shared/lib/puckContentPolicy";
 import { readMediaStorageEnvConfig } from "@shared/lib/mediaStorage/resolveMediaStorageProvider";
 import { mediaReferenceContextFromConfig } from "@shared/lib/mediaStorage/uploadReferenceUtils";
+import { recordPuckSanitizeAudit } from "@shared/lib/securitySanitizeAuditLog";
+import { normalizePagePath } from "@shared/lib/pagePathLogic";
+import type { PagePublicationValue } from "@/components/puck/fields/PagePublicationFieldGroup";
 import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
 import { getOptionalSession, isApiAuthorised } from "@/lib/authGuards";
-import { canEditPages } from "@/lib/pageEditAccess";
+import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
+import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
+import { AuthDomain } from "@shared/domains/AuthDomain";
+import type { PageAccessEditorEntry } from "@shared/lib/pageAccessLogic";
+import { resolvePagePublicationProps, resolvePageSettingsCategories } from "@/components/puck/lib/pageRootFieldProps";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -29,7 +37,7 @@ import { canEditPages } from "@/lib/pageEditAccess";
  * Load Puck page data for a given path.
  *
  * @param req - Next.js request containing `?path=` query parameter.
- * @returns JSON `{ puckData, title, published }` on success, or an error payload.
+ * @returns JSON page payload on success, or an error payload.
  */
 export async function GET(req: NextRequest) {
   const path = req.nextUrl.searchParams.get("path");
@@ -37,7 +45,7 @@ export async function GET(req: NextRequest) {
   if (!path) {
     return NextResponse.json(
       { error: "Query parameter `path` is required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -48,14 +56,21 @@ export async function GET(req: NextRequest) {
     if (!doc) {
       return NextResponse.json(
         { error: `No page found for path "${path}".` },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
+    const authorDisplayName = await PageDomain.resolveAuthorDisplayName(
+      doc.authorUserId ? String(doc.authorUserId) : null,
+    );
+    const metadata = PageDomain.toMetadataDto(doc, authorDisplayName);
+
     return NextResponse.json({
-      puckData:  doc.puckData,
-      title:     doc.title,
+      puckData: doc.puckData,
+      title: doc.title,
       published: doc.published,
+      categories: doc.categories ?? [],
+      metadata,
     });
   } catch (err) {
     console.error("[API /api/puck GET]", err);
@@ -87,18 +102,19 @@ function validateAndNormalizePath(rawPath: string): string | null {
 }
 
 /**
- * Upsert or rename Puck page data for a given path.
+ * Extract publication props from Puck root data.
  *
- * Expected JSON body:
- * ```json
- * {
- *   "previousPath": "/old-path", // optional
- *   "path":         "/news",
- *   "puckData":     { "content": [], "zones": {} },
- *   "title":        "News Hub",
- *   "published":    false
- * }
- * ```
+ * @param puckData - Puck document.
+ * @returns Publication input for PageDomain.
+ */
+function extractPublicationFromPuckData(puckData: PuckData): PagePublicationValue {
+  const rootProps = (puckData as { root?: { props?: Record<string, unknown> } }).root?.props ?? {};
+  const publication = rootProps.pagePublication as PagePublicationValue | undefined;
+  return publication ?? {};
+}
+
+/**
+ * Upsert or rename Puck page data for a given path.
  *
  * @param req - Next.js request with JSON body.
  * @returns `{ ok: true }` on success, or an error payload.
@@ -114,6 +130,9 @@ export async function POST(req: NextRequest) {
     puckData: PuckData;
     title?: string;
     published?: boolean;
+    categories?: string[];
+    publication?: PagePublicationValue;
+    delegatedEditors?: PageAccessEditorEntry[];
   };
 
   try {
@@ -122,12 +141,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { previousPath, path, puckData, title, published } = body;
+  const { previousPath, path, puckData, title, published, categories, publication, delegatedEditors } =
+    body;
 
   if (!path || !puckData) {
     return NextResponse.json(
       { error: "`path` and `puckData` are required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -138,7 +158,10 @@ export async function POST(req: NextRequest) {
 
   if (normalizedPath === "/") {
     return NextResponse.json(
-      { error: "The homepage (/) is not managed by the page editor. Edit src/app/page.tsx in code." },
+      {
+        error:
+          "The homepage (/) is not managed by the page editor. Edit src/app/page.tsx in code.",
+      },
       { status: 400 },
     );
   }
@@ -153,71 +176,102 @@ export async function POST(req: NextRequest) {
   }
 
   const effectivePreviousPath = previousPath || normalizedPath;
+  const rootProps =
+    (puckData as { root?: { props?: Record<string, unknown> } }).root?.props ?? {};
+  const resolvedPublication = resolvePagePublicationProps(
+    rootProps as Parameters<typeof resolvePagePublicationProps>[0],
+    publication,
+  );
+  const effectiveCategories =
+    categories ??
+    resolvePageSettingsCategories(rootProps as Parameters<typeof resolvePageSettingsCategories>[0]);
+  const effectiveDelegatedEditors =
+    delegatedEditors ?? resolvedPublication.delegatedEditors ?? [];
+  const normalizedCategories = PageDomain.normalizeCategoriesForStorage(effectiveCategories);
+
+  await GeneralRulesDomain.ensureLoaded();
+
+  try {
+    assertPageTitleContentPolicy(title);
+    for (const category of normalizedCategories) {
+      assertPageTitleContentPolicy(category);
+    }
+    const pub = publication ?? extractPublicationFromPuckData(puckData);
+    assertPageTitleContentPolicy(pub.description);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : "Page title contains disallowed language.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const puckPolicyViolation = getFirstPuckContentPolicyViolation(puckData);
+  if (puckPolicyViolation) {
+    return NextResponse.json({ error: puckPolicyViolation.message }, { status: 400 });
+  }
 
   const mediaContext = mediaReferenceContextFromConfig(readMediaStorageEnvConfig());
-  const sanitizedPuckData = sanitizePuckDataForStorage(
+  const { data: sanitizedPuckData, report } = sanitizePuckDataForStorageWithReport(
     puckData,
     mediaContext,
-  ) as PuckData;
+  );
 
   try {
     await connectDB();
 
-    if (effectivePreviousPath !== normalizedPath) {
-      // Check if the new path is already taken
-      const existing = await Page.findOne({ path: normalizedPath }).lean();
-      if (existing) {
-        return NextResponse.json(
-          { error: `The path "${normalizedPath}" is already taken.` },
-          { status: 409 }
-        );
-      }
-
-      // Perform rename (update existing document)
-      const updated = await Page.findOneAndUpdate(
-        { path: effectivePreviousPath },
-        {
-          $set: {
-            path: normalizedPath,
-            puckData: sanitizedPuckData,
-            ...(title !== undefined && { title }),
-            ...(published !== undefined && { published }),
-          },
-        },
-        { returnDocument: "after" }
-      );
-
-      if (!updated) {
-        return NextResponse.json(
-          { error: `No page found at "${effectivePreviousPath}" to rename.` },
-          { status: 404 }
-        );
-      }
-    } else {
-      const existing = await Page.findOne({ path: normalizedPath }).lean();
-      if (existing && effectivePreviousPath !== normalizedPath) {
-        return NextResponse.json(
-          { error: `The path "${normalizedPath}" is already taken.` },
-          { status: 409 }
-        );
-      }
-
-      // Normal upsert
-      await Page.findOneAndUpdate(
-        { path: normalizedPath },
-        {
-          $set: {
-            puckData: sanitizedPuckData,
-            ...(title !== undefined && { title }),
-            ...(published !== undefined && { published }),
-          },
-        },
-        { upsert: true, returnDocument: "after" }
-      );
+    const session = await getOptionalSession();
+    const actorUserId = session?.user?.id;
+    if (!actorUserId) {
+      return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true });
+    await recordPuckSanitizeAudit({
+      pagePath: normalizedPath,
+      actorUserId,
+      report,
+    });
+
+    const pub = publication ?? extractPublicationFromPuckData(sanitizedPuckData as PuckData);
+    const sanitizedRootProps =
+      (sanitizedPuckData as { root?: { props?: Record<string, unknown> } }).root?.props ?? {};
+    const resolvedFromSanitized = resolvePagePublicationProps(
+      sanitizedRootProps as Parameters<typeof resolvePagePublicationProps>[0],
+      pub,
+    );
+    const saveDelegatedEditors =
+      delegatedEditors ?? resolvedFromSanitized.delegatedEditors ?? [];
+
+    const actorUser = await AuthDomain.getUserById(actorUserId);
+    if (!actorUser) {
+      return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+    }
+    const actorPermissions = await AccessControlDomain.resolvePermissionsForUser(actorUser);
+
+    await PageDomain.upsertFromEditorSave({
+      previousPath: effectivePreviousPath,
+      path: normalizedPath,
+      puckData: sanitizedPuckData as PuckData,
+      title,
+      categories: normalizedCategories,
+      publication: {
+        description: pub.description,
+        coverImage: pub.coverImage,
+        publishAt: pub.publishAt,
+        commentsEnabled: pub.commentsEnabled,
+      },
+      delegatedEditors: saveDelegatedEditors,
+      actorUserId,
+      actorPermissions,
+      requestPublish: published !== false,
+    });
+
+    return NextResponse.json({ ok: true, path: normalizedPath });
   } catch (err) {
+    if (err instanceof PageDomainError) {
+      return NextResponse.json({ error: err.message }, { status: err.httpStatus });
+    }
     console.error("[API /api/puck POST]", err);
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
@@ -237,8 +291,8 @@ export async function DELETE(req: NextRequest) {
   }
 
   const session = await getOptionalSession();
-  if (session && !canEditPages(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
   }
 
   const path = req.nextUrl.searchParams.get("path");
@@ -249,15 +303,38 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
-  if (isReservedSlugPath(path.trim())) {
+  const rawPath = path.trim();
+  const normalizedPath = rawPath.startsWith("/")
+    ? normalizePagePath(rawPath.slice(1))
+    : normalizePagePath(rawPath);
+
+  if (normalizedPath === "/") {
     return NextResponse.json(
-      { error: `The path "${path.trim()}" is reserved and cannot be deleted as a page.` },
+      { error: "The homepage cannot be deleted from the page editor." },
       { status: 400 },
     );
   }
 
   try {
-    await PageDomain.deleteByPath(path);
+    await connectDB();
+    const existing = await Page.findOne({ path: normalizedPath }).lean();
+
+    if (!existing && isReservedSlugPath(normalizedPath)) {
+      return NextResponse.json(
+        { error: `The path "${normalizedPath}" is reserved and cannot be deleted as a page.` },
+        { status: 400 },
+      );
+    }
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: `No page found at "${normalizedPath}".` },
+        { status: 404 },
+      );
+    }
+
+    await PageDomain.assertUserCanEdit(session.user.id, existing);
+    await PageDomain.deleteByPath(normalizedPath);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof PageDomainError) {

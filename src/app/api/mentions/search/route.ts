@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { AuthDomain } from "@shared/domains/AuthDomain";
+import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 import { MentionDomain } from "@shared/domains/MentionDomain";
 
 /**
@@ -29,9 +31,16 @@ export async function GET(req: NextRequest) {
   const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
 
   try {
+    const viewer = await AuthDomain.getUserById(session.user.id);
+    const permissions = viewer
+      ? await AccessControlDomain.resolvePermissionsForUser(viewer)
+      : [];
+
     const result = await MentionDomain.search(
       query,
       Number.isFinite(limit) ? limit : undefined,
+      viewer,
+      permissions,
     );
     return NextResponse.json(result);
   } catch (error) {

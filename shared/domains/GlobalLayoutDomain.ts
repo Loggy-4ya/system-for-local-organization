@@ -24,9 +24,28 @@ import {
   type FooterSocialLink,
   type AllowedLucideIcon,
 } from "../constants/globalLayout";
+import { getBlockedWordError } from "@shared/lib/contentPolicy";
 
 /** Legacy MongoDB collection name (pre rename to `global_layout`). */
 const LEGACY_GLOBAL_LAYOUT_COLLECTION = "site_chrome";
+
+/**
+ * Reject user-visible layout copy that violates the institutional blocklist.
+ *
+ * @param value - Candidate label or prose string.
+ * @param fieldLabel - Human-readable field name for error messages.
+ * @throws When blocked language is detected.
+ */
+function assertGlobalLayoutContentPolicy(
+  value: string | undefined,
+  fieldLabel: string,
+): void {
+  if (!value?.trim()) return;
+  const error = getBlockedWordError(value);
+  if (error) {
+    throw new Error(`${fieldLabel}: ${error}`);
+  }
+}
 
 /**
  * Global Layout Domain Engine.
@@ -185,6 +204,7 @@ export class GlobalLayoutDomain {
     if (category.label !== undefined && typeof category.label !== "string") {
       throw new Error("Header category label must be a string.");
     }
+    assertGlobalLayoutContentPolicy(category.label, `Header category '${category.id}' label`);
 
     if (category.icon !== undefined) {
       if (
@@ -244,6 +264,10 @@ export class GlobalLayoutDomain {
     if (typeof item.label !== "string" || !item.label.trim()) {
       throw new Error(`Navigation item '${item.id}' in category '${categoryId}' must have a non-empty string label.`);
     }
+    assertGlobalLayoutContentPolicy(
+      item.label,
+      `Navigation item '${item.id}' label`,
+    );
 
     if (item.icon !== undefined) {
       if (typeof item.icon !== "string" || !ALLOWED_LUCIDE_ICONS.includes(item.icon as AllowedLucideIcon)) {
@@ -300,10 +324,12 @@ export class GlobalLayoutDomain {
     if (footer.mention !== undefined && typeof footer.mention !== "string") {
       throw new Error("Footer mention must be a string.");
     }
+    assertGlobalLayoutContentPolicy(footer.mention, "Footer mention");
 
     if (footer.copyright !== undefined && typeof footer.copyright !== "string") {
       throw new Error("Footer copyright must be a string.");
     }
+    assertGlobalLayoutContentPolicy(footer.copyright, "Footer copyright");
   }
 
   /**
@@ -324,6 +350,7 @@ export class GlobalLayoutDomain {
     if (section.title !== undefined && typeof section.title !== "string") {
       throw new Error("Footer section title must be a string.");
     }
+    assertGlobalLayoutContentPolicy(section.title, `Footer section '${section.id}' title`);
 
     if (!Array.isArray(section.links)) {
       throw new Error(`Footer section '${section.id}' links must be an array.`);
@@ -357,6 +384,7 @@ export class GlobalLayoutDomain {
     if (typeof link.label !== "string" || !link.label.trim()) {
       throw new Error(`Footer link '${link.id}' in section '${sectionId}' must have a non-empty string label.`);
     }
+    assertGlobalLayoutContentPolicy(link.label, `Footer link '${link.id}' label`);
 
     if (link.external !== undefined && typeof link.external !== "boolean") {
       throw new Error(`Footer link '${link.id}' external flag must be a boolean.`);
@@ -385,6 +413,7 @@ export class GlobalLayoutDomain {
     if (typeof social.label !== "string" || !social.label.trim()) {
       throw new Error(`Footer social link '${social.id}' must have a non-empty string label.`);
     }
+    assertGlobalLayoutContentPolicy(social.label, `Footer social link '${social.id}' label`);
 
     if (typeof social.icon !== "string" || !ALLOWED_LUCIDE_ICONS.includes(social.icon as AllowedLucideIcon)) {
       throw new Error(`Footer social link '${social.id}' has an invalid or unsupported icon: '${social.icon}'.`);

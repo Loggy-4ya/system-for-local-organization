@@ -9,8 +9,11 @@
 import "@/lib/safePointerCaptureInstall";
 import { Puck, fieldsPlugin } from "@puckeditor/core";
 import puckConfig from "@/components/puck/config";
+import type { PagePublicationValue } from "@/components/puck/fields/PagePublicationFieldGroup";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
+import type { PageAccessEditorEntry } from "@shared/lib/pageAccessLogic";
 import { normalizePagePath } from "@/components/puck/PagePathEditor";
+import { resolvePagePublicationProps, resolvePageSettingsCategories } from "@/components/puck/lib/pageRootFieldProps";
 import {
   fetchReservedPagePaths,
   validatePageSlug,
@@ -56,7 +59,13 @@ function resolvePageMetadata(
   data: Data,
   fallbackTitle: string,
   currentPath: string,
-): { title: string; cleanPath: string } {
+): {
+  title: string;
+  cleanPath: string;
+  categories: string[];
+  publication: PagePublicationValue;
+  delegatedEditors: PageAccessEditorEntry[];
+} {
   const rootProps = (data.root as { props?: Record<string, unknown> })?.props ?? {};
   const pageSettings = rootProps.pageSettings as PageSettingsValue | undefined;
 
@@ -71,7 +80,15 @@ function resolvePageMetadata(
     ? "/"
     : normalizePagePath(pageSettings?.slug ?? currentPath.replace(/^\//, ""));
 
-  return { title, cleanPath };
+  const publication = resolvePagePublicationProps(
+    rootProps as Parameters<typeof resolvePagePublicationProps>[0],
+  );
+  const categories = resolvePageSettingsCategories(
+    rootProps as Parameters<typeof resolvePageSettingsCategories>[0],
+  );
+  const delegatedEditors = publication.delegatedEditors ?? [];
+
+  return { title, cleanPath, categories, publication, delegatedEditors };
 }
 
 /**
@@ -97,7 +114,11 @@ export function PuckEditorShell({
       setError(null);
       const secret = process.env.NEXT_PUBLIC_PUCK_SECRET;
       const publishData = nextData ?? getLatestData();
-      const { title, cleanPath } = resolvePageMetadata(publishData, pageTitle, path);
+      const { title, cleanPath, categories, publication, delegatedEditors } = resolvePageMetadata(
+        publishData,
+        pageTitle,
+        path,
+      );
       const rootProps = (publishData.root as { props?: Record<string, unknown> })?.props ?? {};
       const pageSettings = rootProps.pageSettings as PageSettingsValue | undefined;
       const slugLocked = pageSettings?.slugLocked ?? path === "/";
@@ -135,6 +156,9 @@ export function PuckEditorShell({
           path: cleanPath,
           puckData: publishData,
           title,
+          categories,
+          publication,
+          delegatedEditors,
           published: true,
         }),
       });

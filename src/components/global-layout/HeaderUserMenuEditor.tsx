@@ -73,6 +73,7 @@ export function HeaderUserMenuEditor({ items, onChange }: HeaderUserMenuEditorPr
     <div className="nexus-field-category global-layout-editor__stack">
       <EditorSectionHeader
         label="Signed-in user links"
+        hint="Shown when a user is signed in — desktop avatar dropdown and mobile sidebar account menu (chevron on user badge). Log out is always appended automatically."
         action={
           <Button type="button" className="global-layout-editor__btn-text" onClick={addItem}>
             <Plus size={12} />
@@ -80,10 +81,6 @@ export function HeaderUserMenuEditor({ items, onChange }: HeaderUserMenuEditorPr
           </Button>
         }
       />
-      <p className="global-layout-editor__field-hint global-layout-editor__user-menu-hint">
-        Shown when a user is signed in — desktop avatar dropdown and mobile sidebar account menu (chevron on user badge).
-        Log out is always appended automatically.
-      </p>
       {items.length === 0 ? (
         <div className="global-layout-editor__empty">
           No user menu links yet. Add Profile, Settings, or other account pages.

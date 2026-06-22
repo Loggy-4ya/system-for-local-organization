@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
       specialty,
       group,
       studentTitle,
+      avatar,
       applyForSelfGovernment,
+      signupSociumRole,
+      telegramAuth,
     } = parsed.data;
 
     const user = await AuthDomain.registerWithCredentials({
@@ -54,12 +57,14 @@ export async function POST(req: NextRequest) {
       name: name?.trim() || login,
       surname: surname ?? null,
       phone: phone ?? null,
+      avatar: avatar ?? null,
       specialty: specialty ?? null,
       group: group ?? null,
       studentTitle,
-      signupSociumRole: parsed.signupSociumRole,
+      signupSociumRole,
       applyForSelfGovernment: applyForSelfGovernment ?? false,
       personalDataConsent: true,
+      telegramAuth: telegramAuth ?? null,
     });
 
     return NextResponse.json(

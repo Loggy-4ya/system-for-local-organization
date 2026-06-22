@@ -108,6 +108,8 @@ export const FIELD_LABEL_ICONS: Record<string, LucideIcon> = {
   "link url": Link2,
   title: Heading1,
   caption: MessageSquareQuote,
+  "icon (optional)": Sparkles,
+  "icon position": MousePointerClick,
 };
 
 /**

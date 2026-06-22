@@ -3,13 +3,16 @@
 /**
  * @fileoverview Detect Puck editor compact layout (bottom rail + full-screen canvas).
  *
- * Compact mode uses `(pointer: coarse)` so a docked DevTools panel (narrow
- * `innerWidth` but fine pointer) keeps desktop editor chrome.
+ * Compact mode follows the same `(max-width: 900px)` media query as `puck-editor.css`
+ * via `useSyncExternalStore`, so window resize and DevTools device emulation stay aligned
+ * with React mount mode (`_experimentalFullScreenCanvas`) — not `window.innerWidth` alone.
+ *
+ * Tests: `tests/puck/lib/compactEditorViewport.test.ts` — `npm run test:compact-editor-viewport`
  *
  * @module src/components/puck/usePuckMobileEditorChrome
  */
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Viewport width at which Nexus switches to compact editor chrome
@@ -18,15 +21,14 @@ import { useEffect, useState } from "react";
 export const PUCK_COMPACT_EDITOR_MAX_WIDTH = 900;
 
 /**
- * Media query for compact editor chrome — narrow **touch-primary** viewports only.
- * Desktop with docked DevTools stays on desktop layout (`pointer: fine`).
+ * Media query for compact editor chrome — viewport width ≤ {@link PUCK_COMPACT_EDITOR_MAX_WIDTH}.
  */
-export const PUCK_COMPACT_EDITOR_MQ = `(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px) and (pointer: coarse)`;
+export const PUCK_COMPACT_EDITOR_MQ = `(max-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH}px)`;
 
 /**
- * Inverse of compact — desktop chrome on fine-pointer devices even when DevTools narrows width.
+ * Inverse of compact — desktop side-by-side editor layout (≥901px).
  */
-export const PUCK_DESKTOP_EDITOR_MQ = `(pointer: fine), (min-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH + 1}px)`;
+export const PUCK_DESKTOP_EDITOR_MQ = `(min-width: ${PUCK_COMPACT_EDITOR_MAX_WIDTH + 1}px)`;
 
 /**
  * Upper bound of the tight-desktop band (901–960px) with minimal sidebars for canvas space.
@@ -38,6 +40,9 @@ export const PUCK_TIGHT_DESKTOP_MAX_WIDTH = 960;
  */
 export const PUCK_NARROW_DESKTOP_MAX_WIDTH = 1023;
 
+/** Media query for icon-only header chips (narrow desktop + compact). */
+export const PUCK_ICON_ONLY_HEADER_MQ = `(max-width: ${PUCK_NARROW_DESKTOP_MAX_WIDTH}px)`;
+
 /**
  * @deprecated Use {@link PUCK_COMPACT_EDITOR_MAX_WIDTH}.
  */
@@ -46,11 +51,58 @@ export const PUCK_MOBILE_EDITOR_MAX_WIDTH = PUCK_COMPACT_EDITOR_MAX_WIDTH;
 /**
  * Whether the viewport should use compact editor chrome right now.
  *
- * @returns True for narrow touch-primary devices, false for DevTools-narrow desktop.
+ * Uses {@link PUCK_COMPACT_EDITOR_MQ} so results match CSS `@media` rules.
+ *
+ * @param target - Window to query; defaults to the current window.
+ * @returns True when the compact editor media query matches.
  */
-export function matchesCompactEditorViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(PUCK_COMPACT_EDITOR_MQ).matches;
+export function matchesCompactEditorViewport(target: Window = window): boolean {
+  if (typeof target.matchMedia !== "function") {
+    return false;
+  }
+
+  return target.matchMedia(PUCK_COMPACT_EDITOR_MQ).matches;
+}
+
+/**
+ * Subscribe to compact editor viewport changes (media query, window, visual viewport).
+ *
+ * @param onStoreChange - Invalidation callback for `useSyncExternalStore`.
+ * @returns Teardown function.
+ */
+export function subscribeCompactEditorViewport(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const media = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
+  media.addEventListener("change", onStoreChange);
+  window.addEventListener("resize", onStoreChange);
+  window.visualViewport?.addEventListener("resize", onStoreChange);
+
+  return () => {
+    media.removeEventListener("change", onStoreChange);
+    window.removeEventListener("resize", onStoreChange);
+    window.visualViewport?.removeEventListener("resize", onStoreChange);
+  };
+}
+
+/**
+ * Client snapshot for compact editor layout — mirrors {@link PUCK_COMPACT_EDITOR_MQ}.
+ *
+ * @returns True when compact chrome should be active.
+ */
+export function getCompactEditorViewportSnapshot(): boolean {
+  return matchesCompactEditorViewport();
+}
+
+/**
+ * SSR snapshot — desktop layout until the client reads the real media query.
+ *
+ * @returns False on the server.
+ */
+export function getCompactEditorViewportServerSnapshot(): boolean {
+  return false;
 }
 
 /**
@@ -59,19 +111,47 @@ export function matchesCompactEditorViewport(): boolean {
  * @returns True when {@link PUCK_COMPACT_EDITOR_MQ} matches.
  */
 export function usePuckMobileEditorChrome(): boolean {
-  const [isCompact, setIsCompact] = useState(matchesCompactEditorViewport);
+  return useSyncExternalStore(
+    subscribeCompactEditorViewport,
+    getCompactEditorViewportSnapshot,
+    getCompactEditorViewportServerSnapshot,
+  );
+}
 
-  useEffect(() => {
-    const media = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
+/**
+ * Subscribe to icon-only header breakpoint changes.
+ *
+ * @param onStoreChange - Invalidation callback for `useSyncExternalStore`.
+ * @returns Teardown function.
+ */
+export function subscribeIconOnlyEditorHeader(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
 
-    const update = () => setIsCompact(media.matches);
-    update();
-    media.addEventListener("change", update);
+  const media = window.matchMedia(PUCK_ICON_ONLY_HEADER_MQ);
+  media.addEventListener("change", onStoreChange);
+  window.addEventListener("resize", onStoreChange);
+  window.visualViewport?.addEventListener("resize", onStoreChange);
 
-    return () => media.removeEventListener("change", update);
-  }, []);
+  return () => {
+    media.removeEventListener("change", onStoreChange);
+    window.removeEventListener("resize", onStoreChange);
+    window.visualViewport?.removeEventListener("resize", onStoreChange);
+  };
+}
 
-  return isCompact;
+/**
+ * Client snapshot for icon-only header toolbar chips.
+ *
+ * @returns True when viewport width is at most {@link PUCK_NARROW_DESKTOP_MAX_WIDTH}.
+ */
+export function getIconOnlyEditorHeaderSnapshot(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia(PUCK_ICON_ONLY_HEADER_MQ).matches;
 }
 
 /**
@@ -82,22 +162,11 @@ export function usePuckMobileEditorChrome(): boolean {
  * @returns True when viewport width is at most {@link PUCK_NARROW_DESKTOP_MAX_WIDTH}.
  */
 export function useIconOnlyEditorHeader(): boolean {
-  const [iconOnly, setIconOnly] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(`(max-width: ${PUCK_NARROW_DESKTOP_MAX_WIDTH}px)`).matches;
-  });
-
-  useEffect(() => {
-    const media = window.matchMedia(`(max-width: ${PUCK_NARROW_DESKTOP_MAX_WIDTH}px)`);
-
-    const update = () => setIconOnly(media.matches);
-    update();
-    media.addEventListener("change", update);
-
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  return iconOnly;
+  return useSyncExternalStore(
+    subscribeIconOnlyEditorHeader,
+    getIconOnlyEditorHeaderSnapshot,
+    getCompactEditorViewportServerSnapshot,
+  );
 }
 
 export default usePuckMobileEditorChrome;

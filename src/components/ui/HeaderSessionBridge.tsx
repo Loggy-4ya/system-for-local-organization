@@ -4,38 +4,29 @@
  * @module src/components/ui/HeaderSessionBridge
  */
 
-import { auth } from "@/auth";
 import { GlobalHeader } from "@/components/ui/GlobalHeader";
 import { GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { resolveStoredThemeIsDark } from "@/lib/resolveStoredThemeIsDark";
 import { GlobalLayoutDomain } from "@shared/domains/GlobalLayoutDomain";
 
 /**
- * Renders GlobalHeader with live session data from Auth.js.
+ * Renders GlobalHeader with global layout config and SSR theme resolution.
  *
- * @returns Header with avatar and admin panel visibility from session.
+ * Authenticated viewer fields are supplied by {@link SiteProfileProvider}
+ * after entry bootstrap via `GET /api/me`.
+ *
+ * @returns Header wired to MongoDB global layout settings.
  */
 export async function HeaderSessionBridge() {
-  const session = await auth();
-  const user = session?.user;
   const isDarkTheme = await resolveStoredThemeIsDark("dark");
 
-  const showAdminPanel =
-    user?.role === "Admin" || user?.role === "StudentCouncil";
-
-  // Fetch Global Layout settings server-side
   const doc = await GlobalLayoutDomain.loadOrSeed();
   const config = GlobalLayoutDomain.toPublicConfig(doc);
 
   return (
     <GlobalHeader
       header={config.header}
-      showAdminPanel={showAdminPanel}
       isDarkTheme={isDarkTheme}
-      userAvatar={user?.avatar ?? null}
-      isAuthenticated={Boolean(user?.id)}
-      userName={user?.name ?? null}
-      userEmail={user?.email ?? null}
       contentWidth={GLOBAL_LAYOUT_CONTENT_WIDTH}
     />
   );

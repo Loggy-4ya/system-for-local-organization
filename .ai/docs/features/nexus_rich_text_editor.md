@@ -18,6 +18,7 @@ Provide a reusable rich text editor for comments, news, task reports, and any au
 | Domain | `shared/domains/MentionDomain.ts` | MongoDB search for users + published pages |
 | API | `src/app/api/mentions/search/route.ts` | `GET ?q=` — session-required autocomplete |
 | Sanitizer | `shared/lib/nexusRichTextSanitize.ts` | Allowlist HTML + `data-nexus-mention` anchors (re-exported via `src/lib/nexusEditor/nexusEditorContent.ts`) |
+| Content policy | `shared/lib/contentPolicy.ts` | Blocked-word scan on editor plain text; server-side via `puckContentPolicy` + Zod |
 | Safe URLs | `shared/lib/safeHref.ts`, `shared/lib/safeMediaUrl.ts` | Hyperlink and media-src validation for Puck blocks and rich text |
 | Puck sanitize | `shared/lib/puckContentSanitize.ts` | Server-side walk of `puckData` on `POST /api/puck` before MongoDB write |
 | CSP | `src/lib/contentSecurityPolicy.ts` | `Content-Security-Policy` header via `src/middleware.ts` |

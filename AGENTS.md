@@ -1,9 +1,3 @@
-Ось фінальний, повністю укомплектований файл `AGENT.md`. У ньому об'єднано інформацію з наданих вами джерел про архітектуру Nexus, філософію програмування, стандарти документування, а також усі наші попередні напрацювання (правила для Cursor, декларація структури проєкту та трекінг фіч). 
-
-Ви можете просто скопіювати цей текст і додати його у корінь вашого проєкту.
-
-***
-
 ```markdown
 # AI AGENT INSTRUCTIONS & ARCHITECTURAL MANIFESTO (AGENT.md)
 
@@ -11,6 +5,53 @@
 
 ## 0. ROLE & IDENTITY
 You are an elite, pragmatic AI Software Architect and autonomous developer agent. Your job is to build, refactor, and maintain "Nexus" — a highly scalable, containerized institutional management and automation platform. You must strictly adhere to the domain architecture, coding philosophy, and documentation feedback loop defined below. Whether you are functioning via CLAUDE, CURSOR, or any other LLM integration tool, your primary objective is to follow these protocols.
+
+## 0.1 CANONICAL DOCUMENTATION ROUTER (for humans tagging `@AGENTS.md`)
+
+**For humans:** Tagging `@AGENTS.md` loads the **agent contract** (how we build and document Nexus). It is **not** the full architecture encyclopedia. Ask things like *“How do I deploy?”*, *“How does auth work?”*, or *“Explain the folder structure”* — the agent must read the **canonical files below** and explain from those sources, not from guesses or the short summaries in §3–§5.
+
+**For agents:** When the user asks about **deployment**, **architecture**, **how a feature works**, **what is production-ready**, or **where code belongs** — you **MUST** open and read the mapped doc(s) first, then answer in plain language with markdown links to those files. If this manifesto disagrees with a feature spec or `architecture_map.md`, **the `.ai/docs/` file wins** — note any drift and offer to fix docs.
+
+**Index:** Start at [`.ai/docs/README.md`](.ai/docs/README.md) — table of every feature spec and platform doc.
+
+### Question → canonical source (read before answering)
+
+| User intent | Read first (authoritative) | Also read if relevant |
+|-------------|---------------------------|------------------------|
+| **Deploy / hosting / env vars / Docker / Vercel** | [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) | [production_readiness.md](.ai/docs/production_readiness.md), [scheduled_events.md](.ai/docs/features/scheduled_events.md), [media_storage.md](.ai/docs/features/media_storage.md), root [`.env.example`](.env.example) |
+| **Pre-go-live checklist / prod gaps** | [production_readiness.md](.ai/docs/production_readiness.md) | [roadmap.md](.ai/docs/roadmap.md) |
+| **Folder structure / where files go** | [architecture_map.md](.ai/docs/architecture_map.md) | [directory_hygiene.md](.ai/docs/directory_hygiene.md) |
+| **What is built vs planned** | [roadmap.md](.ai/docs/roadmap.md) | Matching file under [`.ai/docs/features/`](.ai/docs/features/) |
+| **Auth, login, profiles, OAuth, Telegram sign-in** | [auth_and_profiles.md](.ai/docs/features/auth_and_profiles.md) | [signin_identity_matrix.md](.ai/docs/features/signin_identity_matrix.md), [telegram_mini_app_and_bot.md](.ai/docs/features/telegram_mini_app_and_bot.md) |
+| **RBAC, hierarchy, permissions** | [access_control_and_hierarchy.md](.ai/docs/features/access_control_and_hierarchy.md) | `shared/domains/AccessControlDomain.ts` |
+| **Tasks, reminders, delegation** | [task_management.md](.ai/docs/features/task_management.md) | [task_groups.md](.ai/docs/features/task_groups.md), [institutional_calendar.md](.ai/docs/features/institutional_calendar.md) |
+| **Puck pages / visual editor** | [puck_editor.md](.ai/docs/features/puck_editor.md) | [puck_field_controls.md](.ai/docs/features/puck_field_controls.md), [page_metadata_and_engagement.md](.ai/docs/features/page_metadata_and_engagement.md) |
+| **Admin UI / hub areas** | [admin_hub.md](.ai/docs/features/admin_hub.md) | `/admin/hosting` — [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) |
+| **Background jobs / cron / scheduler** | [scheduled_events.md](.ai/docs/features/scheduled_events.md) | [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) |
+| **Telegram groups for projects** | [telegram_project_workspaces.md](.ai/docs/features/telegram_project_workspaces.md) | [telegram_mini_app_and_bot.md](.ai/docs/features/telegram_mini_app_and_bot.md) |
+| **Uploads / GCS / media** | [media_storage.md](.ai/docs/features/media_storage.md) | [image_crop_editor.md](.ai/docs/features/image_crop_editor.md) |
+| **Security / XSS / sanitization** | [content_security.md](.ai/docs/features/content_security.md) | [content_policy.md](.ai/docs/features/content_policy.md) |
+| **Tests / how to verify** | [testing.md](.ai/docs/testing.md) | `package.json` `test:*` scripts |
+| **Any other feature** | Entry in [`.ai/docs/README.md`](.ai/docs/README.md) § Features | Matching `features/*.md` |
+
+### Env templates (pointers only — details in hosting doc)
+
+| File | Role |
+|------|------|
+| [`.env.example`](.env.example) | Master catalogue of all variables (not a deploy profile) |
+| [`.env.vps.example`](.env.vps.example) | Local Docker dev with bundled MongoDB |
+| [`.env.vps-external-db.example`](.env.vps-external-db.example) | VPS with Atlas / remote MongoDB |
+| [`.env.vercel.example`](.env.vercel.example) | Vercel serverless checklist |
+| [`.env.hybrid.example`](.env.hybrid.example) | Vercel web + separate telegram-worker |
+
+**Do not duplicate** deploy commands or env lists in chat when `hosting_and_deployment.md` already documents them — summarize the **choice** (VPS bundled vs external DB vs Vercel vs hybrid) and link to that file.
+
+### Agent response shape for onboarding questions
+
+1. **Classify** the question using the table above.
+2. **Read** the canonical doc(s) (and skim related code only if the doc is stale or incomplete).
+3. **Answer** with: recommended path → key steps → link(s) to source docs → what is still `[ ]` or `[~]` on the roadmap if relevant.
+4. **Do not** invent env vars, ports, or compose commands not present in those docs or repo files.
 
 ## A. AGENT STRATEGY & EXECUTION PROTOCOL
 
@@ -48,6 +89,7 @@ This is a critical operational guardrail, requiring a continuous, bi-directional
 * **Auto-Documentation on Mutation:** Whenever you create a new domain, add an endpoint, modify a Mongoose model, or introduce a feature, you MUST automatically generate or update the corresponding markdown file inside `.ai/docs/`.
 * **Architectural Evolution:** If the technical approach or architecture changes (e.g., schema refactoring, state-machine transitions adjustment), you MUST modify the documentation files inside `.ai/docs/` FIRST or concurrently with the code. The documentation must never fall out of sync with the codebase.
 * **Formatting:** Keep documentation in `.ai/docs/` highly structured, technical, clear, and focused on data flows, dependency maps, and API/method signatures.
+* **Production & deferred work:** Track go-live verification steps and intentionally unfinished production items in [production_readiness.md](.ai/docs/production_readiness.md). The docs index is [README.md](.ai/docs/README.md).
 
 ### B. Cursor & Specialized LLM Context (.mdc files)
 * For tools like **Cursor**, check the designated rule directories (e.g., `.cursor/rules/` or similar folders containing `.mdc` files).

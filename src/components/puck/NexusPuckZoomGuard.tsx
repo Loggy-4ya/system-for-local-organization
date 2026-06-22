@@ -29,22 +29,32 @@ import {
   PUCK_CANVAS_INNER_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
 import {
-  clampPuckRootHeightToPreviewContent,
+  installPreviewContentHeightSync,
+  syncPuckRootHeightToPreviewContent,
 } from "@/components/puck/lib/previewContentHeight";
 import {
   syncDesktopLetterboxCanvasScrollport,
+  resetLetterboxScrollportState,
 } from "@/components/puck/lib/canvasLetterboxScrollport";
+import {
+  installEditorCanvasScrollportBootstrap,
+  resetInteractivePreviewScrollports,
+  syncInteractiveCanvasControlsInsetVar,
+} from "@/components/puck/lib/interactivePreviewScrollport";
 import { matchesDesktopEditorLayout } from "@/components/puck/lib/desktopEditorScrollport";
 import {
   floorLetterboxDevicePreviewZoom,
   DEFAULT_PUCK_ZOOM_CONFIG,
   resolvePuckAppStore,
-  resolvePuckScaledRootHeightPx,
   resolvePuckViewportWidthFromAppStore,
   sanitizePuckZoomConfig,
   type PuckInternalAppStore,
   type PuckZoomConfig,
 } from "@/components/puck/lib/sanitizePuckZoomConfig";
+import {
+  resolvePuckPreviewModeFromAppStore,
+  type PuckPreviewMode,
+} from "@/components/puck/lib/puckPreviewMode";
 import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
 
 /** Puck internal store shape (subset) for viewport-driven zoom refresh. */
@@ -143,26 +153,7 @@ function syncCanvasInnerScrollportHeight(config?: PuckZoomConfig): void {
     return;
   }
 
-  if (matchesDesktopEditorLayout()) {
-    syncDesktopLetterboxCanvasScrollport(config);
-    return;
-  }
-
-  const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
-  if (!root) {
-    return;
-  }
-
-  const measured = root.getBoundingClientRect().height;
-  const fallback =
-    config !== undefined ? resolvePuckScaledRootHeightPx(config) : null;
-  const visualHeight = measured > 0 && Number.isFinite(measured) ? measured : fallback;
-
-  if (visualHeight === null || visualHeight <= 0) {
-    return;
-  }
-
-  inner.style.setProperty("height", `${Math.ceil(visualHeight)}px`, "important");
+  syncDesktopLetterboxCanvasScrollport(config);
 }
 
 /**
@@ -173,6 +164,7 @@ function clearCanvasInnerScrollportHeight(): void {
   const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
   inner?.style.removeProperty("height");
   inner?.style.removeProperty("min-height");
+  resetLetterboxScrollportState();
 }
 
 /**
@@ -278,10 +270,21 @@ export function NexusPuckZoomGuard(): null {
         return;
       }
 
+      const previewMode = resolvePuckPreviewModeFromAppStore(appStore);
+
       let sanitized = sanitizePuckZoomConfig(next, zoomFallbackRef.current);
       sanitized = applyLetterboxZoomFloor(appStore, sanitized);
-      sanitized = clampPuckRootHeightToPreviewContent(sanitized);
+      const synced = syncPuckRootHeightToPreviewContent(sanitized, previewMode);
+      if (
+        synced.rootHeight === sanitized.rootHeight &&
+        synced.zoom === sanitized.zoom &&
+        synced.autoZoom === sanitized.autoZoom
+      ) {
+        zoomFallbackRef.current = sanitized;
+        return;
+      }
 
+      sanitized = synced;
       zoomFallbackRef.current = sanitized;
       originalSetZoom(sanitized);
 
@@ -294,11 +297,38 @@ export function NexusPuckZoomGuard(): null {
 
     appStore.setState({ setZoomConfig: patchedSetZoom });
 
+    const resyncRootHeightFromPreviewContent = () => {
+      if (isCanvasZoomMutationBlocked()) {
+        return;
+      }
+
+      const current = sanitizePuckZoomConfig(
+        appStore.getState().zoomConfig,
+        zoomFallbackRef.current,
+      );
+      patchedSetZoom(current);
+    };
+
     const viewportStore = appStore as unknown as PuckViewportZoomAppStore;
     let lastViewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
+    let lastPreviewMode: PuckPreviewMode = resolvePuckPreviewModeFromAppStore(appStore);
 
     const unsubscribeViewport = viewportStore.subscribe(() => {
       const viewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
+      const previewMode = resolvePuckPreviewModeFromAppStore(appStore);
+
+      if (previewMode !== lastPreviewMode) {
+        lastPreviewMode = previewMode;
+        resetLetterboxScrollportState();
+        syncInteractiveCanvasControlsInsetVar(previewMode);
+        resetInteractivePreviewScrollports();
+        resyncRootHeightFromPreviewContent();
+        requestAnimationFrame(() => {
+          syncCanvasInnerScrollportHeight(zoomFallbackRef.current);
+        });
+        return;
+      }
+
       if (viewportWidth === lastViewportWidth) {
         return;
       }
@@ -326,7 +356,97 @@ export function NexusPuckZoomGuard(): null {
       patchedSetZoom(floored);
     });
 
+    const teardownContentHeightSync = installPreviewContentHeightSync(
+      resyncRootHeightFromPreviewContent,
+    );
+
+    const bootstrapPreviewScrollport = () => {
+      const previewMode = resolvePuckPreviewModeFromAppStore(appStore);
+      syncInteractiveCanvasControlsInsetVar(previewMode);
+      resetInteractivePreviewScrollports();
+      resyncRootHeightFromPreviewContent();
+      requestAnimationFrame(() => {
+        syncCanvasInnerScrollportHeight(zoomFallbackRef.current);
+      });
+    };
+
+    resetInteractivePreviewScrollports();
+    syncInteractiveCanvasControlsInsetVar(resolvePuckPreviewModeFromAppStore(appStore));
+    const teardownScrollportBootstrap = installEditorCanvasScrollportBootstrap(
+      bootstrapPreviewScrollport,
+    );
+
+    let frameResizeRaf: number | null = null;
+    const scheduleLetterboxRecalcFromFrameResize = () => {
+      if (frameResizeRaf !== null) {
+        cancelAnimationFrame(frameResizeRaf);
+      }
+
+      frameResizeRaf = requestAnimationFrame(() => {
+        frameResizeRaf = null;
+        syncInteractiveCanvasControlsInsetVar(resolvePuckPreviewModeFromAppStore(appStore));
+        resyncRootHeightFromPreviewContent();
+      });
+    };
+
+    let frameResizeObserver: ResizeObserver | null = null;
+    let lastObservedFrameWidthPx = 0;
+
+    const observeCanvasInnerForLetterbox = () => {
+      if (typeof ResizeObserver === "undefined") {
+        return;
+      }
+
+      const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
+      if (!inner) {
+        return;
+      }
+
+      lastObservedFrameWidthPx = inner.clientWidth;
+
+      if (!frameResizeObserver) {
+        frameResizeObserver = new ResizeObserver((entries) => {
+          const width = entries[0]?.contentRect.width ?? 0;
+          if (width > 0 && Math.abs(width - lastObservedFrameWidthPx) < 1) {
+            return;
+          }
+
+          lastObservedFrameWidthPx = width;
+          scheduleLetterboxRecalcFromFrameResize();
+        });
+      }
+
+      frameResizeObserver.disconnect();
+      frameResizeObserver.observe(inner);
+    };
+
+    observeCanvasInnerForLetterbox();
+
+    window.addEventListener("resize", scheduleLetterboxRecalcFromFrameResize);
+    window.addEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, scheduleLetterboxRecalcFromFrameResize);
+
+    const mountFrameObserver = new MutationObserver(() => {
+      observeCanvasInnerForLetterbox();
+      scheduleLetterboxRecalcFromFrameResize();
+    });
+    const puckRoot = document.querySelector(".Puck");
+    if (puckRoot) {
+      mountFrameObserver.observe(puckRoot, { childList: true, subtree: true });
+    }
+
     return () => {
+      if (frameResizeRaf !== null) {
+        cancelAnimationFrame(frameResizeRaf);
+      }
+      frameResizeObserver?.disconnect();
+      mountFrameObserver.disconnect();
+      window.removeEventListener("resize", scheduleLetterboxRecalcFromFrameResize);
+      window.removeEventListener(
+        NEXUS_PANEL_LAYOUT_SETTLED_EVENT,
+        scheduleLetterboxRecalcFromFrameResize,
+      );
+      teardownScrollportBootstrap();
+      teardownContentHeightSync();
       unsubscribeViewport();
       appStore.setState({ setZoomConfig: originalSetZoom });
     };

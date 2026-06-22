@@ -30,6 +30,27 @@ iframe#preview-frame {
 }
 
 /*
+ * Puck edit shell — one vertical scroll owner (canvas shell). Lock document scroll so
+ * letterboxed previews do not also scroll the page behind the editor chrome.
+ */
+html:has(.Puck) {
+  height: 100%;
+  overflow: hidden;
+}
+
+html:has(.Puck) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Preview iframe — edit mode: shell owns scroll; hide iframe element overflow. Interactive keeps Puck defaults so in-document scrollbars paint at the frame edge. */
+html:not([data-nexus-puck-preview-mode="interactive"]) .Puck [class*="PuckPreview-frame"] iframe,
+html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
+  overflow: hidden !important;
+}
+
+/*
  * All Puck canvas shells — desktop bordered panel and mobile fullScreen.
  * Opaque Puck defaults cleared; do not paint a second grid on the scrollport.
  */
@@ -199,7 +220,33 @@ iframe#preview-frame {
       var(--nexus-grid-left-width)
       minmax(0, 1fr)
       var(--nexus-grid-right-width) !important;
-    grid-template-rows: min-content auto !important;
+    grid-template-rows: min-content minmax(0, 1fr) !important;
+  }
+
+  .Puck {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .Puck [class*="PuckLayout"]:not([class*="PuckLayout-inner"]) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .Puck [class*="PuckLayout-inner"] {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"] {
+    align-self: stretch;
+    max-height: 100%;
+    min-height: 0;
   }
 
   .Puck
@@ -251,8 +298,34 @@ iframe#preview-frame {
     min-width: 0 !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    overscroll-behavior: contain;
     position: relative;
     width: 100% !important;
+  }
+
+  /*
+   * Interactive preview — tall pages scroll inside `#preview-frame`; the bordered shell
+   * must not become a second empty scrollport that captures wheel/trackpad gestures.
+   */
+  html[data-nexus-puck-preview-mode="interactive"]
+    .Puck
+    [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
+      [class*="PuckCanvas-root"]
+    ):not([class*="PuckCanvas-loader"]):not([class*="PuckCanvas--fullScreen"]) {
+    overflow-y: hidden !important;
+  }
+
+  /*
+   * Interactive preview — viewport preset controls overlay the canvas top edge. Inset
+   * `#puck-canvas-root` directly: the root is `position: absolute` (Puck default), so
+   * padding on `.PuckCanvas-inner` does not shift the preview and leaves a dead band at
+   * the bottom equal to the controls inset.
+   */
+  html[data-nexus-puck-preview-mode="interactive"] .Puck [class*="PuckCanvas-root"],
+  html[data-nexus-puck-preview-mode="interactive"] .Puck #puck-canvas-root {
+    bottom: auto !important;
+    top: var(--nexus-puck-canvas-controls-inset, 52px) !important;
+    transform-origin: top center !important;
   }
 
   /*
@@ -281,6 +354,7 @@ iframe#preview-frame {
   .Puck:not([data-nexus-viewport-full-width]) [class*="PuckCanvas-inner"] {
     overflow-x: auto !important;
     overflow-y: hidden !important;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
@@ -757,7 +831,7 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   line-height: var(--nexus-plugin-leaf-label-line-height);
   margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
   min-height: var(--nexus-plugin-leaf-min-height);
-  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline) !important;
   width: auto;
 }
 
@@ -813,7 +887,7 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   font-size: var(--nexus-plugin-leaf-label-size);
   margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-leaf-margin-inline);
   min-height: var(--nexus-plugin-leaf-min-height);
-  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline) !important;
   width: auto;
 }
 
@@ -844,6 +918,37 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   background: color-mix(in srgb, var(--color-accent-user) 10%, transparent) !important;
   outline: 2px solid color-mix(in srgb, var(--color-accent-user) 55%, transparent) !important;
   outline-offset: -2px;
+}
+
+/* Puck block action bar — solid panel, larger tap targets */
+.Puck [class*="DraggableComponent-actions"] {
+  align-items: center;
+  background: var(--color-bg-panel) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--site-header-bar-shadow);
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px 4px;
+}
+
+.Puck [class*="DraggableComponent-actions"] button {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px;
+}
+
+.Puck [class*="DraggableComponent-actions"] button:hover,
+.Puck [class*="DraggableComponent-actions"] button:focus-visible {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--color-bg-elevated));
+}
+
+.Puck [data-puck-component]:has(.nexus-stepper-timeline) [class*="DraggableComponent-actions"] {
+  margin: 8px 10px 0 0;
 }
 
 /* Outline tree — selected row (both themes) */
@@ -894,6 +999,96 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 .Puck [class*="Sidebar--right"] [class*="FieldsPlugin-header"] {
   box-sizing: border-box;
   width: 100%;
+}
+
+/* Desktop — settings sidebar: one scroll owner, panel matches editor row (not content-snapped) */
+@media (min-width: 901px) {
+  .Puck [class*="Sidebar--left"],
+  .Puck [class*="Sidebar--right"] {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden !important;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="SidebarSection"]:last-of-type {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="SidebarSection-body"],
+  .Puck [class*="Sidebar--right"] [class*="SidebarSection-content"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="FieldsPlugin"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden !important;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="FieldsPlugin-header"] {
+    flex: 0 0 auto;
+  }
+
+  /*
+   * Scroll flex shell only — never use [class*="PuckFields"] (matches PuckFields-field too).
+   */
+  .Puck [class*="Sidebar--right"] [class*="PuckFields_"]:not([class*="PuckFields-field"]),
+  .Puck [class*="Sidebar--right"] [class*="PuckFields--wrapFields"],
+  .Puck [class*="Sidebar--right"] [class*="Fields-fields"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"],
+  .Puck [class*="Sidebar--right"] [class*="Fields-fields"] > [class*="Field"],
+  .Puck [class*="Sidebar--right"] [class*="Fields-fields"] > [class*="PuckFields-field"],
+  .Puck [class*="Sidebar--right"] [class*="PuckFields--wrapFields"] > .nexus-field-chapter,
+  .Puck [class*="Sidebar--right"] [class*="Fields-fields"] > .nexus-field-chapter {
+    flex: 0 0 auto;
+  }
+
+  .Puck [class*="Sidebar--right"] [class*="PuckFields--wrapFields"],
+  .Puck [class*="Sidebar--right"] [class*="Fields-fields"] {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection"],
+  .Puck [class*="Sidebar--left"] [class*="PuckPluginTab--visible"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-body"],
+  .Puck [class*="Sidebar--left"] [class*="SidebarSection-content"],
+  .Puck [class*="Sidebar--left"] [class*="PuckPluginTab-body"] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Suppress Puck's flat sidebar dividers — Nexus panel shell owns borders (≥901px). */
@@ -1322,6 +1517,268 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   text-transform: uppercase;
 }
 
+.nexus-field-category--readonly .nexus-readonly-meta {
+  color: var(--puck-color-grey-06);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── Page publication — read-only meta badges + media upload inset ─────────── */
+.nexus-field-category--meta-readonly {
+  border-top: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 72%, transparent);
+  margin-top: 2px;
+  padding-top: calc(var(--nexus-plugin-leaf-pad-block) + 2px);
+}
+
+.nexus-page-meta-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--puck-color-grey-10) 88%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 28%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 10%, transparent);
+  color: var(--puck-color-grey-04);
+  display: inline-flex;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.35;
+  max-width: 100%;
+  padding: 4px 8px;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.nexus-page-meta-badge--muted {
+  background: color-mix(in srgb, var(--puck-color-grey-10) 92%, var(--puck-color-white));
+  border-color: var(--puck-color-grey-09);
+  box-shadow: none;
+  color: var(--puck-color-grey-07);
+  font-weight: 500;
+}
+
+.nexus-page-meta-badge--link {
+  color: color-mix(in srgb, var(--color-accent-user) 82%, var(--puck-color-black));
+}
+
+.nexus-page-meta-badge--link:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-09));
+  color: color-mix(in srgb, var(--color-accent-user) 92%, var(--puck-color-black));
+}
+
+.nexus-page-meta-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  padding-bottom: 2px;
+}
+
+.nexus-page-meta-readonly__row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
+.nexus-page-meta-readonly__row--author {
+  justify-content: flex-start;
+}
+
+.nexus-page-meta-readonly__label {
+  color: var(--puck-color-grey-07);
+  flex-shrink: 0;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.nexus-page-meta-readonly__value {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.nexus-page-meta-readonly__value--full {
+  justify-content: flex-start;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  padding-bottom: 2px;
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.nexus-media-upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.nexus-media-upload-field__file-input {
+  display: none;
+}
+
+.nexus-media-upload-field__import,
+.nexus-media-upload-field__choose {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 30%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-sizing: border-box;
+  color: var(--puck-color-grey-04);
+  cursor: pointer;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  font-weight: var(--nexus-plugin-leaf-label-weight);
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  min-height: var(--nexus-plugin-leaf-min-height);
+  padding: var(--nexus-plugin-leaf-pad-block) var(--nexus-plugin-leaf-pad-inline);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.nexus-media-upload-field__import:hover:not(:disabled),
+.nexus-media-upload-field__choose:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-09));
+}
+
+.nexus-media-upload-field__import:disabled,
+.nexus-media-upload-field__choose:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.nexus-media-upload-field__dropzone {
+  background: color-mix(in srgb, var(--color-accent-user) 6%, var(--puck-color-white));
+  border: 1px dashed color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-sizing: border-box;
+  color: var(--puck-color-grey-06);
+  cursor: pointer;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  padding: 14px 12px;
+  text-align: center;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.nexus-media-upload-field__dropzone--active {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--puck-color-white));
+  border-color: var(--color-accent-user);
+  color: var(--puck-color-grey-04);
+}
+
+.nexus-media-upload-field__dropzone--busy {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.nexus-media-upload-field__error {
+  color: var(--color-danger);
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.nexus-media-upload-field__preview-compact {
+  align-items: center;
+  background: var(--puck-color-white);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  height: 120px;
+  justify-content: center;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  overflow: hidden;
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.nexus-media-upload-field__preview-media {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.nexus-media-upload-field__alt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-media-upload-field .nexus-settings-media-preview,
+.Puck [class*="FieldsPlugin"] .nexus-media-upload-field .nexus-settings-media-preview {
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  width: calc(100% - 2 * var(--nexus-plugin-leaf-pad-inline));
+}
+
+.Puck .nexus-plugin-field-surface .nexus-datetime-picker,
+.Puck [class*="FieldsPlugin"] .nexus-datetime-picker {
+  width: 100%;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-datetime-picker__trigger,
+.Puck [class*="FieldsPlugin"] .nexus-datetime-picker__trigger {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-datetime-picker__trigger svg,
+.Puck [class*="FieldsPlugin"] .nexus-datetime-picker__trigger svg {
+  flex-shrink: 0;
+  opacity: 0.72;
+}
+
+[data-theme="dark"] .nexus-page-meta-badge {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 92%, var(--puck-color-black));
+  border-color: color-mix(in srgb, var(--color-accent-user) 32%, var(--puck-color-grey-08));
+  color: var(--puck-color-grey-05);
+}
+
+[data-theme="dark"] .nexus-page-meta-badge--link {
+  color: color-mix(in srgb, var(--color-accent-user) 78%, var(--puck-color-white));
+}
+
+[data-theme="dark"] .nexus-media-upload-field__dropzone,
+[data-theme="dark"] .nexus-media-upload-field__import,
+[data-theme="dark"] .nexus-media-upload-field__choose {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-grey-11));
+  color: var(--puck-color-grey-05);
+}
+
+.nexus-puck-textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.nexus-datetime-picker__trigger {
+  cursor: pointer;
+}
+
+.nexus-calendar {
+  --rdp-accent-color: var(--color-accent-user);
+  --rdp-accent-background-color: color-mix(in srgb, var(--color-accent-user) 18%, transparent);
+}
+
 .nexus-field-subfield__label {
   color: var(--puck-color-grey-07);
   display: block;
@@ -1442,7 +1899,7 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   border: none;
   display: block;
   margin: 0;
-  padding: 0;
+  padding: 0 !important;
 }
 
 .Puck [class*="PuckFields--wrapFields"] > [class*="PuckFields-field"] [class*="InputWrapper"],
@@ -1606,11 +2063,15 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 }
 
 .nexus-switch-row__label {
+  align-items: center;
   color: var(--puck-color-black);
+  display: inline-flex;
   flex: 1;
   font-size: 14px;
   font-weight: 500;
+  gap: 4px;
   line-height: 1.3;
+  min-width: 0;
 }
 
 .nexus-switch-row__hint {
@@ -1896,6 +2357,396 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   color: var(--puck-color-black);
 }
 
+[data-theme="dark"] .nexus-rich-text-editor--puck .nexus-rich-text-editor__content {
+  background: var(--puck-color-grey-11);
+  color: var(--puck-color-black);
+}
+
+/* Puck sidebar — compact TipTap for stepper list rows */
+.nexus-rich-text-editor--puck-list-step {
+  margin-top: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-field {
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-field__editor-host {
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-field__editor-host .nexus-rich-text-editor--puck,
+.nexus-list-step-children__editor-wrap .nexus-rich-text-editor--puck {
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-field__editor-host .nexus-rich-text-editor__content,
+.nexus-list-step-children__editor-wrap .nexus-rich-text-editor__content {
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-field__editor-host .ProseMirror,
+.nexus-list-step-children__editor-wrap .ProseMirror {
+  min-width: 0;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  width: 100%;
+  word-break: normal;
+}
+
+.nexus-rich-text-editor--puck-list-step .nexus-rich-text-editor__toolbar {
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.nexus-rich-text-editor--puck-list-step .nexus-rich-text-editor__btn {
+  font-size: 11px;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 2px 4px;
+}
+
+.nexus-rich-text-editor--puck-list-step .nexus-rich-text-editor__content {
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+}
+
+/* List block — sidebar field rhythm inside step array items */
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) {
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px var(--nexus-plugin-leaf-pad-inline) 14px;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) > [class*="Field"] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) > [class*="Field"]:last-child {
+  margin-bottom: 0;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) [class*="FieldLabel"] {
+  margin-bottom: 0;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) .nexus-sidebar-field {
+  margin-inline: 0;
+  padding-block: 0;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) .nexus-list-step-children {
+  gap: 10px;
+}
+
+.Puck [class*="ArrayFieldItem-fieldset"]:has(.nexus-list-step-field) .nexus-list-step-children__empty {
+  margin: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+/* Connection style visual picker (Style chapter) */
+.nexus-list-connector-picker {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.nexus-list-connector-picker__option {
+  align-items: center;
+  background: var(--puck-color-white);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 6px 7px;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.nexus-list-connector-picker__option:hover {
+  border-color: var(--puck-color-azure-08);
+}
+
+.nexus-list-connector-picker__option--active {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white));
+  border-color: var(--color-accent-user);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 35%, transparent);
+}
+
+.nexus-list-connector-picker__label {
+  color: var(--puck-color-black);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.nexus-list-connector-picker__hint {
+  color: var(--puck-color-grey-07);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.nexus-list-connector-preview {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 34px;
+  justify-content: center;
+  position: relative;
+  width: 18px;
+}
+
+.nexus-list-connector-preview__dot {
+  background: var(--puck-color-grey-07);
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 6px;
+  width: 6px;
+}
+
+.nexus-list-connector-preview__link {
+  background: var(--puck-color-grey-07);
+  flex: 1 1 auto;
+  min-height: 10px;
+  width: 2px;
+}
+
+.nexus-list-connector-preview--dashed .nexus-list-connector-preview__link {
+  background: transparent;
+  border-left: 2px dashed var(--puck-color-grey-07);
+  width: 0;
+}
+
+.nexus-list-connector-preview--dotted .nexus-list-connector-preview__link {
+  background: transparent;
+  border-left: 2px dotted var(--puck-color-grey-07);
+  width: 0;
+}
+
+.nexus-list-connector-preview--rail::before {
+  background: color-mix(in srgb, var(--puck-color-grey-07) 35%, transparent);
+  border-radius: 4px;
+  content: "";
+  height: 28px;
+  left: 50%;
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  width: 8px;
+  z-index: 0;
+}
+
+.nexus-list-connector-preview--rail .nexus-list-connector-preview__link {
+  opacity: 0;
+}
+
+.nexus-list-connector-preview--ring .nexus-list-connector-preview__dot {
+  background: transparent;
+  border: 2px solid var(--puck-color-grey-07);
+  box-sizing: border-box;
+  height: 8px;
+  width: 8px;
+}
+
+.nexus-list-connector-preview--arrow .nexus-list-connector-preview__link {
+  opacity: 0;
+  min-height: 4px;
+}
+
+.nexus-list-connector-preview--arrow .nexus-list-connector-preview__arrow-icon {
+  color: var(--puck-color-grey-07);
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -20%);
+}
+
+.nexus-list-connector-preview--minimal .nexus-list-connector-preview__link {
+  display: none;
+}
+
+.nexus-list-connector-preview--tree .nexus-list-connector-preview__dot--b {
+  margin-left: 8px;
+}
+
+.nexus-list-connector-preview--tree .nexus-list-connector-preview__link {
+  margin-left: 4px;
+}
+
+[data-theme="dark"] .nexus-list-connector-picker__option {
+  background: var(--puck-color-grey-11);
+  border-color: var(--puck-color-grey-09);
+}
+
+[data-theme="dark"] .nexus-list-connector-picker__option--active {
+  background: color-mix(in srgb, var(--puck-color-azure-04) 10%, var(--puck-color-grey-11));
+}
+
+.nexus-list-step-children {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.nexus-list-step-children__chapter {
+  background: color-mix(in srgb, var(--puck-color-grey-12) 80%, transparent);
+  border: 1px solid var(--puck-color-grey-09);
+  border-radius: 6px;
+  margin: 0;
+  min-width: 0;
+  padding: 6px 8px 4px;
+  width: 100%;
+}
+
+.nexus-list-step-children__chapter + .nexus-list-step-children__chapter {
+  margin-top: 0;
+}
+
+.nexus-list-step-children__chapter[data-open="true"] {
+  padding-bottom: 6px;
+}
+
+.nexus-list-step-children__chapter .nexus-field-chapter__body {
+  min-width: 0;
+  overflow: visible;
+  padding-bottom: 0;
+  width: 100%;
+}
+
+.nexus-list-step-children__collapse {
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-children__empty {
+  color: var(--puck-color-grey-07);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 2px 0 4px;
+}
+
+.nexus-list-step-children__row-head {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-height: 30px;
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-children__row-meta {
+  display: flex;
+  margin: 2px 0 0 28px;
+  min-width: 0;
+}
+
+.nexus-list-step-children__toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--puck-color-grey-07);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 24px;
+  padding: 0;
+  transition: color var(--nexus-drawer-accordion-duration, 0.2s)
+    var(--nexus-drawer-accordion-ease, ease);
+}
+
+.nexus-list-step-children__toggle svg {
+  transition: transform var(--nexus-drawer-accordion-duration, 0.2s)
+    var(--nexus-drawer-accordion-ease, ease);
+}
+
+.nexus-list-step-children__toggle svg.nexus-field-chapter__chevron--expanded {
+  transform: rotate(0deg);
+}
+
+.nexus-list-step-children__toggle svg:not(.nexus-field-chapter__chevron--expanded) {
+  transform: rotate(-90deg);
+}
+
+.nexus-list-step-children__remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--puck-color-grey-07);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.nexus-list-step-children__toggle:hover,
+.nexus-list-step-children__remove:hover {
+  color: var(--puck-color-black);
+}
+
+.nexus-list-step-children__label-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.nexus-list-step-children__editor-wrap {
+  margin-top: 8px;
+  min-width: 0;
+  padding-top: 0;
+  width: 100%;
+}
+
+.nexus-list-step-children__add {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--puck-color-azure-07);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+  margin-top: 0;
+  min-height: 28px;
+  padding: 2px 0 0;
+}
+
+.nexus-list-step-children__add:hover {
+  color: var(--puck-color-azure-05);
+}
+
+[data-theme="dark"] .nexus-list-step-children__chapter {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 90%, transparent);
+}
+
 .nexus-tiptap-editor__content a,
 .nexus-tiptap-editor__content .nexus-rich-text__link {
   color: var(--color-accent-user);
@@ -2037,7 +2888,7 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   gap: var(--nexus-plugin-section-title-gap);
   letter-spacing: var(--nexus-plugin-section-title-spacing);
   margin: var(--nexus-plugin-section-header-margin-block);
-  min-height: var(--nexus-plugin-leaf-min-height);
+  min-height: 0;
   padding: var(--nexus-plugin-section-header-pad-block) var(--nexus-plugin-section-header-pad-inline);
   text-transform: uppercase;
 }
@@ -2078,8 +2929,40 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 
 .Puck [class*="FieldsPlugin"] [class*="PuckFields-field"] > [class*="InputWrapper"] > [class*="ArrayField"] {
   box-sizing: border-box;
-  margin-inline: var(--nexus-plugin-panel-gutter-x);
+  margin-inline: 0;
   width: auto;
+}
+
+/*
+ * Top-level array fields (Grid Cells, Slides, Tabs) — one gutter pass via row summaries;
+ * strip Puck wrapFields padding and nested array margins that stack vertical air.
+ */
+.Puck [class*="FieldsPlugin"] [class*="PuckFields-field"]:has(> [class*="InputWrapper"] > [class*="ArrayField"]) {
+  padding: 0 !important;
+}
+
+.Puck [class*="FieldsPlugin"]
+  [class*="PuckFields-field"]:has(> [class*="InputWrapper"] > [class*="ArrayField"])
+  > [class*="FieldLabel"] {
+  margin-bottom: 0;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+.Puck [class*="FieldsPlugin"]
+  [class*="PuckFields-field"]:has(> [class*="InputWrapper"] > [class*="ArrayField"])
+  > [class*="InputWrapper"] {
+  margin: 0;
+  padding: 0;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="ArrayField-inner"] > [class*="ArrayFieldItem"]:first-child > [class*="ArrayFieldItem-summary"] {
+  margin-top: 0;
+}
+
+.Puck [class*="FieldsPlugin"] [class*="ArrayField--hasItems"] > [class*="ArrayField-addButton"] {
+  border-top: var(--nexus-editor-panel-border);
+  margin-top: 0;
 }
 
 .Puck [class*="FieldsPlugin"] [class*="FieldLabel"],
@@ -2151,10 +3034,10 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   background: transparent;
 }
 
-/* ── Plugin field controls — outline-flat rows (select, segmented, inputs) ─── */
+/* ── Plugin field controls — flat rows (select, segmented, inputs); chapter dividers only ─ */
 .Puck .nexus-plugin-field-surface .nexus-sidebar-field,
 .Puck [class*="FieldsPlugin"] .nexus-field-chapter__body .nexus-sidebar-field {
-  border-bottom: var(--nexus-editor-panel-border);
+  border-bottom: none;
   box-sizing: border-box;
   font-family: var(--nexus-plugin-font-family);
   margin: var(--nexus-plugin-leaf-margin-block) var(--nexus-plugin-panel-gutter-x);
@@ -2176,9 +3059,10 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 
 .Puck .nexus-plugin-field-surface .nexus-field-chapter__body > .nexus-field-category,
 .Puck [class*="FieldsPlugin"] .nexus-field-chapter__body > .nexus-field-category {
-  border-bottom: var(--nexus-editor-panel-border);
+  border-bottom: none;
   box-sizing: border-box;
   margin-inline: var(--nexus-plugin-panel-gutter-x);
+  padding-block: var(--nexus-plugin-leaf-pad-block);
   width: auto;
 }
 
@@ -2200,6 +3084,21 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 .Puck [class*="FieldsPlugin"] .nexus-field-category__label {
   padding-bottom: 2px;
   padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category__label-row,
+.Puck [class*="FieldsPlugin"] .nexus-field-category__label-row {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  padding-bottom: 2px;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category__label-row .nexus-field-category__label,
+.Puck [class*="FieldsPlugin"] .nexus-field-category__label-row .nexus-field-category__label {
+  padding-bottom: 0;
+  padding-inline: 0;
 }
 
 .Puck .nexus-plugin-field-surface .nexus-tiptap-editor,
@@ -2323,6 +3222,8 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 /* Text inputs + native Puck fields inside plugin field surfaces */
 .Puck .nexus-plugin-field-surface .nexus-field-category .nexus-puck-input,
 .Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-puck-input,
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-puck-textarea,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-puck-textarea,
 .Puck .nexus-plugin-field-surface .nexus-sidebar-field .nexus-puck-field input[type="text"],
 .Puck .nexus-plugin-field-surface .nexus-sidebar-field .nexus-puck-field input[type="number"],
 .Puck .nexus-plugin-field-surface .nexus-puck-field input[type="text"],
@@ -2643,6 +3544,45 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   min-height: 0;
 }
 
+.nexus-grid-item [data-puck-component] > .nexus-video,
+.nexus-grid-item [data-puck-component] > .nexus-image,
+.nexus-grid-item [data-puck-component] > .nexus-carousel,
+.nexus-grid-item [data-puck-component] > .nexus-tabs,
+.nexus-grid-item [data-puck-component] > .nexus-list,
+.nexus-grid-item [data-puck-component] > .nexus-section,
+.nexus-grid-item [data-puck-component] > .nexus-accordion,
+.nexus-grid-item [data-puck-component] > .glass-panel {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.nexus-grid-item .nexus-video:not(.nexus-video--fill-slide) .nexus-video__frame,
+.nexus-grid-item .nexus-image .nexus-image__frame,
+.nexus-grid-item .nexus-image [class*="overflow-hidden"].bg-muted {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.nexus-grid-host--edit[data-puck-overlay-portal],
+.nexus-grid-host--edit .nexus-grid-item-shell.nexus-grid-item--edit {
+  pointer-events: auto !important;
+}
+
+.nexus-grid-host--edit .nexus-grid-item--edit [data-puck-dropzone][class*="DropZone--hasChildren"] {
+  pointer-events: auto;
+}
+
+.nexus-grid-host--edit:not(.nexus-grid-host--all-cells-filled) {
+  --nexus-grid-control-opacity: 1;
+}
+
+.nexus-grid-host--edit:not(.nexus-grid-host--all-cells-filled) .nexus-grid__controls .nexus-grid__edit-select {
+  bottom: auto;
+  top: var(--nexus-grid-control-inset-y);
+}
+
 /* Grid item edit — carousel-parity drop targeting (stock Puck DnD, no custom coordinator) */
 .nexus-grid-item--edit.nexus-grid-item--cell-dragging {
   opacity: 0.65;
@@ -2654,6 +3594,31 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   width: 100%;
   height: auto;
   min-height: 0;
+  container-type: inline-size;
+  container-name: nexus-grid-host;
+  cursor: pointer;
+  isolation: isolate;
+  position: relative;
+  z-index: 2;
+  --nexus-grid-control-opacity: 0.5;
+  --nexus-grid-control-bg: color-mix(in srgb, var(--color-bg-surface) 40%, transparent);
+  --nexus-grid-control-border: color-mix(in srgb, var(--color-border-default) 55%, transparent);
+  --nexus-grid-control-color: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+}
+
+.nexus-grid-host--edit:hover,
+.nexus-grid-host--edit:focus-within {
+  --nexus-grid-control-opacity: 1;
+  --nexus-grid-control-bg: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  --nexus-grid-control-border: var(--color-border-default);
+  --nexus-grid-control-color: var(--color-text-primary);
+}
+
+.nexus-carousel .nexus-grid-host--edit {
+  --nexus-grid-control-opacity: var(--nexus-carousel-control-opacity);
+  --nexus-grid-control-bg: var(--nexus-carousel-control-bg);
+  --nexus-grid-control-border: var(--nexus-carousel-control-border);
+  --nexus-grid-control-color: var(--nexus-carousel-control-color);
 }
 
 /* Empty grid with zero cells only — do not floor hosts that already have cell shells */
@@ -2668,6 +3633,208 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
 .nexus-grid--edit {
   align-content: start;
   height: fit-content;
+}
+
+.nexus-carousel__slide .nexus-grid-host--edit .nexus-grid--edit.nexus-grid--row-height-sync {
+  align-content: stretch;
+  height: auto;
+  min-height: 0;
+}
+
+.nexus-grid-host--edit .nexus-grid__controls {
+  inset: 0;
+  /* Puck `[data-puck-overlay-portal] { pointer-events: auto !important }` — keep the
+     full-bleed wrapper inert; only `.nexus-grid__edit-select` registers as overlay portal. */
+  pointer-events: none !important;
+  position: absolute;
+  z-index: 30;
+}
+
+.nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select {
+  --nexus-grid-control-size: 40px;
+  --nexus-grid-control-inset-x: 12px;
+  --nexus-grid-control-inset-y: 10px;
+  align-items: center;
+  background: var(--nexus-grid-control-bg);
+  border: 1px solid var(--nexus-grid-control-border);
+  border-radius: var(--radius-full);
+  bottom: var(--nexus-grid-control-inset-y);
+  color: var(--nexus-grid-control-color);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--nexus-grid-control-size);
+  justify-content: center;
+  line-height: 0;
+  min-height: var(--nexus-grid-control-size);
+  min-width: var(--nexus-grid-control-size);
+  opacity: var(--nexus-grid-control-opacity);
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  right: var(--nexus-grid-control-inset-x);
+  touch-action: manipulation;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+  width: var(--nexus-grid-control-size);
+  z-index: 45;
+}
+
+.nexus-grid-host--edit .nexus-grid__edit-select-icon {
+  height: 16px;
+  width: 16px;
+}
+
+@container nexus-grid-host (max-width: 360px) {
+  .nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select {
+    --nexus-grid-control-size: 36px;
+    --nexus-grid-control-inset-x: 10px;
+    --nexus-grid-control-inset-y: 8px;
+  }
+
+  .nexus-grid-host--edit .nexus-grid__edit-select-icon {
+    height: 15px;
+    width: 15px;
+  }
+}
+
+@container nexus-grid-host (max-width: 240px) {
+  .nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select {
+    --nexus-grid-control-size: 32px;
+    --nexus-grid-control-inset-x: 8px;
+    --nexus-grid-control-inset-y: 6px;
+  }
+
+  .nexus-grid-host--edit .nexus-grid__edit-select-icon {
+    height: 14px;
+    width: 14px;
+  }
+}
+
+@container nexus-grid-host (max-width: 160px) {
+  .nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select {
+    --nexus-grid-control-size: 28px;
+    --nexus-grid-control-inset-x: 6px;
+    --nexus-grid-control-inset-y: 4px;
+  }
+
+  .nexus-grid-host--edit .nexus-grid__edit-select-icon {
+    height: 12px;
+    width: 12px;
+  }
+}
+
+.nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select:hover,
+.nexus-grid-host--edit .nexus-grid__controls .nexus-grid__edit-select:focus-visible {
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  border-color: var(--color-accent-user);
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
+/*
+ * Per-row synchronized tracks — explicit `grid-template-rows` from gridRowHeightSync.ts.
+ * Cells stretch to the shared row height; video blocks set the row floor.
+ */
+.nexus-grid--row-height-sync {
+  align-items: stretch !important;
+}
+
+.nexus-grid--row-height-sync > .nexus-grid-item-shell {
+  align-self: stretch !important;
+  block-size: auto;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+
+.nexus-grid--row-height-sync > .nexus-grid-item-shell.nexus-grid-item--edit:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])) {
+  block-size: auto;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+
+.nexus-grid--row-height-sync .nexus-grid-item--edit .nexus-grid-item__dropzone-shell,
+.nexus-grid--row-height-sync .nexus-grid-item--edit [data-puck-dropzone].nexus-grid-item__dropzone {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-grid--row-height-sync .nexus-grid-item--edit [data-puck-dropzone][class*="DropZone--hasChildren"] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+.nexus-grid--row-height-sync .nexus-grid-item--edit [data-puck-dropzone][class*="DropZone--hasChildren"] > [data-puck-component] {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.nexus-grid.nexus-grid--row-height-sync > .nexus-grid-item-shell.nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) {
+  align-self: start !important;
+  block-size: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) .nexus-grid-item__dropzone-shell,
+.nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) [data-puck-dropzone].nexus-grid-item__dropzone {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-grid--row-height-sync .nexus-grid-item-shell [data-puck-component] > .nexus-video,
+.nexus-grid--row-height-sync .nexus-grid-item-shell [data-puck-component] > .nexus-carousel,
+.nexus-grid--row-height-sync .nexus-grid-item-shell [data-puck-component] > .nexus-tabs,
+.nexus-grid--row-height-sync .nexus-grid-item-shell [data-puck-component] > .glass-panel {
+  flex: 0 0 auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  width: 100%;
+}
+
+.nexus-carousel__slide .nexus-grid--row-height-sync {
+  align-items: stretch !important;
+}
+
+.nexus-carousel__slide .nexus-grid.nexus-grid--row-height-sync > .nexus-grid-item-shell.nexus-grid-item--edit:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])) {
+  align-self: stretch !important;
+  block-size: auto !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-carousel__slide .nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit .nexus-grid-item__dropzone[data-puck-dropzone]:not([class*="DropZone--hasChildren"]),
+.nexus-carousel__slide .nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit [data-puck-dropzone].nexus-grid-item__dropzone:not([class*="DropZone--hasChildren"]) {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-carousel__slide .nexus-grid.nexus-grid--row-height-sync > .nexus-grid-item-shell.nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) {
+  align-self: start !important;
+  block-size: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
 }
 
 .nexus-grid-item-shell.nexus-grid-item--edit {
@@ -2686,6 +3853,22 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   height: var(--nexus-grid-item-empty-min-height);
   max-height: var(--nexus-grid-item-empty-min-height);
   min-height: var(--nexus-grid-item-empty-min-height);
+}
+
+.nexus-grid.nexus-grid--row-height-sync > .nexus-grid-item-shell.nexus-grid-item--edit:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])) {
+  align-self: stretch !important;
+  block-size: auto !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+.nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit .nexus-grid-item__dropzone[data-puck-dropzone]:not([class*="DropZone--hasChildren"]),
+.nexus-grid.nexus-grid--row-height-sync .nexus-grid-item--edit [data-puck-dropzone].nexus-grid-item__dropzone:not([class*="DropZone--hasChildren"]) {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
 }
 
 .nexus-grid-item-shell.nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) {
@@ -2817,6 +4000,56 @@ html[data-puck-dragging] .nexus-grid-item--edit [data-puck-dropzone]:not([class*
 .nexus-carousel__slide .nexus-grid--edit {
   height: auto;
   min-height: 0;
+}
+
+/*
+ * Anchored carousel grid slides — slide height is a fixed CSS variable from intrinsic
+ * measurement (never layout feedback). Safe to fill with height: 100% on descendants.
+ */
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored .nexus-carousel__slide:has(.nexus-grid) {
+  display: flex;
+  flex-direction: column;
+  height: var(--nexus-carousel-slide-height, var(--nexus-carousel-row-height));
+  min-height: var(--nexus-carousel-slide-height, var(--nexus-carousel-row-height));
+}
+
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  .nexus-carousel__dropzone,
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  [data-puck-component],
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  .nexus-grid-host--edit {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  .nexus-grid.nexus-grid--row-height-sync,
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide:has(.nexus-grid)
+  .nexus-grid--edit {
+  align-content: stretch;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.nexus-carousel--edit.nexus-carousel--grid-slide-anchored
+  .nexus-carousel__slide
+  .nexus-grid.nexus-grid--row-height-sync
+  > .nexus-grid-item-shell.nexus-grid-item--edit:has([data-puck-dropzone][class*="DropZone--hasChildren"]) {
+  align-self: stretch !important;
+  height: 100% !important;
 }
 
 /* Carousel edit mode — row height from measured content; equal cards when multi-visible.
@@ -3233,6 +4466,33 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone] [class*="Dro
 }
 
 /*
+ * Carousel inside a grid cell — equal-row floor matches grid item empty-slot min
+ * (`--nexus-grid-item-empty-min-height` from gridEditSizing.ts), not carousel edit floor.
+ */
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__swipe-host,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__viewport,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-content"],
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-slot="carousel-content"]
+  > .flex,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__track--edit,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])),
+.nexus-carousel--edit.nexus-carousel--in-grid-cell.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  [data-puck-dropzone]:not([class*="DropZone--hasChildren"]) {
+  min-height: var(
+    --nexus-carousel-row-min-height,
+    var(--nexus-grid-item-empty-min-height, var(--nexus-carousel-auto-min-height, 240px))
+  );
+}
+
+/*
  * Per-slide edit height — each card gets max(content, edit floor); siblings stay independent.
  */
 .nexus-carousel--edit.nexus-carousel--per-slide-height-sync:not(.nexus-carousel--fixed-height)
@@ -3300,23 +4560,6 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone] [class*="Dro
 .nexus-carousel--edit.nexus-carousel--per-slide-height-sync:not(.nexus-carousel--fixed-height)
   .nexus-carousel__slide:not(:has(.nexus-grid))
   [data-puck-dropzone][class*="DropZone--hasChildren"]:has([data-nexus-carousel-fill="true"]) {
-  flex: 0 0 auto !important;
-  height: auto !important;
-  min-height: 0 !important;
-}
-
-.nexus-carousel--edit.nexus-carousel--per-slide-height-sync:not(.nexus-carousel--fixed-height)
-  .nexus-carousel__slide:has(.nexus-grid) {
-  height: auto;
-  min-height: 0;
-}
-
-.nexus-carousel--edit.nexus-carousel--per-slide-height-sync:not(.nexus-carousel--fixed-height)
-  .nexus-carousel__slide:has(.nexus-grid)
-  .nexus-carousel__slide-dropzone-shell,
-.nexus-carousel--edit.nexus-carousel--per-slide-height-sync:not(.nexus-carousel--fixed-height)
-  .nexus-carousel__slide:has(.nexus-grid)
-  .nexus-carousel__dropzone {
   flex: 0 0 auto !important;
   height: auto !important;
   min-height: 0 !important;
@@ -3462,6 +4705,8 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone] [class*="Dro
 .nexus-carousel--edit .nexus-carousel__arrow,
 .nexus-carousel--edit .nexus-carousel__dot,
 .nexus-carousel--edit .nexus-carousel__edit-select,
+.nexus-grid-host--edit .nexus-grid__edit-select,
+.nexus-grid-host--edit .nexus-grid__edit-select[data-puck-overlay-portal],
 .nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__arrow,
 .nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__dot,
 .nexus-carousel--edit .nexus-carousel__controls[data-puck-overlay-portal] .nexus-carousel__edit-select,
@@ -3629,7 +4874,10 @@ html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [dat
   .nexus-carousel__dot,
 [data-puck-dragging]
   [data-puck-dropzone]
-  .nexus-carousel__edit-select {
+  .nexus-carousel__edit-select,
+[data-puck-dragging]
+  .nexus-grid-host--edit
+  .nexus-grid__edit-select {
   pointer-events: none !important;
 }
 
@@ -3838,6 +5086,597 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
   margin: 6px 0 0;
 }
 
+/* ── Page path domain + slug (`/domain/page_slug`) ─────────────────────── */
+.nexus-page-auto-slug-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  min-height: 36px;
+}
+
+.nexus-page-auto-slug-row__label {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nexus-page-auto-slug-row__text {
+  color: var(--puck-color-grey-06);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.nexus-page-auto-slug-row [data-slot="switch"] {
+  flex-shrink: 0;
+}
+
+.nexus-page-path-address {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nexus-page-path-domain-panel {
+  background: color-mix(in srgb, var(--puck-color-grey-10) 88%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 8%, transparent);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  overflow: hidden;
+}
+
+.nexus-page-path-domain-panel__toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--puck-color-grey-04);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+  transition: background-color 0.15s ease;
+  width: 100%;
+}
+
+.nexus-page-path-domain-panel__toggle:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 8%, var(--puck-color-white));
+}
+
+.nexus-page-path-domain-panel__toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nexus-page-path-domain-panel__toggle-label {
+  color: var(--puck-color-grey-07);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nexus-page-path-domain-panel__toggle-value {
+  color: var(--puck-color-grey-04);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nexus-page-path-domain-panel__toggle-value--empty {
+  color: var(--puck-color-grey-07);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.nexus-page-path-domain-panel__chevron {
+  color: var(--puck-color-grey-07);
+  flex-shrink: 0;
+  height: 16px;
+  transition: transform 0.2s ease;
+  width: 16px;
+}
+
+.nexus-page-path-domain-panel__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.nexus-page-path-domain-panel__body {
+  border-top: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 78%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.nexus-page-path-domain-panel__empty {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 4px 4px 0;
+}
+
+.nexus-page-path-domain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0;
+  scrollbar-gutter: stable;
+}
+
+.nexus-page-path-domain-row {
+  align-items: center;
+  background: color-mix(in srgb, var(--puck-color-white) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 88%, transparent);
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  gap: 0;
+  min-height: 34px;
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.nexus-page-path-domain-row--selected {
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-09));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 16%, transparent);
+}
+
+.nexus-page-path-domain-row__select {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--puck-color-grey-04);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 7px 10px;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.nexus-page-path-domain-row__select:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+}
+
+.nexus-page-path-domain-row__select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.nexus-page-path-domain-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-page-path-domain-row__check {
+  color: color-mix(in srgb, var(--color-accent-user) 82%, var(--puck-color-black));
+  flex-shrink: 0;
+  height: 14px;
+  width: 14px;
+}
+
+.nexus-page-path-domain-row__remove {
+  align-items: center;
+  align-self: stretch;
+  background: transparent;
+  border: 0;
+  border-inline-start: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 78%, transparent);
+  color: var(--puck-color-grey-07);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding-inline: 8px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.nexus-page-path-domain-row__remove:hover {
+  background: color-mix(in srgb, var(--puck-color-red-09, #fecaca) 42%, var(--puck-color-white));
+  color: var(--puck-color-red-04, #b91c1c);
+}
+
+.nexus-page-path-domain-row__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.nexus-page-path-domain-row__status {
+  color: var(--puck-color-grey-07);
+  font-size: 10px;
+  padding-inline-end: 8px;
+  white-space: nowrap;
+}
+
+.nexus-page-path-domain-add {
+  border-top: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 72%, transparent);
+  padding-top: 8px;
+}
+
+.nexus-page-path-domain-add__trigger {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+  border: 1px dashed color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  color: color-mix(in srgb, var(--color-accent-user) 78%, var(--puck-color-black));
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 7px 10px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+  width: 100%;
+}
+
+.nexus-page-path-domain-add__trigger:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-09));
+}
+
+.nexus-page-path-domain-add__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nexus-page-path-domain-add__input-row {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.nexus-page-path-domain-add__prefix {
+  color: var(--puck-color-grey-07);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.nexus-page-path-domain-add__input {
+  flex: 1;
+  font-family: var(--font-mono);
+  min-width: 0;
+}
+
+.nexus-page-path-domain-add__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.nexus-page-path-domain-add__submit,
+.nexus-page-path-domain-add__cancel {
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nexus-page-path-domain-add__submit {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 42%, var(--puck-color-grey-09));
+  color: color-mix(in srgb, var(--color-accent-user) 88%, var(--puck-color-black));
+}
+
+.nexus-page-path-domain-add__submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent-user) 26%, var(--puck-color-white));
+}
+
+.nexus-page-path-domain-add__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.nexus-page-path-domain-add__cancel {
+  background: transparent;
+  border: 1px solid var(--puck-color-grey-09);
+  color: var(--puck-color-grey-07);
+}
+
+.nexus-page-path-domain-add__cancel:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--puck-color-grey-10) 72%, var(--puck-color-white));
+}
+
+.nexus-page-path-domain-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  color: color-mix(in srgb, var(--color-accent-user) 82%, var(--puck-color-black));
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 4px 8px;
+}
+
+.nexus-page-path-domain-badge--readonly,
+.nexus-page-path-domain-badge--placeholder {
+  cursor: default;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.nexus-page-path-domain-badge--placeholder {
+  background: color-mix(in srgb, var(--puck-color-grey-10) 88%, var(--puck-color-white));
+  border-color: var(--puck-color-grey-09);
+  box-shadow: none;
+  color: var(--puck-color-grey-07);
+  font-weight: 500;
+}
+
+.nexus-page-path-address-row {
+  gap: 6px;
+}
+
+.nexus-page-path-address-separator {
+  color: var(--puck-color-grey-07);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  user-select: none;
+}
+
+.nexus-page-path-slug-input {
+  min-width: 0;
+}
+
+.nexus-page-path-address__hint {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+.nexus-page-path-domain-note {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-panel {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 94%, var(--puck-color-black));
+  border-color: color-mix(in srgb, var(--color-accent-user) 28%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-panel__toggle:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--puck-color-grey-11));
+}
+
+[data-theme="dark"] .nexus-page-path-domain-panel__body {
+  border-top-color: color-mix(in srgb, var(--puck-color-grey-08) 72%, transparent);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-row {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 88%, var(--puck-color-black));
+  border-color: color-mix(in srgb, var(--puck-color-grey-08) 88%, transparent);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-row--selected {
+  border-color: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+}
+
+[data-theme="dark"] .nexus-page-path-domain-row__select:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-grey-11));
+}
+
+[data-theme="dark"] .nexus-page-path-domain-row__remove {
+  border-inline-start-color: color-mix(in srgb, var(--puck-color-grey-08) 72%, transparent);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-add {
+  border-top-color: color-mix(in srgb, var(--puck-color-grey-08) 72%, transparent);
+}
+
+[data-theme="dark"] .nexus-page-path-domain-add__trigger {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 36%, var(--puck-color-grey-08));
+  color: color-mix(in srgb, var(--color-accent-user) 72%, var(--puck-color-white));
+}
+
+[data-theme="dark"] .nexus-page-path-domain-badge {
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 44%, var(--puck-color-grey-08));
+  color: color-mix(in srgb, var(--color-accent-user) 72%, var(--puck-color-white));
+}
+
+[data-theme="dark"] .nexus-page-path-domain-badge--placeholder {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 92%, var(--puck-color-black));
+  border-color: var(--puck-color-grey-08);
+  color: var(--puck-color-grey-07);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-path-address-row,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-path-address-row {
+  margin-top: 0;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-path-address-row .nexus-page-path-domain-badge,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-path-address-row .nexus-page-path-domain-badge {
+  margin: 0;
+  min-height: 0;
+  padding-block: 2px;
+}
+
+/* ── Page categories (Obsidian-style tags) ─────────────────────────────── */
+.nexus-page-category-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexus-page-category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 4px 6px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  min-height: 0;
+}
+
+.nexus-page-category-empty {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.nexus-page-category-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 24%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 18%, transparent);
+  color: color-mix(in srgb, var(--color-accent-user) 88%, var(--puck-color-black));
+  display: inline-flex;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  gap: 2px;
+  line-height: 1.3;
+  max-width: 100%;
+  padding: 3px 4px 3px 8px;
+}
+
+.nexus-page-category-badge__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-page-category-badge__remove {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.72;
+  padding: 2px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.nexus-page-category-badge__remove:hover {
+  color: #ef4444;
+  opacity: 1;
+}
+
+[data-theme="dark"] .nexus-page-category-badge {
+  background: color-mix(in srgb, var(--color-accent-user) 32%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 58%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 24%, transparent);
+  color: color-mix(in srgb, var(--color-accent-user) 72%, var(--puck-color-white));
+}
+
+.nexus-page-category-combobox {
+  position: relative;
+}
+
+.nexus-page-category-suggestions {
+  background: var(--puck-color-white);
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 16%, transparent),
+    0 8px 24px color-mix(in srgb, var(--puck-color-black) 16%, transparent);
+  left: var(--nexus-plugin-leaf-pad-inline);
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: absolute;
+  right: var(--nexus-plugin-leaf-pad-inline);
+  z-index: 40;
+}
+
+[data-theme="dark"] .nexus-page-category-suggestions {
+  background: var(--puck-color-grey-11);
+  border-color: color-mix(in srgb, var(--color-accent-user) 40%, var(--puck-color-grey-08));
+}
+
+.nexus-page-category-suggestions__empty {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.nexus-page-category-suggestions__item {
+  align-items: center;
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+  color: var(--puck-color-black);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: var(--nexus-plugin-leaf-label-size);
+  gap: 8px;
+  line-height: var(--nexus-plugin-leaf-label-line-height);
+  padding: 8px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-page-category-suggestions__item:hover,
+.nexus-page-category-suggestions__item--active {
+  background: color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+  color: var(--puck-color-black);
+}
+
+[data-theme="dark"] .nexus-page-category-suggestions__item {
+  color: var(--puck-color-grey-03);
+}
+
+[data-theme="dark"] .nexus-page-category-suggestions__item:hover,
+[data-theme="dark"] .nexus-page-category-suggestions__item--active {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, transparent);
+  color: var(--puck-color-azure-04);
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-category-field .nexus-page-slug-hint,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-category-field .nexus-page-slug-hint {
+  margin-block: 4px 6px;
+  margin-inline: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
+}
+
 .nexus-page-slug-preview {
   color: var(--color-text-secondary);
   font-size: 11px;
@@ -3847,6 +5686,258 @@ html[data-puck-dragging] .nexus-carousel--edit [data-puck-dropzone][class*="Drop
 .nexus-page-slug-preview code {
   color: var(--color-accent-user);
   font-family: var(--font-mono);
+}
+
+.nexus-page-path-preview {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.nexus-page-path-preview__label {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.nexus-page-access-badge__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nexus-page-access-badge__link:hover {
+  text-decoration: underline;
+}
+
+.nexus-page-access-suggestions__item {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nexus-page-access-suggestions__primary {
+  font-weight: 600;
+}
+
+.nexus-page-access-suggestions__subtitle {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+}
+
+.nexus-page-publisher-field .nexus-page-publisher-tags {
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Publisher settings panel (roster + invite link) ─────────────────────── */
+.nexus-page-publisher-settings {
+  background: color-mix(in srgb, var(--puck-color-grey-10) 88%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 8%, transparent);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-inline: var(--nexus-plugin-leaf-pad-inline);
+  padding: 12px;
+}
+
+[data-theme="dark"] .nexus-page-publisher-settings {
+  background: color-mix(in srgb, var(--puck-color-grey-11) 94%, var(--puck-color-black));
+  border-color: color-mix(in srgb, var(--color-accent-user) 28%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 12%, transparent);
+}
+
+.nexus-page-publisher-settings .nexus-page-publisher-field {
+  gap: 10px;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-tags {
+  gap: 8px;
+  margin-block: 0;
+  margin-inline: 0;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-badge {
+  min-height: 28px;
+  padding-block: 4px;
+  padding-inline: 8px 4px;
+}
+
+.nexus-page-publisher-settings .nexus-page-meta-badge {
+  min-height: 28px;
+  padding-block: 4px;
+  padding-inline: 8px;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-empty {
+  margin-inline: 0;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-combobox {
+  margin-top: 2px;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-combobox .nexus-puck-input {
+  width: 100%;
+}
+
+.nexus-page-publisher-settings .nexus-page-category-suggestions {
+  left: 0;
+  right: 0;
+}
+
+.nexus-page-publisher-subsection {
+  border-top: 1px solid color-mix(in srgb, var(--puck-color-grey-09) 78%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+[data-theme="dark"] .nexus-page-publisher-subsection {
+  border-top-color: color-mix(in srgb, var(--puck-color-grey-08) 72%, transparent);
+}
+
+.nexus-page-publisher-subsection__head {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.nexus-page-publisher-subsection__label {
+  color: var(--puck-color-grey-07);
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
+.nexus-page-publisher-subsection__hint {
+  color: var(--puck-color-grey-07);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.nexus-page-publisher-subsection__error {
+  color: #ef4444;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.nexus-page-publisher-add-btn {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--puck-color-white));
+  border: 1px dashed color-mix(in srgb, var(--color-accent-user) 46%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-sizing: border-box;
+  color: color-mix(in srgb, var(--color-accent-user) 78%, var(--puck-color-black));
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.nexus-page-publisher-add-btn:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 22%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 58%, var(--puck-color-grey-09));
+  border-style: solid;
+  color: color-mix(in srgb, var(--color-accent-user) 92%, var(--puck-color-black));
+}
+
+.nexus-page-publisher-add-btn:active {
+  transform: scale(0.96);
+}
+
+[data-theme="dark"] .nexus-page-publisher-add-btn {
+  background: color-mix(in srgb, var(--color-accent-user) 16%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-08));
+  color: color-mix(in srgb, var(--color-accent-user) 72%, var(--puck-color-white));
+}
+
+[data-theme="dark"] .nexus-page-publisher-add-btn:hover {
+  background: color-mix(in srgb, var(--color-accent-user) 26%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 58%, var(--puck-color-grey-08));
+}
+
+.nexus-page-publisher-invite__btn {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-accent-user) 10%, var(--puck-color-white));
+  border: 1px solid color-mix(in srgb, var(--color-accent-user) 34%, var(--puck-color-grey-09));
+  border-radius: var(--radius-md, 6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 14%, transparent);
+  box-sizing: border-box;
+  color: color-mix(in srgb, var(--color-accent-user) 82%, var(--puck-color-black));
+  cursor: pointer;
+  display: flex;
+  font-family: var(--nexus-plugin-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  line-height: 1.35;
+  min-height: 34px;
+  padding: 8px 12px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.nexus-page-publisher-invite__btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nexus-page-publisher-invite__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, var(--puck-color-white));
+  border-color: color-mix(in srgb, var(--color-accent-user) 48%, var(--puck-color-grey-09));
+  color: color-mix(in srgb, var(--color-accent-user) 92%, var(--puck-color-black));
+}
+
+.nexus-page-publisher-invite__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+[data-theme="dark"] .nexus-page-publisher-invite__btn {
+  background: color-mix(in srgb, var(--color-accent-user) 14%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 38%, var(--puck-color-grey-08));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-user) 16%, transparent);
+  color: color-mix(in srgb, var(--color-accent-user) 72%, var(--puck-color-white));
+}
+
+[data-theme="dark"] .nexus-page-publisher-invite__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent-user) 24%, var(--puck-color-grey-11));
+  border-color: color-mix(in srgb, var(--color-accent-user) 52%, var(--puck-color-grey-08));
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-publisher-settings,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-publisher-settings {
+  margin-top: 4px;
+}
+
+.Puck .nexus-plugin-field-surface .nexus-field-category .nexus-page-path-preview,
+.Puck [class*="FieldsPlugin"] .nexus-field-category .nexus-page-path-preview {
+  margin-inline: 0;
+  padding-inline: var(--nexus-plugin-leaf-pad-inline);
 }
 
 .nexus-page-slug-error {
@@ -6978,9 +9069,15 @@ body.nexus-outline-pointer-dragging {
     background: transparent !important;
     isolation: isolate;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     position: relative;
     z-index: 1;
+  }
+
+  html[data-nexus-puck-preview-mode="interactive"] .Puck [class*="PuckCanvas--fullScreen"] {
+    overflow-y: hidden !important;
   }
 
   /*

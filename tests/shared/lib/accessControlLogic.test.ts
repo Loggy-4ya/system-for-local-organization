@@ -12,10 +12,14 @@ import {
   DEFAULT_ACCESS_CONTROL_SETTINGS,
   type AccessLevelIndex,
   outranksInHierarchy,
+  meetsOrOutranksInHierarchy,
 } from "@shared/constants/accessControl";
 import {
   canDelegatePermission,
   canManageUserAccess,
+  canActorAssignAccessLevel,
+  canActorAssignSociumRoles,
+  canActorEditProfile,
   hasPermission,
   inferAccessLevelIndex,
   resolveEffectivePermissions,
@@ -33,6 +37,18 @@ describe("outranksInHierarchy", () => {
   });
 });
 
+describe("meetsOrOutranksInHierarchy", () => {
+  it("returns true for same tier or lower targets", () => {
+    assert.equal(meetsOrOutranksInHierarchy(3, 3), true);
+    assert.equal(meetsOrOutranksInHierarchy(2, 6), true);
+  });
+
+  it("returns false when target outranks actor", () => {
+    assert.equal(meetsOrOutranksInHierarchy(4, 2), false);
+    assert.equal(meetsOrOutranksInHierarchy(6, 3), false);
+  });
+});
+
 describe("inferAccessLevelIndex", () => {
   it("maps Admin role to index 0", () => {
     assert.equal(inferAccessLevelIndex({ role: "Admin" }), 0);
@@ -47,6 +63,13 @@ describe("inferAccessLevelIndex", () => {
 
   it("defaults students to index 6", () => {
     assert.equal(inferAccessLevelIndex({ role: "Student" }), 6);
+  });
+
+  it("maps legacy Admin to index 0 even when accessLevelIndex was never backfilled", () => {
+    assert.equal(
+      inferAccessLevelIndex({ role: "Admin", accessLevelIndex: 6 as AccessLevelIndex }),
+      0,
+    );
   });
 });
 
@@ -100,6 +123,25 @@ describe("canManageUserAccess", () => {
     assert.equal(canManageUserAccess(actor, target, DEFAULT_ACCESS_CONTROL_SETTINGS), true);
   });
 
+  it("allows institution admin to manage peer at the same tier", () => {
+    const actor = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 2 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+    const peer = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 2 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+
+    assert.equal(canManageUserAccess(actor, peer, DEFAULT_ACCESS_CONTROL_SETTINGS), true);
+  });
+
   it("denies when actor does not outrank target", () => {
     const actor = {
       role: "Student" as const,
@@ -117,6 +159,95 @@ describe("canManageUserAccess", () => {
     };
 
     assert.equal(canManageUserAccess(actor, target, DEFAULT_ACCESS_CONTROL_SETTINGS), false);
+  });
+
+  it("allows legacy Admin to manage any target user", () => {
+    const admin = {
+      role: "Admin" as const,
+      accessLevelIndex: 0 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+    const peerAdmin = {
+      role: "Admin" as const,
+      accessLevelIndex: 0 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+
+    assert.equal(canManageUserAccess(admin, peerAdmin, DEFAULT_ACCESS_CONTROL_SETTINGS), true);
+  });
+});
+
+describe("canActorAssignAccessLevel", () => {
+  it("allows legacy Admin to assign tiers 1–6", () => {
+    const admin = {
+      role: "Admin" as const,
+      accessLevelIndex: 0 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+    const student = {
+      role: "Student" as const,
+      accessLevelIndex: 6 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+
+    assert.equal(
+      canActorAssignAccessLevel(admin, student, 1, DEFAULT_ACCESS_CONTROL_SETTINGS),
+      true,
+    );
+    assert.equal(
+      canActorAssignAccessLevel(admin, student, 0, DEFAULT_ACCESS_CONTROL_SETTINGS),
+      false,
+    );
+  });
+});
+
+describe("canActorEditProfile", () => {
+  it("allows peers at the same hierarchy tier when permission is granted", () => {
+    const actor = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 2 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+    const peer = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 2 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+
+    assert.equal(canActorEditProfile(actor, peer, DEFAULT_ACCESS_CONTROL_SETTINGS), true);
+  });
+});
+
+describe("canActorAssignSociumRoles", () => {
+  it("allows peers at the same tier when permission is granted", () => {
+    const actor = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 1 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+    const peer = {
+      role: "StudentCouncil" as const,
+      accessLevelIndex: 1 as AccessLevelIndex,
+      delegatedPermissions: [],
+      sociumRoles: [],
+      studentTitle: null,
+    };
+
+    assert.equal(canActorAssignSociumRoles(actor, peer, DEFAULT_ACCESS_CONTROL_SETTINGS), true);
   });
 });
 

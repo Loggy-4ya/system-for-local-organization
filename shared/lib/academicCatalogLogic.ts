@@ -51,6 +51,50 @@ export function isApprovedAcademicLabel(
 }
 
 /**
+ * Format specialty and group for profile and directory subtitles (`SE-42`).
+ *
+ * @param specialty - Letter specialty code stored on the user.
+ * @param group - Numeric group stored on the user.
+ * @returns Combined label or null when both are empty.
+ */
+export function formatAcademicGroupSpecialtyLabel(
+  specialty: string | null | undefined,
+  group: string | null | undefined,
+): string | null {
+  const spec = normalizeAcademicLabel(specialty ?? null);
+  const grp = normalizeAcademicLabel(group ?? null);
+
+  if (spec && grp) return `${spec}-${grp}`;
+  if (spec) return spec;
+  if (grp) return grp;
+  return null;
+}
+
+/**
+ * Whether a value is a valid specialty letter code (no digits).
+ *
+ * @param value - Candidate specialty code.
+ * @returns True when 2–12 letters only.
+ */
+export function isValidAcademicSpecialtyCode(value: string | null | undefined): boolean {
+  const normalized = normalizeAcademicLabel(value ?? null);
+  if (!normalized) return false;
+  return /^[A-Za-z]{2,12}$/.test(normalized);
+}
+
+/**
+ * Whether a value is a valid student group number.
+ *
+ * @param value - Candidate group number string.
+ * @returns True when 1–4 digits.
+ */
+export function isValidAcademicGroupNumber(value: string | null | undefined): boolean {
+  const normalized = normalizeAcademicLabel(value ?? null);
+  if (!normalized) return false;
+  return /^\d{1,4}$/.test(normalized);
+}
+
+/**
  * Describe a catalog kind for admin UI copy.
  *
  * @param kind - Specialty or group.

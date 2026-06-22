@@ -1,26 +1,25 @@
 /**
  * @fileoverview Puck catch-all Server Component page for Project Nexus.
  *
- * This page handles two URL patterns via the `[...puckPath]` catch-all segment:
- *
- *  - `/edit`              → Redirects to Page Manager (homepage is code-only, not Puck).
- *  - `/foo/edit`          → Puck editor for `/foo`.
- *
- * The Server Component loads data from MongoDB so the initial HTML can be
- * rendered on the server (ISR-compatible). The Client Component
- * (`./client.tsx`) receives the serialised data as props.
- *
  * @module src/app/[...puckPath]/page
  */
 
 import { notFound, redirect } from "next/navigation";
-import connectDB    from "@shared/lib/db";
-import Page         from "@shared/models/Page";
+import connectDB from "@shared/lib/db";
+import Page from "@shared/models/Page";
 import type { Data } from "@puckeditor/core";
 import { auth } from "@/auth";
-import { shouldShowPageEditFab } from "@/lib/pageEditAccess";
+import {
+  canUserEditPageDoc,
+  shouldShowPageEditFab,
+} from "@/lib/pageEditAccess";
 import { PuckClient } from "./client";
 import { isBuiltinAppRoutePath } from "@/components/puck/lib/pageSlugValidation";
+import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
+import { AuthDomain } from "@shared/domains/AuthDomain";
+import { PageDomain } from "@shared/domains/PageDomain";
+import { canManagePageAccess } from "@shared/lib/pageAccessLogic";
+import { resolveUserDisplayLabel } from "@shared/lib/userSociumHelpers";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -31,18 +30,15 @@ import { isBuiltinAppRoutePath } from "@/components/puck/lib/pageSlugValidation"
  * @returns Object containing the normalised path string and `isEditing` flag.
  */
 function resolvePath(segments: string[]): { path: string; isEditing: boolean } {
-  // `/foo/edit` triggers editor mode for `/foo`
   if (segments.at(-1) === "edit") {
     return {
-      path:      "/" + segments.slice(0, -1).join("/"),
+      path: "/" + segments.slice(0, -1).join("/"),
       isEditing: true,
     };
   }
 
   return { path: "/" + segments.join("/"), isEditing: false };
 }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 /** Next.js App Router page params shape. */
 interface PageParams {
@@ -78,26 +74,103 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
   }
 
   let data: Data | null = null;
-  let pageTitle: string = "Untitled Page";
+  let pageTitle = "Untitled Page";
+  let pageCategories: string[] = [];
+  let pageMetadata = PageDomain.toMetadataDto({
+    path,
+    title: pageTitle,
+    published: false,
+    categories: [],
+    description: "",
+    coverImage: "",
+    authorUserId: undefined,
+    publishAt: null,
+    commentsEnabled: true,
+    viewCount: 0,
+    likeCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    delegatedEditorUserIds: [],
+  });
+
+  let doc: Awaited<ReturnType<typeof Page.findOne>> = null;
 
   try {
     await connectDB();
-    const doc = await Page.findOne({ path }).lean();
+    doc = await Page.findOne({ path }).lean();
     if (doc) {
       data = doc.puckData as Data;
       pageTitle = doc.title || "Untitled Page";
+      pageCategories = doc.categories ?? [];
+      const authorDisplayName = await PageDomain.resolveAuthorDisplayName(
+        doc.authorUserId ? String(doc.authorUserId) : null,
+      );
+      pageMetadata = PageDomain.toMetadataDto(doc, authorDisplayName, {
+        delegatedEditors: await PageDomain.resolveDelegatedEditorEntries(
+          (doc.delegatedEditorUserIds ?? []).map(String),
+        ),
+        isPersisted: true,
+      });
     }
   } catch (err) {
     console.error("[PuckPage] DB error:", err);
   }
 
-  // 404 for viewer mode when the page is not found or not published
+  const session = await auth();
+  let permissions: Awaited<ReturnType<typeof AccessControlDomain.resolvePermissionsForUser>> = [];
+  let actor: ReturnType<typeof PageDomain.buildEditActor> | null = null;
+  if (session?.user?.id) {
+    const user = await AuthDomain.getUserById(session.user.id);
+    if (user) {
+      permissions = await AccessControlDomain.resolvePermissionsForUser(user);
+      actor = PageDomain.buildEditActor(user, permissions);
+      if (isEditing && !pageMetadata.authorUserId) {
+        const publicUser = AuthDomain.toPublicUser(user);
+        const authorDisplayName = resolveUserDisplayLabel({
+          name: publicUser.name,
+          surname: publicUser.surname,
+          login: publicUser.login,
+        });
+        if (authorDisplayName) {
+          pageMetadata = {
+            ...pageMetadata,
+            authorUserId: session.user.id,
+            authorDisplayName,
+          };
+        }
+      }
+    }
+  }
+
+  const ownership = doc ? PageDomain.toOwnershipSlice(doc) : null;
+  pageMetadata = {
+    ...pageMetadata,
+    path,
+    isPersisted: Boolean(doc),
+    canManagePageAccess: Boolean(actor && isEditing && canManagePageAccess(actor, ownership)),
+  };
+  const canEdit = canUserEditPageDoc(session, permissions, ownership);
+
+  if (isEditing && !canEdit) {
+    notFound();
+  }
+
+  const isPublic = doc ? PageDomain.isPubliclyVisible(doc) : false;
+
   if (!isEditing && !data) {
     notFound();
   }
 
-  const session = await auth();
-  const showPageEditFab = shouldShowPageEditFab(session, path, isEditing);
+  if (!isEditing && doc && !isPublic && !canEdit) {
+    notFound();
+  }
+
+  const showPageEditFab = shouldShowPageEditFab(canEdit, path, isEditing);
+
+  let initialLiked = false;
+  if (session?.user?.id && doc) {
+    initialLiked = await PageDomain.hasUserLiked(path, session.user.id);
+  }
 
   return (
     <PuckClient
@@ -105,8 +178,13 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
       path={path}
       data={data}
       pageTitle={pageTitle}
+      pageCategories={pageCategories}
+      pageMetadata={pageMetadata}
       isEditing={isEditing}
       showPageEditFab={showPageEditFab}
+      initialLiked={initialLiked}
+      canLike={Boolean(session?.user?.id)}
+      isPublicView={isPublic}
     />
   );
 }

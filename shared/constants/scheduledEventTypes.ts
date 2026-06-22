@@ -15,6 +15,14 @@ export const SCHEDULED_EVENT_TYPES = {
   broadcast_send: "broadcast_send",
   /** Reminders for task deadlines. */
   task_reminder: "task_reminder",
+  /** Long-run reminders for multi-part task groups. */
+  task_group_reminder: "task_group_reminder",
+  /** institutional calendar rule */
+  institutional_calendar: "institutional_calendar",
+  /** Provision Telegram workspace for a task group project. */
+  telegram_workspace_provision: "telegram_workspace_provision",
+  /** Dismantle Telegram workspace when project completes. */
+  telegram_workspace_dismantle: "telegram_workspace_dismantle",
   /** Automatic overdue task escalation/triggers. */
   task_overdue: "task_overdue",
 } as const;
@@ -30,6 +38,10 @@ export const SCHEDULED_EVENT_TYPE_LABELS: Record<ScheduledEventType, string> = {
   publish_page: "Scheduled page publishing",
   broadcast_send: "Scheduled system broadcast",
   task_reminder: "Task deadline reminder",
+  task_group_reminder: "Task group project reminder",
+  institutional_calendar: "Institutional calendar rule",
+  telegram_workspace_provision: "Telegram project workspace provisioning",
+  telegram_workspace_dismantle: "Telegram project workspace dismantle",
   task_overdue: "Overdue task trigger",
 };
 

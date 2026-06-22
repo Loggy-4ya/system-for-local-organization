@@ -26,6 +26,8 @@ export interface SignupFormDraft {
   signupSociumRole: SignupSociumRole;
   applyForSelfGovernment: boolean;
   personalDataConsent: boolean;
+  /** Local blob preview URL — not restored after reload (pending file is in React state only). */
+  avatar: string;
 }
 
 /**
@@ -104,6 +106,7 @@ export function resolveSignupFormInitialState(params: {
     signupSociumRole: draft?.signupSociumRole ?? "Student",
     applyForSelfGovernment: draft?.applyForSelfGovernment ?? false,
     personalDataConsent: draft?.personalDataConsent ?? false,
+    avatar: draft?.avatar ?? "",
   };
 }
 

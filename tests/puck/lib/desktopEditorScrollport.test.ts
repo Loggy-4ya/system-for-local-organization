@@ -21,17 +21,29 @@ const PUCK_EDITOR_CSS = readFileSync(
 
 describe("desktopEditorScrollport", () => {
   it("matchesDesktopEditorLayout is false below 901px", () => {
-    const mq = {
-      matches: false,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-
     const win = {
-      matchMedia: () => mq,
+      innerWidth: 800,
+      matchMedia: (query: string) => ({
+        matches: query.includes("min-width: 901px") ? false : true,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
     } as Window;
 
     assert.equal(matchesDesktopEditorLayout(win), false);
+  });
+
+  it("matchesDesktopEditorLayout is true at 901px and above", () => {
+    const win = {
+      innerWidth: 1024,
+      matchMedia: (query: string) => ({
+        matches: query.includes("min-width: 901px"),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    } as Window;
+
+    assert.equal(matchesDesktopEditorLayout(win), true);
   });
 
   it("puck-editor.css keeps fixed presets centered and layout shell transparent", () => {

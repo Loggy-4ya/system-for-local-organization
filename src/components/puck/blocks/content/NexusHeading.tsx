@@ -14,12 +14,13 @@ import {
   legacyColorTypeToToken,
   resolveNexusColor,
 } from "../../lib/nexusColorTokens";
+import { useInterpolatedNexusValue } from "../../lib/nexusPageVariablesContext";
 import { resolveBlockTypography, type FontFamilyToken, type FontWeightToken } from "../../lib/nexusTypography";
 
 export const NexusHeading = {
   label: "Heading",
   fields: {
-    text: { type: "text" as const, label: "Heading Text" },
+    text: { type: "text" as const, label: "Heading Text", description: "Use ${{ title }} and other page variables." },
     level: {
       type: "radio" as const,
       label: "Heading Level",
@@ -83,6 +84,7 @@ export const NexusHeading = {
     fontFamily?: FontFamilyToken;
     fontWeight?: FontWeightToken;
   }) {
+    const resolvedText = useInterpolatedNexusValue(text);
     const Tag = level;
     const token = colorPreset || legacyColorTypeToToken(colorType, customColor);
     const typography = resolveBlockTypography("NexusHeading", fontFamily, fontWeight);
@@ -107,7 +109,7 @@ export const NexusHeading = {
           width: "100%",
         }}
       >
-        {text}
+        {resolvedText}
       </Tag>
     );
   },

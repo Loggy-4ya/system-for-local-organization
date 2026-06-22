@@ -13,6 +13,7 @@ import {
   canPublishCommunityContent,
   ensureQualityScoresInitialized,
   formatUserFullName,
+  resolveUserDisplayLabel,
   syncSociumRolesFromStudentTitle,
   buildSociumRoleAssignment,
 } from "@shared/lib/userSociumHelpers";
@@ -24,6 +25,19 @@ describe("formatUserFullName", () => {
 
   it("returns name only when surname is null", () => {
     assert.equal(formatUserFullName("Ada", null), "Ada");
+  });
+});
+
+describe("resolveUserDisplayLabel", () => {
+  it("prefers full name over login", () => {
+    assert.equal(
+      resolveUserDisplayLabel({ name: "Ada", surname: "Lovelace", login: "alovelace" }),
+      "Ada Lovelace",
+    );
+  });
+
+  it("falls back to login when name parts are empty", () => {
+    assert.equal(resolveUserDisplayLabel({ name: " ", surname: null, login: "alovelace" }), "alovelace");
   });
 });
 

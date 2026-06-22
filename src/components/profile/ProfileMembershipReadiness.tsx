@@ -9,6 +9,8 @@ import type { PublicUser } from "@shared/domains/AuthDomain";
 import {
   buildProfileCompletenessSummary,
   PROFILE_FIELD_LABELS,
+  SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT,
+  SELF_GOVERNMENT_MEMBER_PROFILE_HINT,
 } from "@shared/lib/userProfileCompleteness";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,7 +33,10 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     phone: user.phone,
     specialty: user.specialty,
     group: user.group,
+    avatar: user.avatar,
     sociumRoles: user.sociumRoles,
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+    telegramId: user.telegramId,
   });
 
   if (summary.isSelfGovernmentMember && summary.readyForMembershipApplication) {
@@ -45,9 +50,10 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
           Complete your member profile
         </h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Self-government members must keep contact details up to date. Please fill in:
-          {" "}
-          {summary.missingFieldLabels.join(", ")}.
+          {SELF_GOVERNMENT_MEMBER_PROFILE_HINT}
+        </p>
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+          Still missing: {summary.missingFieldLabels.join(", ")}.
         </p>
         <Link
           href="/profile/settings"
@@ -63,9 +69,17 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     return (
       <section className="glass-panel rounded-[var(--radius-md)] p-4 text-sm text-[var(--color-text-secondary)]">
         <p>
-          Your profile is ready for a self-government membership application. Phone and academic
-          details are on file.
+          Your profile includes all fields required for a self-government membership application.
+          {user.selfGovernmentApplicationIntent
+            ? " Your application is pending reviewer approval."
+            : " Submit your application when you are ready."}
         </p>
+        <Link
+          href="/profile/membership"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3 inline-flex")}
+        >
+          {user.selfGovernmentApplicationIntent ? "View application" : "Apply for membership"}
+        </Link>
       </section>
     );
   }
@@ -76,24 +90,27 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
         Before applying for self-government membership
       </h2>
       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-        Complete the following in your profile — phone number is especially important for members:
+        {SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT}
       </p>
       <ul className="mt-2 list-disc pl-5 text-sm text-[var(--color-text-secondary)]">
         {summary.missingFields.map((field) => (
           <li key={field}>{PROFILE_FIELD_LABELS[field]}</li>
         ))}
       </ul>
-      {!user.phone && (
-        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-          Phone is optional for regular students but strongly recommended for council coordination.
-        </p>
-      )}
-      <Link
-        href="/profile/settings"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3 inline-flex")}
-      >
-        Complete profile
-      </Link>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href="/profile/settings"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "inline-flex")}
+        >
+          Complete profile
+        </Link>
+        <Link
+          href="/profile/membership"
+          className={cn(buttonVariants({ size: "sm" }), "inline-flex")}
+        >
+          Membership application
+        </Link>
+      </div>
     </section>
   );
 }

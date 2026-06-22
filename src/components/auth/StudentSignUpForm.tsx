@@ -23,6 +23,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Spinner } from "@/components/ui/spinner";
 import { submitStudentSignup } from "@/lib/credentialsAuthClient";
+import { markAuthSessionForNotificationPrompt } from "@/lib/webNotificationPermission";
 import {
   clearSignupFormDraft,
   readSignupFormDraft,
@@ -34,6 +35,12 @@ import {
 import { signupSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
+import { filterPhoneInputChange, phoneInputProps } from "@/lib/phoneInputProps";
+import { AvatarImageField } from "@/components/media/AvatarImageField";
+import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
+import { avatarIsRequiredAtSignup, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_APPLICATION_FIELD_HINT, SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, telegramIsRequiredAtSignup } from "@shared/lib/userProfileCompleteness";
+import { TelegramConnectField } from "@/components/auth/TelegramConnectField";
+import { useContentPolicyFields } from "@/lib/useContentPolicyField";
 
 /**
  * Student registration form with credentials and OAuth options.
@@ -73,12 +80,16 @@ export function StudentSignUpForm() {
   const [applyForSelfGovernment, setApplyForSelfGovernment] = useState(
     urlInitial.applyForSelfGovernment,
   );
+  const [avatar, setAvatar] = useState(urlInitial.avatar);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [personalDataConsent, setPersonalDataConsent] = useState(urlInitial.personalDataConsent);
+  const [telegramAuth, setTelegramAuth] = useState<TelegramWidgetPayload | null>(null);
   const [specialtyOptions, setSpecialtyOptions] = useState<string[]>([]);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(initialError);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const { validateField, fieldError, clearLiveErrors } = useContentPolicyFields();
 
   /** Restore a saved draft once after mount (avoids SSR/client hydration mismatch). */
   useEffect(() => {
@@ -97,6 +108,7 @@ export function StudentSignUpForm() {
     setGroup(restored.group);
     setSignupSociumRole(restored.signupSociumRole);
     setApplyForSelfGovernment(restored.applyForSelfGovernment);
+    setAvatar(restored.avatar);
     setPersonalDataConsent(restored.personalDataConsent);
     // Intentionally run once on mount — draft must not overwrite in-progress edits later.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,6 +142,9 @@ export function StudentSignUpForm() {
     stripSignupErrorQueryParam(errorParam);
   }, [errorParam]);
 
+  const avatarRequired = avatarIsRequiredAtSignup(applyForSelfGovernment);
+  const telegramRequired = telegramIsRequiredAtSignup(applyForSelfGovernment);
+
   /**
    * Snapshot current form values for retry after a failed submission.
    *
@@ -149,6 +164,7 @@ export function StudentSignUpForm() {
       signupSociumRole,
       applyForSelfGovernment,
       personalDataConsent,
+      avatar: avatar.startsWith("blob:") ? "" : avatar,
     };
   }
 
@@ -161,6 +177,21 @@ export function StudentSignUpForm() {
     e.preventDefault();
     setFormError(null);
     setFieldErrors({});
+    clearLiveErrors();
+
+    if (avatarRequired && !pendingAvatarFile && !avatar.trim()) {
+      setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
+      setFormError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      writeSignupFormDraft(currentSignupDraft());
+      return;
+    }
+
+    if (telegramRequired && !telegramAuth) {
+      setFieldErrors({ telegramAuth: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
+      setFormError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      writeSignupFormDraft(currentSignupDraft());
+      return;
+    }
 
     const result = signupSchema.safeParse({
       login,
@@ -170,11 +201,13 @@ export function StudentSignUpForm() {
       name: name || undefined,
       surname: surname || null,
       phone: phone || null,
+      avatar: avatar.startsWith("blob:") ? null : avatar || null,
       specialty: specialty || null,
       group: group || null,
       signupSociumRole,
       applyForSelfGovernment,
       personalDataConsent,
+      telegramAuth,
     });
 
     if (!result.success) {
@@ -189,7 +222,12 @@ export function StudentSignUpForm() {
     writeSignupFormDraft(currentSignupDraft());
 
     try {
-      const authResult = await submitStudentSignup(result.data, confirmPassword);
+      const authResult = await submitStudentSignup(
+        result.data,
+        confirmPassword,
+        pendingAvatarFile,
+        telegramAuth,
+      );
       if (!authResult.ok) {
         setFormError(authResult.error ?? getAuthErrorMessage("default"));
         if (authResult.fieldErrors) {
@@ -200,6 +238,8 @@ export function StudentSignUpForm() {
       }
 
       clearSignupFormDraft();
+      clearLiveErrors();
+      markAuthSessionForNotificationPrompt();
       router.push("/profile");
       router.refresh();
     } catch {
@@ -218,6 +258,12 @@ export function StudentSignUpForm() {
             {formError}
           </FormAlert>
         )}
+
+        {applyForSelfGovernment ? (
+          <FormAlert variant="info" className="auth-shell__alert">
+            {SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT}
+          </FormAlert>
+        ) : null}
 
         <FormField
           label="Login"
@@ -260,7 +306,7 @@ export function StudentSignUpForm() {
           <FormField
             label="First name"
             htmlFor="signup-name"
-            error={fieldErrors.name}
+            error={fieldError("name", fieldErrors.name)}
           >
             <Input
               id="signup-name"
@@ -269,6 +315,7 @@ export function StudentSignUpForm() {
               autoComplete="given-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => validateField("name", name, "plain-text")}
               disabled={loading}
             />
           </FormField>
@@ -276,7 +323,8 @@ export function StudentSignUpForm() {
           <FormField
             label="Surname"
             htmlFor="signup-surname"
-            error={fieldErrors.surname}
+            error={fieldError("surname", fieldErrors.surname)}
+            hint={applyForSelfGovernment ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT : undefined}
           >
             <Input
               id="signup-surname"
@@ -285,26 +333,31 @@ export function StudentSignUpForm() {
               autoComplete="family-name"
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
+              onBlur={() => validateField("surname", surname, "plain-text")}
               disabled={loading}
             />
           </FormField>
         </div>
 
         <FormField
-          label="Phone"
+          label="Phone number"
           htmlFor="signup-phone"
           error={fieldErrors.phone}
-          hint="Optional but recommended. Required if you apply for self-government membership."
+          hint={
+            applyForSelfGovernment
+              ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+              : "Optional but recommended for general students."
+          }
         >
           <Input
             id="signup-phone"
             name="phone"
-            type="tel"
-            autoComplete="tel"
+            {...phoneInputProps}
             placeholder="+380 XX XXX XX XX"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(filterPhoneInputChange(e.target.value))}
             disabled={loading}
+            required={applyForSelfGovernment}
           />
         </FormField>
 
@@ -339,13 +392,18 @@ export function StudentSignUpForm() {
           <FormField
             label="Specialty"
             htmlFor="signup-specialty"
-            error={fieldErrors.specialty}
-            hint="Pick from the list or type a new specialty — admins review new entries."
+            error={fieldError("specialty", fieldErrors.specialty)}
+            hint={
+              applyForSelfGovernment
+                ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+                : "Pick from the list or type a new specialty — admins review new entries."
+            }
           >
             <CreatableCatalogSelect
               id="signup-specialty"
               value={specialty}
               onChange={setSpecialty}
+              onBlur={() => validateField("specialty", specialty, "plain-text")}
               options={specialtyOptions}
               placeholder="e.g. Software Engineering"
               disabled={loading}
@@ -356,7 +414,11 @@ export function StudentSignUpForm() {
             label="Group"
             htmlFor="signup-group"
             error={fieldErrors.group}
-            hint="Pick from the list or enter your group number — admins review new entries."
+            hint={
+              applyForSelfGovernment
+                ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+                : "Pick from the list or enter your group number — admins review new entries."
+            }
           >
             <CreatableCatalogSelect
               id="signup-group"
@@ -376,6 +438,27 @@ export function StudentSignUpForm() {
           disabled={loading}
         />
 
+        <FormField
+          label="Profile photo"
+          htmlFor="signup-avatar-file"
+          error={fieldErrors.avatar}
+          hint={
+            applyForSelfGovernment
+              ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+              : "Optional — upload now or add later in profile settings."
+          }
+        >
+          <AvatarImageField
+            id="signup-avatar-file"
+            value={avatar}
+            onChange={setAvatar}
+            deferUpload
+            pendingFile={pendingAvatarFile}
+            onPendingFileChange={setPendingAvatarFile}
+            disabled={loading}
+          />
+        </FormField>
+
         <div className="flex flex-col gap-3 rounded-lg border border-(--color-border-default) bg-(--color-bg-panel) p-4">
           <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-primary)">
             <input
@@ -389,6 +472,8 @@ export function StudentSignUpForm() {
               I want to apply for membership in the student self-government
               <span className="mt-1 block text-xs text-(--color-text-secondary)">
                 This records your intent only. Administrators review applications and assign roles.
+                When checked, every item in the requirements notice — including a linked Telegram
+                account — must be completed before you submit.
               </span>
             </span>
           </label>
@@ -417,6 +502,22 @@ export function StudentSignUpForm() {
           )}
         </div>
 
+        {applyForSelfGovernment ? (
+          <FormField
+            label="Telegram"
+            error={fieldErrors.telegramAuth}
+            hint={SELF_GOVERNMENT_APPLICATION_FIELD_HINT}
+            required
+          >
+            <TelegramConnectField
+              value={telegramAuth}
+              onChange={setTelegramAuth}
+              disabled={loading}
+              error={fieldErrors.telegramAuth}
+            />
+          </FormField>
+        ) : null}
+
         <Button type="submit" className="mt-2 h-12 w-full" disabled={loading}>
           {loading ? (
             <>
@@ -437,6 +538,11 @@ export function StudentSignUpForm() {
       </form>
 
       <OAuthButtonRow callbackUrl="/profile" />
+
+      <p className="text-center text-xs text-(--color-text-secondary)">
+        Signing up with Telegram below also satisfies the self-government Telegram requirement when
+        you complete the same profile fields.
+      </p>
     </AuthShell>
   );
 }

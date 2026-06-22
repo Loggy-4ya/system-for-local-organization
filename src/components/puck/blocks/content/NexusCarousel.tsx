@@ -22,6 +22,7 @@ import {
   formatCarouselSlideLabel,
   ensureCarouselSlideLabels,
 } from "../../lib/carouselSlideLabels";
+import { resolveCompositeSlideFromSlotContent } from "../../lib/carouselMediaFill";
 import {
   DISALLOW_NEXUS_CAROUSEL,
   DISALLOW_NEXUS_GRID_ITEM,
@@ -168,18 +169,28 @@ export const NexusCarousel = {
       trigger: "insert" | "replace" | "load" | "move" | "force";
     },
   ) => {
+    const slidesWithComposite = props.slides.map((slide) => ({
+      ...slide,
+      compositeLayout: resolveCompositeSlideFromSlotContent(slide.content),
+    }));
+
     const shouldEnsureLabels =
       params.trigger === "load" || params.trigger === "insert";
 
     const slides = shouldEnsureLabels
-      ? ensureCarouselSlideLabels(props.slides)
-      : props.slides;
+      ? ensureCarouselSlideLabels(slidesWithComposite)
+      : slidesWithComposite;
 
     const shouldNormalizeSize =
       params.trigger === "load" || params.trigger === "insert";
 
     if (!shouldEnsureLabels && !shouldNormalizeSize) {
-      return { props };
+      return {
+        props: {
+          ...props,
+          slides,
+        },
+      };
     }
 
     return {
@@ -194,10 +205,15 @@ export const NexusCarousel = {
   },
   render: (props: CarouselRenderProps) => {
     const size = resolveSizeProps(props);
+    const slideCompositeFlags = props.slides.map((slide) =>
+      (slide as { compositeLayout?: boolean }).compositeLayout === true ||
+      resolveCompositeSlideFromSlotContent(slide.content),
+    );
     return (
       <NexusCarouselRender
         id={props.id}
         slides={props.slides as unknown as NexusCarouselRenderProps["slides"]}
+        slideCompositeFlags={slideCompositeFlags}
         autoplay={props.autoplay}
         intervalSeconds={props.intervalSeconds}
         showArrows={props.showArrows}

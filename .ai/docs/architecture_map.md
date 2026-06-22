@@ -21,18 +21,29 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `public/uploads/general/` | Fallback uploads when purpose is `general` | Generic media | Purpose-specific assets |
 | `tests/` | Automated test suites only | `*.test.ts` mirroring source tree (`tests/puck/lib/`, …); Playwright `*.spec.ts` under `tests/e2e/` | Application runtime code, React components, fixtures unrelated to a registered suite |
 | `.ai/docs/` | Living architectural truth and feature specs | Markdown specs, roadmap, structure maps, [testing.md](./testing.md) test registry | Application runtime code |
+| `.ai/docs/README.md` | Documentation index — entry point for agents and developers | Links to roadmap, architecture map, **production_readiness.md** | Application runtime code |
+| `.ai/docs/production_readiness.md` | Production deploy checklist and deferred/future work tracker | Go-live verification, env reference, planned follow-ups | Application runtime code |
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
 | `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
 | `.cursor/rules/` | File-targeted Cursor agent rules (`.mdc`) | Puck sidebar chapter policy, file-specific constraints | Runtime `.ts` / `.tsx`, tests |
 | `scripts/` | CLI maintenance jobs (orphan upload cleanup, future migrations) | `*.ts` runnable via `npm run job:*` | Application UI, long-running servers |
-| `docker-compose.yml` | Container orchestration for stateless services | Service definitions, env wiring | Application logic |
+| `docker-compose.yml` | Container orchestration for stateless services | Service definitions, env wiring (`NEXUS_HOSTING_MODE=vps`) | Application logic |
+| `.env.example` | Full environment variable reference (master catalogue) | Active |
+| `.env.vps.example` | VPS/Docker profile with bundled MongoDB (local dev) | Active |
+| `.env.vps-external-db.example` | VPS/Docker profile with external MongoDB (Atlas, remote host) | Active |
+| `.env.vercel.example` | Vercel serverless deployment profile template | Active |
+| `.env.hybrid.example` | Hybrid (Vercel web + telegram-worker) profile template | Active |
+| `docker-compose.bundled-db.yml` | Compose override — wait for bundled `db` health before web | Active |
+| `vercel.json` | Vercel cron schedules for scheduled-events and media cleanup | Active |
 
 ## `src/` Sub-directories
 
 | Path | Purpose | Status |
 |------|---------|--------|
 | `src/app/` | App Router routes, root layout, API handlers | Active |
-| `src/app/loading.tsx` | Root Suspense fallback — `SiteLoader` over layout InfiniteGrid | Active |
+| `src/app/loading.tsx` | Root Suspense fallback — `SiteLoader` with soft refresh + reload recovery | Active |
+| `src/components/navigation/RouteNavigationRecoveryHost.tsx` | `popstate` / bfcache `pageshow` hooks — fast `router.refresh()` on history nav | Active |
+| `src/lib/routeLoaderRecoveryLogic.ts` | Back-navigation detection and stuck-loader recovery delay tiers | Active |
 | `src/app/layout.tsx` | Root layout: Inter font, ThemeProvider, InfiniteGrid, GlobalHeader | Active |
 | `src/app/not-found.tsx` | Custom 404 — compact `StaticPageShell` so global footer stays in viewport (replaces Next.js `100vh` default) | Active |
 | `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.); spacing scale (`--spacing-sm` = default root-level Puck block vertical margin) | Active |
@@ -40,16 +51,27 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
 | `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
+| `src/app/pages/join/[token]/` | Publisher invite redemption — adds delegate and redirects to Puck editor | Active |
 | `src/app/admin/` | Administration hub — area picker at `/admin` | Active |
 | `src/app/admin/global-layout/` | Admin Global Layout Editor page | Active |
 | `src/app/admin/user-access/` | Admin User Access & permissions matrix editor | Active |
 | `src/app/admin/users/` | Admin User Directory page | Active |
+| `src/app/admin/logs/` | Multi-section system audit logs (`/admin/logs`) | Active |
+| `src/app/admin/security-audits/` | Legacy redirect → `/admin/logs?section=content-sanitization` | Active |
 | `src/app/api/puck/` | REST API for loading/saving/deleting Puck page layouts to MongoDB | Active |
+| `src/app/api/pages/categories/` | GET distinct page category labels for Puck editor autocomplete | Active |
+| `src/app/api/pages/publisher-invite/` | POST create publisher invite link for a persisted page | Active |
+| `src/app/api/pages/view/` | POST increment public page view count (anonymous allowed, cookie dedupe) | Active |
+| `src/app/api/pages/like/` | POST toggle authenticated user like on a published page | Active |
 | `src/app/api/editor-settings/` | REST API for singleton Puck editor settings (island default components) | Active |
 | `src/app/api/access-control/` | REST API for singleton access-control settings | Active |
 | `src/app/api/admin/broadcasts/` | POST institution-wide broadcast messages | Active |
 | `src/app/api/admin/users/` | REST API for searching, listing, and updating directory users | Active |
+| `src/app/api/admin/security-sanitize-audits/` | GET paginated Puck sanitization audit rows (legacy Admin) | Active |
+| `src/app/api/admin/user-directory-audits/` | GET paginated User Directory admin audit rows (legacy Admin) | Active |
 | `src/app/api/notifications/broadcasts/` | GET active web toasts; POST dismiss per user | Active |
+| `src/app/api/notifications/task-reminders/` | GET active task reminder toasts; POST dismiss per user | Active |
+| `src/app/api/notifications/web-prompt/` | GET/POST post-auth browser notification permission prompt | Active |
 | `src/app/api/global-layout/` | REST API for global layout settings | Active |
 | `src/app/api/upload/` | REST API for media uploads via {@link MediaDomain} | Active |
 | `src/app/api/upload/from-url/` | POST remote HTTPS image import → local storage via {@link MediaDomain.uploadFromUrl} | Active |
@@ -60,27 +82,48 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/app/(auth)/` | Authentication flows (`/login`, `/signup`) | Active |
 | `src/app/telegram/` | Telegram Mini App entry (`/telegram`) | Active |
 | `src/app/(profile)/` | User profile dashboard (`/profile`) and settings (`/profile/settings`) | Active |
+| `src/app/users/[userId]/` | Public member profile view (authenticated) | Active |
+| `src/app/tasks/` | Task manager list, create, and detail routes | Active |
+| `src/app/task-groups/` | Multi-part project list, create, detail (`plannedRoster`, Telegram workspace panel) | Active |
+| `src/app/api/task-groups/` | Task group CRUD, picker, per-group Telegram workspace PATCH | Active |
+| `src/app/api/users/search/` | GET user autocomplete (name, login, group, email) | Active |
+| `src/components/users/` | Reusable user search picker for tasks and forms | Active |
+| `src/app/api/tasks/` | Task list + create REST API | Active |
+| `src/app/api/tasks/[taskId]/` | Task detail, update, cancel + sub-action routes | Active |
+| `src/components/tasks/` | Task manager UI shells (list, create, detail) | Active |
 | `src/app/api/auth/` | Auth.js handler, register, Telegram widget + Mini App verify | Active |
 | `src/app/api/auth/signup-options/` | GET approved specialty/group labels for signup dropdowns | Active |
 | `src/app/api/telegram/` | Telegram Bot API webhook (`/api/telegram/webhook`) | Active |
 | `src/app/api/profile/completeness/` | GET membership profile readiness summary | Active |
-| `src/app/api/profile/` | PATCH user profile; DELETE `/api/profile/telegram` unlink | Active |
+| `src/app/(profile)/profile/membership/` | Self-government membership application submit/withdraw UI | Active |
+| `src/app/api/membership-application/` | GET/POST/DELETE applicant membership application status | Active |
+| `src/app/admin/membership-applications/` | Admin queue — approve/reject self-government applications | Active |
+| `src/app/api/admin/membership-applications/` | Paginated pending application list | Active |
+| `src/app/api/admin/membership-applications/[userId]/approve/` | POST approve application | Active |
+| `src/app/api/admin/membership-applications/[userId]/reject/` | POST reject application | Active |
+| `src/app/api/profile/` | GET/PATCH user profile; DELETE `/api/profile/telegram` unlink | Active |
+| `src/app/api/me/` | GET authenticated viewer basic profile for site chrome bootstrap | Active |
 | `src/app/api/mentions/` | Mention autocomplete for rich text editor (`/api/mentions/search`) | Active |
 | `src/auth.ts` | Auth.js configuration (providers, callbacks, session) | Active |
 | `src/auth.config.ts` | Edge-safe Auth.js config for middleware | Active |
-| `src/middleware.ts` | Route protection for `/profile/*`, `/admin/*`; `Accept-CH` for theme hints | Active |
+| `src/middleware.ts` | Route protection for `/profile/*`, `/admin/*`, `/tasks/*`, `/users/*`; `Accept-CH` for theme hints | Active |
 | `src/lib/resolveStoredThemeIsDark.ts` | SSR helper — resolves dark/light from theme cookie + color-scheme client hint | Active |
 | `src/components/auth/` | Auth UI: `AuthShell`, OAuth row, role chips, forms | Active |
 | `src/components/profile/` | Profile dashboard and settings components | Active |
-| `src/components/admin/` | Administration hub shell (`AdminHubShell`) | Active |
+| `src/components/admin/` | Administration hub shell (`AdminHubShell`), `AdminSystemLogsShell`, shared `AdminEditorActionToolbar` | Active |
 | `src/components/access-control/` | User access hierarchy & permission matrix editor UI | Active |
-| `src/components/ui/NexusSurfaceCard.tsx` | Reusable glass-panel link card (Puck-style, Tailwind) | Active |
-| `src/components/notifications/` | Site-wide broadcast toast host (`SiteBroadcastToastHost`) | Active |
+| `src/components/ui/pagination.tsx` | Shadcn pagination primitives | Active |
+| `src/components/ui/calendar.tsx` | Shadcn calendar (react-day-picker) for scheduled publish | Active |
+| `src/components/ui/NexusDateTimePicker.tsx` | Combined date + time picker for delayed page publishing | Active |
+| `src/components/media/SettingsMediaPreview.tsx` | Readable contain preview for settings upload fields | Active |
+| `src/components/puck/PageLikeButton.tsx` | Bottom-left heart like control on published pages | Active |
+| `src/components/notifications/` | `SiteNotificationToastStack`, `WebNotificationPermissionPromptHost` | Active |
 | `src/components/global-layout/` | Global Layout editor components (Header, Footer, Preview, IconPicker) | Active |
 | `src/components/` | Reusable UI primitives bound to design tokens | Active |
-| `src/components/background/` | `InfiniteGrid` dual-canvas client component (`isContained` + `isStatic` freezes scroll only); `infiniteGridIconLoader.ts` for WebKit-safe SVG rasterization; `logo-grid.svg` for both themes; `z-index:0` stacking | Active |
+| `src/components/background/` | `InfiniteGrid` dual-canvas client component (`isContained` + `isStatic` freezes scroll only); `LayoutInfiniteGrid.tsx` subscribes to `pageBackgroundGridStore.ts` for Puck page grid motion; `infiniteGridIconLoader.ts` for WebKit-safe SVG rasterization; `logo-grid.svg` for both themes; `z-index:0` stacking | Active |
 | `src/components/ui/` | Shared UI: Shadcn/Base UI primitives (`button`, `card`, `carousel`, `accordion`, `select`, `command`, `dialog`, `drawer`, `spinner`), `SiteLoader`, `GlobalHeader`, `SiteHeaderBar`, `ThemeProvider` | Active |
 | `src/components/editor/` | Site-wide TipTap rich text editor with `@` mentions (`NexusRichTextEditor`, `NexusRichTextView`, TipTap extensions) | Active |
+| `src/components/media/` | App-wide image crop dialog (`NexusImageCropHost`, preview masks, rotate/zoom) — see [image_crop_editor.md](./features/image_crop_editor.md) | Active |
 | `src/components/puck/` | Puck block registry (`config.tsx`) + individual block files | Active |
 | `src/components/puck/blocks/` | Puck block definitions grouped by category (layout, content, news, user) | Active |
 | `src/components/puck/fields/` | Custom Puck fields (`PageSettingsFieldGroup`, `PageAppearanceFieldGroup`, `CoverMediaFrame`, `PuckSelectField`, `TiptapField`, `MediaUploadField`, …) | Active |
@@ -88,7 +131,15 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/components/puck/root/` | Puck root page wrapper (`PageRoot.tsx`) | Active |
 | `src/lib/` | App-local utilities and constants (no React, no routes) — includes `mediaUploadClient.ts`, `assets.ts`, `dragAutoScrollLogic.ts`, `nexusEditor/` | Active |
 | `src/lib/nexusEditor/` | Rich text sanitizer, mention query client, slash command catalog for {@link NexusRichTextEditor} | Active |
-| `src/lib/mediaUploadClient.ts` | App-wide browser upload helper (`POST /api/upload` + purpose) | Active |
+| `src/lib/mediaUploadClient.ts` | App-wide browser upload helper (`POST /api/upload` + purpose); `uploadMediaFileWithCrop` opens crop dialog first | Active |
+| `src/lib/imageCropClient.ts` | Crop dialog entry (`cropImageFile`, `shouldOpenImageCropForFile`) | Active |
+| `src/lib/imageCropCanvas.ts` | Browser canvas export for rotated crops | Active |
+| `src/lib/nexusHostingBootstrap.ts` | Boot-time hosting validation, policy cache, abort on prod misconfig | Active |
+| `src/lib/nexusJobsConfig.ts` | Scheduler interval readers clamped by hosting policy | Active |
+| `src/instrumentation.ts` | Next.js boot hook — hosting bootstrap + in-process job schedulers | Active |
+| `src/app/api/admin/hosting-config/` | GET admin hosting mode, policy, warnings, errors | Active |
+| `src/app/admin/hosting/` | Admin hosting diagnostics page | Active |
+| `scripts/telegramWorker.ts` | MTProto worker poll loop (`npm run worker:telegram`) | Active |
 
 ## `tests/` Sub-directories
 
@@ -112,7 +163,11 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/models/UserEngagement.ts` | Community engagement stubs — comments, survey participation, published content feed | Active |
 | `shared/models/SystemBroadcast.ts` | Institution-wide broadcast messages | Active |
 | `shared/models/UserBroadcastReceipt.ts` | Per-user broadcast delivery and dismissal receipts | Active |
-| `shared/models/Page.ts` | Puck page layout schema (path → puckData) | Active |
+| `shared/models/Page.ts` | Puck page layout schema (path → puckData, publication metadata, engagement counters) | Active |
+| `shared/models/PageLike.ts` | Per-user page like records | Active |
+| `shared/models/Task.ts` | Institutional task assignments, reports, scoring, optional `telegramForumTopicId` | Active |
+| `shared/models/TaskGroup.ts` | Multi-part project shell — `plannedRoster`, child task aggregates, `telegramWorkspace` | Active |
+| `shared/models/PagePathSettings.ts` | Singleton hidden page path domain labels for the editor picker | Active |
 | `shared/models/EditorSettings.ts` | Singleton Puck editor settings (`islandDefaultComponents`) | Active |
 | `shared/models/GlobalLayout.ts` | Singleton Global Layout configuration model | Active |
 | `shared/models/SystemScheduledEvent.ts` | System scheduled events queue model | Active |
@@ -122,31 +177,66 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/constants/broadcastChannels.ts` | Broadcast delivery channel registry (`web_toast`, `telegram_dm`, …) | Active |
 | `shared/constants/scheduledEventTypes.ts` | Registry of recognized background event types | Active |
 | `shared/constants/accessControl.ts` | Seven-tier hierarchy, permission keys, default matrix | Active |
+| `shared/constants/listPagination.ts` | Default/max page sizes for paginated list APIs | Active |
+| `shared/constants/contentPolicy.ts` | Central blocked-word and weak-password denylists | Active |
+| `shared/constants/taskSettings.ts` | Task status registry, delegation limit defaults, score bounds | Active |
+| `shared/constants/nexusHosting.ts` | Hosting mode slugs (`vps`, `serverless`, `hybrid`) and env key names | Active |
+| `shared/lib/nexusHostingLogic.ts` | Pure hosting mode resolution, env validation, effective policy | Active |
 | `shared/domains/BroadcastDomain.ts` | System-wide broadcast send, web toast query, dismiss | Active |
 | `shared/domains/AccessControlDomain.ts` | Access-control settings load/update and permission resolution | Active |
+| `shared/lib/membershipApplicationLogic.ts` | Pure membership application status helpers | Active |
+| `shared/domains/MembershipApplicationDomain.ts` | Self-government membership application queue, submit, approve, reject | Active |
 | `shared/domains/AuthDomain.ts` | Auth registration, OAuth merge, Telegram widget + Mini App, profile mutations | Active |
-| `shared/domains/TelegramBotDomain.ts` | Telegram Bot API webhook dispatch (`/start`, Mini App button) | Active |
+| `shared/domains/TaskDomain.ts` | Task CRUD, acknowledgement, reports, scoring, delegation, reminders, forum topic sync on dispatch | Active |
+| `shared/domains/TaskGroupDomain.ts` | Project CRUD, planned roster, aggregate refresh, group reminders | Active |
+| `shared/domains/TelegramBotDomain.ts` | Telegram Bot API webhook (`/start`, `/link`, `/status`, `/task_done`), forum topic create | Active |
+| `shared/domains/TelegramGroupCommandDomain.ts` | In-group project command handlers | Active |
+| `shared/domains/TelegramOperatorDomain.ts` | MTProto create, forum toggle, member sync, dismantle (telegram-worker) | Active |
+| `shared/domains/TelegramWorkspaceDomain.ts` | Workspace state machine, operator job queue, bot topic sync | Active |
+| `shared/lib/telegramChannelIdLogic.ts` | Bot API ↔ MTProto supergroup id conversion | Active |
+| `shared/lib/taskGroupRosterLogic.ts` | Planned roster dedupe, performer union, forum topic title formatting | Active |
+| `shared/lib/telegramGroupCommandLogic.ts` | Pure `/status` and `/task_done` helpers | Active |
+| `shared/lib/telegramOperatorEnv.ts` | Worker env validation | Active |
 | `shared/lib/accessControlLogic.ts` | Pure hierarchy rank, effective permissions, delegation checks | Active |
 | `shared/lib/directoryRedaction.ts` | User Directory field-level PII redaction and DTO mapping | Active |
+| `shared/lib/listPaginationLogic.ts` | Offset pagination helpers (`computeTotalPages`, `buildPaginationItems`, …) | Active |
 | `shared/lib/passwordStrength.ts` | Signup password strength assessment | Active |
+| `shared/lib/contentPolicy.ts` | Blocked-word scan, mask, weak-password denylist checks | Active |
+| `shared/lib/puckContentPolicy.ts` | Puck JSON content-policy scan before page save | Active |
+| `shared/validation/contentPolicySchemas.ts` | Zod refinements for blocked-word validation | Active |
 | `shared/lib/academicCatalogLogic.ts` | Specialty/group catalog slug and approval helpers | Active |
+| `shared/lib/pageCategoryLogic.ts` | Puck page category label normalization and suggestion filter | Active |
+| `shared/lib/publicProfileRedaction.ts` | Member profile PII redaction DTO for `/users/[userId]` | Active |
+| `shared/lib/taskAccessLogic.ts` | Pure task permission and delegation quota rules | Active |
+| `shared/domains/UserSearchDomain.ts` | Institution user search for pickers |
+| `shared/lib/userSearchLogic.ts` | Search filter builder and result DTO mapping |
+| `shared/lib/imageCropLogic.ts` | Pure crop geometry, export MIME/filename helpers for the image crop editor | Active |
 | `shared/lib/splitPersonName.ts` | OAuth full-name → given name + surname split | Active |
 | `shared/lib/userProfileCompleteness.ts` | Membership application profile gaps; phone requirement rules | Active |
 | `shared/lib/userSociumHelpers.ts` | Full name formatting, socium role sync, quality score init, publish eligibility | Active |
 | `shared/lib/scheduledEventLogic.ts` | Pure state transition, exponential backoff, and locking logic | Active |
 | `shared/lib/scheduledEventHandlers/` | Background task handler registrations | Active |
 | `shared/domains/MediaDomain.ts` | Media upload validation + storage provider orchestration | Active |
-| `shared/domains/PageDomain.ts` | Puck page persistence mutations (delete by path) | Active |
+| `shared/domains/PageDomain.ts` | Puck page persistence (delete, category catalog aggregation) | Active |
 | `shared/domains/SchedulerDomain.ts` | Central background task scheduler and execution engine | Active |
 | `shared/domains/MentionDomain.ts` | User + page mention search for rich text `@` autocomplete | Active |
 | `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
 | `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
+| `shared/constants/imageCropContexts.ts` | Preview mask definitions for the app-wide image crop editor | Active |
 | `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS stub) | Active |
 | `shared/lib/safeHref.ts` | Hyperlink allowlist for Puck blocks and rich text | Active |
 | `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, GCS, HTTPS) | Active |
 | `shared/lib/nexusRichTextSanitize.ts` | TipTap HTML allowlist + mention anchor normalization | Active |
 | `shared/lib/puckContentSanitize.ts` | Deep-walk Puck JSON sanitization on page save | Active |
-| `src/lib/contentSecurityPolicy.ts` | CSP header builder for middleware | Active |
+| `shared/lib/puckContentSanitizeReport.ts` | Field-level sanitization diff types for audit logging | Active |
+| `shared/lib/securitySanitizeAuditLog.ts` | Console + MongoDB audit for blocked Puck content | Active |
+| `shared/lib/userDirectoryAuditLog.ts` | Console + MongoDB audit for User Directory admin mutations | Active |
+| `shared/models/GeneralRulesSettings.ts` | Singleton general rules (blocklist, Telegram templates) | Active |
+| `shared/domains/GeneralRulesDomain.ts` | Load/update general rules + publish effective cache | Active |
+| `shared/domains/UserDirectoryAuditDomain.ts` | List and record User Directory admin audit rows | Active |
+| `shared/models/SecuritySanitizeAudit.ts` | Persisted sanitization audit trail | Active |
+| `shared/models/UserDirectoryAudit.ts` | Persisted User Directory admin audit trail | Active |
+| `src/lib/contentSecurityPolicy.ts` | CSP header builder + nonce generation for middleware | Active |
 | `shared/validation/` | Centralized Zod validation schemas and format utilities | Active |
 
 ## `.ai/docs/` Sub-directories

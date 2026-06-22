@@ -12,7 +12,7 @@ import { useGetPuck } from "@puckeditor/core";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { cn } from "@/lib/utils";
 import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
-import { useCarouselSlideMedia } from "../../CarouselSlideMediaContext";
+import { useCarouselSlideMedia, useCarouselSlideComposite } from "../../CarouselSlideMediaContext";
 import { CoverMediaFrame } from "../../fields/CoverMediaFrame";
 import {
   EMBED_PROVIDER_ASPECT_RATIO,
@@ -140,7 +140,13 @@ function NexusVideoBody({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [layoutRoot, setLayoutRoot] = useState<HTMLDivElement | null>(null);
   const inCarouselSlide = useCarouselSlideMedia();
-  const fillSlide = resolveCarouselMediaFill(carouselFill, inCarouselSlide, layoutRoot);
+  const compositeCarouselSlide = useCarouselSlideComposite();
+  const fillSlide = resolveCarouselMediaFill(
+    carouselFill,
+    inCarouselSlide,
+    layoutRoot,
+    compositeCarouselSlide,
+  );
   const youTubeId = extractYouTubeId(safeUrl);
   const [youTubePosterUrl, setYouTubePosterUrl] = useState<string | null>(() =>
     editLayoutMode && youTubeId
@@ -376,6 +382,7 @@ function NexusVideoBody({
       className={rootClass}
       style={rootStyle}
       onClick={handleClick}
+      data-nexus-media-aspect={mediaAspectAttr}
     >
       <div
         className={cn(

@@ -1,0 +1,93 @@
+/**
+ * Motion and crop viewport styling for the app-wide image crop dialog.
+ */
+
+.nexus-image-crop__viewport .reactEasyCrop_Container {
+  transition: background-color 0.35s ease;
+}
+
+.nexus-image-crop__viewport .reactEasyCrop_CropArea {
+  transition:
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.28s ease;
+}
+
+.nexus-image-crop__viewport .reactEasyCrop_Image,
+.nexus-image-crop__viewport .reactEasyCrop_Video {
+  transition: transform 0.2s ease-out;
+}
+
+.nexus-crop-slider {
+  transition: opacity 0.2s ease;
+}
+
+.nexus-crop-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-accent-user);
+  background: var(--color-bg-panel);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.nexus-crop-slider:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-accent-user) 25%, transparent);
+}
+
+.nexus-crop-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-accent-user);
+  background: var(--color-bg-panel);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.nexus-crop-slider:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+.nexus-image-crop__mask-chip {
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.nexus-image-crop__mask-chip:hover {
+  transform: translateY(-2px);
+}
+
+.nexus-image-crop__mask-chip--active {
+  transform: translateY(-1px);
+}
+
+.nexus-image-crop__mask-preview img {
+  transition: opacity 0.25s ease;
+}
+
+.nexus-image-crop__controls {
+  animation: nexus-crop-controls-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes nexus-crop-controls-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

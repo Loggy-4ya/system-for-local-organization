@@ -9,23 +9,36 @@
  * @module src/components/puck/fields/PageSettingsFieldGroup
  */
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { NexusFieldHint } from "@/components/ui/NexusFieldHint";
+import { derivePageSlugFromTitle } from "@shared/lib/pagePathLogic";
 import { FieldChapter, SettingsIcon } from "./FieldChapter";
+import { FieldLabelRow } from "./FieldLabelRow";
 import { editorPagePathRef } from "../lib/editorPagePathRef";
 import {
   getEditorPagePersisted,
   subscribeEditorPagePersisted,
 } from "../lib/editorPagePersistedRef";
 import { setPageMetadataDraft } from "../lib/editorPageMetadataStore";
+import { usePageEditorMeta } from "../lib/pageEditorMetaContext";
 import { deletePersistedPage } from "../lib/pageDeleteClient";
 import {
   fetchReservedPagePaths,
-  validatePageSlug,
 } from "../lib/pageSlugValidation";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
+import { PageCategoryTagsField } from "./PageCategoryTagsField";
+import { PagePathDomainSlugField } from "./PagePathDomainSlugField";
+import { MAX_PAGE_CATEGORIES, normalizePageCategoryList } from "@shared/lib/pageCategoryLogic";
+import { fetchPagePathDomains } from "../lib/pagePathDomainClient";
+import {
+  getPageAutoSlugFromTitlePreference,
+  setPageAutoSlugFromTitlePreference,
+  subscribePageAutoSlugFromTitlePreference,
+} from "../lib/pageAutoSlugPreference";
 
 /** Page metadata stored under root `pageSettings`. */
 export interface PageSettingsValue {
@@ -35,6 +48,12 @@ export interface PageSettingsValue {
   slug: string;
   /** When true, slug cannot be edited (homepage). */
   slugLocked?: boolean;
+  /** Obsidian-style category tags (separate from the URL slug). */
+  categories?: string[];
+  /**
+   * @deprecated Legacy storage — migrated into `pagePublication.delegatedEditors` on read.
+   */
+  delegatedEditors?: import("@shared/lib/pageAccessLogic").PageAccessEditorEntry[];
 }
 
 /** Puck custom field props for page settings. */
@@ -51,13 +70,16 @@ interface PageSettingsFieldGroupProps {
  */
 export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGroupProps) {
   const router = useRouter();
+  const meta = usePageEditorMeta();
   const settings: PageSettingsValue = {
     title: value?.title ?? "Untitled Page",
     slug: value?.slug ?? "",
     slugLocked: value?.slugLocked ?? false,
+    categories: normalizePageCategoryList(value?.categories),
   };
 
   const [reservedPaths, setReservedPaths] = useState<string[]>([]);
+  const [pathDomains, setPathDomains] = useState<string[]>([]);
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -66,7 +88,8 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   onChangeRef.current = onChange;
   settingsRef.current = settings;
 
-  const isHomepageSlug = settings.slugLocked || editorPagePathRef.currentPath === "/";
+  const isHomepageSlug =
+    settings.slugLocked || meta.path === "/" || editorPagePathRef.currentPath === "/";
 
   const {
     draft: titleDraft,
@@ -96,6 +119,23 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     textDebounceMs: 0,
   });
 
+  const autoSlugFromTitle = useSyncExternalStore(
+    subscribePageAutoSlugFromTitlePreference,
+    getPageAutoSlugFromTitlePreference,
+    () => true,
+  );
+
+  const applyAutoSlugFromTitle = (title: string, currentSlug: string) => {
+    const knownDomains = pathDomains.length > 0 ? pathDomains : undefined;
+    return derivePageSlugFromTitle(title, currentSlug, knownDomains);
+  };
+
+  const syncSlugFromTitle = (title: string, currentSlug: string) => {
+    const nextSlug = applyAutoSlugFromTitle(title, currentSlug);
+    onSlugDraftChange(nextSlug);
+    setPageMetadataDraft({ slug: nextSlug });
+  };
+
   useEffect(() => {
     setPageMetadataDraft({
       title: settings.title,
@@ -109,7 +149,11 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
 
     (async () => {
       const paths = await fetchReservedPagePaths();
-      if (!cancelled) setReservedPaths(paths);
+      const domains = await fetchPagePathDomains();
+      if (!cancelled) {
+        setReservedPaths(paths);
+        setPathDomains(domains);
+      }
     })();
 
     return () => {
@@ -117,50 +161,20 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     };
   }, []);
 
-  const slugValidation = useMemo(
-    () =>
-      validatePageSlug(slugDraft, {
-        slugLocked: isHomepageSlug,
-        currentPath: editorPagePathRef.currentPath,
-        reservedPaths,
-      }),
-    [slugDraft, isHomepageSlug, reservedPaths],
-  );
-
-  const previewSlug = isHomepageSlug
-    ? ""
-    : slugValidation.slugSegment || "(homepage)";
-
-  const handleSlugPaste = (event: ClipboardEvent<HTMLInputElement>) => {
-    const pasted = event.clipboardData.getData("text").trim();
-    if (!pasted) return;
-
-    const pastedValidation = validatePageSlug(pasted.replace(/^\//, ""), {
-      slugLocked: false,
-      currentPath: editorPagePathRef.currentPath,
-      reservedPaths,
-    });
-
-    if (!pastedValidation.valid && pastedValidation.error?.includes("already used")) {
-      event.preventDefault();
-      setPasteError(pastedValidation.error);
-      return;
-    }
-
-    setPasteError(null);
-  };
-
-  const slugError = pasteError ?? (isHomepageSlug ? null : slugValidation.error);
-  const isPersistedPage = useSyncExternalStore(
+  const isPersistedFromClient = useSyncExternalStore(
     subscribeEditorPagePersisted,
     getEditorPagePersisted,
     () => false,
   );
+  const isPersistedPage = meta.isPersisted || isPersistedFromClient;
   const canDeletePage =
-    !isHomepageSlug && isPersistedPage && editorPagePathRef.currentPath !== "/";
+    !isHomepageSlug &&
+    isPersistedPage &&
+    meta.canManagePageAccess &&
+    Boolean(meta.path && meta.path !== "/");
 
   const handleDeletePage = async () => {
-    const pagePath = editorPagePathRef.currentPath;
+    const pagePath = meta.path || editorPagePathRef.currentPath;
     const pageTitle = settings.title.trim() || "Untitled Page";
     const confirmed = window.confirm(
       `Delete "${pageTitle}" (${pagePath})?\n\nThis permanently removes the page from the database. This cannot be undone.`,
@@ -181,9 +195,9 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   };
 
   return (
-    <FieldChapter title="Page Settings" icon={<SettingsIcon />}>
+    <FieldChapter title="Page Details" icon={<SettingsIcon />}>
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">Page Title</span>
+        <FieldLabelRow label="Page Title" />
         <input
           type="text"
           className="nexus-puck-input"
@@ -192,11 +206,17 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
             const next = e.target.value;
             onTitleDraftChange(next);
             setPageMetadataDraft({ title: next.trim() || "Untitled Page" });
+            if (autoSlugFromTitle && !isHomepageSlug) {
+              syncSlugFromTitle(next, slugDraft);
+            }
           }}
           onFocus={onTitleFocus}
           onBlur={() => {
             onTitleBlur();
             commitTitle();
+            if (autoSlugFromTitle && !isHomepageSlug) {
+              commitSlug();
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -209,7 +229,14 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
       </div>
 
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">URL Slug</span>
+        <FieldLabelRow
+          label="URL Slug"
+          hint={
+            isHomepageSlug
+              ? "The homepage URL cannot be renamed. Create other pages from All Pages to set custom slugs."
+              : "Choose a domain label, then set the page slug — public path is /domain/page_slug."
+          }
+        />
         {isHomepageSlug ? (
           <>
             <div className="nexus-page-slug-row nexus-page-slug-row--locked">
@@ -221,54 +248,69 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
                 (homepage — fixed at /)
               </span>
             </div>
-            <p className="nexus-page-slug-hint">
-              The homepage URL cannot be renamed. Create other pages from{" "}
-              <strong>All Pages</strong> to set custom slugs.
-            </p>
           </>
         ) : (
           <>
-            <div className="nexus-page-slug-row">
-              <span className="nexus-page-slug-row__prefix">/</span>
-              <input
-                type="text"
-                className="nexus-puck-input nexus-page-slug-row__input"
-                value={slugDraft}
-                onChange={(e) => {
-                  setPasteError(null);
-                  const next = e.target.value;
-                  onSlugDraftChange(next);
-                  setPageMetadataDraft({ slug: next });
+            <div className="nexus-page-auto-slug-row nexus-switch-field">
+              <span className="nexus-page-auto-slug-row__label">
+                <span className="nexus-page-auto-slug-row__text">Auto slug from title</span>
+                <NexusFieldHint
+                  text="When enabled, the page slug updates as you type the title. Turn off to set a custom URL manually."
+                  label="About auto slug from title"
+                  size="sm"
+                />
+              </span>
+              <Switch
+                checked={autoSlugFromTitle}
+                aria-label="Auto slug from title"
+                onCheckedChange={(checked) => {
+                  setPageAutoSlugFromTitlePreference(checked);
+                  if (checked && !isHomepageSlug) {
+                    syncSlugFromTitle(titleDraft, slugDraft);
+                    commitSlug();
+                  }
                 }}
-                onFocus={onSlugFocus}
-                onBlur={() => {
-                  onSlugBlur();
-                  commitSlug();
-                }}
-                onPaste={handleSlugPaste}
-                placeholder="page-path"
-                title="Edit page URL path"
-                aria-invalid={Boolean(slugError)}
               />
             </div>
-            {slugError ? (
-              <p className="nexus-page-slug-error" role="alert">
-                {slugError}
-              </p>
-            ) : null}
+            <PagePathDomainSlugField
+            slug={slugDraft}
+            reservedPaths={reservedPaths}
+            pasteError={pasteError}
+            onClearPasteError={() => setPasteError(null)}
+            onPasteError={setPasteError}
+            onSlugFocus={onSlugFocus}
+            onSlugBlur={() => {
+              onSlugBlur();
+              commitSlug();
+            }}
+            onSlugChange={(next) => {
+              onSlugDraftChange(next);
+              setPageMetadataDraft({ slug: next });
+            }}
+          />
           </>
         )}
-        <p className="nexus-page-slug-preview">
-          Preview: <code>yoursite.com/{previewSlug}</code>
-        </p>
+      </div>
+
+      <div className="nexus-field-category">
+        <FieldLabelRow
+          label="Categories"
+          hint={`News-style tags for cards and filters — separate from the URL slug (max ${MAX_PAGE_CATEGORIES}). Search existing labels or create new ones. Press Enter to add.`}
+        />
+        <PageCategoryTagsField
+          value={settings.categories ?? []}
+          onChange={(categories) => {
+            onChangeRef.current({ ...settingsRef.current, categories });
+          }}
+        />
       </div>
 
       {canDeletePage ? (
-        <div className="nexus-field-category">
-          <span className="nexus-field-category__label">Danger Zone</span>
-          <p className="nexus-page-delete-hint">
-            Permanently remove this page and its layout from the database.
-          </p>
+        <div className="nexus-field-category nexus-field-category--danger">
+          <FieldLabelRow
+            label="Delete"
+            hint="Permanently remove this page and its layout from the database."
+          />
           <Button
             type="button"
             variant="destructive"

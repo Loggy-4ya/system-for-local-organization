@@ -163,7 +163,7 @@ URLs are root-relative (`/uploads/avatars/...`) and served by Next.js static hos
 | `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS` | — | When set to a positive number, Next.js server runs cleanup on that interval via `src/instrumentation.ts` |
 | `MEDIA_ORPHAN_CLEANUP_CRON_SECRET` | — | Bearer token for `POST /api/admin/jobs/media-orphan-cleanup` (Admin session also accepted) |
 
-See `.env.local.example`.
+See `.env.example`.
 
 ---
 
@@ -227,17 +227,22 @@ No changes required in:
 
 ## Client usage
 
-```typescript
-import { uploadMediaFile } from "@/lib/mediaUploadClient";
+Image uploads from profile settings and Puck fields open the app-wide crop dialog first (see [image_crop_editor.md](./image_crop_editor.md)). Use `uploadMediaFileWithCrop` for the default flow, or `skipCrop: true` to bypass.
 
-// Profile avatar
-await uploadMediaFile(file, { accept: "image", purpose: "avatar", ownerKey: userId });
+```typescript
+import { uploadMediaFile, uploadMediaFileWithCrop } from "@/lib/mediaUploadClient";
+
+// Profile avatar (crop dialog → upload)
+await uploadMediaFileWithCrop(file, { accept: "image", purpose: "avatar", ownerKey: userId });
 
 // Puck page cover
-await uploadMediaFile(file, { accept: "image", purpose: "page-cover" });
+await uploadMediaFileWithCrop(file, { accept: "image", purpose: "page-cover" });
 
 // Puck block (default purpose when omitted in API)
-await uploadMediaFile(file, { accept: "both", purpose: "puck-block" });
+await uploadMediaFileWithCrop(file, { accept: "both", purpose: "puck-block" });
+
+// Skip crop (direct upload)
+await uploadMediaFile(file, { purpose: "puck-block", skipCrop: true });
 
 // Import remote HTTPS image into local storage
 await importMediaImageFromUrl("https://cdn.example.com/photo.png", { purpose: "puck-block" });

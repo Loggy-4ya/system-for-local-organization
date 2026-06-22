@@ -4,6 +4,8 @@
  * @module src/components/puck/lib/pageDeleteClient
  */
 
+import { normalizePagePath } from "@shared/lib/pagePathLogic";
+
 /**
  * Delete a persisted Puck page via the API.
  *
@@ -12,11 +14,21 @@
  * @throws Error When the API rejects the request.
  */
 export async function deletePersistedPage(path: string): Promise<void> {
+  const trimmed = path.trim();
+  const normalizedPath = trimmed.startsWith("/")
+    ? normalizePagePath(trimmed.slice(1))
+    : normalizePagePath(trimmed);
+
+  if (normalizedPath === "/") {
+    throw new Error("The homepage cannot be deleted from the page editor.");
+  }
+
   const secret = process.env.NEXT_PUBLIC_PUCK_SECRET;
-  const params = new URLSearchParams({ path });
+  const params = new URLSearchParams({ path: normalizedPath });
 
   const res = await fetch(`/api/puck?${params.toString()}`, {
     method: "DELETE",
+    credentials: "same-origin",
     headers: {
       ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
     },

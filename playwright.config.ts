@@ -37,5 +37,12 @@ export default defineConfig({
         isMobile: true,
       },
     },
+    {
+      name: "puck-desktop-chrome",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1360, height: 820 },
+      },
+    },
   ],
 });

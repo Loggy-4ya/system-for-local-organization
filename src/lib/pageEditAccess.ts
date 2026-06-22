@@ -7,12 +7,23 @@
  */
 
 import type { Session } from "next-auth";
+import {
+  canUserCreatePages,
+  canUserEditPage,
+  hasGlobalPageEditAuthority,
+  type PageEditActorSlice,
+  type PageOwnershipSlice,
+} from "@shared/lib/pageEditAccessLogic";
+import { inferAccessLevelIndex } from "@shared/lib/accessControlLogic";
+import type { PermissionKey } from "@shared/constants/accessControl";
+import type { UserRole } from "@shared/models/User";
 
 /**
- * Roles that may open the Puck editor for CMS pages (matches admin panel visibility).
+ * Legacy coarse check — prefer {@link resolvePageEditActor} + {@link canUserEditPageDoc}.
  *
  * @param role - Session user role.
- * @returns True when the user can edit Puck-managed pages.
+ * @returns True when the user may edit Puck-managed pages under legacy rules.
+ * @deprecated Use ownership-aware checks via PageDomain.
  */
 export function canEditPages(role: string | undefined | null): boolean {
   return role === "Admin" || role === "StudentCouncil";
@@ -31,21 +42,77 @@ export function isPuckManagedPagePath(path: string): boolean {
 }
 
 /**
+ * Build an edit actor slice from session + resolved permissions.
+ *
+ * @param session - Auth.js session.
+ * @param permissions - Effective permission keys for the user.
+ * @returns Actor slice for pure edit checks.
+ */
+export function resolvePageEditActor(
+  session: Session,
+  permissions: readonly PermissionKey[],
+): PageEditActorSlice {
+  return {
+    userId: session.user.id,
+    role: (session.user.role ?? "Student") as UserRole,
+    accessLevelIndex: inferAccessLevelIndex({
+      role: (session.user.role ?? "Student") as UserRole,
+    }),
+    permissions,
+  };
+}
+
+/**
+ * Whether the session user may edit a specific page document.
+ *
+ * @param session - Auth.js session.
+ * @param permissions - Effective permission keys.
+ * @param page - Page ownership slice.
+ * @returns True when edit is allowed.
+ */
+export function canUserEditPageDoc(
+  session: Session | null,
+  permissions: readonly PermissionKey[],
+  page: PageOwnershipSlice | null,
+): boolean {
+  if (!session?.user?.id) return false;
+  const actor = resolvePageEditActor(session, permissions);
+  if (!page) return canUserCreatePages(actor);
+  return canUserEditPage(actor, page);
+}
+
+/**
+ * Whether the session user has global page edit authority (admin tiers).
+ *
+ * @param session - Auth.js session or null.
+ * @returns True for system/self-gov administrators.
+ */
+export function sessionHasGlobalPageEdit(session: Session | null): boolean {
+  if (!session?.user) return false;
+  const role = (session.user.role ?? "Student") as UserRole;
+  const index = inferAccessLevelIndex({
+    role,
+    accessLevelIndex: session.user.accessLevelIndex as PageEditActorSlice["accessLevelIndex"],
+  });
+  return hasGlobalPageEditAuthority(index, role);
+}
+
+/**
  * Whether the published Puck viewer should show the edit FAB.
  *
- * @param session - Auth.js session from the server.
+ * @param canEdit - Pre-resolved edit permission for this page.
  * @param path - Normalised Puck page path.
  * @param isEditing - True when the route is already in editor mode.
  * @returns True when the floating edit control should render.
  */
 export function shouldShowPageEditFab(
-  session: Session | null,
+  canEdit: boolean,
   path: string,
   isEditing: boolean,
 ): boolean {
   if (isEditing) return false;
   if (!isPuckManagedPagePath(path)) return false;
-  return canEditPages(session?.user?.role ?? null);
+  return canEdit;
 }
 
 /**

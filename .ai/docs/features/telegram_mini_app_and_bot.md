@@ -96,7 +96,7 @@ sequenceDiagram
 | `/api/auth/telegram` | API | Login Widget verify (existing) |
 | `/api/auth/telegram/mini-app` | API | POST `initData` → bridge or needsOnboarding |
 | `/api/auth/telegram/mini-app/register` | API | POST onboarding + `initData` → create user + bridge |
-| `/api/telegram/webhook` | API | Bot updates (`/start`, future commands) |
+| `/api/telegram/webhook` | API | Bot updates (`/start`, `/link`, `/status`, `/task_done`) |
 | `/api/profile/telegram` | API | DELETE — unlink Telegram (session required) |
 
 ---
@@ -153,7 +153,8 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 - [x] Bot `/start` sends Web App open button
 - [x] Profile settings can unlink Telegram when password or OAuth remains
 - [x] Login Widget path unchanged for browser linking
-- [ ] Bot group commands (`/status`, `/task_done`) — Phase 4
+- [x] Bot group commands `/status`, `/task_done` in linked project groups — see [telegram_project_workspaces.md](./telegram_project_workspaces.md)
+- [ ] Bot `/report` with media scraping — Phase 4c
 - [ ] Phone harvest on bot contact — roadmap `[~]` bot harvesting
 
 ---

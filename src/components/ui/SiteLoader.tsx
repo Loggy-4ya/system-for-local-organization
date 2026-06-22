@@ -6,23 +6,29 @@
  * Does not import InfiniteGrid — the root layout keeps `#nexus-bg` mounted while
  * this replaces route `{children}` during Suspense or dynamic import fallbacks.
  *
- * When loading exceeds {@link LOADER_AUTO_RETRY_DELAY_MS}, automatically reloads
- * the page (up to {@link LOADER_AUTO_RETRY_MAX} times per pathname per session).
+ * Recovery when stuck (e.g. browser back leaving Suspense open):
+ * 1. Soft `router.refresh()` — fast on history navigation (~400ms).
+ * 2. Hard `location.reload()` — fallback if still mounted (1.2s back / 4.5s default).
  *
- * Tests: `tests/lib/loaderAutoRetryLogic.test.ts` — `npm run test:loader-auto-retry`
+ * Tests:
+ * - `npm run test:loader-auto-retry`
+ * - `npm run test:route-loader-recovery`
  *
  * @module src/components/ui/SiteLoader
  */
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  LOADER_AUTO_RETRY_DELAY_MS,
   canLoaderAutoRetry,
   clearLoaderAutoRetry,
   recordLoaderAutoRetry,
-  resolveLoaderAutoRetryDelayMs,
 } from "@/lib/loaderAutoRetryLogic";
+import {
+  resolveLoaderRecoveryDelays,
+  shouldTreatAsBackNavigation,
+} from "@/lib/routeLoaderRecoveryLogic";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link SiteLoader}. */
@@ -32,11 +38,11 @@ export interface SiteLoaderProps {
   /** Extra class names on the outer flex container. */
   className?: string;
   /**
-   * When true (default), reload the page if this loader stays mounted past
-   * {@link LOADER_AUTO_RETRY_DELAY_MS}.
+   * When true (default), recover if this loader stays mounted: soft refresh first,
+   * then hard reload up to {@link LOADER_AUTO_RETRY_MAX} times per pathname.
    */
   autoRetry?: boolean;
-  /** Override auto-reload delay in milliseconds. */
+  /** Override hard-reload delay in milliseconds (soft refresh timing is unchanged). */
   autoRetryDelayMs?: number;
 }
 
@@ -50,10 +56,13 @@ export function SiteLoader({
   label = "Loading…",
   className,
   autoRetry = true,
-  autoRetryDelayMs = LOADER_AUTO_RETRY_DELAY_MS,
+  autoRetryDelayMs,
 }: SiteLoaderProps) {
+  const router = useRouter();
   const [retryExhausted, setRetryExhausted] = useState(false);
-  const [pendingReload, setPendingReload] = useState(false);
+  const [recoveryPhase, setRecoveryPhase] = useState<"idle" | "refreshing" | "reloading">(
+    "idle",
+  );
 
   useEffect(() => {
     if (!autoRetry || typeof window === "undefined") {
@@ -61,34 +70,49 @@ export function SiteLoader({
     }
 
     const pathname = window.location.pathname;
-    const delayMs = resolveLoaderAutoRetryDelayMs(autoRetryDelayMs);
-    let reloaded = false;
+    const isBackNavigation = shouldTreatAsBackNavigation();
+    const { refreshMs, reloadMs } = resolveLoaderRecoveryDelays(
+      isBackNavigation,
+      autoRetryDelayMs,
+    );
 
-    const timeoutId = window.setTimeout(() => {
+    let refreshTriggered = false;
+    let reloadTriggered = false;
+
+    const refreshTimeoutId = window.setTimeout(() => {
+      refreshTriggered = true;
+      setRecoveryPhase("refreshing");
+      router.refresh();
+    }, refreshMs);
+
+    const reloadTimeoutId = window.setTimeout(() => {
       if (!canLoaderAutoRetry(pathname)) {
         setRetryExhausted(true);
         return;
       }
 
-      reloaded = true;
-      setPendingReload(true);
+      reloadTriggered = true;
+      setRecoveryPhase("reloading");
       recordLoaderAutoRetry(pathname);
       window.location.reload();
-    }, delayMs);
+    }, reloadMs);
 
     return () => {
-      window.clearTimeout(timeoutId);
-      if (!reloaded) {
+      window.clearTimeout(refreshTimeoutId);
+      window.clearTimeout(reloadTimeoutId);
+      if (!refreshTriggered && !reloadTriggered) {
         clearLoaderAutoRetry(pathname);
       }
     };
-  }, [autoRetry, autoRetryDelayMs]);
+  }, [autoRetry, autoRetryDelayMs, router]);
 
   const statusLabel = retryExhausted
     ? "Still loading"
-    : pendingReload
-      ? "Retrying…"
-      : label;
+    : recoveryPhase === "reloading"
+      ? "Reloading…"
+      : recoveryPhase === "refreshing"
+        ? "Retrying…"
+        : label;
 
   return (
     <div

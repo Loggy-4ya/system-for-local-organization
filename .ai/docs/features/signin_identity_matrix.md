@@ -94,11 +94,13 @@ User-submitted values are stored on the user document immediately; pending rows 
 
 ### Self-government application queue
 
-- [ ] Admin view of users with `selfGovernmentApplicationIntent: true` and incomplete membership profile gaps.
-- [ ] Approve application → assign `self_government_member` socium role (triggers `qualityScores` init).
-- [ ] Reject → clear intent flag with audit note.
+- [x] Admin view at `/admin/membership-applications` — list `selfGovernmentApplicationIntent: true` without self-government socium role.
+- [x] Approve application → assign `self_government_member` socium role (triggers `qualityScores` init).
+- [x] Reject → clear intent flag with audit note.
 
-Signup checkbox sets intent only — **does not** assign socium roles.
+See [membership_applications.md](./membership_applications.md).
+
+Signup checkbox sets intent only — **does not** grant socium roles until a reviewer approves (or an admin assigns roles manually in User Directory).
 
 ### Socium role assignment
 

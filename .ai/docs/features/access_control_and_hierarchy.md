@@ -38,13 +38,17 @@ User documents store `accessLevelIndex` (0–6). Legacy `role` (`Admin` / `Stude
 |-----|---------|
 | `access_control.manage_settings` | Edit `/admin/user-access` matrix |
 | `users.view_directory` | Browse user directory |
+| `users.edit_profile` | Edit another user's general profile fields (academic info, phone — not login/email/OAuth) |
 | `users.assign_access_level` | Change another user's hierarchy index |
 | `users.assign_socium_roles` | Assign socium role objects |
 | `users.assign_affiliations` | Assign activities & organizations |
 | `users.delegate_permissions` | Grant permissions downward |
+| `users.delete` | Permanently delete user accounts from the directory |
 | `tasks.dispatch` | Create/dispatch tasks |
 | `tasks.receive` | Receive and acknowledge tasks |
 | `news.publish` | Publish news & social interactivity |
+| `pages.create` | Create new Puck-managed pages |
+| `pages.edit_own` | Edit pages you authored |
 | `community.moderate` | Moderate comments and proposals |
 | `notifications.broadcast` | Send system-wide broadcasts (web toast, Telegram DM) |
 
@@ -55,13 +59,13 @@ Default matrix values live in `shared/constants/accessControl.ts` (`DEFAULT_LEVE
 ## Core rule — administering roles
 
 > To administer another user's roles or access level, an actor **must**:
-> 1. **Outrank** the target (`actor.accessLevelIndex < target.accessLevelIndex`).
+> 1. **Be at or above** the target in hierarchy (`actor.accessLevelIndex <= target.accessLevelIndex`) — **peers at the same tier may manage each other**.
 > 2. Hold **`users.assign_access_level`** and/or **`users.assign_socium_roles`** (from tier defaults **or** explicit delegation).
-> 3. Target's level must appear in the actor's **grant rule** `assignableLevelIndices`.
+> 3. For level assignment on users **below** the actor, target's level must appear in the actor's **grant rule** `assignableLevelIndices`. Same-tier peer management skips this index check when only socium roles or profile fields change.
 
 Delegation follows the same hierarchy constraint:
 
-> To delegate permission `P` to a user below you, the actor must hold `users.delegate_permissions`, `P` must be in the actor's `delegatablePermissions`, and the actor must outrank the target.
+> To delegate permission `P` to a user at the same tier or below, the actor must hold `users.delegate_permissions`, `P` must be in the actor's `delegatablePermissions`, and `actor.accessLevelIndex <= target.accessLevelIndex`.
 
 System administrator (index **0**) receives all permissions by default and may assign indices **1–6**.
 
@@ -144,9 +148,46 @@ Middleware: `/admin/global-layout` remains **legacy Admin-only**; `/admin/user-a
 
 The user directory at `/admin/users` allows authorized actors to view and search all registered users. To protect sensitive Personal Identifiable Information (PII), field-level redaction is applied dynamically based on the actor's relationship to the target user:
 
-- **Always visible:** `fullName`, `avatar`, `accessLevelIndex`, `accessLevelLabel`, `sociumRoleLabels`, `specialty`, `group`.
-- **Outrank only:** `login`, `email`, `phone`, `telegramId` (only visible when actor strictly outranks the target user, or holds the legacy `Admin` role).
+- **Always visible:** `fullName`, `avatar`, `accessLevelIndex`, `accessLevelLabel`, `sociumRoleLabels`, `specialty`, `group`, `studentTitle`, `about`, `socialLinks`.
+- **Outrank only:** `login`, `email`, `phone`, `telegramId`, `linkedGoogle`, `linkedApple` (only visible when actor strictly outranks the target user, or holds the legacy `Admin` role). OAuth flags expose **Linked / Not linked** only — never provider tokens or `googleId` / `appleId` values.
 - **Outrank + permission only:**
   - `delegatedPermissions` (requires `users.delegate_permissions`)
-  - `sociumRoles` (requires `users.assign_socium_roles`)
-  - `socialGroupActivities` / `organizations` (requires `users.assign_affiliations`)
+  - `sociumRoles` (requires `users.assign_socium_roles`) — **discovery labels** for student-life roles
+  - `socialGroupActivities` / `organizations` (requires `users.assign_affiliations`) — **discovery labels** for clubs, teams, and external groups (not access permissions)
+  - **General profile editing** (requires `users.edit_profile` + outrank, or legacy `Admin`): **`specialty`** (letter code, creatable — new values auto-approved in catalog), **`group`** (numeric, creatable), and **`phone`**. Profile subtitle displays as `SPECIALTY-GROUP` (e.g. `SE-42`). **Read-only for admins:** `email`, login, password, OAuth/Telegram identity. **Not editable by admins:** name, avatar, about, social links, student title.
+  - **Hierarchy level assignment** (requires `users.assign_access_level` + outrank + grant rules, or legacy `Admin`): change `accessLevelIndex` (tiers **1–6**). Legacy `Admin` always resolves to tier 0 and bypasses stale matrix entries.
+  - **Account deletion** (requires `users.delete` + outrank, or legacy `Admin`): `DELETE /api/admin/users/[userId]` — removes the user and related engagement receipts. Cannot delete self or the last system administrator (tier 0). UI: **Delete Account** on `/admin/users` detail pane (`canDelete` flag).
+
+> **Existing deployments:** MongoDB singleton `access_control_settings` documents seeded before `users.edit_profile` or `users.delete` were added will not automatically include them on tiers 1–2. Grant via `/admin/user-access` or re-seed tier defaults.
+
+### Detail pane layout (`UserDirectoryShell`)
+
+| Section | Component | Notes |
+|---------|-----------|-------|
+| Profile header | Shell | Avatar, name, academic line, access level label; legacy Admin **View audit log** link |
+| Action toolbar | `AdminEditorActionToolbar` | Single-row Reset / Save / Delete; icon-only below `sm`; sticky bottom bar below `lg` on phone |
+| Academic assignment + contact | `UserDirectoryProfileFields` | Editable specialty, group, phone |
+| **Personal fields** | `UserDirectoryPersonalFields` | Read-only identity grid (login, email, phone, Telegram, OAuth) + `UserDirectorySocialLabelsEditor` (nested) |
+| Hierarchy | Shell | `PuckSelectField` for `accessLevelIndex` |
+| Delegated permissions | Shell | Checkbox grid when `canDelegate` |
+
+### Mobile UX (below `lg` / 1024px)
+
+- **Master-detail:** roster list only until a user is selected; detail pane full-width with **Back to roster** control.
+- List `max-height` unconstrained on phone (`lg:max-h-[600px]` on desktop split view).
+- Save/Reset/Delete duplicated in fixed `admin-mobile-toolbar` (safe-area inset) so long forms stay editable without scrolling to the header.
+- **Detail cache:** `UserDirectoryDetailCache` in `src/components/user-directory/lib/userDirectoryDetailState.ts` stores GET responses for the session; revisiting a user restores instantly without a network call. **Reset** forces a fresh GET; **Save** / **Delete** update or evict the cache entry.
+- **List pagination:** `GET /api/admin/users?page=&limit=` returns one page (default 10, max 50) with `totalCount` / `totalPages`. UI: `NexusListPagination` (Shadcn). See [list_pagination.md](./list_pagination.md).
+
+### Admin audit trail (`user_directory_audits`)
+
+Successful and rejected User Directory mutations are recorded by `UserDirectoryAuditDomain` (via `AccessControlDomain` and `PATCH`/`DELETE` API error paths). Legacy **Admin** users browse them at **`/admin/logs` → User directory** (deep link from the detail pane: **View audit log**).
+
+| Stored | Not stored |
+|--------|------------|
+| Actor id + login handle | Target email / phone / login |
+| Target id + display name snapshot | Raw PATCH body values |
+| Changed field keys, error codes | OAuth tokens |
+| Safe metadata (level indices, array counts) | Password or credential fields |
+
+Collection: `user_directory_audits`. Disable MongoDB persistence with `USER_DIRECTORY_AUDIT_PERSIST=false` (console logging still runs).

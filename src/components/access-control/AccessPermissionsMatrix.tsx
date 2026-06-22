@@ -61,7 +61,7 @@ export function AccessPermissionsMatrix({
         Default permissions granted to each tier before explicit delegation. Users also receive
         permissions delegated by higher tiers.
       </p>
-      <div className="overflow-x-auto">
+      <div className="access-permissions-matrix-scroll overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-(--color-border-default) text-left">

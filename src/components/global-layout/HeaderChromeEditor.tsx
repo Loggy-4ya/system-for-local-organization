@@ -150,7 +150,7 @@ export function HeaderChromeEditor({ config, onChange }: HeaderChromeEditorProps
   return (
     <div className="flex flex-col gap-0">
       {/* Layout Settings Chapter */}
-      <FieldChapter title="Header Layout" icon={puckIcon(Sliders)} defaultOpen={true}>
+      <FieldChapter title="Header Spacing & Alignment" icon={puckIcon(Sliders)} defaultOpen={true}>
         <div className="global-layout-editor__layout-grid">
           <EditorField
             label="Spacing Gap"

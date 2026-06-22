@@ -4,7 +4,7 @@
  * @module src/components/admin/AdminHubShell
  */
 
-import { Columns, GraduationCap, Layout, Megaphone, Shield, Users } from "lucide-react";
+import { Columns, GraduationCap, Layout, Megaphone, Server, Shield, ShieldAlert, Users, BookOpen, CalendarDays, UserCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { NexusSurfaceCard } from "@/components/ui/NexusSurfaceCard";
@@ -15,9 +15,14 @@ import type { AdminHubArea, AdminHubIconKey } from "@/lib/adminHubAreas";
 const ADMIN_HUB_ICON_MAP: Record<AdminHubIconKey, LucideIcon> = {
   layout: Layout,
   shield: Shield,
+  "shield-alert": ShieldAlert,
   megaphone: Megaphone,
   "graduation-cap": GraduationCap,
   users: Users,
+  "book-open": BookOpen,
+  calendar: CalendarDays,
+  server: Server,
+  "user-check": UserCheck,
 };
 
 /** Props for {@link AdminHubShell}. */
@@ -36,7 +41,7 @@ export function AdminHubShell({ areas }: AdminHubShellProps) {
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
-      className="py-12"
+      className="py-8 md:py-12"
       innerClassName="flex flex-col gap-8"
     >
       <div

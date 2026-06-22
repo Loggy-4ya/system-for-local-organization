@@ -20,7 +20,7 @@ import {
  *
  * Requires `users.view_directory` permission or legacy Admin role.
  *
- * @param req - Request with query params: q, level, cursor, limit.
+ * @param req - Request with query params: q, level, page, limit (cursor legacy).
  * @returns Paginated list of redacted user rows.
  */
 export async function GET(req: NextRequest) {
@@ -50,10 +50,11 @@ export async function GET(req: NextRequest) {
     const result = await AccessControlDomain.listDirectoryUsers(actor, parsed.data);
     return NextResponse.json(result);
   } catch (err) {
+    const message = err instanceof Error ? err.message : "";
     const status = authGuardErrorStatus(err);
     if (status === 401 || status === 403) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Forbidden." },
+        { error: message === "FORBIDDEN" ? "Forbidden." : message || "Forbidden." },
         { status },
       );
     }

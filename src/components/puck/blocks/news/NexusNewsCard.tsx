@@ -22,6 +22,7 @@ import { sanitizeUserHref } from "@shared/lib/safeHref";
 import { sanitizeMediaUrl } from "@shared/lib/safeMediaUrl";
 import { ImageField } from "../../fields/ImageField";
 import { SHADOW_DEPTH_OPTIONS } from "../../lib/fieldOptionLabels";
+import { useInterpolatedNexusValue } from "../../lib/nexusPageVariablesContext";
 
 export const NexusNewsCard = {
   label: "News Card",
@@ -120,8 +121,14 @@ export const NexusNewsCard = {
     hoverEffect: "no" | "yes";
     href?: string;
   }) {
-    const safeImage = sanitizeMediaUrl(image);
-    const safeHref = sanitizeUserHref(href);
+    const resolvedImage = useInterpolatedNexusValue(image);
+    const resolvedTitle = useInterpolatedNexusValue(title);
+    const resolvedDescription = useInterpolatedNexusValue(description);
+    const resolvedCategory = useInterpolatedNexusValue(category);
+    const resolvedReadTime = useInterpolatedNexusValue(readTime);
+    const resolvedHref = useInterpolatedNexusValue(href ?? "");
+    const safeImage = sanitizeMediaUrl(resolvedImage);
+    const safeHref = sanitizeUserHref(resolvedHref);
     const cardElement = (
       <Card
         className={cn(
@@ -136,7 +143,7 @@ export const NexusNewsCard = {
         <div className="relative flex h-40 items-center justify-center overflow-hidden bg-secondary">
           {safeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={safeImage} alt={title} className="h-full w-full object-cover" />
+            <img src={safeImage} alt={resolvedTitle} className="h-full w-full object-cover" />
           ) : (
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span style={{ fontSize: "24px" }}>📰</span>
@@ -156,15 +163,15 @@ export const NexusNewsCard = {
                 align === "center" ? "center" : align === "right" ? "flex-end" : "space-between",
             }}
           >
-            <span className="uppercase text-primary">{category}</span>
-            <span>{readTime}</span>
+            <span className="uppercase text-primary">{resolvedCategory}</span>
+            <span>{resolvedReadTime}</span>
           </div>
-          <CardTitle className="text-[15px] leading-snug">{title}</CardTitle>
+          <CardTitle className="text-[15px] leading-snug">{resolvedTitle}</CardTitle>
         </CardHeader>
 
         <CardContent className="px-4 pb-4" style={{ textAlign: align || "left" }}>
           <CardDescription className="line-clamp-3 text-xs leading-relaxed">
-            {description}
+            {resolvedDescription}
           </CardDescription>
         </CardContent>
       </Card>

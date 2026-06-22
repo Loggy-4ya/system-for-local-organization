@@ -27,6 +27,7 @@ export default async function UserDirectoryAdminPage() {
       initialConfig={config}
       currentUser={currentUser}
       canMutateDirectory={canMutateDirectory}
+      canViewSystemLogs={user.role === "Admin"}
     />
   );
 }

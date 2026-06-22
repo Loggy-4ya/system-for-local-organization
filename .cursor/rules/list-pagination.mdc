@@ -1,0 +1,35 @@
+---
+description: Offset pagination for long admin/dashboard lists — API limits and NexusListPagination UI
+globs:
+  - src/components/**/*Shell*.tsx
+  - src/components/**/*List*.tsx
+  - src/app/api/**/route.ts
+  - shared/domains/**
+  - shared/validation/**
+alwaysApply: false
+---
+
+# List pagination (mandatory for long collections)
+
+When adding or editing a **list, roster, table, or audit feed** that reads from MongoDB:
+
+## Server
+
+1. Accept `page` (1-based) and `limit` — use defaults from `shared/constants/listPagination.ts`.
+2. Cap `limit` with `clampListPageSize` / Zod `max(MAX_LIST_PAGE_SIZE)`.
+3. Query with `.skip(pageToSkip(page, limit)).limit(limit)` — never return unbounded arrays.
+4. Return `page`, `limit`, `totalCount`, `totalPages` alongside the row array.
+5. Avoid client-driven cursor "load more" accumulation for institutional rosters; cursor pagination is legacy-only.
+
+## Client
+
+1. Replace list state each fetch — **do not** `setItems(prev => [...prev, ...next])` for admin rosters.
+2. Reset `page` to `1` when search/filter changes.
+3. Render `NexusListPagination` from `@/components/ui/NexusListPagination` (Shadcn `pagination.tsx` primitives).
+4. Default page size: `DEFAULT_LIST_PAGE_SIZE` (10) unless the feature spec says otherwise.
+
+## Reference
+
+- Spec: `.ai/docs/features/list_pagination.md`
+- User Directory: `UserDirectoryShell.tsx`, `GET /api/admin/users`, `AccessControlDomain.listDirectoryUsers`
+- Tests: `npm run test:list-pagination`

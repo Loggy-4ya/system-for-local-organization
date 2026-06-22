@@ -9,6 +9,13 @@
 
 import { z } from "zod";
 import { ALL_PERMISSION_KEYS } from "@shared/constants/accessControl";
+import { DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
+import {
+  adminDirectoryGroupField,
+  adminDirectorySpecialtyField,
+} from "@shared/validation/academicFieldSchemas";
+import { optionalPhoneSchema } from "@shared/validation/phoneSchema";
+import { contentPolicyPlainTextRefine } from "@shared/validation/contentPolicySchemas";
 
 /**
  * Validation schema for GET /api/admin/users query parameters.
@@ -19,7 +26,11 @@ export const userDirectoryQuerySchema = z.object({
     .trim()
     .max(100, "Search query must be under 100 characters.")
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .refine(
+      (val) => !val || contentPolicyPlainTextRefine.check(val),
+      { message: contentPolicyPlainTextRefine.message },
+    ),
   level: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
@@ -27,12 +38,18 @@ export const userDirectoryQuerySchema = z.object({
     )
     .optional(),
   cursor: z.string().optional(),
+  page: z
+    .preprocess(
+      (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+      z.number().int().min(1),
+    )
+    .default(1),
   limit: z
     .preprocess(
       (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
-      z.number().int().min(1).max(50)
+      z.number().int().min(1).max(MAX_LIST_PAGE_SIZE),
     )
-    .default(20),
+    .default(DEFAULT_LIST_PAGE_SIZE),
 });
 
 /**
@@ -48,7 +65,10 @@ export const sociumRoleAssignmentSchema = z.object({
     .string()
     .trim()
     .min(1, "Role label is required.")
-    .max(120, "Role label must be under 120 characters."),
+    .max(120, "Role label must be under 120 characters.")
+    .refine(contentPolicyPlainTextRefine.check, {
+      message: contentPolicyPlainTextRefine.message,
+    }),
   kind: z.enum([
     "starosta",
     "group_deputy",
@@ -71,7 +91,11 @@ export const sociumRoleAssignmentSchema = z.object({
     .trim()
     .max(120, "Body title must be under 120 characters.")
     .nullable()
-    .optional(),
+    .optional()
+    .refine(
+      (val) => val == null || val === "" || contentPolicyPlainTextRefine.check(val),
+      { message: contentPolicyPlainTextRefine.message },
+    ),
   assignedAt: z.preprocess(
     (val) => (val ? new Date(val as string) : new Date()),
     z.date()
@@ -92,7 +116,10 @@ export const socialGroupActivitySchema = z.object({
     .string()
     .trim()
     .min(1, "Activity label is required.")
-    .max(120, "Activity label must be under 120 characters."),
+    .max(120, "Activity label must be under 120 characters.")
+    .refine(contentPolicyPlainTextRefine.check, {
+      message: contentPolicyPlainTextRefine.message,
+    }),
   assignedAt: z.preprocess(
     (val) => (val ? new Date(val as string) : new Date()),
     z.date()
@@ -112,17 +139,27 @@ export const organizationMembershipSchema = z.object({
     .string()
     .trim()
     .min(1, "Organization label is required.")
-    .max(120, "Organization label must be under 120 characters."),
+    .max(120, "Organization label must be under 120 characters.")
+    .refine(contentPolicyPlainTextRefine.check, {
+      message: contentPolicyPlainTextRefine.message,
+    }),
   assignedAt: z.preprocess(
     (val) => (val ? new Date(val as string) : new Date()),
     z.date()
   ),
 });
 
+/** Admin-editable profile fields on another user (academic assignment + phone). */
+export const adminUserProfilePatchSchema = z.object({
+  specialty: adminDirectorySpecialtyField,
+  group: adminDirectoryGroupField,
+  phone: optionalPhoneSchema.optional(),
+});
+
 /**
  * Validation schema for admin user mutations (PATCH /api/admin/users/[id]).
  */
-export const adminUserUpdateSchema = z.object({
+export const adminUserUpdateSchema = adminUserProfilePatchSchema.extend({
   accessLevelIndex: z.number().int().min(0).max(6).optional(),
   sociumRoles: z.array(sociumRoleAssignmentSchema).optional(),
   socialGroupActivities: z.array(socialGroupActivitySchema).optional(),
@@ -140,6 +177,11 @@ export const DIRECTORY_ERROR_CODES = {
   PERMISSION_NOT_DELEGATABLE: "PERMISSION_NOT_DELEGATABLE",
   ROLE_ASSIGNMENT_FORBIDDEN: "ROLE_ASSIGNMENT_FORBIDDEN",
   AFFILIATION_ASSIGNMENT_FORBIDDEN: "AFFILIATION_ASSIGNMENT_FORBIDDEN",
+  PROFILE_EDIT_FORBIDDEN: "PROFILE_EDIT_FORBIDDEN",
+  USER_DELETE_FORBIDDEN: "USER_DELETE_FORBIDDEN",
+  LAST_SYSTEM_ADMIN_DELETE_FORBIDDEN: "LAST_SYSTEM_ADMIN_DELETE_FORBIDDEN",
+  SPECIALTY_NOT_APPROVED: "SPECIALTY_NOT_APPROVED",
+  GROUP_NOT_APPROVED: "GROUP_NOT_APPROVED",
   USER_NOT_FOUND: "USER_NOT_FOUND",
   UNAUTHORIZED: "UNAUTHORIZED",
   FORBIDDEN: "FORBIDDEN",

@@ -8,9 +8,12 @@
 
 import { useEffect } from "react";
 import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
+import {
+  NEXUS_PUCK_PREVIEW_MODE_ATTR,
+} from "@/components/puck/lib/puckPreviewMode";
 
 /** `<html>` attribute carrying the active Puck preview mode. */
-export const NEXUS_PUCK_PREVIEW_MODE_ATTR = "data-nexus-puck-preview-mode";
+export { NEXUS_PUCK_PREVIEW_MODE_ATTR };
 
 /**
  * Sync Puck preview mode to the document root for layout overrides.

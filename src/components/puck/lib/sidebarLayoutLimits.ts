@@ -6,7 +6,6 @@
 
 import {
   PUCK_COMPACT_EDITOR_MAX_WIDTH,
-  PUCK_COMPACT_EDITOR_MQ,
   PUCK_NARROW_DESKTOP_MAX_WIDTH,
   PUCK_TIGHT_DESKTOP_MAX_WIDTH,
 } from "@/components/puck/usePuckMobileEditorChrome";

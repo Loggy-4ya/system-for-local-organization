@@ -23,9 +23,9 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | Route | Type | Purpose |
 |-------|------|---------|
 | `/login` | Page | Login/password sign-in + OAuth row |
-| `/signup` | Page | Student registration — login, optional linked email (Figma `57:17`) |
+| `/signup` | Page | Student registration — login, optional linked email, profile photo, socium role (Figma `57:17`) |
 | `/profile` | Page | Read-only profile dashboard (Figma `59:47`) |
-| `/profile/settings` | Page | Editable user info; `?onboarding=1` for OAuth/Telegram profile completion gate |
+| `/profile/settings` | Page | Editable user info; `?onboarding=1` for OAuth/Telegram profile completion gate; `#notifications` for delivery channel prefs |
 | `/telegram` | Page | Telegram Mini App entry (auto-login / onboarding) |
 | `/api/auth/[...nextauth]` | API | Auth.js handler |
 | `/api/auth/register` | API | POST credentials signup (JSON API) |
@@ -36,9 +36,22 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | `/api/auth/telegram/mini-app` | API | POST Mini App `initData` → bridge or onboarding |
 | `/api/auth/telegram/mini-app/register` | API | POST Mini App onboarding registration |
 | `/api/telegram/webhook` | API | Bot webhook (`/start` → Open Nexus button) |
-| `/api/profile` | API | PATCH profile fields |
+| `/api/profile` | API | GET/PATCH profile fields |
+| `/api/me` | API | GET basic site chrome profile (avatar, name, role) on page entry |
 | `/api/profile/completeness` | API | GET membership profile readiness gaps |
-| `/api/profile/telegram` | API | DELETE unlink Telegram (session required) |
+| `/api/profile/telegram` | API | POST link Telegram (session); DELETE unlink |
+| `/api/notifications/web-prompt` | API | GET/POST browser notification permission prompt state |
+
+---
+
+## Notification preferences
+
+After sign-in or registration, signed-in users see a one-time dialog asking for **browser notification permission**. Copy explains that delivery can be configured in **Profile settings → Notifications** as **Web**, **Telegram**, or **both**.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `notificationChannels` | `('web' \| 'telegram')[]` | User preference; default `['web']`. Filters web toasts and Telegram DMs. |
+| `webNotificationPromptAt` | `Date \| null` | Set when the user enables or dismisses the browser permission prompt. |
 
 ---
 
@@ -74,7 +87,8 @@ See full specification: [user_model_and_social_identity.md](./user_model_and_soc
 | `passwordHash` | `string \| null` | bcrypt; never exposed |
 | `name` | `string` | Given / first name |
 | `surname` | `string \| null` | Family name; combined as `fullName` in API |
-| `phone` | `string \| null` | Contact number; optional (recommended) for students, required for self-government members |
+| `phone` | `string \| null` | Contact number; optional (recommended) for students, required for self-government members and applicants |
+| `telegramId` | `number \| null` | Telegram Login Widget / Mini App link; **required** for self-government members and membership applicants |
 | `selfGovernmentApplicationIntent` | `boolean` | Signup checkbox — student wants to apply for self-government (admin reviews) |
 | `personalDataConsentAt` | `Date \| null` | Timestamp when user accepted personal data processing at signup |
 | `email` | `string \| null` | Optional linked email; sparse unique index; OAuth merge |
@@ -87,8 +101,6 @@ See full specification: [user_model_and_social_identity.md](./user_model_and_soc
 | `socialLinks` | `IUserSocialLink[]` | User-editable social media URLs |
 | `about` | `string \| null` | Self-authored bio note |
 | `qualityScores` | `IUserQualityScores \| null` | Auto-init for self-government members |
-| `accentFamily` | `blue \| red \| yellow \| green \| purple` | Default `blue` |
-| `accentShade` | `soft \| medium \| strong` | Default `medium` |
 | `lastTelegramSyncAt` | `Date \| null` | Profile sync card |
 
 RBAC `role` (`Admin` / `StudentCouncil` / `Student`) is server-assigned only.
@@ -131,7 +143,7 @@ ADMIN_SEED_PASSWORD=
 
 ### React hydration warnings on `/profile`
 
-1. **Dark Reader / similar extensions** inject `data-darkreader-*` attributes and `--darkreader-*` CSS variables on SVG and `<img>` nodes after paint. These are not Nexus SSR bugs. The header logo, theme toggle icons, and profile accent scope use `suppressHydrationWarning` and CSS-class filters where needed.
+1. **Dark Reader / similar extensions** inject `data-darkreader-*` attributes and `--darkreader-*` CSS variables on SVG and `<img>` nodes after paint. These are not Nexus SSR bugs. The header logo uses `suppressHydrationWarning` and CSS-class filters where needed.
 2. **Real SSR theme mismatch** (cookie `system` vs toggle knob): `HeaderSessionBridge` resolves dark/light via `resolveStoredThemeIsDark()` (`src/lib/resolveStoredThemeIsDark.ts`) using the theme cookie plus `Sec-CH-Prefers-Color-Scheme`. Middleware sends `Accept-CH` so first visits without a cookie align with OS preference.
 3. **Theme toggle first paint:** `ThemeToggleLink` defers knob position until after mount (same pattern as `ThemeToggle`) so SSR and hydration agree before applying the server-resolved value.
 
@@ -150,13 +162,27 @@ Not emitted by Nexus application code. Brave and some wallet extensions assign t
 | `findOrCreateFromApple` | OAuth merge by `appleId` or email |
 | `linkGoogleProfile` | Link Google onto an existing account (profile settings); sets email from OAuth |
 | `linkAppleProfile` | Link Apple onto an existing account (profile settings) |
-| `verifyTelegramLoginWidget` | HMAC verify + link Telegram identity |
+| `linkTelegramProfile` | Link Telegram Login Widget onto an existing account |
+| `verifyTelegramLoginWidget` | HMAC verify + sign-in / sparse account create |
 | `authenticateTelegramMiniApp` | Mini App initData → returning user or onboarding |
 | `registerFromTelegramMiniApp` | First-time Mini App registration + `telegramId` link |
 | `unlinkTelegram` | Remove `telegramId` when password/OAuth remains |
 | `updateProfile` | Settings page PATCH |
 | `changePassword` | Current + new password |
 | `toPublicUser` | Strip `passwordHash` for API/session |
+
+### Deprecated user accent fields (removed)
+
+Per-user accent colour pickers were removed from the product. The Mongoose schema no longer defines `accentFamily` / `accentShade`.
+
+**Existing deployments:** run once against MongoDB after deploy:
+
+```bash
+npm run job:remove-user-accent-fields:dry-run   # inspect count
+npm run job:remove-user-accent-fields         # $unset on all users
+```
+
+Script: `scripts/removeUserAccentFields.ts`. Site-wide accent styling still uses the fixed CSS token `--color-accent-user` (default blue) in `globals.css` — not per-user MongoDB fields.
 
 ---
 
@@ -173,7 +199,7 @@ All authentication and profile settings forms are validated using **Zod** schema
 - **Specialty / Group:** Optional, max 120 chars. Signup uses creatable dropdowns backed by `academic_catalog` — user-typed values queue as `pending` for admin review (see [signin_identity_matrix.md](./signin_identity_matrix.md)).
 - **Socium role (signup):** `Student` (default), `Starosta`, or `Teacher` — select control; maps to socium kinds. Other roles are admin-assigned.
 - **Group:** Numeric only (1–4 digits, e.g. `42`).
-- **Membership intent:** `applyForSelfGovernment` boolean — records intent, does not grant roles.
+- **Membership intent:** `applyForSelfGovernment` boolean — records intent, does not grant roles. When true, signup requires phone, profile photo, and a verified **Telegram Login Widget** connection (`telegramAuth` on `POST /api/auth/register`).
 - **Personal data consent:** `personalDataConsent: true` required at signup; stored as `personalDataConsentAt`.
 - **Student Title (legacy):** `Starosta | Deputy | Neither` — signup exposes Student/Starosta chips; `Deputy` remains editable in profile settings.
 - **Display Name:** Required, trimmed, 1–100 characters.
@@ -225,6 +251,21 @@ Logic: `shared/lib/userProfileCompleteness.ts` — `userNeedsProfileOnboarding()
 
 ---
 
+## Site entry profile bootstrap
+
+When a signed-in viewer loads any site page, the root layout seeds {@link BasicSiteProfile} from the server `auth()` session and {@link SiteProfileProvider} immediately refreshes from MongoDB via `GET /api/me`.
+
+| Layer | Path | Role |
+|-------|------|------|
+| DTO | `shared/lib/siteProfileBasic.ts` | `BasicSiteProfile` — id, name, fullName, email, avatar, role |
+| API | `GET /api/me` | Session-required snapshot for header chrome |
+| Client | `SiteProfileProvider` | Seeds from SSR session, re-fetches on authenticated entry |
+| Header | `GlobalHeader` | Reads profile context; SSR theme still from `resolveStoredThemeIsDark()` |
+
+Profile settings call `refreshProfile()` after a successful save so the header avatar/name update without a hard reload.
+
+---
+
 ## Middleware
 
 Protects `/profile/*` and `/admin/*`. Unauthenticated users redirect to `/login?callbackUrl=…`.
@@ -235,15 +276,15 @@ Dev bypass: when `NEXTAUTH_SECRET` is unset, API write guards allow all requests
 
 ## Acceptance criteria
 
-- [x] Sign up with login/password, phone, password confirmation + strength check, optional linked email, creatable specialty/group, socium role (Student/Starosta), membership intent checkbox, personal data consent
+- [x] Sign up with login/password, phone, password confirmation + strength check, optional linked email, creatable specialty/group, socium role (Student/Starosta), optional profile photo (**required** when applying for self-government), membership intent checkbox, personal data consent
 - [x] Credentials login distinguishes unknown login (sign up first) from OAuth-only accounts (use provider)
 - [x] Sign in via Google, Apple, Telegram widget, Telegram Mini App, or credentials (inline errors, no full-page reload on bad password)
 - [x] Profile settings can unlink Telegram when another sign-in method exists
 - [x] Identities merge into one `users` document
 - [x] `/profile` read-only dashboard with live user data
-- [x] `/profile/settings` saves editable fields
+- [x] `/profile/settings` saves editable fields; profile photo via {@link AvatarImageField} (crop + Lucide User fallback — not emoji)
 - [x] OAuth / Telegram sparse accounts redirect to `/profile/settings?onboarding=1` until required fields + consent are saved
-- [x] GlobalHeader shows avatar + admin nav from session
+- [x] GlobalHeader shows avatar + admin nav from session; entry bootstrap via `SiteProfileProvider` + `GET /api/me`
 - [x] Protected API routes use `auth()` session check (legacy bearer fallback for Puck editor)
 
 **Deferred:** Task list and council activity on profile use Figma placeholder content until Phase 5 Task engine.

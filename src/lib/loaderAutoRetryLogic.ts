@@ -9,8 +9,8 @@
  * @module src/lib/loaderAutoRetryLogic
  */
 
-/** Default delay before an stuck loader triggers `location.reload()`. */
-export const LOADER_AUTO_RETRY_DELAY_MS = 7_000;
+/** Default delay before a stuck loader triggers `location.reload()` (non-history nav). */
+export const LOADER_AUTO_RETRY_DELAY_MS = 4_500;
 
 /** Maximum automatic reload attempts per pathname in one browser tab session. */
 export const LOADER_AUTO_RETRY_MAX = 2;

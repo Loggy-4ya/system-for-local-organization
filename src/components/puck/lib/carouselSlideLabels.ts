@@ -11,15 +11,9 @@ export interface CarouselSlideRecord {
   [key: string]: unknown;
 }
 
-/**
- * Format the default sidebar/canvas label for a slide at the given index.
- *
- * @param index - Zero-based slide index.
- * @returns Human-readable label such as "Slide 1".
- */
-export function formatCarouselSlideLabel(index: number): string {
-  return `Slide ${index + 1}`;
-}
+import { formatCarouselSlideLabel } from "./arrayItemLabels";
+
+export { formatCarouselSlideLabel } from "./arrayItemLabels";
 
 /**
  * Assign `Slide N` only when a slide has no label yet (preserves user renames).

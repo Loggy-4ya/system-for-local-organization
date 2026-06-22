@@ -13,15 +13,9 @@ export interface GridItemRecord {
   [key: string]: unknown;
 }
 
-/**
- * Format the default sidebar label for a grid cell at the given index.
- *
- * @param index - Zero-based cell index.
- * @returns Human-readable label such as "Cell 1".
- */
-export function formatGridItemLabel(index: number): string {
-  return `Cell ${index + 1}`;
-}
+import { formatGridItemLabel } from "./arrayItemLabels";
+
+export { formatGridItemLabel } from "./arrayItemLabels";
 
 /**
  * Assign `Cell N` only when a cell has no label yet (preserves user renames).

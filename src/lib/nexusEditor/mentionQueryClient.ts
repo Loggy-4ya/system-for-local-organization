@@ -29,6 +29,7 @@ export async function fetchMentionSearch(
   const response = await fetch(`${MENTION_SEARCH_API_PATH}?${params.toString()}`, {
     method: "GET",
     signal,
+    credentials: "include",
     headers: { Accept: "application/json" },
   });
 

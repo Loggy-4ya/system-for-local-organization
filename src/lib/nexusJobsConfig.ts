@@ -1,35 +1,34 @@
 /**
  * @fileoverview Environment configuration readers for Nexus scheduled/background jobs.
  *
+ * Intervals are clamped by {@link getNexusHostingPolicy} — serverless/hybrid modes
+ * always return 0 for in-process loops regardless of raw env values.
+ *
  * @module src/lib/nexusJobsConfig
  */
+
+import { getNexusHostingPolicy } from "@/lib/nexusHostingBootstrap";
 
 /**
  * Read the scheduled events tick interval in milliseconds.
  *
- * Read from `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS`. Defaults to 0 (disabled).
+ * Honors `NEXUS_HOSTING_MODE` — serverless/hybrid force 0 (HTTP cron only).
  *
  * @returns The interval in milliseconds, or 0 if disabled.
  */
 export function readScheduledEventsTickIntervalMs(): number {
-  const rawSeconds = process.env.SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS?.trim();
-  if (!rawSeconds) return 0;
-  const seconds = Number.parseFloat(rawSeconds);
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+  return getNexusHostingPolicy().scheduledEventsTickIntervalMs;
 }
 
 /**
  * Read the media orphan cleanup interval in hours.
  *
- * Read from `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS`. Defaults to 0 (disabled).
+ * Honors `NEXUS_HOSTING_MODE` — serverless/hybrid force 0 (HTTP cron only).
  *
  * @returns The interval in hours, or 0 if disabled.
  */
 export function readMediaOrphanCleanupIntervalHours(): number {
-  const rawHours = process.env.MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS?.trim();
-  if (!rawHours) return 0;
-  const hours = Number.parseFloat(rawHours);
-  return Number.isFinite(hours) && hours > 0 ? hours : 0;
+  return getNexusHostingPolicy().mediaOrphanCleanupIntervalHours;
 }
 
 /**
@@ -38,5 +37,6 @@ export function readMediaOrphanCleanupIntervalHours(): number {
  * @returns True when at least one periodic background job is scheduled in-process.
  */
 export function isInProcessJobsEnabled(): boolean {
-  return readScheduledEventsTickIntervalMs() > 0 || readMediaOrphanCleanupIntervalHours() > 0;
+  const policy = getNexusHostingPolicy();
+  return policy.scheduledEventsTickIntervalMs > 0 || policy.mediaOrphanCleanupIntervalHours > 0;
 }

@@ -13,16 +13,17 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://db:27017/nexus
+      - NEXUS_HOSTING_MODE=vps
+      - SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15
     env_file:
       - .env.local
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
 
-  # ── MongoDB database ────────────────────────────────────────────────────────
+  # ── MongoDB database (optional — local dev only) ───────────────────────────
+  # Bundled dev: docker compose -f docker-compose.yml -f docker-compose.bundled-db.yml --profile bundled-db up
+  # External DB: docker compose up  (set MONGODB_URI in .env.local — see .env.vps-external-db.example)
   db:
+    profiles: ["bundled-db"]
     image: mongo:7-jammy
     ports:
       - "27017:27017"
@@ -35,6 +36,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # ── MTProto telegram-worker (optional — auto-create project groups) ─────────
+  # Start with: docker compose --profile telegram-worker up
+  telegram-worker:
+    profiles: ["telegram-worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run worker:telegram
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - /app/node_modules
     restart: unless-stopped
 
 volumes:

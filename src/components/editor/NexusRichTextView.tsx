@@ -13,6 +13,7 @@ import { useCallback, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { normalizeNexusEditorHtmlForRender } from "@/lib/nexusEditor/nexusEditorContent";
+import { useInterpolatedNexusValue } from "@/components/puck/lib/nexusPageVariablesContext";
 
 /** Props for {@link NexusRichTextView}. */
 export interface NexusRichTextViewProps {
@@ -51,6 +52,7 @@ export function NexusRichTextView({
   onPageMentionLeave,
 }: NexusRichTextViewProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const interpolatedHtml = useInterpolatedNexusValue(html);
 
   const handlePointerOver = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
@@ -80,7 +82,7 @@ export function NexusRichTextView({
     [enablePagePreviews, onPageMentionLeave],
   );
 
-  const safeHtml = normalizeNexusEditorHtmlForRender(html);
+  const safeHtml = normalizeNexusEditorHtmlForRender(interpolatedHtml);
   if (!safeHtml) return null;
 
   return (

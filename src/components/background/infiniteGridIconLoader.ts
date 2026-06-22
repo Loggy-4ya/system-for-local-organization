@@ -3,7 +3,10 @@
  *
  * WebKit often fires `img.onload` before embedded SVG subresources and internal
  * stylesheets are ready, yielding a blank `drawImage` on iOS. This module loads
- * via blob URL, retries with backoff, and validates rasterized alpha before use.
+ * via blob URL when fetch succeeds, retries with backoff, validates rasterized
+ * alpha, and falls back to direct `<img>` loading when fetch is blocked.
+ *
+ * Tests: `tests/components/background/infiniteGridIconLoader.test.ts` — `npm run test:infinite-grid-icon-loader`
  *
  * @module src/components/background/infiniteGridIconLoader
  */
@@ -35,18 +38,53 @@ export function isWebKitEngine(userAgent: string): boolean {
 }
 
 /**
+ * Resolve a root-relative or absolute grid icon URL against a document origin.
+ *
+ * @param src - Asset path or absolute URL.
+ * @param origin - Document origin such as `https://app.example.com`.
+ * @returns Absolute URL suitable for fetch or `<img src>`.
+ */
+export function resolveGridIconUrl(src: string, origin: string): string {
+  const trimmed = src.trim();
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (/^(blob:|data:)/i.test(trimmed)) return trimmed;
+
+  const base = origin.replace(/\/$/, "");
+  const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return `${base}${path}`;
+}
+
+/**
+ * Read the active document origin for asset resolution.
+ *
+ * @returns Origin string, or empty when unavailable (SSR).
+ */
+function getDocumentOrigin(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.origin;
+}
+
+/**
  * Fetch an asset and expose it as a same-origin blob URL for `<img>` loading.
  *
- * @param src - Root-relative or absolute asset URL.
- * @returns Object URL; caller must revoke when finished.
+ * @param src - Absolute asset URL.
+ * @returns Object URL, or `null` when fetch fails (extensions, offline, CORS).
  */
-async function fetchAsBlobUrl(src: string): Promise<string> {
-  const response = await fetch(src, { cache: "force-cache" });
-  if (!response.ok) {
-    throw new Error(`[InfiniteGrid] HTTP ${response.status} for ${src}`);
+async function fetchAsBlobUrl(src: string): Promise<string | null> {
+  try {
+    const response = await fetch(src, { cache: "force-cache", credentials: "same-origin" });
+    if (!response.ok) {
+      console.warn(`[InfiniteGrid] HTTP ${response.status} for ${src}`);
+      return null;
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.warn("[InfiniteGrid] fetch failed — falling back to direct image load:", src, error);
+    return null;
   }
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
 }
 
 /**
@@ -100,18 +138,25 @@ async function loadWithRasterValidation(
   src: string,
   useWebKitRetries: boolean
 ): Promise<HTMLImageElement | null> {
+  const origin = getDocumentOrigin();
+  const resolvedSrc = origin ? resolveGridIconUrl(src, origin) : src;
   let blobUrl: string | null = null;
+  let shouldRevokeBlob = false;
 
   try {
-    blobUrl = await fetchAsBlobUrl(src);
+    blobUrl = await fetchAsBlobUrl(resolvedSrc);
+    const loadSrc = blobUrl ?? resolvedSrc;
+    shouldRevokeBlob = blobUrl !== null;
+
     const delays = useWebKitRetries ? SAFARI_RETRY_DELAYS_MS : [0];
 
     for (const delay of delays) {
       if (delay > 0) await sleep(delay);
 
       try {
-        const img = await loadImageElement(blobUrl);
+        const img = await loadImageElement(loadSrc);
         if (iconHasRasterContent(img)) {
+          shouldRevokeBlob = false;
           return img;
         }
       } catch {
@@ -121,7 +166,9 @@ async function loadWithRasterValidation(
 
     return null;
   } finally {
-    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    if (blobUrl && shouldRevokeBlob) {
+      URL.revokeObjectURL(blobUrl);
+    }
   }
 }
 

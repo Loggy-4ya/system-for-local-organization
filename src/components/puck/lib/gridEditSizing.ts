@@ -53,18 +53,33 @@ export function resolveCarouselAwareGridGap(gap: string, inCarouselSlide: boolea
 }
 
 /**
- * Resolve row span for grid placement — carousel slides always use a single row track
- * so legacy `spanRow: "2"` data does not create phantom row gaps in slide cards.
+ * Resolve row span for grid placement — carousel slides and edit mode always use a single
+ * row track so legacy `spanRow: "2"` data does not create phantom row gaps (row 3 packing).
  *
  * @param spanRow - Sidebar row span preset.
  * @param inCarouselSlide - Whether the grid renders inside `.nexus-carousel__slide`.
+ * @param editLayoutMode - Whether Puck editor layout mode is active.
  * @returns Integer row span for {@link resolveGridCellPlacements}.
+ */
+export function resolveGridEditCellSpanRow(
+  spanRow: string | undefined,
+  inCarouselSlide: boolean,
+  editLayoutMode: boolean,
+): number {
+  if (editLayoutMode || inCarouselSlide) {
+    return 1;
+  }
+
+  const parsed = Number.parseInt(spanRow ?? NEXUS_GRID_ITEM_DEFAULT_SPAN_ROW, 10);
+  return Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
+}
+
+/**
+ * @deprecated Prefer {@link resolveGridEditCellSpanRow} — pass `editLayoutMode: false`.
  */
 export function resolveCarouselAwareGridCellSpanRow(
   spanRow: string | undefined,
   inCarouselSlide: boolean,
 ): number {
-  const parsed = Number.parseInt(spanRow ?? NEXUS_GRID_ITEM_DEFAULT_SPAN_ROW, 10);
-  const clamped = Number.isFinite(parsed) ? Math.max(1, parsed) : 1;
-  return inCarouselSlide ? 1 : clamped;
+  return resolveGridEditCellSpanRow(spanRow, inCarouselSlide, false);
 }

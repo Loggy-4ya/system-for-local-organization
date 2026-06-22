@@ -9,6 +9,7 @@
 import { signIn } from "next-auth/react";
 import type { SignupInput } from "@shared/validation/authSchemas";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
+import { uploadMediaFile } from "@/lib/mediaUploadClient";
 
 /** Result of a client-side credentials auth attempt. */
 export interface CredentialsAuthResult {
@@ -107,11 +108,14 @@ export async function submitTelegramBridgeSignIn(
  *
  * @param payload - Validated signup fields.
  * @param confirmPassword - Password confirmation echoed to the register API.
+ * @param pendingAvatarFile - Cropped avatar held during signup until the session exists.
  * @returns Auth result; field errors are returned for register validation failures.
  */
 export async function submitStudentSignup(
   payload: SignupInput,
   confirmPassword: string,
+  pendingAvatarFile?: File | null,
+  telegramAuth?: SignupInput["telegramAuth"],
 ): Promise<CredentialsAuthResult> {
   const res = await fetch("/api/auth/register", {
     method: "POST",
@@ -124,17 +128,20 @@ export async function submitStudentSignup(
       name: payload.name,
       surname: payload.surname,
       phone: payload.phone,
+      avatar: payload.avatar,
       specialty: payload.specialty,
       group: payload.group,
       signupSociumRole: payload.signupSociumRole,
       applyForSelfGovernment: payload.applyForSelfGovernment,
       personalDataConsent: true,
+      telegramAuth: telegramAuth ?? payload.telegramAuth ?? null,
     }),
   });
 
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;
     fieldErrors?: Record<string, string>;
+    userId?: string;
   };
 
   if (!res.ok) {
@@ -157,6 +164,37 @@ export async function submitStudentSignup(
       ok: false,
       error: getAuthErrorMessage("signin") ?? "Account created but sign-in failed.",
     };
+  }
+
+  if (pendingAvatarFile) {
+    try {
+      const ownerKey = data.userId;
+      const url = await uploadMediaFile(pendingAvatarFile, {
+        accept: "image",
+        purpose: "avatar",
+        ownerKey,
+        skipCrop: true,
+      });
+
+      const patchRes = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: url }),
+      });
+
+      if (!patchRes.ok) {
+        const patchData = (await patchRes.json().catch(() => ({}))) as { error?: string };
+        return {
+          ok: false,
+          error: patchData.error ?? "Account created but profile photo upload failed.",
+        };
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : "Account created but profile photo upload failed.",
+      };
+    }
   }
 
   return { ok: true };

@@ -18,8 +18,10 @@ Community participation (comments on news/proposals, surveys, quizzes) is stored
 
 | Layer | Field(s) | Who sets it | Notes |
 |-------|----------|-------------|-------|
-| Credentials | `login`, `passwordHash` | User at signup; admin seed | Login is unique, sparse-indexed. Password is bcrypt; never exposed in APIs. |
-| Contact | `phone` | User in settings; Telegram bot sync | Optional for students (recommended). **Required** for self-government members and before membership application. |
+| Credentials | `login`, `passwordHash` | User at signup; admin seed | Login uses a **partial unique index** (only when set). Omitted — not stored as `null`. Password is bcrypt; never exposed in APIs. |
+| Linked email | `email` | OAuth link; optional at signup | Partial unique index when non-empty (`partialFilterExpression: { email: { $gt: "" } }`). Omitted when unset — never persist `email: null` (prevents E11000). |
+| Contact | `phone` | User in settings; Telegram bot sync | Optional for students (recommended). **Required** for self-government members and applicants. |
+| Telegram | `telegramId`, `username` | Login Widget / Mini App / `POST /api/profile/telegram` | Optional for general students. **Required** for self-government members and applicants. |
 | Legal name | `name`, `surname` | User in signup/settings | Display via `formatUserFullName()` — `"Name Surname"`. Surname required before membership application. |
 | System RBAC | `role` | Server / admin only | `Admin` · `StudentCouncil` · `Student`. Legacy dashboard gate; see [access_control_and_hierarchy.md](./access_control_and_hierarchy.md). |
 | Access hierarchy | `accessLevelIndex` | Admin / authorised actors | **0 = highest** — system admin through common student (index 6). |
@@ -130,13 +132,15 @@ Comments and survey history panels remain placeholder until News Hub ships (Phas
 |----------|-------------------|
 | Common students | Optional but **recommended** in profile settings |
 | Self-government members | **Required** — cannot be cleared while member role is active |
-| Membership applicants | Must complete phone (+ surname, specialty, group) before applying |
+| Membership applicants | Must complete phone, profile photo, specialty, group, surname, and **Telegram** before application is considered ready |
 
 Helpers in `shared/lib/userProfileCompleteness.ts`:
 
-- `getMembershipProfileGaps()` — missing fields for application
+- `getMembershipProfileGaps()` — missing fields for application (includes `telegram` when required)
 - `isProfileReadyForMembershipApplication()` — gate for future apply flow
 - `phoneIsRequiredForUser()` — blocks clearing phone for active members
+- `telegramIsRequiredForUser()` — blocks unlinking Telegram for members and applicants
+- `userNeedsSelfGovernmentProfileCompliance()` — redirects incomplete applicants to settings
 
 Profile UI:
 
@@ -166,8 +170,9 @@ Telegram bot contact harvest (Phase 4) may pre-fill `phone`; users can override 
 - [x] Engagement stub models for comments, survey participation, published content.
 - [x] Registration and profile settings capture name + surname; settings capture about + social links.
 - [x] Profile settings capture phone; membership readiness banner on `/profile`
-- [ ] Membership application flow blocks submit until `isProfileReadyForMembershipApplication()`
+- [x] Membership application flow blocks submit until `isProfileReadyForMembershipApplication()` — enforced on `POST /api/membership-application` and `/profile/membership`.
 - [x] Registration captures phone, password confirmation, socium role (Student/Starosta), membership intent, personal data consent.
-- [ ] Admin panel: review `academic_catalog` pending entries and `selfGovernmentApplicationIntent` queue — see [signin_identity_matrix.md](./signin_identity_matrix.md).
+- [ ] Admin panel: review `academic_catalog` pending entries — see [signin_identity_matrix.md](./signin_identity_matrix.md).
+- [x] Membership application submit/review — see [membership_applications.md](./membership_applications.md).
 - [ ] News Hub wires `UserComment` and `UserPublishedContent` to live content.
 - [ ] Survey/quiz UI writes `SurveyParticipation` records.

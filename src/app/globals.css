@@ -2,6 +2,7 @@
 @import "./tw-animate.css";
 @import "./shadcn-tailwind.css";
 @import "./nexus-editor.css";
+@import "react-day-picker/style.css";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Nexus Design System — CSS Custom Properties
@@ -339,6 +340,21 @@ body {
   color: var(--color-accent-user);
 }
 
+/* ── Task compose form (/tasks/new) ──────────────────────────────────────── */
+.task-form .task-form-section + .task-form-section {
+  border-top: 1px solid var(--color-border-default);
+  padding-top: 2rem;
+}
+
+.task-form .nexus-datetime-picker__trigger {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.task-form .nexus-rich-text-editor--task-form {
+  width: 100%;
+}
+
 /* ── Auth shell (/login, /signup) ─────────────────────────────────────────── */
 .auth-shell__alert {
   animation: auth-alert-in 220ms ease-out;
@@ -357,7 +373,7 @@ body {
 }
 
 /* ── Site broadcast toasts (institution-wide announcements) ─────────────── */
-.site-broadcast-toast-host {
+.site-notification-toast-stack {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right));
   bottom: max(1rem, env(safe-area-inset-bottom));
@@ -366,6 +382,20 @@ body {
   flex-direction: column;
   gap: 0.75rem;
   width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.site-notification-toast-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.site-broadcast-toast-host {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
   pointer-events: none;
 }
 
@@ -402,6 +432,19 @@ body {
   white-space: pre-wrap;
 }
 
+.site-broadcast-toast__action {
+  display: inline-flex;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent-user);
+  text-decoration: none;
+}
+
+.site-broadcast-toast__action:hover {
+  text-decoration: underline;
+}
+
 .site-broadcast-toast__dismiss {
   flex-shrink: 0;
   display: inline-flex;
@@ -434,19 +477,6 @@ body {
 
 .site-broadcast-toast--error {
   border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
-}
-
-
-.accent-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  background-color: color-mix(in srgb, var(--color-accent-user) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent-user) 60%, transparent);
-  color: var(--color-accent-user);
 }
 
 /* ── Contained page shell — gutter outside, content matches header/footer inner width */
@@ -514,6 +544,66 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Puck page like FAB — bottom-left on published viewer ─────────────────── */
+.nexus-page-like-fab {
+  align-items: center;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  left: calc(1.25rem + env(safe-area-inset-left, 0px));
+  position: fixed;
+  z-index: 100;
+}
+
+.nexus-page-like-fab__btn {
+  border-radius: var(--radius-lg);
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.nexus-page-like-fab__btn--liked {
+  background-color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 70%, black);
+  color: #fff;
+}
+
+.nexus-page-like-fab__count {
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+
+/* ── Settings media preview — readable contain in Puck sidebar ───────────── */
+.nexus-settings-media-preview {
+  align-items: center;
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  min-height: 200px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.nexus-settings-media-preview__media {
+  display: block;
+  max-height: 280px;
+  max-width: 100%;
+  object-fit: contain;
+  width: auto;
+}
+
 /* ── Rich body text (NexusText published output) ──────────────────────────── */
 .nexus-rich-text {
   word-wrap: break-word;
@@ -566,7 +656,377 @@ body {
   margin-bottom: 0.25em;
 }
 
-/* Puck List block — restore markers after Tailwind preflight */
+/* Puck List block — vertical stepper timeline (structural dot + line track) */
+.nexus-stepper-timeline,
+.nexus-stepper-list {
+  --stepper-marker-width: 22px;
+  --stepper-line-width: 2px;
+  --stepper-line-color: color-mix(in srgb, var(--color-text-secondary) 60%, var(--color-border-default));
+  --stepper-row-pad-y: 8px;
+  --stepper-row-pad-x: 12px;
+  --stepper-nested-indent: 14px;
+  --stepper-item-gap: 8px;
+  --stepper-dot-offset: 13px;
+  --stepper-emphasis-full-start: var(--color-accent-user);
+  --stepper-emphasis-full-end: color-mix(in srgb, var(--color-accent-user) 72%, #22d3ee);
+  --stepper-emphasis-soft-start: color-mix(in srgb, var(--color-accent-user) 55%, var(--color-bg-panel));
+  --stepper-emphasis-soft-end: color-mix(in srgb, var(--color-accent-user) 35%, var(--color-bg-panel));
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 4px 0;
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-stepper-list--empty {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: var(--spacing-md);
+}
+
+.nexus-stepper-timeline__root {
+  width: 100%;
+}
+
+.nexus-stepper-timeline__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nexus-stepper-timeline__item {
+  align-items: stretch;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  min-height: 36px;
+  padding: 0;
+  position: relative;
+}
+
+.nexus-stepper-timeline__track {
+  align-items: stretch;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+  position: relative;
+  width: var(--stepper-marker-width);
+}
+
+.nexus-stepper-timeline__dot {
+  align-items: center;
+  align-self: center;
+  color: var(--stepper-line-color);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  line-height: 0;
+  margin-top: var(--stepper-dot-offset);
+  position: relative;
+  z-index: 1;
+}
+
+.nexus-stepper-timeline__line {
+  align-self: center;
+  background: var(--stepper-line-color);
+  display: none;
+  flex: 1 1 auto;
+  margin-top: 0;
+  min-height: var(--stepper-item-gap);
+  width: var(--stepper-line-width);
+}
+
+/* Continuous dot-to-dot connector — spans full row height (no segment gaps) */
+.nexus-stepper-timeline--connector-spine
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-tree
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-dashed
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-dotted
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-ring
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-arrow
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after {
+  bottom: calc(-1 * (var(--stepper-dot-offset) + var(--stepper-row-pad-y)));
+  content: "";
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: calc(var(--stepper-dot-offset) + 7px);
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.nexus-stepper-timeline--connector-spine
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-tree
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-ring
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after,
+.nexus-stepper-timeline--connector-arrow
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after {
+  background: var(--stepper-line-color);
+  width: var(--stepper-line-width);
+}
+
+.nexus-stepper-timeline--connector-dashed
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after {
+  background: transparent;
+  border-left: var(--stepper-line-width) dashed var(--stepper-line-color);
+  width: 0;
+}
+
+.nexus-stepper-timeline--connector-dotted
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after {
+  background: transparent;
+  border-left: var(--stepper-line-width) dotted var(--stepper-line-color);
+  width: 0;
+}
+
+.nexus-stepper-timeline--connector-dashed .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-dotted .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-spine .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-tree .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-ring .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-arrow .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-rail .nexus-stepper-timeline__line {
+  display: none;
+}
+
+.nexus-stepper-timeline--connector-rail
+  .nexus-stepper-timeline__item:not(.nexus-stepper-timeline__item--last)
+  .nexus-stepper-timeline__track::after {
+  display: none;
+}
+
+.nexus-stepper-timeline--connector-rail .nexus-stepper-timeline__track {
+  position: relative;
+}
+
+.nexus-stepper-timeline--connector-rail .nexus-stepper-timeline__track::before {
+  background: color-mix(in srgb, var(--stepper-line-color) 42%, transparent);
+  border-radius: 6px;
+  bottom: calc(-1 * (var(--stepper-dot-offset) + var(--stepper-row-pad-y)));
+  content: "";
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: calc(var(--stepper-dot-offset) + 7px);
+  transform: translateX(-50%);
+  width: 10px;
+  z-index: 0;
+}
+
+.nexus-stepper-timeline--connector-rail .nexus-stepper-timeline__item--last .nexus-stepper-timeline__track::before {
+  bottom: calc(50% - 4px);
+}
+
+.nexus-stepper-timeline--connector-rail .nexus-stepper-timeline__line {
+  background: transparent;
+  display: none;
+}
+
+.nexus-stepper-timeline--connector-ring .nexus-stepper-timeline__dot {
+  background: var(--color-bg-panel);
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  box-sizing: border-box;
+  height: 12px;
+  width: 12px;
+}
+
+.nexus-stepper-timeline--connector-ring .nexus-stepper-timeline__dot--emphasis-full {
+  border-color: var(--color-accent-user);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-user) 25%, transparent);
+}
+
+.nexus-stepper-timeline--connector-arrow .nexus-stepper-timeline__arrow {
+  align-items: center;
+  align-self: center;
+  bottom: calc(-1 * (var(--stepper-dot-offset) + 3px));
+  color: var(--stepper-line-color);
+  display: flex;
+  justify-content: center;
+  left: 50%;
+  min-height: 0;
+  opacity: 0.85;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.nexus-stepper-timeline--connector-minimal .nexus-stepper-timeline__line,
+.nexus-stepper-timeline--connector-minimal .nexus-stepper-timeline__arrow {
+  display: none;
+}
+
+.nexus-stepper-timeline__body {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--stepper-row-pad-y) 0;
+}
+
+.nexus-stepper-timeline__item--nested .nexus-stepper-timeline__body {
+  margin-left: var(--stepper-nested-indent);
+  position: relative;
+}
+
+.nexus-stepper-timeline--connector-tree .nexus-stepper-timeline__item--nested .nexus-stepper-timeline__body::before {
+  background: var(--stepper-line-color);
+  content: "";
+  height: var(--stepper-line-width);
+  left: calc(-1 * var(--stepper-nested-indent));
+  position: absolute;
+  top: 50%;
+  width: var(--stepper-nested-indent);
+}
+
+.nexus-stepper-timeline--connector-tree .nexus-stepper-timeline__item--nested .nexus-stepper-timeline__dot {
+  width: 8px;
+}
+
+.nexus-stepper-timeline--connector-tree .nexus-stepper-timeline__item--nested .nexus-stepper-timeline__dot svg {
+  height: 8px;
+  width: 8px;
+}
+
+
+.nexus-stepper-timeline__dot--emphasis-full,
+.nexus-stepper-timeline__item--emphasis-full .nexus-stepper-timeline__dot {
+  color: var(--color-accent-user);
+}
+
+.nexus-stepper-timeline__dot--emphasis-soft,
+.nexus-stepper-timeline__item--emphasis-soft .nexus-stepper-timeline__dot {
+  color: color-mix(in srgb, var(--color-accent-user) 65%, var(--stepper-line-color));
+}
+
+
+.nexus-stepper-timeline__select {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font: inherit;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.nexus-stepper-timeline__row {
+  border-radius: var(--radius-md);
+  flex: 1;
+  min-width: 0;
+  padding: var(--stepper-row-pad-y) var(--stepper-row-pad-x);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nexus-stepper-timeline__row--emphasis-full {
+  background: linear-gradient(
+    90deg,
+    var(--stepper-emphasis-full-start),
+    var(--stepper-emphasis-full-end)
+  );
+  color: #fff;
+}
+
+.nexus-stepper-timeline__row--emphasis-full .nexus-rich-text a,
+.nexus-stepper-timeline__row--emphasis-full .nexus-rich-text__link {
+  color: #fff;
+  text-decoration-color: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.nexus-stepper-timeline__row--emphasis-soft {
+  background: linear-gradient(
+    90deg,
+    var(--stepper-emphasis-soft-start),
+    var(--stepper-emphasis-soft-end)
+  );
+  color: var(--color-text-primary);
+}
+
+.nexus-stepper-timeline__row--selected {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-accent-user) 45%, transparent);
+}
+
+
+.nexus-stepper-timeline__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  min-width: 0;
+}
+
+.nexus-stepper-timeline__label .nexus-rich-text {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.nexus-stepper-timeline__label .nexus-rich-text p {
+  margin: 0;
+}
+
+.nexus-stepper-timeline__chevron {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  margin: 0;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.nexus-stepper-timeline__chevron:hover {
+  color: var(--color-text-primary);
+}
+
+
+.nexus-stepper-timeline__item--emphasis-full .nexus-stepper-timeline__chevron {
+  color: color-mix(in srgb, #fff 85%, transparent);
+}
+
+.nexus-stepper-timeline__select:focus-visible .nexus-stepper-timeline__row {
+  outline: 2px solid var(--color-accent-user);
+  outline-offset: 2px;
+}
+
+/* Legacy bullet/ordered list classes — kept for published pages with old data */
 .nexus-list {
   box-sizing: border-box;
   color: var(--color-text-primary);
@@ -790,7 +1250,7 @@ body {
   min-height: var(--nexus-carousel-row-height);
 }
 
-/* Occupied slots stay content-sized at the top of equal-height slide cards (interactive only). */
+/* Occupied slots stay content-sized at the top of equal-height slide cards (interactive row sync). */
 .nexus-carousel--interactive.nexus-carousel--row-height-sync:not(.nexus-carousel--fixed-height)
   .nexus-carousel__slide
   [data-puck-dropzone][class*="DropZone--hasChildren"],
@@ -802,6 +1262,18 @@ body {
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
+}
+
+/* Composite slides (multi-block / nested grid) — content-sized slot; carousel row keeps equal-row floor. */
+.nexus-carousel__slide--composite:not(.nexus-carousel__slide--fixed)
+  .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel__slide--composite:not(.nexus-carousel__slide--fixed)
+  .nexus-carousel__dropzone,
+.nexus-carousel__slide--composite:not(.nexus-carousel__slide--fixed)
+  [data-puck-dropzone]:not(.nexus-grid):not(.nexus-grid-item) {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .nexus-carousel--single-visible:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
@@ -1169,13 +1641,17 @@ body {
   align-items: start;
 }
 
+.nexus-carousel__slide .nexus-grid.nexus-grid--row-height-sync {
+  align-items: stretch !important;
+}
+
 .nexus-carousel--edit .nexus-carousel__slide:has(.nexus-grid) .nexus-carousel__slide-dropzone-shell {
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
 }
 
-/* Grid slides — disable edit-height stretch sync (class toggled in NexusCarouselRender) */
+/* Grid slides — content-sized carousel chrome; row sync fills a fixed CSS height anchor only. */
 .nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) .nexus-carousel__viewport,
 .nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) [data-slot="carousel-content"] > .flex,
 .nexus-carousel--edit.nexus-carousel--has-grid-slide:not(.nexus-carousel--fixed-height) .nexus-carousel__track--edit,
@@ -1205,9 +1681,19 @@ body {
   min-height: 0;
 }
 
-[data-puck-dragging] .nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide,
-[data-puck-dragging] .nexus-carousel--edit.nexus-carousel--in-grid-cell .nexus-carousel__slide {
-  overflow: visible;
+.nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide-dropzone-shell,
+.nexus-carousel--edit.nexus-carousel--in-grid-cell .nexus-carousel__slide-dropzone-shell {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+/* Published / static — keep carousel grids content-sized (no stretch feedback loop). */
+.nexus-carousel:not(.nexus-carousel--edit) .nexus-carousel__slide .nexus-grid,
+.nexus-carousel:not(.nexus-carousel--edit) .nexus-carousel__slide .nexus-grid[data-puck-dropzone] {
+  align-self: start;
+  flex: none !important;
+  height: auto !important;
 }
 
 [data-puck-dragging]
@@ -1218,15 +1704,6 @@ body {
   .nexus-grid[data-puck-dropzone] {
   overflow: visible;
 }
-
-.nexus-carousel--edit.nexus-carousel--has-grid-slide .nexus-carousel__slide-dropzone-shell,
-.nexus-carousel--edit.nexus-carousel--in-grid-cell .nexus-carousel__slide-dropzone-shell {
-  flex: 0 0 auto !important;
-  height: auto !important;
-  min-height: 0 !important;
-}
-
-/* Carousel inside a grid cell — no 240px edit floor on empty slides */
 .nexus-carousel--in-grid-cell.nexus-carousel--edit:not(.nexus-carousel--fixed-height)
   .nexus-carousel__slide:not(:has([data-puck-dropzone][class*="DropZone--hasChildren"])) {
   min-height: 0;
@@ -1236,6 +1713,30 @@ body {
   max-width: 100%;
   min-width: 0;
   width: 100%;
+}
+
+/* Grid cell empty-slot floor — shared token for nested blocks (edit + interactive). */
+.nexus-grid-item-shell {
+  --nexus-grid-item-empty-min-height: 240px;
+}
+
+.nexus-carousel__slide .nexus-grid-item-shell {
+  --nexus-grid-item-empty-min-height: 120px;
+}
+
+/*
+ * Equal-row carousel floor — defaults to carousel auto min; inside grid cells inherits
+ * the grid item empty-slot floor from the parent shell.
+ */
+.nexus-carousel:not(.nexus-carousel--fixed-height) {
+  --nexus-carousel-row-min-height: var(--nexus-carousel-auto-min-height, 240px);
+}
+
+.nexus-carousel--in-grid-cell:not(.nexus-carousel--fixed-height) {
+  --nexus-carousel-row-min-height: var(
+    --nexus-grid-item-empty-min-height,
+    var(--nexus-carousel-auto-min-height, 240px)
+  );
 }
 
 /* Multi-slide track — gap and flex-basis per slides-per-view preset */
@@ -1380,13 +1881,13 @@ body {
   align-items: stretch;
 }
 
-/* Adaptive auto height — no 240px viewport floor when row is content-sized. */
+/* Adaptive auto height — content-sized row with grid-aware min-height floor (sparse slides). */
 .nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
   .nexus-carousel__swipe-host,
 .nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
   .nexus-carousel__viewport {
   height: auto;
-  min-height: 0;
+  min-height: var(--nexus-carousel-row-min-height, var(--nexus-carousel-auto-min-height, 240px));
   max-height: var(--nexus-carousel-max-height, none);
   overflow: hidden;
 }
@@ -1401,7 +1902,7 @@ body {
   [data-slot="carousel-content"]
   > .flex {
   height: auto;
-  min-height: 0;
+  min-height: var(--nexus-carousel-row-min-height, var(--nexus-carousel-auto-min-height, 240px));
 }
 
 .nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
@@ -1412,7 +1913,7 @@ body {
 .nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
   .nexus-carousel__slide {
   height: auto;
-  min-height: 0;
+  min-height: var(--nexus-carousel-row-min-height, var(--nexus-carousel-auto-min-height, 240px));
 }
 
 /* Interactive multi-slide — occupied slots stay content-sized; empty slides follow stretch. */
@@ -1431,6 +1932,11 @@ body {
 
 .nexus-carousel--interactive.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
   .nexus-carousel__slide:not(:has([data-puck-component])) {
+  min-height: var(--nexus-carousel-row-min-height, var(--nexus-carousel-auto-min-height, 240px));
+}
+
+.nexus-carousel--edit.nexus-carousel--equal-row-height:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+  .nexus-carousel__slide:has([data-puck-component]) {
   min-height: 0;
 }
 
@@ -1478,9 +1984,9 @@ body {
   }
 }
 
-.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync):not(.nexus-carousel--equal-row-height)
   [data-slot="carousel-item"],
-.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync)
+.nexus-carousel--interactive:not(.nexus-carousel--fixed-height):not(.nexus-carousel--row-height-sync):not(.nexus-carousel--equal-row-height)
   .nexus-carousel__slide {
   height: auto;
   min-height: 0;

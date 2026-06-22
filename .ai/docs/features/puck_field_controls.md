@@ -52,12 +52,13 @@ Effective inset to label text ≈ **20px** desktop (12 + 8), **24px** mobile (12
 
 1. **Wrap chapters in `FieldChapter`** — body automatically gets `nexus-plugin-field-surface`.
 2. **Use Nexus field components** — `PuckSelectField`, `SegmentedControl`, `PuckSwitchField`; never native `<select>` or ad-hoc button groups in the Puck sidebar.
-3. **Category labels** — uppercase sub-labels via `.nexus-field-category__label` (Style, Grid Motion, Padding, …), not Puck `FieldLabel` on every control when a category label suffices.
+3. **Category labels** — uppercase sub-labels via `FieldLabelRow` or `.nexus-field-category__label`; optional helper copy via `FieldLabelRow` + `NexusFieldHint` — see [field_hints.md](./field_hints.md).
 4. **No box chrome** — no `border-radius`, `shadow-xs`, `border-input`, or filled panel backgrounds on controls inside plugin panels. Hover/selected = subtle `color-mix` accent tint only (same as Outline hover).
 5. **Horizontal gutter** — wrappers use `--nexus-plugin-panel-gutter-x`; labels/controls add `--nexus-plugin-leaf-pad-inline` (never flush to panel edges).
-6. **Dividers** — row separation via `border-bottom` / `border-inline-end` using `var(--nexus-editor-panel-border)`, not per-control rounded borders.
-7. **Typography** — consume `--nexus-plugin-leaf-label-size`, `--nexus-plugin-leaf-label-weight`, `--nexus-plugin-font-family`.
-8. **Outside plugin panels** (Global Layout editor, admin pages) may use standard Shadcn surfaces — do not apply `nexus-plugin-flat-control` there.
+6. **Dividers** — chapter-to-chapter borders only (`.nexus-field-chapter + .nexus-field-chapter`, stacked AutoField rows). Individual `.nexus-sidebar-field` rows and in-chapter `.nexus-field-category` blocks use vertical spacing only — no per-row bottom borders.
+7. **Desktop scroll** — at `min-width: 901px`, right Fields tab and left plugin panels use a flex + `overflow-y: auto` chain on `[class*="Fields-fields"]` / `[class*="SidebarSection-content"]` so long block settings remain scrollable inside the sidebar shell.
+8. **Typography** — consume `--nexus-plugin-leaf-label-size`, `--nexus-plugin-leaf-label-weight`, `--nexus-plugin-font-family`.
+9. **Outside plugin panels** (Global Layout editor, admin pages) may use standard Shadcn surfaces — do not apply `nexus-plugin-flat-control` there.
 
 ## Anti-patterns
 
@@ -67,11 +68,12 @@ Effective inset to label text ≈ **20px** desktop (12 + 8), **24px** mobile (12
 | Use default `.nexus-segmented__btn` outside plugin scope | Base styles use grey fill + rounded borders (marketing forms) |
 | Add `glass-panel` / card wrappers inside chapter bodies | Breaks Blocks/Outline/Fields parity |
 | Add `width: 100%` without `margin-inline: var(--nexus-plugin-panel-gutter-x)` | Controls bleed to panel edges |
-| Custom `border-top` / extra padding on a subsection inside a `FieldChapter` | Breaks divider rhythm — use `.nexus-field-category` `border-bottom` from `puck-editor.css` |
-| Duplicate divider logic per field file | Dividers come from `.nexus-field-category` + `.nexus-sidebar-field` CSS |
+| Custom `border-top` / extra padding on a subsection inside a `FieldChapter` | Breaks divider rhythm — use `.nexus-field-category` spacing from `puck-editor.css` |
+| Inline helper paragraphs under Puck controls | Use `FieldLabelRow` / `PuckSwitchField` + `NexusFieldHint` — see [field_hints.md](./field_hints.md) |
 
 ## Related
 
+- [field_hints.md](./field_hints.md)
 - [puck_plugin_panel_rhythm.md](./puck_plugin_panel_rhythm.md) — leaf row tokens and plugin panel rhythm
 - [puck-sidebar-chapters.mdc](../../.cursor/rules/puck-sidebar-chapters.mdc) — chapter registration policy
 - [`PuckSelectField.tsx`](../../src/components/puck/fields/PuckSelectField.tsx), [`SegmentedControl.tsx`](../../src/components/puck/fields/SegmentedControl.tsx)

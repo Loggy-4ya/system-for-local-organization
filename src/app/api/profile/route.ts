@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
+import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { userNeedsProfileOnboarding } from "@shared/lib/userProfileCompleteness";
 import { profileUpdateSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
@@ -26,6 +27,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
+    await GeneralRulesDomain.ensureLoaded();
     const body = await req.json();
 
     // Server-side Zod validation
@@ -51,12 +53,11 @@ export async function PATCH(req: NextRequest) {
       about,
       socialLinks,
       phone,
-      accentFamily,
-      accentShade,
       currentPassword,
       newPassword,
       completeOAuthOnboarding,
       personalDataConsent,
+      notificationChannels,
     } = parsed.data;
 
     const patch: Parameters<typeof AuthDomain.updateProfile>[1] = {};
@@ -70,9 +71,8 @@ export async function PATCH(req: NextRequest) {
     if (socialLinks !== undefined) patch.socialLinks = socialLinks;
     if (phone !== undefined) patch.phone = phone;
     if (studentTitle !== undefined) patch.studentTitle = studentTitle;
-    if (accentFamily !== undefined) patch.accentFamily = accentFamily;
-    if (accentShade !== undefined) patch.accentShade = accentShade;
     if (personalDataConsent === true) patch.personalDataConsent = true;
+    if (notificationChannels !== undefined) patch.notificationChannels = notificationChannels;
 
     let user = await AuthDomain.updateProfile(session.user.id, patch);
 

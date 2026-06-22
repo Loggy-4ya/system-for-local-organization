@@ -14,6 +14,8 @@ import {
   getOAuthOnboardingGaps,
   isProfileReadyForMembershipApplication,
   phoneIsRequiredForUser,
+  avatarIsRequiredForUser,
+  avatarIsRequiredAtSignup,
   userHasExternalAuthIdentity,
   userNeedsProfileOnboarding,
 } from "@shared/lib/userProfileCompleteness";
@@ -24,6 +26,7 @@ const completeProfile = {
   phone: "+380 50 123 4567",
   specialty: "Software Engineering",
   group: "SE-42",
+  avatar: "/uploads/avatars/ada.png",
   sociumRoles: [],
 };
 
@@ -77,6 +80,63 @@ describe("phoneIsRequiredForUser", () => {
 
   it("does not require phone for regular students", () => {
     assert.equal(phoneIsRequiredForUser(completeProfile), false);
+  });
+});
+
+describe("avatarIsRequiredForUser", () => {
+  it("requires avatar for self-government members", () => {
+    assert.equal(
+      avatarIsRequiredForUser({
+        ...completeProfile,
+        sociumRoles: [
+          {
+            roleKey: "self_government_member",
+            roleLabel: "Member",
+            kind: "self_government_member",
+            source: "admin",
+            assignedAt: new Date(),
+          },
+        ],
+      }),
+      true,
+    );
+  });
+
+  it("requires avatar when application intent is recorded", () => {
+    assert.equal(
+      avatarIsRequiredForUser({
+        ...completeProfile,
+        selfGovernmentApplicationIntent: true,
+      }),
+      true,
+    );
+  });
+
+  it("does not require avatar for regular students", () => {
+    assert.equal(avatarIsRequiredForUser(completeProfile), false);
+  });
+});
+
+describe("avatarIsRequiredAtSignup", () => {
+  it("requires avatar only when applying for self-government", () => {
+    assert.equal(avatarIsRequiredAtSignup(true), true);
+    assert.equal(avatarIsRequiredAtSignup(false), false);
+  });
+});
+
+describe("telegram membership gaps", () => {
+  it("flags missing Telegram for self-government application intent", () => {
+    const gaps = getMembershipProfileGaps({
+      ...completeProfile,
+      selfGovernmentApplicationIntent: true,
+      telegramId: null,
+    });
+    assert.ok(gaps.includes("telegram"));
+  });
+
+  it("does not require Telegram for general students", () => {
+    const gaps = getMembershipProfileGaps(completeProfile);
+    assert.ok(!gaps.includes("telegram"));
   });
 });
 

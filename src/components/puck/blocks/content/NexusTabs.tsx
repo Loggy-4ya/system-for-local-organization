@@ -10,10 +10,11 @@ import { NexusTabsRender } from "./NexusTabsRender";
 import { TAB_SIZE_OPTIONS } from "../../lib/fieldOptionLabels";
 import { createSteppedSliderField } from "../../lib/createSteppedSliderField";
 import { StripArrayLabelField } from "../../fields/StripArrayLabelField";
+import { formatTabLabel } from "../../lib/arrayItemLabels";
 import { DISALLOW_NEXUS_GRID_ITEM } from "../../lib/nexusGridItemZonePolicy";
 
 /** Default empty tab with slot array for Puck inline data model. */
-const emptyTab = { label: "New Tab", panel: [] as never[] };
+const emptyTab = { label: "", panel: [] as never[] };
 
 /**
  * Tab group — each tab exposes a slot for arbitrary Puck blocks.
@@ -26,7 +27,8 @@ export const NexusTabs = {
       label: "Tabs",
       min: 1,
       max: 8,
-      getItemSummary: (item: { label?: string }) => item.label || "Tab",
+      getItemSummary: (item: { label?: string }, index?: number) =>
+        item.label?.trim() || formatTabLabel(index ?? 0),
       arrayFields: {
         label: {
           type: "custom" as const,

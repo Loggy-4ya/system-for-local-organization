@@ -12,7 +12,6 @@ import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { userNeedsProfileOnboarding } from "@shared/lib/userProfileCompleteness";
 import { ProfileSettingsForm } from "@/components/profile/ProfileSettingsForm";
-import { AccentScope } from "@/components/profile/AccentScope";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import {
@@ -47,12 +46,11 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
   const onboardingGaps = onboardingMode ? getOAuthOnboardingGaps(publicUser) : [];
 
   return (
-    <AccentScope family={publicUser.accentFamily} shade={publicUser.accentShade}>
-      <StaticPageShell
-        contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile}
-        className="items-center p-6"
-      >
-        <div className="glass-panel w-full rounded-[var(--radius-lg)] p-6 md:p-8">
+    <StaticPageShell
+      contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile}
+      className="items-center p-6"
+    >
+      <div className="glass-panel w-full rounded-[var(--radius-lg)] p-6 md:p-8">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
@@ -67,7 +65,7 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
             {!onboardingMode && (
               <Link
                 href="/profile"
-                className="text-sm text-[var(--color-accent-user)] no-underline hover:underline"
+                className="text-sm text-[var(--color-text-primary)] no-underline hover:underline"
               >
                 ← Back to profile
               </Link>
@@ -94,6 +92,5 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
           <ProfileSettingsForm user={publicUser} onboardingMode={onboardingMode} />
         </div>
       </StaticPageShell>
-    </AccentScope>
   );
 }

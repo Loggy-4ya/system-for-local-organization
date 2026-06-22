@@ -12,8 +12,6 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import connectDB from "@shared/lib/db";
 import User, {
-  type AccentFamily,
-  type AccentShade,
   type IUser,
   type IUserSocialLink,
   type StudentTitle,
@@ -27,13 +25,14 @@ import {
   type SignupSociumRole,
 } from "@shared/lib/userSociumHelpers";
 import type { AccessLevelIndex, PermissionKey } from "@shared/constants/accessControl";
+import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 import {
   accessLevelForStarostaRegistration,
   accessLevelForTeacherRegistration,
   defaultStudentAccessLevel,
   inferAccessLevelIndex,
 } from "@shared/lib/accessControlLogic";
-import { phoneIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
+import { phoneIsRequiredForUser, telegramIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
 import { normalizePhoneInput } from "@shared/validation/phoneSchema";
 import { registerSchema } from "@shared/validation/authSchemas";
 import {
@@ -43,6 +42,16 @@ import {
 } from "@shared/lib/academicCatalogLogic";
 import { splitPersonName } from "@shared/lib/splitPersonName";
 import { mongooseDocToPlain } from "@shared/lib/mongoosePlainObject";
+import {
+  toPublicProfileUser,
+  type PublicProfileUser,
+} from "@shared/lib/publicProfileRedaction";
+import {
+  applyProfilePatchToUser,
+  type ProfileUpdateInput,
+} from "@shared/lib/userProfilePatch";
+import { stripUserOptionalUniqueFields } from "@shared/lib/stripUserOptionalUniqueFields";
+import { normalizeUserNotificationChannels } from "@shared/lib/userNotificationSettingsLogic";
 import AcademicCatalog from "@shared/models/AcademicCatalog";
 import {
   verifyTelegramWebAppInitData,
@@ -59,12 +68,15 @@ export interface RegisterCredentialsInput {
   name: string;
   surname?: string | null;
   phone?: string | null;
+  avatar?: string | null;
   specialty?: string | null;
   group?: string | null;
   studentTitle?: StudentTitle | null;
   signupSociumRole?: SignupSociumRole;
   applyForSelfGovernment?: boolean;
   personalDataConsent?: boolean;
+  /** Verified Telegram Login Widget payload — linked on create when provided. */
+  telegramAuth?: TelegramWidgetPayload | null;
 }
 
 /** Linked OAuth provider ids for credential error messaging. */
@@ -120,8 +132,6 @@ export interface PublicUser {
   socialLinks: IUserSocialLink[];
   about: string | null;
   qualityScores: IUser["qualityScores"];
-  accentFamily: AccentFamily;
-  accentShade: AccentShade;
   stars: number;
   warnings: number;
   googleId: string | null;
@@ -130,6 +140,8 @@ export interface PublicUser {
   phone: string | null;
   selfGovernmentApplicationIntent: boolean;
   personalDataConsentAt: Date | null;
+  notificationChannels: TaskReminderChannel[];
+  webNotificationPromptAt: Date | null;
   lastTelegramSyncAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -149,22 +161,7 @@ export type TelegramMiniAppAuthenticateResult =
   | { status: "authenticated"; user: IUser }
   | { status: "needs_onboarding"; telegramUser: TelegramMiniAppPublicUser };
 
-/** Patch payload for profile settings updates. */
-export interface ProfileUpdateInput {
-  name?: string;
-  surname?: string | null;
-  specialty?: string | null;
-  group?: string | null;
-  studentTitle?: StudentTitle | null;
-  avatar?: string | null;
-  about?: string | null;
-  socialLinks?: IUserSocialLink[];
-  phone?: string | null;
-  accentFamily?: AccentFamily;
-  accentShade?: AccentShade;
-  /** When true, records {@link IUser.personalDataConsentAt}. */
-  personalDataConsent?: boolean;
-}
+export type { ProfileUpdateInput };
 
 /** Published content row for profile feed. */
 export interface PublicPublishedContentItem {
@@ -179,6 +176,21 @@ const BCRYPT_ROUNDS = 12;
 
 /** Maximum age of a Telegram widget auth payload in seconds. */
 const TELEGRAM_AUTH_MAX_AGE_SEC = 86_400;
+
+/**
+ * Creates a user document after stripping null/empty optional unique fields so
+ * MongoDB never stores `email: null` or `login: null` (E11000 on legacy indexes).
+ *
+ * @param payload - Fields for the new user row.
+ * @returns Created Mongoose document.
+ */
+async function createUserDocument(
+  payload: Record<string, unknown>,
+): Promise<IUser> {
+  const doc = { ...payload };
+  stripUserOptionalUniqueFields(doc);
+  return User.create(doc);
+}
 
 // ── AuthDomain ────────────────────────────────────────────────────────────────
 
@@ -211,11 +223,13 @@ export const AuthDomain = {
       name: input.name || input.login,
       surname: input.surname ?? null,
       phone: input.phone ?? null,
+      avatar: input.avatar ?? null,
       specialty: input.specialty,
       group: input.group,
       signupSociumRole,
       applyForSelfGovernment: input.applyForSelfGovernment ?? false,
       personalDataConsent: input.personalDataConsent ?? true,
+      telegramAuth: input.telegramAuth ?? null,
     });
 
     const login = parsed.login;
@@ -246,13 +260,14 @@ export const AuthDomain = {
           ? accessLevelForTeacherRegistration(null)
           : defaultStudentAccessLevel();
 
-    const user = await User.create({
+    const user = await createUserDocument({
       login,
       email,
       passwordHash,
       name: parsed.name || login,
       surname: parsed.surname,
       phone,
+      avatar: parsed.avatar ?? null,
       specialty: parsed.specialty,
       group: parsed.group,
       studentTitle,
@@ -269,6 +284,14 @@ export const AuthDomain = {
       group: parsed.group,
       submittedByUserId: String(user._id),
     });
+
+    if (parsed.telegramAuth) {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      if (!botToken) {
+        throw new Error("Telegram bot is not configured.");
+      }
+      return AuthDomain.linkTelegramProfile(String(user._id), parsed.telegramAuth, botToken);
+    }
 
     return user;
   },
@@ -487,6 +510,7 @@ export const AuthDomain = {
       name: input.name || input.login,
       surname: input.surname ?? null,
       phone: input.phone ?? null,
+      avatar: input.avatar ?? null,
       specialty: input.specialty,
       group: input.group,
       signupSociumRole,
@@ -523,7 +547,7 @@ export const AuthDomain = {
           ? accessLevelForTeacherRegistration(null)
           : defaultStudentAccessLevel();
 
-    const user = await User.create({
+    const user = await createUserDocument({
       login,
       email,
       passwordHash,
@@ -555,6 +579,64 @@ export const AuthDomain = {
   },
 
   /**
+   * Link a verified Telegram Login Widget identity to an existing Nexus account.
+   *
+   * @param userId - Target user MongoDB id.
+   * @param payload - Widget callback data including HMAC hash.
+   * @param botToken - Telegram bot token from environment.
+   * @returns Updated user document with `telegramId` set.
+   * @throws When hash verification fails, payload is expired, or Telegram id is taken.
+   */
+  async linkTelegramProfile(
+    userId: string,
+    payload: TelegramWidgetPayload,
+    botToken: string,
+  ): Promise<IUser> {
+    await connectDB();
+
+    if (!botToken) {
+      throw new Error("Telegram bot token is not configured.");
+    }
+
+    verifyTelegramHash(payload, botToken);
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec - payload.auth_date > TELEGRAM_AUTH_MAX_AGE_SEC) {
+      throw new Error("Telegram authentication payload has expired. Connect again.");
+    }
+
+    const existingTelegram = await User.findOne({ telegramId: payload.id });
+    if (existingTelegram && String(existingTelegram._id) !== userId) {
+      throw new Error("This Telegram account is already linked to another Nexus user.");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error("User not found.");
+    }
+
+    const name = [payload.first_name, payload.last_name].filter(Boolean).join(" ");
+    const split = splitPersonName(name);
+    const syncAt = new Date();
+
+    user.telegramId = payload.id;
+    user.username = payload.username ?? user.username;
+    if (payload.photo_url && !user.avatar) {
+      user.avatar = payload.photo_url;
+    }
+    if (!user.surname && split.surname) {
+      user.surname = split.surname;
+    }
+    if ((!user.name || user.name.startsWith("Telegram User")) && (split.name || name)) {
+      user.name = split.name || name;
+    }
+    user.lastTelegramSyncAt = syncAt;
+    await user.save();
+
+    return user;
+  },
+
+  /**
    * Remove Telegram linkage from an account when another sign-in method remains.
    *
    * @param userId - Target user MongoDB id.
@@ -569,6 +651,24 @@ export const AuthDomain = {
 
     if (!user.telegramId) {
       throw new Error("Telegram is not linked to this account.");
+    }
+
+    if (
+      telegramIsRequiredForUser({
+        name: user.name,
+        surname: user.surname,
+        phone: user.phone,
+        specialty: user.specialty,
+        group: user.group,
+        avatar: user.avatar,
+        sociumRoles: user.sociumRoles ?? [],
+        selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+        telegramId: user.telegramId,
+      })
+    ) {
+      throw new Error(
+        "Telegram is required for self-government members and membership applicants.",
+      );
     }
 
     const hasAlternateAuth =
@@ -628,7 +728,7 @@ export const AuthDomain = {
       return user;
     }
 
-    user = await User.create({
+    user = await createUserDocument({
       telegramId: payload.id,
       name: split.name || name || `Telegram User ${payload.id}`,
       surname: split.surname,
@@ -665,40 +765,7 @@ export const AuthDomain = {
     const user = await User.findById(userId);
     if (!user) throw new Error("User not found.");
 
-    if (patch.name !== undefined) user.name = patch.name.trim();
-    if (patch.surname !== undefined) user.surname = patch.surname?.trim() || null;
-    if (patch.specialty !== undefined) user.specialty = patch.specialty?.trim() || null;
-    if (patch.group !== undefined) user.group = patch.group?.trim() || null;
-    if (patch.studentTitle !== undefined) {
-      user.studentTitle = patch.studentTitle;
-      applyStudentTitleSociumSync(user);
-      if (patch.studentTitle === "Starosta") {
-        user.accessLevelIndex = accessLevelForStarostaRegistration(user.accessLevelIndex);
-      }
-    }
-    if (patch.avatar !== undefined) user.avatar = patch.avatar;
-    if (patch.about !== undefined) user.about = patch.about?.trim() || null;
-    if (patch.socialLinks !== undefined) user.socialLinks = patch.socialLinks;
-    if (patch.phone !== undefined) {
-      const nextPhone = normalizePhoneInput(patch.phone);
-      const memberContext = {
-        name: user.name,
-        surname: user.surname,
-        phone: user.phone,
-        specialty: user.specialty,
-        group: user.group,
-        sociumRoles: user.sociumRoles ?? [],
-      };
-      if (phoneIsRequiredForUser(memberContext) && !nextPhone) {
-        throw new Error("Phone number is required for self-government members.");
-      }
-      user.phone = nextPhone;
-    }
-    if (patch.accentFamily !== undefined) user.accentFamily = patch.accentFamily;
-    if (patch.accentShade !== undefined) user.accentShade = patch.accentShade;
-    if (patch.personalDataConsent === true && !user.personalDataConsentAt) {
-      user.personalDataConsentAt = new Date();
-    }
+    applyProfilePatchToUser(user, patch);
 
     await user.save();
     return user;
@@ -791,8 +858,6 @@ export const AuthDomain = {
       socialLinks: plain.socialLinks ?? [],
       about: plain.about ?? null,
       qualityScores: plain.qualityScores,
-      accentFamily: plain.accentFamily,
-      accentShade: plain.accentShade,
       stars: plain.stars,
       warnings: plain.warnings,
       googleId: plain.googleId ?? null,
@@ -801,10 +866,42 @@ export const AuthDomain = {
       phone: plain.phone ?? null,
       selfGovernmentApplicationIntent: plain.selfGovernmentApplicationIntent ?? false,
       personalDataConsentAt: plain.personalDataConsentAt ?? null,
+      notificationChannels: normalizeUserNotificationChannels(plain.notificationChannels),
+      webNotificationPromptAt: plain.webNotificationPromptAt ?? null,
       lastTelegramSyncAt: plain.lastTelegramSyncAt ?? null,
       createdAt: plain.createdAt,
       updatedAt: plain.updatedAt,
     };
+  },
+
+  /**
+   * Resolve a redacted public profile for member-to-member viewing at `/users/[userId]`.
+   *
+   * @param viewer - Authenticated viewer document, or null when unauthenticated.
+   * @param targetUserId - Profile owner MongoDB id.
+   * @returns Redacted {@link PublicProfileUser} DTO.
+   * @throws Error `USER_NOT_FOUND` when the target does not exist.
+   */
+  async getPublicProfileForViewer(
+    viewer: IUser | null,
+    targetUserId: string,
+  ): Promise<PublicProfileUser> {
+    await connectDB();
+    const target = await User.findById(targetUserId);
+    if (!target) throw new Error("USER_NOT_FOUND");
+
+    const viewerSlice = viewer
+      ? {
+          id: String(viewer._id),
+          role: viewer.role,
+          accessLevelIndex: viewer.accessLevelIndex,
+          delegatedPermissions: viewer.delegatedPermissions ?? [],
+          sociumRoles: viewer.sociumRoles ?? [],
+          studentTitle: viewer.studentTitle,
+        }
+      : null;
+
+    return toPublicProfileUser(viewerSlice, target);
   },
 };
 
@@ -845,7 +942,7 @@ async function mergeOAuthUser(
 
   const split = splitPersonName(profile.name || "Nexus User");
 
-  user = await User.create({
+  user = await createUserDocument({
     [idField]: profile.providerId,
     email,
     emailVerified: email ? (profile.emailVerified ?? new Date()) : null,

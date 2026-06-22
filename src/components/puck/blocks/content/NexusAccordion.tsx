@@ -14,6 +14,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  ensureAccordionPanelTitles,
+  resolveArrayItemSummaryLabel,
+} from "../../lib/arrayItemLabels";
+
+/** Default empty accordion panel — title filled by {@link ensureAccordionPanelTitles}. */
+const emptyAccordionPanel = { title: "", content: "" };
 
 export const NexusAccordion = {
   label: "Accordion",
@@ -21,6 +28,9 @@ export const NexusAccordion = {
     items: {
       type: "array" as const,
       label: "Accordion Panels",
+      getItemSummary: (item: { title?: string } | undefined, index?: number) =>
+        resolveArrayItemSummaryLabel("panel", item, index ?? 0, "title"),
+      defaultItemProps: emptyAccordionPanel,
       arrayFields: {
         title: { type: "text" as const, label: "Panel Title" },
         content: { type: "textarea" as const, label: "Panel Content" },
@@ -50,6 +60,12 @@ export const NexusAccordion = {
     ],
     allowMultiple: "no" as const,
   },
+  resolveData: ({ props }: { props: { items?: typeof emptyAccordionPanel[] } }) => ({
+    props: {
+      ...props,
+      items: ensureAccordionPanelTitles(props.items),
+    },
+  }),
   render({
     items,
     allowMultiple,

@@ -63,6 +63,7 @@ export async function seedAdminUser(): Promise<void> {
     if (legacyByEmail) {
       legacyByEmail.login = normalizedLogin;
       legacyByEmail.role = "Admin";
+      legacyByEmail.accessLevelIndex = 0;
       legacyByEmail.passwordHash = passwordHash;
       clearTelegramLinkage(legacyByEmail);
       await legacyByEmail.save();
@@ -75,14 +76,10 @@ export async function seedAdminUser(): Promise<void> {
 
     await User.create({
       login: normalizedLogin,
-      email: null,
       passwordHash,
       name: normalizedLogin,
       role: "Admin",
       accessLevelIndex: 0,
-      telegramId: null,
-      username: null,
-      lastTelegramSyncAt: null,
     });
 
     console.log(`[Nexus Seed] Admin seed user created successfully: ${normalizedLogin}`);

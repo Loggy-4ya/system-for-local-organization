@@ -8,6 +8,7 @@
  */
 
 import type { MediaPurpose } from "@shared/constants/mediaStorage";
+import { cropImageFile } from "@/lib/imageCropClient";
 
 /** Accepted MIME prefixes for client-side pre-validation. */
 export type MediaAccept = "image" | "video" | "both";
@@ -20,6 +21,8 @@ export interface UploadMediaFileOptions {
   purpose?: MediaPurpose;
   /** Optional namespace key forwarded to the API. */
   ownerKey?: string;
+  /** When true, skip the app-wide crop dialog for image uploads. */
+  skipCrop?: boolean;
 }
 
 /**
@@ -78,6 +81,35 @@ export async function uploadMediaFile(
   }
 
   return data.url;
+}
+
+/**
+ * Open the crop dialog (when applicable) then upload via {@link uploadMediaFile}.
+ *
+ * @param file - Browser file from input or drag-and-drop.
+ * @param options - Accept filter, purpose, owner key, and crop skip flag.
+ * @returns Public URL path, or `null` when the user cancels the crop dialog.
+ * @throws When the server rejects the upload or returns no URL.
+ */
+export async function uploadMediaFileWithCrop(
+  file: File,
+  options: UploadMediaFileOptions = {},
+): Promise<string | null> {
+  let payload = file;
+
+  if (
+    !options.skipCrop &&
+    (options.accept === "image" || options.accept === undefined || options.accept === "both") &&
+    file.type.startsWith("image/")
+  ) {
+    const cropped = await cropImageFile(file, { purpose: options.purpose });
+    if (!cropped) {
+      return null;
+    }
+    payload = cropped;
+  }
+
+  return uploadMediaFile(payload, options);
 }
 
 /**

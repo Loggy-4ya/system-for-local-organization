@@ -30,7 +30,7 @@ For structural composition and nested drag-and-drop grids:
 For standard typography, actions, and form inputs:
 - **`NexusHeading`** — Styled headings (H1, H2, H3) with alignment controls.
 - **`NexusText`** — Paragraph body copy with Tiptap rich text (bold, headings, lists, blockquote) plus alignment and color presets.
-- **`NexusButton`** — Action button mapping to Figma variants (Primary, Secondary, Ghost) with optional link URL.
+- **`NexusButton`** — Action button mapping to Figma variants (Primary, Secondary, Ghost) with optional link URL and whitelisted Lucide icon insertion via {@link LucideIconPickerField} (Icon sidebar chapter).
 - **`NexusTabs`** — Interactive tab group; each tab has a drag-and-drop slot for arbitrary block content.
 - **`NexusCarousel`** — Image carousel with slides, captions, optional links, arrows, dots, autoplay, and a runtime pause/play toggle when autoplay is enabled.
 - **`NexusInput`** — Form input mapping to Figma `Input/Default` for page-level forms.
@@ -137,7 +137,7 @@ To ensure the editor canvas matches the live site exactly:
 - **`src/app/puck-editor.css`** — Overrides Puck's default opaque canvas and preview backgrounds to `transparent`.
 - **Root Background Picker** — Added `background` (site-default, solid, custom-image) to Puck's root metadata fields.
 - **`PageRoot.tsx`** — Renders page background (solid / custom image / transparent for site-default). **Single grid:** root `layout.tsx` `InfiniteGrid` (`#nexus-bg`) — never duplicated in the preview iframe or Puck scrollport.
-- **Grid motion** (`backgroundGridMotion`) defaults to **Dynamic** (scrolling tiles + cursor spotlight); pages may opt into **Static** (frozen tile offset, no RAF scroll loop — ambient blur and cursor glow remain). Published pages use the full animated layout-level grid from `layout.tsx`.
+- **Grid motion** (`backgroundGridMotion`) defaults to **Dynamic** (scrolling tiles + cursor spotlight); pages may opt into **Static** (frozen tile offset — ambient blur and cursor glow remain). `infiniteGridMotionEase.ts` ramps scroll speed over ~320ms so toggling does not snap tile offsets. `pageBackgroundGridStore.ts` syncs the active Puck page into layout `LayoutInfiniteGrid` → `InfiniteGrid.isStatic`.
 
 ---
 
@@ -165,7 +165,7 @@ Nexus uses **Puck 0.21** (`@puckeditor/core`) with the default **plugin rail** �
 
 | Viewport | Editor UX |
 |----------|-----------|
-| **≤ 900px** (compact) | Bottom plugin rail: **Blocks**, **Outline**, **Fields** (glass island — `--radius-lg`, `--page-content-gutter` inset, matches header bar); full-screen canvas (`_experimentalFullScreenCanvas`); collapsible panel above canvas; compact Nexus header actions; Fields open as overlay (avoids clunky narrow settings) |
+| **≤ 900px** (compact) | Bottom plugin rail: **Blocks**, **Outline**, **Fields** (glass island — `--radius-lg`, `--page-content-gutter` inset, matches header bar); full-screen canvas (`_experimentalFullScreenCanvas`); collapsible panel above canvas; compact Nexus header actions; Fields open as overlay (avoids clunky narrow settings). Triggered by `(max-width: 900px)` via `useSyncExternalStore` + `matchMedia` in `usePuckMobileEditorChrome` (same rule as CSS — window resize, visual viewport, DevTools). |
 | **901px – 960px** (tight desktop) | Left vertical plugin rail; **minimal** sidebars (left 150–170px, right 190–220px) so the canvas keeps ~450px+ at ~906px viewports |
 | **961px – 1023px** (narrow desktop) | Left vertical plugin rail; narrower sidebars (left 180–200px, right 220–260px); canvas clamped inside center column |
 | **≥ 1024px** (desktop) | Left vertical plugin rail + side panel; sidebar drag range clamped (left 280–320px, right 320–400px) via `NexusSidebarWidthClamp` |
@@ -204,7 +204,7 @@ On the **preview canvas**, drag an existing block by its overlay handle and drop
 
 **Auto viewport:** On **Full-width**, canvas preview width follows measured canvas frame width when the frame is wider than a fixed preset. **Phone / Tablet / Desktop** presets stay selected; auto-sync does not replace them with full-width.
 
-**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` via `floorLetterboxDevicePreviewZoom`: when the canvas frame is **wider** than the preset, auto-fit zoom scales up moderately (capped at **1.42×**, targeting **72%** of frame width) so narrow phone presets fill the canvas without overshooting; when the frame is **narrower** (phones, tablets, DevTools), Puck **shrink-to-fit** scales the preview down so the full device width stays visible without horizontal clipping. `canvasLetterboxScrollport.ts` expands the inner scrollport and chains wheel events to the canvas shell when scaled previews overflow vertically. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking. **Edit-mode canvas bounds:** `PageRoot` + preview iframe CSS stay **content-sized** (no `min-height: 100%` stretch); `previewContentHeight.ts` clamps Puck `rootHeight` to measured page content so the letterbox grid does not scroll through empty infinity (`npm run test:preview-content-height`).
+**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` via `floorLetterboxDevicePreviewZoom`: when the canvas frame is **wider** than the preset, auto-fit zoom scales up moderately (capped at **1.42×**, targeting **72%** of frame width) so narrow phone presets fill the canvas without overshooting; when the frame is **narrower** (phones, tablets, DevTools), Puck **shrink-to-fit** scales the preview down so the full device width stays visible without horizontal clipping. `canvasLetterboxScrollport.ts` expands the inner scrollport and chains wheel events to the canvas shell when scaled previews overflow vertically. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking. **Edit-mode canvas bounds:** `PageRoot` stays content-sized; `previewContentHeight.ts` syncs Puck `rootHeight` to block intrinsic height (+ edit-only 48px overlay pad). **Interactive preview** locks `rootHeight` to the canvas viewport (`shellHeight / zoom`) so tall pages scroll inside the iframe (`overflow-y: auto` via `PuckIframeTheme`) — not via letterbox shell expansion. Letterbox `.PuckCanvas-inner` expansion stays **edit-only**. Tests: `npm run test:preview-content-height`.
 
 **Viewport island:** Canvas device/zoom controls styled as a Nexus glass pill. **Desktop collapsed:** preset FAB in the **top-right** of the canvas. **Desktop expanded:** pill **horizontally centered** with the **close (X) on the left**. **Compact:** collapsed FAB bottom-right; expanded pill bottom-center (panel closed) or top-center (panel open). Tap FAB to expand, X to close.
 
@@ -255,6 +255,12 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 - **Deferred commit:** `PageSettingsFieldGroup` commits title and slug to Puck on blur only (`useDeferredFieldCommit`, `textDebounceMs: 0`).
 - **Persistence:** When the user clicks **Publish**, metadata is extracted via `resolvePageMetadata()` in `PuckEditorShell` and saved to MongoDB.
 
+### A2. Page categories (Obsidian-style tags)
+- **Sidebar:** `PageCategoryTagsField` inside `PageSettingsFieldGroup` — searchable multi-select with creatable labels.
+- **Catalog:** `GET /api/pages/categories` aggregates distinct labels from all `Page` documents.
+- **Storage:** `pageSettings.categories` in Puck data + top-level `Page.categories` on publish.
+- **Full spec:** [page_categories.md](./page_categories.md) (Page Manager badge UI deferred).
+
 ### B. Page URL Path Renaming
 - **Sidebar editor:** `PageSettingsFieldGroup` in the Puck right sidebar — title + slug with live preview. Publish reads metadata via `resolvePageMetadata()` in `PuckEditorShell`.
 - **Legacy:** `PagePathHeaderChip` / `PageTitleEditor` are not mounted in the current shell.
@@ -263,10 +269,10 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 - **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
 
 ### D. Page Deletion
-- **Sidebar control:** `PageSettingsFieldGroup` shows a **Danger Zone** with **Delete Page** when the open editor route maps to an existing MongoDB document (`editorPagePersistedRef` store + `useSyncExternalStore`). Unpublished drafts opened from Page Manager (no document yet) hide the control until the first successful publish.
+- **Sidebar control:** `PageSettingsFieldGroup` shows **Delete Page** when the page is persisted (`PageMetadataDto.isPersisted` from server hydration, with `editorPagePersistedRef` as a client fallback after first publish), the signed-in editor may manage page access (`canManagePageAccess` — excludes delegate-only collaborators), and the stored MongoDB path is not `/`. Delete uses the **server-known path** (`meta.path`), not the draft slug field.
 - **Confirmation:** Browser `confirm()` dialog names the page title and path before the request is sent.
-- **API:** `DELETE /api/puck?path=<path>` — session or legacy bearer auth; `Admin` / `StudentCouncil` when auth is enabled (`canEditPages`). Delegates to `PageDomain.deleteByPath`.
-- **Guards:** Homepage (`/`) and reserved app-route slugs cannot be deleted. On success the client navigates to `/pages`.
+- **API:** `DELETE /api/puck?path=<path>` — session auth; `PageDomain.assertUserCanEdit` then `PageDomain.deleteByPath`. Path query is normalised via `normalizePagePath`. Reserved-route check applies only when no document exists at that path.
+- **Guards:** Homepage (`/`) cannot be deleted. On success the client navigates to `/pages`.
 
 ### C. Unified Custom Field Styling
 - Custom fields (`ImageField`, `NexusColorPresetField`, `MediaUploadField`) use `.nexus-puck-field` in `puck-editor.css`.
@@ -303,7 +309,7 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Full-width sidebar controls | `SegmentedControl.tsx` — all Off/On and radio groups span 100% sidebar width |
 | Typography system | `nexusTypography.ts` — role defaults (sans/serif) + weight 100–900 overrides |
 | Spacing custom inputs | `spacingCustomValue.ts` — numeric + unit picker with validation bounds |
-| List markers | `NexusList.tsx` — explicit `listStyleType` for bullet/numbered lists |
+| List stepper | `NexusList.tsx`, `NexusListRender.tsx`, `NexusStepperTimeline.tsx` — semantic vertical timeline (structural dot + line track); editor `highlighted` / `chapterOpen`; connector styles `spine` \| `segment` \| `tree` \| `minimal`; static emphasis on publish |
 | Canvas performance | [puck_editor_performance.md](./puck_editor_performance.md) — ref-only parent sync, selective `useNexusPuck`, deferred fields, tight `resolveData` |
 | Sidebar switches | `PuckSwitchField.tsx`, `binaryToggleFields.ts`, `puckEditorOverrides.tsx` — binary yes/no/on/off radios render as Shadcn switches |
 

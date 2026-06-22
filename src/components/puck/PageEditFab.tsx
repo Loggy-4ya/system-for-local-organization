@@ -14,9 +14,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { Pencil } from "lucide-react";
-import { shouldShowPageEditFab } from "@/lib/pageEditAccess";
 
 /** Root page stack — FAB must portal here to share z-index context with global layout header/footer. */
 const PAGE_STACK_PORTAL_SELECTOR = ".nexus-page-stack";
@@ -25,7 +23,7 @@ const PAGE_STACK_PORTAL_SELECTOR = ".nexus-page-stack";
 export interface PageEditFabProps {
   /** Absolute page path (e.g. `/news`). */
   pagePath: string;
-  /** Server-rendered visibility hint from {@link shouldShowPageEditFab}. */
+  /** Server-resolved edit permission for this page. */
   serverVisible?: boolean;
 }
 
@@ -38,19 +36,13 @@ export interface PageEditFabProps {
 export function PageEditFab({ pagePath, serverVisible = false }: PageEditFabProps) {
   const [mounted, setMounted] = useState(false);
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
-  const { data: session, status } = useSession();
 
   useEffect(() => {
     setPortalHost(document.querySelector(PAGE_STACK_PORTAL_SELECTOR));
     setMounted(true);
   }, []);
 
-  const clientVisible = shouldShowPageEditFab(session, pagePath, false);
-  const visible =
-    serverVisible ||
-    (status !== "unauthenticated" && clientVisible);
-
-  if (!pagePath || pagePath === "/" || !visible || !mounted || !portalHost) {
+  if (!pagePath || pagePath === "/" || !serverVisible || !mounted || !portalHost) {
     return null;
   }
 

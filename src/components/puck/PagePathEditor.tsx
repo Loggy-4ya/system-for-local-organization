@@ -10,6 +10,14 @@
  */
 
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { normalizePagePath } from "@shared/lib/pagePathLogic";
+
+export {
+  buildPagePublicHref,
+  formatPagePathLabel,
+  normalizePagePath,
+  pagePathToSlug,
+} from "@shared/lib/pagePathLogic";
 
 /** Imperative API exposed to the Puck client for publish-time path reads. */
 export interface PagePathEditorHandle {
@@ -25,24 +33,6 @@ export interface PagePathEditorHandle {
 interface PagePathEditorProps {
   /** Initial path loaded from MongoDB. */
   initialPath: string;
-}
-
-/**
- * Normalize a raw slug fragment into an absolute page path.
- *
- * @param val - User-entered slug (without leading slash).
- * @returns Normalized path such as `/about` or `/`.
- */
-export function normalizePagePath(val: string): string {
-  const cleanSlug = val
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\-_/]/g, "-")
-    .replace(/\/+/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\/+$/, "");
-
-  return cleanSlug ? `/${cleanSlug}` : "/";
 }
 
 /**

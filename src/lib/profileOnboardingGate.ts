@@ -9,7 +9,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthDomain } from "@shared/domains/AuthDomain";
-import { userNeedsProfileOnboarding } from "@shared/lib/userProfileCompleteness";
+import { userNeedsProfileOnboarding, userNeedsSelfGovernmentProfileCompliance } from "@shared/lib/userProfileCompleteness";
 
 /** Settings route used for first-time OAuth profile completion. */
 export const PROFILE_ONBOARDING_SETTINGS_PATH = "/profile/settings?onboarding=1";
@@ -52,6 +52,10 @@ export async function enforceProfileOnboarding(userId: string, pathname: string)
   }
 
   if (userNeedsProfileOnboarding(user)) {
+    redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
+  }
+
+  if (userNeedsSelfGovernmentProfileCompliance(user)) {
     redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
   }
 }

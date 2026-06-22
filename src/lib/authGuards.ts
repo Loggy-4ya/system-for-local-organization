@@ -161,6 +161,25 @@ export async function requireDirectoryViewerActor(): Promise<{
 }
 
 /**
+ * Require any authenticated session and resolve the actor document.
+ *
+ * @returns Session and MongoDB user document.
+ * @throws Error with message suitable for 401 responses.
+ */
+export async function requireAuthenticatedActor(): Promise<{
+  session: Session;
+  actor: IUser;
+}> {
+  const session = await requireApiSession();
+  const { AuthDomain } = await import("@shared/domains/AuthDomain");
+  const actor = await AuthDomain.getUserById(session.user!.id!);
+  if (!actor) {
+    throw new Error("Unauthorized.");
+  }
+  return { session, actor };
+}
+
+/**
  * Map auth guard errors to HTTP status codes for API routes.
  *
  * @param err - Thrown guard error.
@@ -169,7 +188,7 @@ export async function requireDirectoryViewerActor(): Promise<{
 export function authGuardErrorStatus(err: unknown): number {
   const message = err instanceof Error ? err.message : "";
   if (message === "Unauthorized.") return 401;
-  if (message === "Forbidden.") return 403;
+  if (message === "Forbidden." || message === "FORBIDDEN") return 403;
   return 500;
 }
 
@@ -191,4 +210,14 @@ export async function requireAccessControlManager(): Promise<Session> {
  */
 export async function requireBroadcastSender(): Promise<Session> {
   return requirePermission("notifications.broadcast");
+}
+
+/**
+ * Require permission to assign socium roles (membership application review).
+ *
+ * @returns Session when authorised.
+ * @throws Error with message suitable for 401 or 403 responses.
+ */
+export async function requireSociumRoleAssigner(): Promise<Session> {
+  return requirePermission("users.assign_socium_roles");
 }

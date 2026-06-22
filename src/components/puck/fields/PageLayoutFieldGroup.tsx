@@ -39,7 +39,7 @@ export function PageLayoutFieldGroup({ value, onChange }: PageLayoutFieldGroupPr
   const layout = value ?? {};
 
   return (
-    <FieldChapter title="Layout" icon={puckIcon(Rows3)}>
+    <FieldChapter title="Page Width" icon={puckIcon(Rows3)}>
       <div className="nexus-field-category">
         <span className="nexus-field-category__label">Page Content Width</span>
         <PuckSelectField

@@ -21,6 +21,9 @@ import {
 } from "@shared/constants/broadcastChannels";
 import { sendBroadcastSchema, type SendBroadcastInput } from "@shared/validation/broadcastSchemas";
 import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
+import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
+import { formatTelegramBroadcastMessage } from "@shared/lib/telegramBroadcastFormat";
+import { userAcceptsNotificationChannel } from "@shared/lib/userNotificationSettingsLogic";
 
 /** Input for creating and dispatching a broadcast. */
 export interface SendBroadcastRequest extends SendBroadcastInput {}
@@ -53,6 +56,7 @@ export const BroadcastDomain = {
    */
   async sendBroadcast(input: SendBroadcastRequest, actorUserId: string): Promise<SendBroadcastResult> {
     await connectDB();
+    await GeneralRulesDomain.ensureLoaded();
 
     const parsed = sendBroadcastSchema.parse(input);
     const channels = normalizeChannels(parsed.channels);
@@ -68,7 +72,7 @@ export const BroadcastDomain = {
 
     const totalUsers = await User.countDocuments({});
     const telegramUsers = channels.includes(BROADCAST_CHANNELS.telegram_dm)
-      ? await User.find({ telegramId: { $ne: null } }).select("_id telegramId").lean()
+      ? await User.find({ telegramId: { $ne: null } }).select("_id telegramId notificationChannels").lean()
       : [];
 
     let telegramSent = 0;
@@ -84,6 +88,7 @@ export const BroadcastDomain = {
 
       for (const row of telegramUsers) {
         if (row.telegramId == null) continue;
+        if (!userAcceptsNotificationChannel(row.notificationChannels, "telegram")) continue;
 
         try {
           await TelegramBotDomain.sendDirectMessage(botToken, row.telegramId, telegramText);
@@ -137,6 +142,11 @@ export const BroadcastDomain = {
    */
   async getActiveWebToastsForUser(userId: string, limit = 5): Promise<ActiveWebBroadcastToast[]> {
     await connectDB();
+
+    const user = await User.findById(userId).select("notificationChannels").lean();
+    if (!user || !userAcceptsNotificationChannel(user.notificationChannels, "web")) {
+      return [];
+    }
 
     const now = new Date();
     const dismissed = await UserBroadcastReceipt.find({
@@ -202,20 +212,6 @@ function normalizeChannels(channels: string[]): BroadcastChannel[] {
     }
   }
   return unique;
-}
-
-/**
- * Format a broadcast for Telegram DM delivery (plain text).
- *
- * @param title - Optional headline.
- * @param body - Message body.
- * @returns Telegram-safe plain text.
- */
-function formatTelegramBroadcastMessage(title: string | null, body: string): string {
-  if (title?.trim()) {
-    return `📢 ${title.trim()}\n\n${body.trim()}`;
-  }
-  return `📢 ${body.trim()}`;
 }
 
 export default BroadcastDomain;

@@ -9,18 +9,27 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PublicUser } from "@shared/domains/AuthDomain";
-import type { AccentFamily, AccentShade, IUserSocialLink, StudentTitle } from "@shared/models/User";
+import type { IUserSocialLink, StudentTitle } from "@shared/models/User";
 import { OAuthButtonRow } from "@/components/auth/OAuthButtonRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { RoleChipGroup } from "@/components/auth/RoleChipGroup";
-import { formatAccentLabel } from "@/lib/accentTokens";
 import { clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
-import { uploadMediaFile } from "@/lib/mediaUploadClient";
-import { phoneIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
+import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_MEMBER_PROFILE_HINT } from "@shared/lib/userProfileCompleteness";
+import { useContentPolicyFields } from "@/lib/useContentPolicyField";
+import { filterPhoneInputChange, phoneInputProps } from "@/lib/phoneInputProps";
+import { AvatarImageField } from "@/components/media/AvatarImageField";
+import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
+import { TaskChannelToggleGroup } from "@/components/tasks/TaskChannelToggleGroup";
+import {
+  USER_NOTIFICATION_CHANNELS_HINT,
+  USER_NOTIFICATION_TELEGRAM_LINK_HINT,
+} from "@shared/constants/userNotificationSettings";
+import { normalizeUserNotificationChannels } from "@shared/lib/userNotificationSettingsLogic";
+import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 
 /** Props for {@link ProfileSettingsForm}. */
 export interface ProfileSettingsFormProps {
@@ -28,9 +37,6 @@ export interface ProfileSettingsFormProps {
   /** When true, enforces OAuth onboarding required fields and consent. */
   onboardingMode?: boolean;
 }
-
-const FAMILIES: AccentFamily[] = ["blue", "red", "yellow", "green", "purple"];
-const SHADES: AccentShade[] = ["soft", "medium", "strong"];
 
 /**
  * Editable profile settings form.
@@ -40,6 +46,7 @@ const SHADES: AccentShade[] = ["soft", "medium", "strong"];
  */
 export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSettingsFormProps) {
   const router = useRouter();
+  const siteProfile = useOptionalSiteProfile();
 
   const [name, setName] = useState(user.name);
   const [surname, setSurname] = useState(user.surname ?? "");
@@ -50,8 +57,9 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
   const [about, setAbout] = useState(user.about ?? "");
   const [socialLinks, setSocialLinks] = useState<IUserSocialLink[]>(user.socialLinks ?? []);
   const [avatar, setAvatar] = useState(user.avatar ?? "");
-  const [accentFamily, setAccentFamily] = useState<AccentFamily>(user.accentFamily);
-  const [accentShade, setAccentShade] = useState<AccentShade>(user.accentShade);
+  const [notificationChannels, setNotificationChannels] = useState<TaskReminderChannel[]>(
+    normalizeUserNotificationChannels(user.notificationChannels),
+  );
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,6 +70,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
   const [success, setSuccess] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const { validateField, fieldError, clearLiveErrors } = useContentPolicyFields();
 
   const [unlinkLoading, setUnlinkLoading] = useState(false);
 
@@ -69,7 +78,18 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
   const canChangePassword = hasPassword;
   const canUnlinkTelegram =
     Boolean(user.telegramId) &&
-    Boolean(user.googleId || user.appleId || user.login);
+    Boolean(user.googleId || user.appleId || user.login) &&
+    !telegramIsRequiredForUser({
+      name: user.name,
+      surname: user.surname,
+      phone: user.phone,
+      specialty: user.specialty,
+      group: user.group,
+      avatar: user.avatar,
+      sociumRoles: user.sociumRoles,
+      selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+      telegramId: user.telegramId,
+    });
 
   const phoneRequired =
     onboardingMode ||
@@ -82,29 +102,30 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
       sociumRoles: user.sociumRoles,
     });
 
-  /**
-   * Upload avatar image via authenticated upload API.
-   *
-   * @param e - File input change event.
-   */
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const avatarRequired = avatarIsRequiredForUser({
+    name: user.name,
+    surname: user.surname,
+    phone: user.phone,
+    specialty: user.specialty,
+    group: user.group,
+    avatar: user.avatar,
+    sociumRoles: user.sociumRoles,
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+  });
 
-    setError(null);
-    try {
-      const url = await uploadMediaFile(file, {
-        accept: "image",
-        purpose: "avatar",
-        ownerKey: user.id,
-      });
-      setAvatar(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Avatar upload failed.");
-    } finally {
-      e.target.value = "";
-    }
-  }
+  const telegramRequired = telegramIsRequiredForUser({
+    name: user.name,
+    surname: user.surname,
+    phone: user.phone,
+    specialty: user.specialty,
+    group: user.group,
+    avatar: user.avatar,
+    sociumRoles: user.sociumRoles,
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+    telegramId: user.telegramId,
+  });
+
+  const membershipProfileRequired = avatarRequired || phoneRequired || telegramRequired;
 
   /**
    * Unlink Telegram from the authenticated account.
@@ -140,6 +161,19 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
     setError(null);
     setSuccess(null);
     setFieldErrors({});
+    clearLiveErrors();
+
+    if (avatarRequired && !avatar.trim()) {
+      setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
+      setError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      return;
+    }
+
+    if (telegramRequired && !user.telegramId) {
+      setFieldErrors({ telegramAuth: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
+      setError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      return;
+    }
 
     const payload = {
       name,
@@ -151,8 +185,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
       about: about || null,
       socialLinks: socialLinks.filter((link) => link.url.trim().length > 0),
       avatar: avatar || null,
-      accentFamily,
-      accentShade,
+      notificationChannels,
       currentPassword: currentPassword || undefined,
       newPassword: newPassword || undefined,
       confirmPassword: confirmPassword || undefined,
@@ -181,8 +214,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         about: result.data.about,
         socialLinks: result.data.socialLinks,
         avatar: result.data.avatar,
-        accentFamily: result.data.accentFamily,
-        accentShade: result.data.accentShade,
+        notificationChannels: result.data.notificationChannels,
       };
 
       if (onboardingMode) {
@@ -210,6 +242,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
       }
 
       if (onboardingMode && data.onboardingComplete) {
+        await siteProfile?.refreshProfile();
         router.push("/profile");
         router.refresh();
         return;
@@ -219,6 +252,8 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      clearLiveErrors();
+      await siteProfile?.refreshProfile();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed.");
@@ -235,44 +270,49 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         <FormField
           label="First name"
           htmlFor="settings-name"
-          error={fieldErrors.name}
+          error={fieldError("name", fieldErrors.name)}
         >
-          <Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            id="settings-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => validateField("name", name, "plain-text")}
+            required
+          />
         </FormField>
 
         <FormField
           label="Surname"
           htmlFor="settings-surname"
-          error={fieldErrors.surname}
+          error={fieldError("surname", fieldErrors.surname)}
+          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
         >
           <Input
             id="settings-surname"
             value={surname}
             onChange={(e) => setSurname(e.target.value)}
+            onBlur={() => validateField("surname", surname, "plain-text")}
             required={onboardingMode}
           />
         </FormField>
 
         <FormField
-          label={phoneRequired ? "Phone number" : "Phone number (recommended)"}
+          label="Phone number"
           htmlFor="settings-phone"
           error={fieldErrors.phone}
           hint={
-            phoneRequired
-              ? onboardingMode
-                ? "Required to complete your profile."
-                : "Required for self-government members."
-              : "Strongly recommended — required when applying for self-government membership."
+            membershipProfileRequired
+              ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT
+              : "Optional but recommended for general students."
           }
         >
           <Input
             id="settings-phone"
-            type="tel"
-            autoComplete="tel"
+            {...phoneInputProps}
             placeholder="+380 XX XXX XX XX"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required={phoneRequired}
+            onChange={(e) => setPhone(filterPhoneInputChange(e.target.value))}
+            required={membershipProfileRequired || onboardingMode}
           />
         </FormField>
 
@@ -298,6 +338,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
           label="Specialty"
           htmlFor="settings-specialty"
           error={fieldErrors.specialty}
+          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
         >
           <Input
             id="settings-specialty"
@@ -311,11 +352,15 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
           label="Group"
           htmlFor="settings-group"
           error={fieldErrors.group}
+          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
         >
           <Input
             id="settings-group"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={group}
-            onChange={(e) => setGroup(e.target.value)}
+            onChange={(e) => setGroup(e.target.value.replace(/\D/g, ""))}
             required={onboardingMode}
           />
         </FormField>
@@ -329,27 +374,33 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         </div>
 
         <FormField
-          label="Avatar URL"
-          htmlFor="settings-avatar"
+          label="Profile photo"
+          htmlFor="settings-avatar-file"
           error={fieldErrors.avatar}
+          hint={
+            membershipProfileRequired
+              ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT
+              : "Upload a profile photo. Without a photo, a User icon is shown in the header and directory."
+          }
         >
-          <Input id="settings-avatar" value={avatar} onChange={(e) => setAvatar(e.target.value)} />
+          <AvatarImageField
+            id="settings-avatar-file"
+            value={avatar}
+            onChange={setAvatar}
+            ownerKey={user.id}
+          />
         </FormField>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-(--color-text-primary)">Upload Avatar</span>
-          <Input id="settings-avatar-file" type="file" accept="image/*" onChange={handleAvatarUpload} />
-        </div>
 
         <FormField
           label="About you"
           htmlFor="settings-about"
-          error={fieldErrors.about}
+          error={fieldError("about", fieldErrors.about)}
         >
           <textarea
             id="settings-about"
             value={about}
             onChange={(e) => setAbout(e.target.value)}
+            onBlur={() => validateField("about", about, "plain-text")}
             rows={4}
             className="w-full rounded-[var(--radius-md)] border border-(--color-border-default) bg-(--color-bg-elevated) px-3 py-2 text-sm text-(--color-text-primary)"
             placeholder="Short bio visible on your profile"
@@ -408,45 +459,6 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-(--color-text-primary)">Accent</h2>
-        <p className="text-sm text-(--color-text-secondary)">
-          Preview: {formatAccentLabel(accentFamily, accentShade)}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {FAMILIES.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setAccentFamily(f)}
-              className={
-                accentFamily === f
-                  ? "badge badge-group"
-                  : "rounded-[6px] border border-(--color-border-default) px-2 py-1 text-xs capitalize text-(--color-text-secondary)"
-              }
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {SHADES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setAccentShade(s)}
-              className={
-                accentShade === s
-                  ? "badge badge-group"
-                  : "rounded-[6px] border border-(--color-border-default) px-2 py-1 text-xs capitalize text-(--color-text-secondary)"
-              }
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </section>
-
       {canChangePassword && (
         <section className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold text-(--color-text-primary)">Password</h2>
@@ -492,6 +504,16 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         </section>
       )}
 
+      {onboardingMode && telegramRequired && !user.telegramId ? (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">Telegram</h2>
+          <p className="text-sm text-(--color-text-secondary)">
+            {SELF_GOVERNMENT_MEMBER_PROFILE_HINT}
+          </p>
+          <OAuthButtonRow callbackUrl="/profile/settings?onboarding=1" linkUserId={user.id} />
+        </section>
+      ) : null}
+
       {onboardingMode && (
         <section className="flex flex-col gap-2">
           <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-secondary)">
@@ -511,6 +533,20 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
             <p className="text-xs text-destructive">{fieldErrors.personalDataConsent}</p>
           )}
         </section>
+      )}
+
+      {!onboardingMode && (
+      <section id="notifications" className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold text-(--color-text-primary)">Notifications</h2>
+        <p className="text-sm text-(--color-text-secondary)">{USER_NOTIFICATION_CHANNELS_HINT}</p>
+        <TaskChannelToggleGroup
+          value={notificationChannels}
+          onChange={setNotificationChannels}
+        />
+        {!user.telegramId && notificationChannels.includes("telegram") && (
+          <p className="text-xs text-(--color-text-secondary)">{USER_NOTIFICATION_TELEGRAM_LINK_HINT}</p>
+        )}
+      </section>
       )}
 
       {!onboardingMode && (
@@ -534,7 +570,19 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         )}
         {user.telegramId && !canUnlinkTelegram && (
           <p className="text-xs text-(--color-text-secondary)">
-            Set a password or link Google/Apple before unlinking Telegram.
+            {telegramIsRequiredForUser({
+              name: user.name,
+              surname: user.surname,
+              phone: user.phone,
+              specialty: user.specialty,
+              group: user.group,
+              avatar: user.avatar,
+              sociumRoles: user.sociumRoles,
+              selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+              telegramId: user.telegramId,
+            })
+              ? "Telegram is required for self-government members and membership applicants."
+              : "Set a password or link Google/Apple before unlinking Telegram."}
           </p>
         )}
         {!user.googleId && (

@@ -7,6 +7,7 @@
  */
 
 import { usePathname } from "next/navigation";
+import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
 import { SiteHeaderBar } from "@/components/ui/SiteHeaderBar";
 import { GLOBAL_LAYOUT_HEADER_SLOT_CLASS, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { type HeaderConfig } from "@shared/constants/globalLayout";
@@ -26,6 +27,8 @@ export interface GlobalHeaderProps {
   userEmail?: string | null;
   /** Content width preset. */
   contentWidth?: string;
+  /** Live-preview chrome: explicit user props override {@link SiteProfileProvider}. */
+  preview?: boolean;
 }
 
 /**
@@ -43,10 +46,29 @@ export function GlobalHeader({
   userName = null,
   userEmail = null,
   contentWidth = GLOBAL_LAYOUT_CONTENT_WIDTH,
+  preview = false,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
+  const siteProfile = useOptionalSiteProfile();
   const isEditing = pathname === "/edit" || pathname.endsWith("/edit");
   if (isEditing) return null;
+
+  const resolvedProfile = preview ? null : siteProfile?.profile ?? null;
+  const resolvedShowAdminPanel = preview
+    ? showAdminPanel
+    : siteProfile?.showAdminPanel ?? showAdminPanel;
+  const resolvedIsAuthenticated = preview
+    ? isAuthenticated
+    : siteProfile?.isAuthenticated ?? isAuthenticated;
+  const resolvedUserAvatar = preview
+    ? userAvatar
+    : resolvedProfile?.avatar ?? userAvatar;
+  const resolvedUserName = preview
+    ? userName
+    : resolvedProfile?.fullName ?? userName;
+  const resolvedUserEmail = preview
+    ? userEmail
+    : resolvedProfile?.email ?? userEmail;
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -61,13 +83,14 @@ export function GlobalHeader({
           categories={header.categories}
           layout={header.layout}
           userMenuItems={header.userMenu}
-          showAdminPanel={showAdminPanel}
+          showAdminPanel={resolvedShowAdminPanel}
           isActive={isActive}
           isDarkTheme={isDarkTheme}
-          userAvatar={userAvatar}
-          isAuthenticated={isAuthenticated}
-          userName={userName}
-          userEmail={userEmail}
+          userAvatar={resolvedUserAvatar}
+          isAuthenticated={resolvedIsAuthenticated}
+          userName={resolvedUserName}
+          userEmail={resolvedUserEmail}
+          preview={preview}
           contentWidth={contentWidth}
         />
       </header>

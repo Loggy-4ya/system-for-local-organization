@@ -12,13 +12,27 @@
 
 import { createContext, useContext } from "react";
 
-/** True when descendants render inside `.nexus-carousel__slide` (Puck slot content). */
-const CarouselSlideMediaContext = createContext(false);
+/** Carousel slide slot context — placement + composite layout flag. */
+export interface CarouselSlideMediaContextValue {
+  /** True when descendants render inside `.nexus-carousel__slide`. */
+  inCarouselSlide: boolean;
+  /** True when the slide stacks multiple blocks or hosts a nested grid. */
+  compositeSlide: boolean;
+}
+
+const defaultCarouselSlideMediaContext: CarouselSlideMediaContextValue = {
+  inCarouselSlide: false,
+  compositeSlide: false,
+};
+
+const CarouselSlideMediaContext = createContext(defaultCarouselSlideMediaContext);
 
 /** Props for {@link CarouselSlideMediaProvider}. */
 export interface CarouselSlideMediaProviderProps {
   /** Slide slot subtree (Puck drop zone + nested blocks). */
   children: React.ReactNode;
+  /** When true, suppress fill-slide auto mode for stacked / grid slide layouts. */
+  compositeSlide?: boolean;
 }
 
 /**
@@ -28,9 +42,16 @@ export interface CarouselSlideMediaProviderProps {
  * @param props - See {@link CarouselSlideMediaProviderProps}.
  * @returns Provider wrapping slide children.
  */
-export function CarouselSlideMediaProvider({ children }: CarouselSlideMediaProviderProps) {
+export function CarouselSlideMediaProvider({
+  children,
+  compositeSlide = false,
+}: CarouselSlideMediaProviderProps) {
   return (
-    <CarouselSlideMediaContext.Provider value={true}>{children}</CarouselSlideMediaContext.Provider>
+    <CarouselSlideMediaContext.Provider
+      value={{ inCarouselSlide: true, compositeSlide }}
+    >
+      {children}
+    </CarouselSlideMediaContext.Provider>
   );
 }
 
@@ -40,7 +61,16 @@ export function CarouselSlideMediaProvider({ children }: CarouselSlideMediaProvi
  * @returns True inside {@link CarouselSlideMediaProvider}.
  */
 export function useCarouselSlideMedia(): boolean {
-  return useContext(CarouselSlideMediaContext);
+  return useContext(CarouselSlideMediaContext).inCarouselSlide;
+}
+
+/**
+ * Whether the current slide is a composite layout (multi-block or nested grid).
+ *
+ * @returns True when fill-slide auto mode must stay off on first paint.
+ */
+export function useCarouselSlideComposite(): boolean {
+  return useContext(CarouselSlideMediaContext).compositeSlide;
 }
 
 export default CarouselSlideMediaProvider;

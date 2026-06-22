@@ -1,6 +1,6 @@
 # Scheduled Events & Background Jobs Engine
 
-**Status:** `[~] In Progress` — Foundation engine, MongoDB queue model, shared auth, API routes, and in-process/CLI runners completed; first real handlers planned.
+**Status:** `[~] In Progress` — Foundation engine, MongoDB queue model, shared auth, API routes, in-process/CLI runners, and **`publish_page`** handler completed; broadcast/reminder handlers planned.
 
 **Related:** [media_storage.md](./media_storage.md), [system_broadcasts.md](./system_broadcasts.md), [roadmap.md](../roadmap.md) Phase 0 / Phase 5
 
@@ -26,13 +26,16 @@ Instead of managing separate schedules/crons for each feature, Nexus employs a *
 
 ## Dual Hosting Models
 
-To support both simple containerized deployments (Docker / VPS) and serverless deployments (Vercel) without any code modifications, the system adapts its execution model purely based on environment variables:
+Hosting profiles are selected with **`NEXUS_HOSTING_MODE`** (`vps` | `serverless` | `hybrid`). See [hosting_and_deployment.md](./hosting_and_deployment.md) for templates, validation, and the admin diagnostics API.
+
+To support both simple containerized deployments (Docker / VPS) and serverless deployments (Vercel) without code modifications, the system adapts its execution model based on mode + environment variables:
 
 | Mode | Environment Settings | How it works |
 |------|----------------------|--------------|
-| **Simple Hosting (Docker / VPS)** | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` | An in-process `setInterval` loop runs in the background. Good for self-contained, always-on deployments. |
-| **Serverless (Vercel)** | `CRON_SECRET=...` (Interval variable remains unset) | Platform cron hits the HTTP tick endpoint `/api/admin/jobs/process-scheduled-events` on GET. Concurrency locks ensure safety. |
-| **External Cron (Traditional VPS)** | `NEXUS_CRON_SECRET=...` | Host `crontab` periodically pings `/api/admin/jobs/process-scheduled-events` with a Bearer token or runs the CLI maintenance script. |
+| **`vps`** | `NEXUS_HOSTING_MODE=vps`, `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` | In-process `setInterval` loop in `instrumentation.ts`. Good for Docker / always-on servers. |
+| **`serverless`** | `NEXUS_HOSTING_MODE=serverless`, `CRON_SECRET=...` | Platform cron hits `/api/admin/jobs/process-scheduled-events`. In-process tick is **disabled** (boot error if set). |
+| **`hybrid`** | `NEXUS_HOSTING_MODE=hybrid`, `CRON_SECRET=...` on web; `TELEGRAM_OPERATOR_SESSION` on worker | Same scheduler as serverless on the web app; MTProto worker runs separately. |
+| **External Cron (VPS)** | `NEXUS_CRON_SECRET=...`, no tick interval | Host `crontab` pings job routes or runs `npm run job:process-scheduled-events`. |
 
 ---
 

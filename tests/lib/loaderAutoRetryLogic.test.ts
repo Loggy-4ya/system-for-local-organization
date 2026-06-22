@@ -55,7 +55,7 @@ describe("loaderAutoRetryLogic", () => {
 
   it("falls back to default delay for invalid values", () => {
     assert.equal(resolveLoaderAutoRetryDelayMs(12_000), 12_000);
-    assert.equal(resolveLoaderAutoRetryDelayMs(0), 7_000);
-    assert.equal(resolveLoaderAutoRetryDelayMs(Number.NaN), 7_000);
+    assert.equal(resolveLoaderAutoRetryDelayMs(0), 4_500);
+    assert.equal(resolveLoaderAutoRetryDelayMs(Number.NaN), 4_500);
   });
 });

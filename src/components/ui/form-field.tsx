@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * @fileoverview Reusable form field wrapper that coordinates labels, inputs, and validation errors.
  *
@@ -7,8 +9,10 @@
  */
 
 import * as React from "react";
+import { useId } from "react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { NexusFieldHint } from "@/components/ui/NexusFieldHint";
 
 /** Props for {@link FormField}. */
 export interface FormFieldProps {
@@ -18,7 +22,7 @@ export interface FormFieldProps {
   htmlFor?: string;
   /** Field-specific validation error message. */
   error?: string;
-  /** Optional helper text shown under the control when there is no error. */
+  /** Optional helper text surfaced via an info icon (tooltip / popover). */
   hint?: string;
   /** The input or control element. Must be a single valid React element. */
   children: React.ReactElement;
@@ -41,20 +45,36 @@ export function FormField({
   children,
   className,
 }: FormFieldProps) {
+  const hintId = useId();
   const errorId = error && htmlFor ? `${htmlFor}-error` : undefined;
+  const describedBy = [error ? errorId : undefined, hint ? hintId : undefined]
+    .filter(Boolean)
+    .join(" ") || undefined;
 
   // Clone the child element to inject accessibility and ID properties
   const child = React.isValidElement(children)
     ? React.cloneElement(children as React.ReactElement<any>, {
         id: htmlFor || (children.props as any)?.id,
         "aria-invalid": error ? "true" : undefined,
-        "aria-describedby": error ? errorId : undefined,
+        "aria-describedby": describedBy,
       })
     : children;
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      {label && <Label htmlFor={htmlFor}>{label}</Label>}
+      {label ? (
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={htmlFor}>{label}</Label>
+          {hint ? (
+            <NexusFieldHint
+              text={hint}
+              label={`About ${label}`}
+              hintId={hintId}
+              size="md"
+            />
+          ) : null}
+        </div>
+      ) : null}
       {child}
       {error && (
         <p
@@ -64,9 +84,6 @@ export function FormField({
         >
           {error}
         </p>
-      )}
-      {!error && hint && (
-        <p className="text-xs text-(--color-text-secondary) mt-0.5">{hint}</p>
       )}
     </div>
   );

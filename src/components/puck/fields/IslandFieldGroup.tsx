@@ -25,6 +25,7 @@ import { hasAncestorWithActiveIsland, hasAncestorWithSlotShell } from "../lib/pu
 import { useNexusPuck } from "../lib/useNexusPuck";
 import { CustomDimensionInput } from "./CustomDimensionInput";
 import { FieldChapter, IslandIcon } from "./FieldChapter";
+import { FieldLabelRow } from "./FieldLabelRow";
 import { PuckSelectField } from "./PuckSelectField";
 import { PuckSwitchField } from "./PuckSwitchField";
 
@@ -145,11 +146,17 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
     });
   };
 
+  const layoutWidthHint =
+    !enabled
+      ? "Applies even when island mode is off. Choose Full Width for edge-to-edge blocks on full-width pages."
+      : undefined;
+
   const layoutControls = (
     <div className="nexus-field-category">
-      <span className="nexus-field-category__label">
-        {enabled ? "Layout" : "Content width"}
-      </span>
+      <FieldLabelRow
+        label={enabled ? "Layout" : "Content width"}
+        hint={layoutWidthHint}
+      />
       <div className="nexus-field-grid nexus-field-grid--stack">
         <div className="nexus-field-grid__cell">
           <span className="nexus-field-grid__label">Max width</span>
@@ -187,12 +194,6 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
           />
         </div>
       </div>
-      {!enabled ? (
-        <p className="nexus-field-grid__resolved">
-          Applies even when island mode is off. Choose Full Width for edge-to-edge blocks on
-          full-width pages.
-        </p>
-      ) : null}
     </div>
   );
 

@@ -1,3 +1,10 @@
+import type { Data } from "@puckeditor/core";
+import type {
+  OutlineIndexes,
+  OutlineNodeIndexEntry,
+} from "./outlineTreeModel";
+import { findComponentById } from "./puckDataTree";
+
 /**
  * @fileoverview Carousel slide fill behavior for media blocks (image, video).
  *
@@ -50,10 +57,25 @@ export const CAROUSEL_COMPOSITE_LAYOUT_SELECTORS = [
 ].join(", ");
 
 /**
- * Whether media sits inside a composite carousel slide (grid layout inside the slide).
+ * Count Puck blocks placed directly in a carousel slide drop zone (not nested shells).
+ *
+ * @param slide - Carousel slide root element.
+ * @returns Number of top-level `[data-puck-component]` nodes in the slide slot.
+ */
+export function countCarouselSlideDirectBlocks(slide: ParentNode): number {
+  const dropzone = slide.querySelector<HTMLElement>("[data-puck-dropzone]");
+  if (!dropzone) return 0;
+
+  return dropzone.querySelectorAll(":scope > [data-puck-component]").length;
+}
+
+/**
+ * Whether media sits inside a composite carousel slide (grid or multi-block stack).
  *
  * Only counts grid hosts that are **descendants of the same slide**, not grid cells
  * that wrap the carousel block itself (carousel-in-grid-item must still fill-slide).
+ * Slides with **two or more** direct blocks (e.g. Input + Video) are composite too —
+ * fill-slide media must not expand to the full slide card in that case.
  *
  * @param root - Media block root element.
  * @returns True when the slide uses structured layout rather than a single fill asset.
@@ -64,7 +86,132 @@ export function isCompositeCarouselSlideContent(root: HTMLElement | null | undef
   const slide = root.closest(".nexus-carousel__slide");
   if (!slide) return false;
 
-  return Boolean(slide.querySelector(CAROUSEL_COMPOSITE_LAYOUT_SELECTORS));
+  if (slide.querySelector(CAROUSEL_COMPOSITE_LAYOUT_SELECTORS)) {
+    return true;
+  }
+
+  return countCarouselSlideDirectBlocks(slide) > 1;
+}
+
+/**
+ * Whether a carousel slide slot holds composite content (multi-block or nested grid).
+ *
+ * @param content - Puck slot `content` array from slide props.
+ * @returns True when auto fill-slide must not apply.
+ */
+export function resolveCompositeSlideFromSlotContent(content: unknown): boolean {
+  if (!Array.isArray(content) || content.length === 0) {
+    return false;
+  }
+
+  if (content.length > 1) {
+    return true;
+  }
+
+  return content.some(
+    (entry) =>
+      entry &&
+      typeof entry === "object" &&
+      "type" in entry &&
+      typeof (entry as { type?: unknown }).type === "string" &&
+      (entry as { type: string }).type === "NexusGrid",
+  );
+}
+
+/**
+ * Whether a Puck zone index entry hosts composite carousel slide content.
+ *
+ * @param contentIds - Ordered child ids in the slide slot zone.
+ * @param nodes - Puck node index for type lookup.
+ * @returns True when auto fill-slide must not apply.
+ */
+function resolveCompositeSlideFromZoneIndex(
+  contentIds: string[] | undefined,
+  nodes: Record<string, OutlineNodeIndexEntry> | undefined,
+): boolean {
+  if (!contentIds || contentIds.length === 0) {
+    return false;
+  }
+
+  if (contentIds.length > 1) {
+    return true;
+  }
+
+  const node = nodes?.[contentIds[0] ?? ""];
+  return node?.data.type === "NexusGrid";
+}
+
+/**
+ * Resolve per-slide composite flags from Puck document state (editor-safe).
+ *
+ * Prefers Puck private zone indexes (`contentIds`) because slot fields in
+ * `render()` are React components, not raw content arrays. Falls back to inline
+ * `props.slides[i].content` when indexes are unavailable.
+ *
+ * @param data - Puck document state.
+ * @param carouselId - Carousel block id (`props.id`).
+ * @param slideCount - Number of slides on the carousel.
+ * @param indexes - Optional Puck private indexes from the editor store.
+ * @returns Boolean flag per slide index.
+ */
+export function resolveCarouselSlideCompositeFlags(
+  data: Data,
+  carouselId: string | undefined,
+  slideCount: number,
+  indexes?: OutlineIndexes | null,
+): boolean[] {
+  if (slideCount <= 0) {
+    return [];
+  }
+
+  const rawSlides = carouselId
+    ? (findComponentById(data, carouselId)?.node.props.slides as
+        | Array<{ content?: unknown }>
+        | undefined)
+    : undefined;
+
+  return Array.from({ length: slideCount }, (_, index) => {
+    const zoneCompound = carouselId ? `${carouselId}:slides[${index}].content` : "";
+    const fromZone = resolveCompositeSlideFromZoneIndex(
+      zoneCompound ? indexes?.zones?.[zoneCompound]?.contentIds : undefined,
+      indexes?.nodes,
+    );
+    if (fromZone) {
+      return true;
+    }
+
+    return resolveCompositeSlideFromSlotContent(rawSlides?.[index]?.content);
+  });
+}
+
+/**
+ * Serialize composite slide flags for stable Puck store selectors (primitives only).
+ *
+ * @param flags - Per-slide composite layout flags.
+ * @returns Comma-separated `"1"` / `"0"` string safe for `useSyncExternalStore` snapshots.
+ */
+export function serializeCarouselSlideCompositeFlagsKey(flags: boolean[]): string {
+  return flags.map((flag) => (flag ? "1" : "0")).join(",");
+}
+
+/**
+ * Parse {@link serializeCarouselSlideCompositeFlagsKey} back into a boolean array.
+ *
+ * @param key - Serialized composite flags key.
+ * @param slideCount - Expected slide count (pads missing entries with `false`).
+ * @returns Per-slide composite layout flags.
+ */
+export function parseCarouselSlideCompositeFlagsKey(key: string, slideCount: number): boolean[] {
+  if (slideCount <= 0) {
+    return [];
+  }
+
+  if (!key) {
+    return Array.from({ length: slideCount }, () => false);
+  }
+
+  const parts = key.split(",");
+  return Array.from({ length: slideCount }, (_, index) => parts[index] === "1");
 }
 
 /**
@@ -72,13 +219,15 @@ export function isCompositeCarouselSlideContent(root: HTMLElement | null | undef
  *
  * @param mode - Sidebar preset (`auto` fills only inside carousel slides).
  * @param inCarouselSlide - Whether the block is rendered inside `.nexus-carousel__slide`.
- * @param root - Optional media root for composite-layout detection.
+ * @param root - Optional media root for composite-layout detection (DOM fallback).
+ * @param compositeSlide - When true, slide is composite from Puck props (first-paint safe).
  * @returns True when fill-slide layout should apply.
  */
 export function resolveCarouselMediaFill(
   mode: CarouselMediaFillMode | undefined,
   inCarouselSlide: boolean,
   root?: HTMLElement | null,
+  compositeSlide = false,
 ): boolean {
   switch (mode ?? "auto") {
     case "fill":
@@ -88,6 +237,7 @@ export function resolveCarouselMediaFill(
     case "auto":
     default:
       if (!inCarouselSlide) return false;
+      if (compositeSlide) return false;
       if (isCompositeCarouselSlideContent(root)) return false;
       return true;
   }

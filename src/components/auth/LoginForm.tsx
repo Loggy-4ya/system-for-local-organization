@@ -17,6 +17,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Spinner } from "@/components/ui/spinner";
 import { submitCredentialsLogin } from "@/lib/credentialsAuthClient";
+import { markAuthSessionForNotificationPrompt } from "@/lib/webNotificationPermission";
 import { loginSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
@@ -80,6 +81,7 @@ export function LoginForm() {
         return;
       }
 
+      markAuthSessionForNotificationPrompt();
       router.push(callbackUrl);
       router.refresh();
     } catch {
@@ -149,6 +151,11 @@ export function LoginForm() {
           <Link href="/signup" className="text-(--color-accent-user) no-underline hover:underline">
             Create account
           </Link>
+        </p>
+
+        <p className="text-center text-xs text-(--color-text-secondary)">
+          Student self-government applicants must link Telegram during signup or in profile
+          settings after sign-in.
         </p>
       </form>
 

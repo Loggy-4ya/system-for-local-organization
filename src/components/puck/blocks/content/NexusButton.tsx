@@ -11,6 +11,8 @@
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { sanitizeUserHref } from "@shared/lib/safeHref";
+import { resolveLucideIcon } from "@/components/global-layout/resolveLucideIcon";
+import { LucideIconPickerField, isAllowedLucideIconValue } from "../../fields/LucideIconPickerField";
 import {
   BUTTON_SIZE_OPTIONS,
   RADIUS_EXTENDED_SELECT_OPTIONS,
@@ -24,6 +26,7 @@ import {
   presetValuesFromOptions,
   resolvePresetDimension,
 } from "../../lib/resolvePresetDimension";
+import { useInterpolatedNexusValue } from "../../lib/nexusPageVariablesContext";
 
 /** Puck variant keys mapped to Shadcn button variants. */
 const VARIANT_MAP: Record<
@@ -46,6 +49,28 @@ const SIZE_MAP: Record<"sm" | "md" | "lg", NonNullable<VariantProps<typeof butto
 
 const RADIUS_PRESET_VALUES = presetValuesFromOptions(RADIUS_EXTENDED_SELECT_OPTIONS);
 const RADIUS_DEFAULTS = { preset: "var(--radius-md)", custom: "var(--radius-md)" };
+
+const BUTTON_ICON_SIZE = {
+  sm: 14,
+  md: 16,
+  lg: 18,
+} as const;
+
+/**
+ * Render a button adornment — Lucide when whitelisted, legacy emoji fallback otherwise.
+ *
+ * @param icon - Stored icon value from Puck props.
+ * @param size - Button size preset.
+ * @returns Icon node or null.
+ */
+function renderButtonIcon(icon: string | undefined, size: "sm" | "md" | "lg") {
+  if (!icon) return null;
+  const dim = BUTTON_ICON_SIZE[size] ?? BUTTON_ICON_SIZE.md;
+  if (isAllowedLucideIconValue(icon)) {
+    return resolveLucideIcon(icon, { size: dim, strokeWidth: 2.25 });
+  }
+  return <span aria-hidden="true">{icon}</span>;
+}
 
 export const NexusButton = {
   label: "Button",
@@ -81,17 +106,9 @@ export const NexusButton = {
       defaultCustom: "var(--radius-md)",
     }),
     icon: {
-      type: "select" as const,
-      label: "Icon (Optional)",
-      options: [
-        { label: "None", value: "" },
-        { label: "Arrow Right (→)", value: "→" },
-        { label: "Plus (+)", value: "+" },
-        { label: "Checkmark (✓)", value: "✓" },
-        { label: "Cross (❌)", value: "❌" },
-        { label: "Warning (⚠️)", value: "⚠️" },
-        { label: "Star (⭐)", value: "⭐" },
-      ],
+      type: "custom" as const,
+      label: "Icon (optional)",
+      render: LucideIconPickerField as never,
     },
     iconPosition: {
       type: "radio" as const,
@@ -135,7 +152,9 @@ export const NexusButton = {
     iconPosition: "left" | "right";
     href?: string;
   }) {
-    const safeHref = sanitizeUserHref(href);
+    const resolvedLabel = useInterpolatedNexusValue(label);
+    const resolvedHref = useInterpolatedNexusValue(href ?? "");
+    const safeHref = sanitizeUserHref(resolvedHref);
     const shadcnVariant = VARIANT_MAP[variant];
     const shadcnSize = SIZE_MAP[size] ?? "default";
     const radiusNorm = normalizePresetDimensionValue(
@@ -165,9 +184,9 @@ export const NexusButton = {
 
     const content = (
       <>
-        {icon && iconPosition === "left" ? <span aria-hidden="true">{icon}</span> : null}
-        <span>{label}</span>
-        {icon && iconPosition === "right" ? <span aria-hidden="true">{icon}</span> : null}
+        {icon && iconPosition === "left" ? renderButtonIcon(icon, size) : null}
+        <span>{resolvedLabel}</span>
+        {icon && iconPosition === "right" ? renderButtonIcon(icon, size) : null}
       </>
     );
 

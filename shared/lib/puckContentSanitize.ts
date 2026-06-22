@@ -9,6 +9,12 @@
 
 import type { GcsMediaReferenceContext } from "@shared/lib/mediaStorage/gcsObjectKey";
 import {
+  createEmptyPuckSanitizeReport,
+  puckSanitizeKindFromPropKey,
+  recordPuckSanitizeFieldChange,
+  type PuckSanitizeReport,
+} from "@shared/lib/puckContentSanitizeReport";
+import {
   looksLikeEditorHtml,
   sanitizeNexusEditorHtml,
 } from "@shared/lib/nexusRichTextSanitize";
@@ -26,6 +32,14 @@ const MEDIA_URL_KEYS = new Set(["image", "backgroundImage"]);
 
 /** Prop keys that store video or generic media URLs. */
 const MEDIA_OR_LINK_URL_KEYS = new Set(["url"]);
+
+/** Result of sanitizing Puck JSON with an audit report. */
+export interface PuckSanitizeResult {
+  /** Sanitized Puck data safe for MongoDB persistence. */
+  data: unknown;
+  /** Field-level diff report for audit logging. */
+  report: PuckSanitizeReport;
+}
 
 /**
  * Sanitize one string prop based on its field key name.
@@ -63,6 +77,71 @@ function sanitizePuckStringProp(
 }
 
 /**
+ * Deep-walk Puck JSON, sanitize user-authored strings, and collect audit events.
+ *
+ * @param value - Arbitrary Puck data subtree.
+ * @param gcsContext - Optional GCS/CDN context for media URL validation.
+ * @param report - Mutable audit accumulator.
+ * @param pathPrefix - JSON path prefix for nested props.
+ * @returns Sanitized copy (objects/arrays cloned; primitives unchanged).
+ */
+function sanitizePuckDataNode(
+  value: unknown,
+  gcsContext: GcsMediaReferenceContext,
+  report: PuckSanitizeReport,
+  pathPrefix: string,
+): unknown {
+  if (value == null || typeof value !== "object") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      sanitizePuckDataNode(item, gcsContext, report, `${pathPrefix}[${index}]`),
+    );
+  }
+
+  const input = value as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+
+  for (const [key, nested] of Object.entries(input)) {
+    const fieldPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+
+    if (typeof nested === "string") {
+      const sanitized = sanitizePuckStringProp(key, nested, gcsContext);
+      recordPuckSanitizeFieldChange(
+        report,
+        fieldPath,
+        puckSanitizeKindFromPropKey(key),
+        nested,
+        sanitized,
+      );
+      output[key] = sanitized;
+    } else {
+      output[key] = sanitizePuckDataNode(nested, gcsContext, report, fieldPath);
+    }
+  }
+
+  return output;
+}
+
+/**
+ * Deep-walk Puck JSON and sanitize user-authored strings with an audit report.
+ *
+ * @param value - Arbitrary Puck data subtree.
+ * @param gcsContext - Optional GCS/CDN context for media URL validation.
+ * @returns Sanitized data and field-level audit report.
+ */
+export function sanitizePuckDataForStorageWithReport(
+  value: unknown,
+  gcsContext: GcsMediaReferenceContext = {},
+): PuckSanitizeResult {
+  const report = createEmptyPuckSanitizeReport();
+  const data = sanitizePuckDataNode(value, gcsContext, report, "");
+  return { data, report };
+}
+
+/**
  * Deep-walk Puck JSON and sanitize user-authored strings.
  *
  * @param value - Arbitrary Puck data subtree.
@@ -73,24 +152,5 @@ export function sanitizePuckDataForStorage(
   value: unknown,
   gcsContext: GcsMediaReferenceContext = {},
 ): unknown {
-  if (value == null || typeof value !== "object") {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizePuckDataForStorage(item, gcsContext));
-  }
-
-  const input = value as Record<string, unknown>;
-  const output: Record<string, unknown> = {};
-
-  for (const [key, nested] of Object.entries(input)) {
-    if (typeof nested === "string") {
-      output[key] = sanitizePuckStringProp(key, nested, gcsContext);
-    } else {
-      output[key] = sanitizePuckDataForStorage(nested, gcsContext);
-    }
-  }
-
-  return output;
+  return sanitizePuckDataForStorageWithReport(value, gcsContext).data;
 }

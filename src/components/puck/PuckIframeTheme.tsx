@@ -22,6 +22,7 @@ import {
   chainWheelDeltaToCanvasShell,
 } from "@/components/puck/lib/canvasLetterboxScrollport";
 import { usePuckPreviewMode } from "@/components/puck/lib/useNexusPuck";
+import { resetInteractivePreviewScrollports } from "@/components/puck/lib/interactivePreviewScrollport";
 
 /** DOM id used for the injected token `<style>` element inside the preview iframe. */
 const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
@@ -33,31 +34,14 @@ const DOCUMENT_STYLE_ID = "nexus-puck-preview-document";
  * Preview iframe document overflow rules.
  *
  * Edit mode keeps the document content-sized so Puck `rootHeight` tracks blocks —
- * the outer canvas shell owns scroll. Interactive preview fills the iframe for faithful UX.
+ * the outer canvas shell owns vertical scroll (iframe/body do not scroll). Interactive
+ * preview locks the iframe viewport and scrolls tall page content inside the document.
  *
  * @param previewMode - Active Puck preview mode.
  * @returns Injected stylesheet text.
  */
 function buildPreviewDocumentCss(previewMode: "edit" | "interactive"): string {
-  const contentSized = previewMode === "edit";
-
-  return `
-html,
-body {
-  margin: 0;
-  min-height: ${contentSized ? "auto" : "100%"};
-  height: ${contentSized ? "auto" : "100%"};
-  overflow-x: hidden;
-  overflow-y: ${contentSized ? "visible" : "auto"};
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-/*
- * Puck edit mode — keep drop-zone / component wrappers transparent (shell bleed-through).
- * When compositing fails, edit uses an iframe-contained grid instead; these rules still
- * prevent opaque Puck defaults in both paths.
- */
+  const sharedTransparentRules = `
 #frame-root,
 [data-puck-entry],
 [data-puck-dropzone],
@@ -74,6 +58,113 @@ body {
   background: transparent !important;
 }
 `;
+
+  if (previewMode === "edit") {
+    return `
+html,
+body {
+  margin: 0;
+  min-height: auto;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/*
+ * Puck edit mode — keep drop-zone / component wrappers transparent (shell bleed-through).
+ * When compositing fails, edit uses an iframe-contained grid instead; these rules still
+ * prevent opaque Puck defaults in both paths.
+ */
+${sharedTransparentRules}
+`;
+  }
+
+  return `
+html {
+  margin: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-text-secondary) 44%, transparent) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html::-webkit-scrollbar {
+  width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-secondary) 44%, transparent);
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-secondary) 58%, transparent);
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  overflow: visible;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+#frame-root {
+  min-height: 100%;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+${sharedTransparentRules}
+`;
+}
+
+/**
+ * Apply inline document scroll constraints that must win over copied host stylesheets.
+ *
+ * @param iframeDoc - Preview iframe document.
+ * @param previewMode - Active Puck preview mode.
+ */
+function applyPreviewDocumentScrollStyles(
+  iframeDoc: Document,
+  previewMode: "edit" | "interactive",
+): void {
+  const { documentElement, body } = iframeDoc;
+  if (!body) {
+    return;
+  }
+
+  if (previewMode === "interactive") {
+    documentElement.style.height = "100%";
+    documentElement.style.overflowX = "hidden";
+    documentElement.style.overflowY = "auto";
+    body.style.minHeight = "100%";
+    body.style.removeProperty("height");
+    body.style.overflow = "visible";
+    return;
+  }
+
+  documentElement.style.removeProperty("height");
+  documentElement.style.removeProperty("overflow");
+  documentElement.style.removeProperty("overflow-x");
+  documentElement.style.removeProperty("overflow-y");
+  body.style.removeProperty("min-height");
+  body.style.removeProperty("height");
+  body.style.removeProperty("overflow");
+  body.style.removeProperty("overflow-x");
+  body.style.removeProperty("overflow-y");
 }
 
 /**
@@ -170,6 +261,8 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
       iframeDoc.body.style.background = "transparent";
     }
 
+    applyPreviewDocumentScrollStyles(iframeDoc, previewMode);
+
     try {
       const frame = iframeDoc.defaultView?.frameElement as HTMLIFrameElement | null;
       if (frame) {
@@ -178,7 +271,7 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     } catch {
       /* cross-origin parent */
     }
-  }, [iframeDoc, theme]);
+  }, [iframeDoc, previewMode, theme]);
 
   useEffect(() => {
     if (!iframeDoc?.documentElement) return;
@@ -198,6 +291,9 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
       iframeDoc.head.appendChild(docStyleEl);
     }
     docStyleEl.textContent = buildPreviewDocumentCss(previewMode);
+    applyPreviewDocumentScrollStyles(iframeDoc, previewMode);
+    resetInteractivePreviewScrollports(iframeDoc.defaultView?.parent?.document ?? null);
+    iframeDoc.defaultView?.scrollTo(0, 0);
 
     if (iframeDoc.body) {
       iframeDoc.body.style.color = "var(--color-text-primary)";
@@ -210,6 +306,10 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     if (!iframeWindow) return;
 
     const onWheel = (event: WheelEvent) => {
+      if (previewMode === "interactive") {
+        return;
+      }
+
       if (!canvasShellNeedsVerticalScroll()) return;
 
       const chained = chainWheelDeltaToCanvasShell(

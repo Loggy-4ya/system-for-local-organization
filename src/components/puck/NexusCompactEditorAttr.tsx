@@ -3,16 +3,15 @@
 /**
  * @fileoverview Mirrors compact / narrow Puck editor viewport flags on `<html>`.
  *
- * - {@link NEXUS_COMPACT_EDITOR_ATTR} — touch-primary compact chrome (bottom rail).
- * - {@link NEXUS_NARROW_EDITOR_ATTR} — width ≤900px layout fixes (DevTools, landscape).
+ * - {@link NEXUS_COMPACT_EDITOR_ATTR} — compact chrome (bottom rail, ≤900px width).
+ * - {@link NEXUS_NARROW_EDITOR_ATTR} — same width band; layout-fix hooks on {@code <html>}.
  *
  * @module src/components/puck/NexusCompactEditorAttr
  */
 
 import { useEffect } from "react";
 import {
-  PUCK_COMPACT_EDITOR_MQ,
-  PUCK_COMPACT_EDITOR_MAX_WIDTH,
+  matchesCompactEditorViewport,
   usePuckMobileEditorChrome,
 } from "@/components/puck/usePuckMobileEditorChrome";
 
@@ -25,11 +24,10 @@ export const NEXUS_NARROW_EDITOR_ATTR = "data-nexus-narrow-editor";
 /**
  * Whether the viewport should use narrow editor layout fixes.
  *
- * @returns True when `window.innerWidth` is at most {@link PUCK_COMPACT_EDITOR_MAX_WIDTH}.
+ * @returns True when {@link matchesCompactEditorViewport} matches.
  */
 export function matchesNarrowEditorViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.innerWidth <= PUCK_COMPACT_EDITOR_MAX_WIDTH;
+  return matchesCompactEditorViewport();
 }
 
 /**
@@ -41,25 +39,10 @@ export function NexusCompactEditorAttr() {
   const isCompactEditor = usePuckMobileEditorChrome();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const syncAttrs = () => {
-      document.documentElement.toggleAttribute(NEXUS_COMPACT_EDITOR_ATTR, isCompactEditor);
-      document.documentElement.toggleAttribute(
-        NEXUS_NARROW_EDITOR_ATTR,
-        window.innerWidth <= PUCK_COMPACT_EDITOR_MAX_WIDTH,
-      );
-    };
-
-    syncAttrs();
-
-    const compactMedia = window.matchMedia(PUCK_COMPACT_EDITOR_MQ);
-    compactMedia.addEventListener("change", syncAttrs);
-    window.addEventListener("resize", syncAttrs);
+    document.documentElement.toggleAttribute(NEXUS_COMPACT_EDITOR_ATTR, isCompactEditor);
+    document.documentElement.toggleAttribute(NEXUS_NARROW_EDITOR_ATTR, isCompactEditor);
 
     return () => {
-      compactMedia.removeEventListener("change", syncAttrs);
-      window.removeEventListener("resize", syncAttrs);
       document.documentElement.removeAttribute(NEXUS_COMPACT_EDITOR_ATTR);
       document.documentElement.removeAttribute(NEXUS_NARROW_EDITOR_ATTR);
     };

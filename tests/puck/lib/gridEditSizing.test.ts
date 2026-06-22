@@ -11,6 +11,7 @@ import { describe, it } from "node:test";
 import {
   resolveCarouselAwareGridCellSpanRow,
   resolveCarouselAwareGridGap,
+  resolveGridEditCellSpanRow,
 } from "@/components/puck/lib/gridEditSizing";
 
 describe("resolveCarouselAwareGridGap", () => {
@@ -18,6 +19,18 @@ describe("resolveCarouselAwareGridGap", () => {
     assert.equal(resolveCarouselAwareGridGap("16px", true), "8px");
     assert.equal(resolveCarouselAwareGridGap("16px", false), "16px");
     assert.equal(resolveCarouselAwareGridGap("24px", true), "24px");
+  });
+});
+
+describe("resolveGridEditCellSpanRow", () => {
+  it("forces single-row placement in edit mode and carousel slides", () => {
+    assert.equal(resolveGridEditCellSpanRow("2", false, true), 1);
+    assert.equal(resolveGridEditCellSpanRow("3", true, false), 1);
+    assert.equal(resolveGridEditCellSpanRow("2", true, true), 1);
+  });
+
+  it("preserves multi-row span on published page grids only", () => {
+    assert.equal(resolveGridEditCellSpanRow("2", false, false), 2);
   });
 });
 

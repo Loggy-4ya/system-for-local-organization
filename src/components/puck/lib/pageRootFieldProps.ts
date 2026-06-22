@@ -5,13 +5,17 @@
  * {@link FieldChapter} (`pageSettings`, `pageLayout`, `pageBackground`). Legacy pages may
  * still store a combined `appearance` object; render paths merge both shapes.
  *
+ * Tests: `tests/puck/lib/pageRootFieldProps.test.ts` — `npm run test:page-root-field-props`
+ *
  * @module src/components/puck/lib/pageRootFieldProps
  */
 
 import type { PageAppearanceProps } from "@/components/puck/fields/PageAppearanceFieldGroup";
 import type { PageBackgroundProps } from "@/components/puck/fields/PageBackgroundFieldGroup";
 import type { PageLayoutProps } from "@/components/puck/fields/PageLayoutFieldGroup";
+import type { PagePublicationValue } from "@/components/puck/fields/PagePublicationFieldGroup";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
+import { normalizePageCategoryList } from "@shared/lib/pageCategoryLogic";
 import {
   clampPageContentWidth,
   DEFAULT_CONTENT_WIDTH,
@@ -20,6 +24,7 @@ import {
 /** Raw PageRoot props as stored in Puck data (grouped + legacy flat keys). */
 export interface PageRootStoredProps {
   pageSettings?: PageSettingsValue;
+  pagePublication?: PagePublicationValue;
   pageLayout?: PageLayoutProps;
   pageBackground?: PageBackgroundProps;
   /** @deprecated Combined layout + background — migrated into chapter fields on read. */
@@ -92,21 +97,100 @@ export function resolvePageRootAppearance(props: PageRootStoredProps): PageAppea
 }
 
 /**
+ * Whether the layout-level {@link InfiniteGrid} should freeze tile scroll for this page.
+ *
+ * Static motion applies only when the page uses the site-default grid background.
+ *
+ * @param props - Stored PageRoot props.
+ * @returns True when grid motion is static.
+ */
+export function resolvePageBackgroundGridIsStatic(props: PageRootStoredProps): boolean {
+  const background = resolvePageBackgroundProps(props);
+  return (
+    background.background === "site-default" &&
+    (background.backgroundGridMotion ?? "dynamic") === "static"
+  );
+}
+
+/**
+ * Resolve publication chapter props with MongoDB fallback defaults.
+ *
+ * @param props - Stored PageRoot props.
+ * @param metaDefaults - Server metadata when puck props are empty.
+ * @returns Publication chapter value for the Puck field.
+ */
+export function resolvePagePublicationProps(
+  props: PageRootStoredProps,
+  metaDefaults?: Partial<PagePublicationValue>,
+): PagePublicationValue {
+  const legacyEditors = props.pageSettings?.delegatedEditors;
+
+  return {
+    description: props.pagePublication?.description ?? metaDefaults?.description ?? "",
+    coverImage: props.pagePublication?.coverImage ?? metaDefaults?.coverImage ?? "",
+    publishAt: props.pagePublication?.publishAt ?? metaDefaults?.publishAt ?? null,
+    commentsEnabled:
+      props.pagePublication?.commentsEnabled ?? metaDefaults?.commentsEnabled ?? true,
+    delegatedEditors:
+      props.pagePublication?.delegatedEditors?.length
+        ? props.pagePublication.delegatedEditors
+        : legacyEditors?.length
+          ? legacyEditors
+          : metaDefaults?.delegatedEditors ?? [],
+  };
+}
+
+/**
+ * Resolve category tags from `pageSettings` with legacy publication fallback.
+ *
+ * @param props - Stored PageRoot props.
+ * @param metaDefaults - Server metadata when puck props are empty.
+ * @returns Normalized category labels.
+ */
+export function resolvePageSettingsCategories(
+  props: PageRootStoredProps,
+  metaDefaults?: string[],
+): string[] {
+  const legacyPublicationCategories = props.pagePublication?.categories;
+  return normalizePageCategoryList(
+    props.pageSettings?.categories?.length
+      ? props.pageSettings.categories
+      : legacyPublicationCategories?.length
+        ? legacyPublicationCategories
+        : metaDefaults,
+  );
+}
+
+/**
  * Ensure grouped page chapter props exist when loading legacy Puck documents.
  *
  * @param props - Stored root props from Mongo or defaults.
- * @returns Props with `pageLayout` and `pageBackground` populated.
+ * @param metaDefaults - Optional server metadata for publication defaults.
+ * @returns Props with chapter fields populated.
  */
 export function ensurePageRootChapterProps(
   props: Record<string, unknown>,
+  metaDefaults?: Partial<PagePublicationValue> & { categories?: string[] },
 ): Record<string, unknown> {
   const stored = props as PageRootStoredProps;
   const layout = resolvePageLayoutProps(stored);
   const background = resolvePageBackgroundProps(stored);
+  const publication = resolvePagePublicationProps(stored, metaDefaults);
+  const pageSettings = stored.pageSettings ?? {
+    title: "Untitled Page",
+    slug: "",
+    slugLocked: false,
+    categories: resolvePageSettingsCategories(stored, metaDefaults?.categories),
+  };
 
   return {
     ...props,
+    pageSettings: {
+      ...pageSettings,
+      categories: resolvePageSettingsCategories(stored, metaDefaults?.categories),
+    },
     pageLayout: stored.pageLayout ?? layout,
     pageBackground: stored.pageBackground ?? background,
+    pagePublication: stored.pagePublication ?? publication,
   };
 }

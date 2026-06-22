@@ -11,7 +11,17 @@ import "@puckeditor/core/puck.css";
 import "@/app/puck-editor.css";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
-import { ensurePageRootChapterProps } from "@/components/puck/lib/pageRootFieldProps";
+import { normalizePageCategoryList } from "@shared/lib/pageCategoryLogic";
+import { ensurePageRootChapterProps, resolvePagePublicationProps } from "@/components/puck/lib/pageRootFieldProps";
+import {
+  PageEditorMetaProvider,
+  EMPTY_PAGE_EDITOR_META,
+} from "@/components/puck/lib/pageEditorMetaContext";
+import type { PageMetadataDto } from "@shared/domains/PageDomain";
+import {
+  resetPageBackgroundGrid,
+  syncPageBackgroundGridFromPuckData,
+} from "@/components/background/pageBackgroundGridStore";
 import { ensureIslandOnEligibleBlocks } from "@/components/puck/lib/applyIslandDefaultsOnInsert";
 import { withDefaultEditorContent } from "@/components/puck/lib/defaultEditorContent";
 import { normalizeCarouselSlides, migrateLegacyNexusGridItems } from "@/components/puck/lib/puckDataTree";
@@ -32,10 +42,12 @@ import type { Data } from "@puckeditor/core";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { PageEditFab } from "@/components/puck/PageEditFab";
+import { PageLikeButton } from "@/components/puck/PageLikeButton";
+import { recordPageView } from "@/lib/pageEngagementClient";
 import { SiteLoader } from "@/components/ui/SiteLoader";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { DEFAULT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /** Puck editor loaded only on the client to avoid hydration mismatches. */
 const PuckEditorShell = dynamic(
@@ -54,10 +66,20 @@ interface PuckClientProps {
   data: Data | null;
   /** Human-readable page title from MongoDB. */
   pageTitle: string;
+  /** Category tags from MongoDB when puckData lacks `pageSettings.categories`. */
+  pageCategories?: string[];
+  /** Server-hydrated page metadata for publication sidebar fields. */
+  pageMetadata?: PageMetadataDto;
   /** When true, renders the full Puck editor. Otherwise renders `<Render>`. */
   isEditing: boolean;
   /** When true, show the floating edit control on published Puck pages. */
   showPageEditFab?: boolean;
+  /** Whether the session user already liked this page. */
+  initialLiked?: boolean;
+  /** Whether the viewer may toggle likes. */
+  canLike?: boolean;
+  /** True when the page is publicly visible (for view counting). */
+  isPublicView?: boolean;
 }
 
 /**
@@ -91,6 +113,8 @@ function buildEditorData(
   data: Data | null,
   title: string,
   pagePath: string,
+  pageCategories: string[] = [],
+  pageMetadata: PageMetadataDto = EMPTY_PAGE_EDITOR_META,
 ): { editorData: Data; metadata: PageMetadataDraft } {
   const withContent = withDefaultEditorContent(data);
   const withCarousel = normalizeCarouselSlides(withContent);
@@ -101,6 +125,9 @@ function buildEditorData(
   const existingProps =
     (withIsland.root as { props?: Record<string, unknown> })?.props ?? {};
   const existingPageSettings = existingProps.pageSettings as PageSettingsValue | undefined;
+  const existingPublication = existingProps.pagePublication as
+    | import("@/components/puck/fields/PagePublicationFieldGroup").PagePublicationValue
+    | undefined;
 
   const pageSettings: PageSettingsValue = {
     title:
@@ -112,17 +139,43 @@ function buildEditorData(
       ? existingPageSettings.slug
       : pathToSlug(pagePath),
     slugLocked: pagePath === "/",
+    categories: normalizePageCategoryList(
+      existingPageSettings?.categories?.length
+        ? existingPageSettings.categories
+        : existingPublication?.categories?.length
+          ? existingPublication.categories
+          : pageCategories,
+    ),
   };
+
+  const publicationDefaults = resolvePagePublicationProps(
+    existingProps as Parameters<typeof resolvePagePublicationProps>[0],
+    {
+      description: pageMetadata.description,
+      coverImage: pageMetadata.coverImage,
+      publishAt: pageMetadata.publishAt,
+      commentsEnabled: pageMetadata.commentsEnabled,
+      delegatedEditors:
+        existingPublication?.delegatedEditors?.length
+          ? existingPublication.delegatedEditors
+          : existingPageSettings?.delegatedEditors?.length
+            ? existingPageSettings.delegatedEditors
+            : pageMetadata.delegatedEditors,
+    },
+  );
 
   return {
     editorData: {
       ...withIsland,
       root: {
         ...(withIsland.root ?? {}),
-        props: ensurePageRootChapterProps({
-          ...existingProps,
-          pageSettings,
-        }) as Record<string, unknown>,
+        props: ensurePageRootChapterProps(
+          {
+            ...existingProps,
+            pageSettings,
+          },
+          { ...publicationDefaults, categories: pageSettings.categories },
+        ) as Record<string, unknown>,
       },
     },
     metadata: {
@@ -156,14 +209,25 @@ export function PuckClient({
   path,
   data,
   pageTitle,
+  pageCategories = [],
+  pageMetadata = EMPTY_PAGE_EDITOR_META,
   isEditing,
   showPageEditFab = false,
+  initialLiked = false,
+  canLike = false,
+  isPublicView = false,
 }: PuckClientProps) {
   const router = useRouter();
   setEditorPagePath(path);
   setEditorPagePersisted(data !== null);
   const [initialEditorData, setInitialEditorData] = useState<Data>(() => {
-    const { editorData, metadata } = buildEditorData(data, pageTitle, path);
+    const { editorData, metadata } = buildEditorData(
+      data,
+      pageTitle,
+      path,
+      pageCategories,
+      pageMetadata,
+    );
     setPageMetadataSnapshot(metadata);
     return editorData;
   });
@@ -201,17 +265,45 @@ export function PuckClient({
       return;
     }
 
-    const { editorData: next, metadata } = buildEditorData(data, pageTitle, path);
+    const { editorData: next, metadata } = buildEditorData(
+      data,
+      pageTitle,
+      path,
+      pageCategories,
+      pageMetadata,
+    );
     latestDataRef.current = next;
     setInitialEditorData(next);
     initPageMetadataDraft(metadata);
     setEditorPagePersisted(data !== null);
     setPuckMountKey((key) => key + 1);
-  }, [data, pageTitle, path, isEditing]);
+  }, [data, pageTitle, pageCategories, pageMetadata, path, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || !isPublicView || !path) return;
+    void recordPageView(path).catch((err) => {
+      console.error("[PuckClient] view count", err);
+    });
+  }, [isEditing, isPublicView, path]);
 
   const handleEditorDataChange = useCallback((nextData: Data) => {
     latestDataRef.current = nextData;
+    syncPageBackgroundGridFromPuckData(nextData);
   }, []);
+
+  const viewData = useMemo(
+    () => (isEditing ? null : buildViewData(data)),
+    [data, isEditing],
+  );
+
+  useEffect(() => {
+    if (isEditing) {
+      syncPageBackgroundGridFromPuckData(initialEditorData);
+    } else {
+      syncPageBackgroundGridFromPuckData(viewData);
+    }
+    return () => resetPageBackgroundGrid();
+  }, [initialEditorData, isEditing, viewData]);
 
   const handlePublished = useCallback(
     (nextPath: string) => {
@@ -227,19 +319,19 @@ export function PuckClient({
 
   if (isEditing) {
     return (
-      <PuckEditorShell
-        path={path}
-        pageTitle={pageTitle}
-        initialEditorData={initialEditorData}
-        puckMountKey={puckMountKey}
-        getLatestData={() => latestDataRef.current}
-        onEditorDataChange={handleEditorDataChange}
-        onPublished={handlePublished}
-      />
+      <PageEditorMetaProvider value={pageMetadata}>
+        <PuckEditorShell
+          path={path}
+          pageTitle={pageTitle}
+          initialEditorData={initialEditorData}
+          puckMountKey={puckMountKey}
+          getLatestData={() => latestDataRef.current}
+          onEditorDataChange={handleEditorDataChange}
+          onPublished={handlePublished}
+        />
+      </PageEditorMetaProvider>
     );
   }
-
-  const viewData = buildViewData(data);
 
   if (!data || !viewData) {
     return (
@@ -256,7 +348,15 @@ export function PuckClient({
 
   return (
     <>
-      <Render config={puckConfig} data={viewData} />
+      <PageEditorMetaProvider value={pageMetadata}>
+        <Render config={puckConfig} data={viewData} />
+      </PageEditorMetaProvider>
+      <PageLikeButton
+        pagePath={path}
+        initialLikeCount={pageMetadata.likeCount}
+        initialLiked={initialLiked}
+        canLike={canLike}
+      />
       <PageEditFab pagePath={path} serverVisible={showPageEditFab} />
     </>
   );

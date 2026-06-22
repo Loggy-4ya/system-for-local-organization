@@ -23,6 +23,10 @@ import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
 import { loadGridIcon } from "./infiniteGridIconLoader";
 import {
+  shouldStopGridMotionLoop,
+  stepGridMotionScale,
+} from "./infiniteGridMotionEase";
+import {
   NEXUS_SCROLLPORT_GRID_METRICS_CHANGED_EVENT,
   isMobileScrollportGridPaintFrozen,
   usesMobileScrollportGridViewport,
@@ -138,7 +142,7 @@ export interface InfiniteGridProps extends Partial<EngineOptions> {
   /** When true, grid is clipped to a parent (Puck preview canvas). */
   isContained?: boolean;
   /**
-   * When true, freezes the tile grid offset — no RAF scroll loop. Cursor ambient blur,
+   * When true, eases tile scroll to a stop instead of snapping. Cursor ambient blur,
    * vignette (full-page), and pointer tracking stay active.
    */
   isStatic?: boolean;
@@ -191,6 +195,15 @@ export function InfiniteGrid({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const sharpRef   = useRef<HTMLCanvasElement>(null);
   const blurredRef = useRef<HTMLCanvasElement>(null);
+  /** Persist tile offsets across static/dynamic toggles so the grid never snaps. */
+  const offsetXRef = useRef(0);
+  const offsetYRef = useRef(0);
+  /** Scroll speed multiplier — eases between `0` (static) and `1` (dynamic). */
+  const motionScaleRef = useRef(isStatic ? 0 : 1);
+  /** Live static target — read inside RAF without restarting the engine effect. */
+  const isStaticRef = useRef(isStatic);
+  /** Restarts RAF when static/dynamic toggles while the loop is idle. */
+  const ensureAnimLoopRef = useRef<(() => void) | null>(null);
   /** Live theme flag — read during RAF so surface paint tracks toggles before effect restart. */
   const isLightThemeRef = useRef(isLightTheme);
   isLightThemeRef.current = isLightTheme;
@@ -211,6 +224,11 @@ export function InfiniteGrid({
   }, []);
 
   useEffect(() => {
+    isStaticRef.current = isStatic;
+    ensureAnimLoopRef.current?.();
+  }, [isStatic]);
+
+  useEffect(() => {
     const wrapper = wrapperRef.current;
     const canvasS = sharpRef.current;
     const canvasB = blurredRef.current;
@@ -228,17 +246,32 @@ export function InfiniteGrid({
     const safeCtxB    = ctxB;
 
     let animFrameId: number | null = null;
-    let offsetX = 0;
-    let offsetY = 0;
+    let offsetX = offsetXRef.current;
+    let offsetY = offsetYRef.current;
     let gridPattern: CanvasPattern | null = null;
 
     const ownerDocument = safeWrapper.ownerDocument;
     const ownerWindow = ownerDocument.defaultView ?? window;
+    let lastFrameTs = ownerWindow.performance.now();
     const inPuckPreviewIframe =
       isContained &&
       ownerWindow.frameElement !== null &&
       ownerWindow.parent !== ownerWindow;
     const parentWindow = inPuckPreviewIframe ? ownerWindow.parent : null;
+
+    /** True when static mode has fully eased — safe to idle the RAF loop. */
+    function isMotionFullyStatic(): boolean {
+      return shouldStopGridMotionLoop(motionScaleRef.current, isStaticRef.current);
+    }
+
+    /** Start the RAF loop when idle — used after static/dynamic toggles. */
+    function ensureAnimLoop() {
+      if (animFrameId !== null) return;
+      lastFrameTs = ownerWindow.performance.now();
+      animFrameId = ownerWindow.requestAnimationFrame(tick);
+    }
+
+    ensureAnimLoopRef.current = ensureAnimLoop;
 
     /**
      * Write mask centre as wrapper-local percentages.
@@ -395,7 +428,7 @@ export function InfiniteGrid({
         return;
       }
 
-      if (isStatic) {
+      if (isMotionFullyStatic()) {
         if (syncDebounceId !== null) clearTimeout(syncDebounceId);
         syncDebounceId = setTimeout(() => {
           syncDebounceId = null;
@@ -415,10 +448,11 @@ export function InfiniteGrid({
           syncRafId = ownerWindow.requestAnimationFrame(() => {
             syncRafId = null;
             syncResolution();
-            if (isStatic) {
+            if (isMotionFullyStatic()) {
               paintOnce();
             } else {
               paintFrame();
+              ensureAnimLoop();
             }
           });
           return;
@@ -571,10 +605,13 @@ export function InfiniteGrid({
       // Blur layer stays pattern-only — solid fill + CSS blur reads as heavy fog (Puck editor).
 
       if (gridPattern) {
-        if (!isStatic) {
-          offsetX = (offsetX + options.speedX) % options.cellGridSize;
-          offsetY = (offsetY + options.speedY) % options.cellGridSize;
+        const motionScale = motionScaleRef.current;
+        if (motionScale > 0.01) {
+          offsetX = (offsetX + options.speedX * motionScale) % options.cellGridSize;
+          offsetY = (offsetY + options.speedY * motionScale) % options.cellGridSize;
         }
+        offsetXRef.current = offsetX;
+        offsetYRef.current = offsetY;
 
         fillPatternLayer(safeCtxS, w, h);
 
@@ -591,10 +628,26 @@ export function InfiniteGrid({
       }
     }
 
-    /** Main animation loop — runs on every frame. */
-    function tick() {
+    /** Main animation loop — runs while dynamic or easing between modes. */
+    function tick(now: number) {
+      const deltaMs = Math.min(Math.max(now - lastFrameTs, 0), 50);
+      lastFrameTs = now;
+
+      const targetScale = isStaticRef.current ? 0 : 1;
+      motionScaleRef.current = stepGridMotionScale(
+        motionScaleRef.current,
+        targetScale,
+        deltaMs,
+      );
+
       paintFrame();
-      animFrameId = requestAnimationFrame(tick);
+
+      if (isMotionFullyStatic()) {
+        animFrameId = null;
+        return;
+      }
+
+      animFrameId = ownerWindow.requestAnimationFrame(tick);
     }
 
     /** Static editor preview — repaint after layout without a RAF loop. */
@@ -614,10 +667,11 @@ export function InfiniteGrid({
       if (!scrollportLayer || !usesMobileScrollportGridViewport()) return;
       if (isMobileScrollportGridPaintFrozen()) return;
       syncResolution();
-      if (isStatic) {
+      if (isMotionFullyStatic()) {
         paintOnce();
       } else {
         paintFrame();
+        ensureAnimLoop();
       }
     };
     ownerWindow.addEventListener(
@@ -628,10 +682,11 @@ export function InfiniteGrid({
     const onPanelLayoutSettled = () => {
       if (!scrollportLayer || !usesMobileScrollportGridViewport()) return;
       syncResolution();
-      if (isStatic) {
+      if (isMotionFullyStatic()) {
         paintOnce();
       } else {
         paintFrame();
+        ensureAnimLoop();
       }
     };
     ownerWindow.addEventListener(NEXUS_PANEL_LAYOUT_SETTLED_EVENT, onPanelLayoutSettled);
@@ -672,11 +727,7 @@ export function InfiniteGrid({
       .then((img) => {
         if (cancelled) return;
         buildPattern(img);
-        if (isStatic) {
-          paintOnce();
-        } else {
-          tick();
-        }
+        ensureAnimLoop();
       })
       .catch((error: unknown) => {
         console.error("[InfiniteGrid] Failed to load icon:", error);
@@ -684,6 +735,7 @@ export function InfiniteGrid({
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
     return () => {
+      ensureAnimLoopRef.current = null;
       cancelled = true;
       if (animFrameId !== null) cancelAnimationFrame(animFrameId);
       if (syncRafId !== null) ownerWindow.cancelAnimationFrame(syncRafId);
@@ -706,7 +758,7 @@ export function InfiniteGrid({
       parentWindow?.document.removeEventListener("scroll", onScroll, true);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [isContained, isStatic, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
+  }, [isContained, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
 
   const spotMask = `radial-gradient(circle at var(--mouse-x) var(--mouse-y), transparent ${options.cursorSpotInnerPercent}%, black ${options.cursorSpotOuterPercent}%)`;
 

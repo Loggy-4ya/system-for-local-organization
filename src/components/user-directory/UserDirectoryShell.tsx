@@ -9,33 +9,50 @@
  * @module src/components/user-directory/UserDirectoryShell
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   Loader2,
-  Save,
   Search,
   Users,
   Check,
-  Plus,
-  Trash2,
   User,
-  Mail,
-  Phone,
-  Send,
-  ShieldAlert,
 } from "lucide-react";
-import type { AccessControlSettingsConfig, AccessLevelIndex, PermissionKey } from "@shared/constants/accessControl";
+import {
+  PERMISSION_LABELS,
+  type AccessControlSettingsConfig,
+  type AccessLevelIndex,
+  type PermissionKey,
+} from "@shared/constants/accessControl";
 import type { PublicUser } from "@shared/domains/AuthDomain";
 import type { DirectoryUserRow } from "@shared/lib/directoryRedaction";
+import { formatAcademicGroupSpecialtyLabel } from "@shared/lib/academicCatalogLogic";
+import { DEFAULT_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
+import { computePageRowRange } from "@shared/lib/listPaginationLogic";
+import { resolveEffectivePermissions } from "@shared/lib/accessControlLogic";
+import { AdminEditorActionToolbar } from "@/components/admin/AdminEditorActionToolbar";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { NexusListPagination } from "@/components/ui/NexusListPagination";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { GlobalLayoutEditorStatusBanner } from "@/components/global-layout/GlobalLayoutEditorStatusBanner";
+import {
+  UserDirectoryProfileFields,
+  buildProfilePatchDelta,
+  profileEditStateFromDirectoryUser,
+  type UserDirectoryProfileEditState,
+} from "@/components/user-directory/UserDirectoryProfileFields";
+import { UserDirectoryPersonalFields } from "@/components/user-directory/UserDirectoryPersonalFields";
+import {
+  editSnapshotFromDirectoryUser,
+  isDirectoryUserEditDirty,
+  UserDirectoryDetailCache,
+  type DirectoryUserEditSnapshot,
+} from "@/components/user-directory/lib/userDirectoryDetailState";
+import { cn } from "@/lib/utils";
 import "@/app/global-layout-editor.css";
 
 /** Props for {@link UserDirectoryShell}. */
@@ -44,6 +61,8 @@ export interface UserDirectoryShellProps {
   currentUser: PublicUser;
   /** Whether the actor may assign levels, roles, affiliations, or delegations. */
   canMutateDirectory: boolean;
+  /** Legacy Admin — may open `/admin/logs` user-directory section. */
+  canViewSystemLogs?: boolean;
 }
 
 /**
@@ -53,15 +72,16 @@ export function UserDirectoryShell({
   initialConfig,
   currentUser,
   canMutateDirectory,
+  canViewSystemLogs = false,
 }: UserDirectoryShellProps) {
   // Directory list state
   const [users, setUsers] = useState<DirectoryUserRow[]>([]);
   const [q, setQ] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("all");
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Selected user detail state
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -74,21 +94,45 @@ export function UserDirectoryShell({
   const [editSociumRoles, setEditSociumRoles] = useState<any[]>([]);
   const [editActivities, setEditActivities] = useState<any[]>([]);
   const [editOrgs, setEditOrganizations] = useState<any[]>([]);
+  const [editProfile, setEditProfile] = useState<UserDirectoryProfileEditState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  // New role/affiliation form states
-  const [newRoleKey, setNewRoleKey] = useState("");
-  const [newRoleLabel, setNewRoleLabel] = useState("");
-  const [newRoleKind, setNewRoleKind] = useState<string>("custom");
-
-  const [newActivityKey, setNewActivityKey] = useState("");
-  const [newActivityLabel, setNewActivityLabel] = useState("");
-
-  const [newOrgKey, setNewOrgKey] = useState("");
-  const [newOrgLabel, setNewOrgLabel] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Status banners
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  /** Session-scoped detail cache — avoids repeated GET when revisiting users in the roster. */
+  const detailCacheRef = useRef(new UserDirectoryDetailCache());
+
+  /**
+   * Apply a directory detail row to all controlled edit fields.
+   *
+   * @param data - Loaded or cached directory user row.
+   */
+  const applyDetailToEditState = useCallback((data: DirectoryUserRow) => {
+    const snapshot = editSnapshotFromDirectoryUser(data);
+    setEditLevel(snapshot.level);
+    setEditDelegated(snapshot.delegated);
+    setEditSociumRoles(snapshot.sociumRoles);
+    setEditActivities(snapshot.activities);
+    setEditOrganizations(snapshot.organizations);
+    setEditProfile(snapshot.profile);
+  }, []);
+
+  /**
+   * Current edit snapshot for dirty checks before switching users.
+   */
+  const currentEditSnapshot = useMemo((): DirectoryUserEditSnapshot | null => {
+    if (!editProfile) return null;
+    return {
+      level: editLevel,
+      delegated: editDelegated,
+      sociumRoles: editSociumRoles,
+      activities: editActivities,
+      organizations: editOrgs,
+      profile: editProfile,
+    };
+  }, [editLevel, editDelegated, editSociumRoles, editActivities, editOrgs, editProfile]);
 
   // Clear status banner after timeout
   useEffect(() => {
@@ -97,113 +141,168 @@ export function UserDirectoryShell({
     return () => window.clearTimeout(timer);
   }, [status]);
 
-  // Fetch users list
-  const fetchUsers = useCallback(async (searchQuery: string, levelVal: string, loadMoreCursor: string | null = null) => {
-    const isMore = !!loadMoreCursor;
-    if (isMore) {
-      setIsLoadingMore(true);
-    } else {
+  // Fetch users list (one page at a time — never accumulate the full collection client-side)
+  const fetchUsers = useCallback(
+    async (searchQuery: string, levelVal: string, pageNum: number) => {
       setIsLoading(true);
-    }
 
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery.trim()) params.append("q", searchQuery.trim());
-      if (levelVal !== "all") params.append("level", levelVal);
-      if (loadMoreCursor) params.append("cursor", loadMoreCursor);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.append("q", searchQuery.trim());
+        if (levelVal !== "all") params.append("level", levelVal);
+        params.append("page", String(pageNum));
+        params.append("limit", String(DEFAULT_LIST_PAGE_SIZE));
 
-      const res = await fetch(`/api/admin/users?${params.toString()}`);
-      if (res.status === 401 || res.status === 403) {
-        setUsers([]);
-        setNextCursor(null);
-        setStatus({
-          type: "error",
-          message: "You do not have permission to view the user directory.",
-        });
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to fetch users.");
+        const res = await fetch(`/api/admin/users?${params.toString()}`);
+        if (res.status === 401 || res.status === 403) {
+          setUsers([]);
+          setTotalPages(1);
+          setTotalCount(0);
+          setStatus({
+            type: "error",
+            message: "You do not have permission to view the user directory.",
+          });
+          return;
+        }
+        if (!res.ok) throw new Error("Failed to fetch users.");
 
-      const data = await res.json();
-      if (isMore) {
-        setUsers((prev) => [...prev, ...data.users]);
-      } else {
+        const data = await res.json();
         setUsers(data.users);
+        setPage(data.page ?? pageNum);
+        setTotalPages(data.totalPages ?? 1);
+        setTotalCount(data.totalCount ?? data.users.length);
+      } catch (err) {
+        console.error(err);
+        setStatus({ type: "error", message: "Failed to load user directory." });
+      } finally {
+        setIsLoading(false);
       }
-      setNextCursor(data.nextCursor);
-    } catch (err) {
-      console.error(err);
-      setStatus({ type: "error", message: "Failed to load user directory." });
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
-  // Initial load & search/filter triggers
+  // Reset to page 1 when search or level filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [q, levelFilter]);
+
+  // Initial load & search/filter/page triggers
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchUsers(q, levelFilter);
-    }, 300); // debounce search input
+      fetchUsers(q, levelFilter, page);
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [q, levelFilter, fetchUsers]);
+  }, [q, levelFilter, page, fetchUsers]);
 
-  // Fetch detailed user info
-  const fetchUserDetail = async (userId: string) => {
-    setIsLoadingDetail(true);
-    setSelectedUserId(userId);
-    setSelectedUser(null);
+  // Fetch detailed user info (cached unless force refresh e.g. Reset)
+  const fetchUserDetail = useCallback(
+    async (userId: string, options?: { force?: boolean }) => {
+      const force = options?.force === true;
 
-    try {
-      const res = await fetch(`/api/admin/users/${userId}`);
-      if (res.status === 401 || res.status === 403) {
-        setStatus({
-          type: "error",
-          message: "You do not have permission to view this user.",
-        });
-        setSelectedUserId(null);
+      if (
+        selectedUserId &&
+        selectedUserId !== userId &&
+        selectedUser &&
+        currentEditSnapshot &&
+        isDirectoryUserEditDirty(selectedUser, currentEditSnapshot)
+      ) {
+        const discard = window.confirm(
+          "You have unsaved changes for the current user. Discard them and switch?",
+        );
+        if (!discard) return;
+      }
+
+      setSelectedUserId(userId);
+
+      const cached = !force ? detailCacheRef.current.get(userId) : undefined;
+      if (cached) {
+        setSelectedUser(cached);
+        applyDetailToEditState(cached);
+        setIsLoadingDetail(false);
         return;
       }
-      if (!res.ok) throw new Error("Failed to fetch user details.");
 
-      const data: DirectoryUserRow = await res.json();
-      setSelectedUser(data);
+      setIsLoadingDetail(true);
+      setSelectedUser(null);
 
-      // Initialize edit states
-      setEditLevel(data.accessLevelIndex);
-      setEditDelegated(data.delegatedPermissions ?? []);
-      setEditSociumRoles(data.sociumRoles ?? []);
-      setEditActivities(data.socialGroupActivities ?? []);
-      setEditOrganizations(data.organizations ?? []);
-    } catch (err) {
-      console.error(err);
-      setStatus({ type: "error", message: "Failed to load user details." });
-      setSelectedUserId(null);
-    } finally {
-      setIsLoadingDetail(false);
-    }
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`);
+        if (res.status === 401 || res.status === 403) {
+          setStatus({
+            type: "error",
+            message: "You do not have permission to view this user.",
+          });
+          setSelectedUserId(null);
+          return;
+        }
+        if (!res.ok) throw new Error("Failed to fetch user details.");
+
+        const data: DirectoryUserRow = await res.json();
+        detailCacheRef.current.set(data);
+        setSelectedUser(data);
+        applyDetailToEditState(data);
+      } catch (err) {
+        console.error(err);
+        setStatus({ type: "error", message: "Failed to load user details." });
+        setSelectedUserId(null);
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    },
+    [selectedUserId, selectedUser, currentEditSnapshot, applyDetailToEditState],
+  );
+
+  /** Return to roster list on mobile without clearing search state. */
+  const handleBackToRoster = () => {
+    setSelectedUserId(null);
+    setSelectedUser(null);
+    setEditProfile(null);
   };
 
   // Save updates
   const handleSave = async () => {
-    if (!selectedUserId || !selectedUser || !canMutateDirectory) return;
+    if (!selectedUserId || !selectedUser) return;
+    const canEditAccess = canMutateDirectory && selectedUser.canManage;
+    const canEditProfileFields = selectedUser.canEditProfile && editProfile;
+    const canChangeLevel = selectedUser.canAssignLevel;
+    const canChangeSocialLabels =
+      selectedUser.canAssignSocium || selectedUser.canAssignAffiliations;
+    if (!canEditAccess && !canEditProfileFields && !canChangeLevel && !canChangeSocialLabels) {
+      return;
+    }
+
     setIsSaving(true);
     setStatus(null);
 
-    const patch: any = {};
-    if (selectedUser.canAssignLevel) {
+    const patch: Record<string, unknown> = {};
+
+    if (canEditProfileFields && editProfile) {
+      Object.assign(
+        patch,
+        buildProfilePatchDelta(
+          editProfile,
+          profileEditStateFromDirectoryUser(selectedUser),
+        ),
+      );
+    }
+
+    if (canChangeLevel) {
       patch.accessLevelIndex = editLevel;
     }
-    if (selectedUser.canDelegate) {
-      patch.delegatedPermissions = editDelegated;
-    }
+
     if (selectedUser.canAssignSocium) {
       patch.sociumRoles = editSociumRoles;
     }
     if (selectedUser.canAssignAffiliations) {
       patch.socialGroupActivities = editActivities;
       patch.organizations = editOrgs;
+    }
+
+    if (canEditAccess) {
+      if (selectedUser.canDelegate) {
+        patch.delegatedPermissions = editDelegated;
+      }
     }
 
     try {
@@ -215,7 +314,16 @@ export function UserDirectoryShell({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to save updates.");
+        const fieldSummary =
+          data.fieldErrors && typeof data.fieldErrors === "object"
+            ? Object.entries(data.fieldErrors as Record<string, string>)
+                .map(([field, message]) => `${field}: ${message}`)
+                .join(" · ")
+            : "";
+        const message = [data.error || "Failed to save updates.", fieldSummary]
+          .filter(Boolean)
+          .join(" — ");
+        throw new Error(message);
       }
 
       setStatus({ type: "success", message: "User access configuration saved successfully." });
@@ -224,7 +332,9 @@ export function UserDirectoryShell({
       setUsers((prev) =>
         prev.map((u) => (u.id === selectedUserId ? { ...u, ...data.user } : u))
       );
+      detailCacheRef.current.set(data.user);
       setSelectedUser(data.user);
+      applyDetailToEditState(data.user);
     } catch (err: any) {
       console.error(err);
       setStatus({ type: "error", message: err.message || "Failed to save updates." });
@@ -233,7 +343,55 @@ export function UserDirectoryShell({
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!selectedUserId || !selectedUser?.canDelete) return;
+
+    const confirmed = window.confirm(
+      `Permanently delete ${selectedUser.fullName}'s account? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setStatus(null);
+
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUserId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete user account.");
+      }
+
+      setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
+      detailCacheRef.current.delete(selectedUserId);
+      setSelectedUserId(null);
+      setSelectedUser(null);
+      setEditProfile(null);
+      setStatus({ type: "success", message: "User account deleted." });
+    } catch (err: unknown) {
+      console.error(err);
+      setStatus({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to delete user account.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const formatUserSocialLabelLine = (row: DirectoryUserRow) => {
+    const labels = [
+      ...row.sociumRoleLabels,
+      ...row.socialGroupActivityLabels,
+      ...row.organizationLabels,
+    ].filter(Boolean);
+    return labels.length > 0 ? labels.join(", ") : null;
+  };
+
   // Filter options for the header dropdown
+  const formatUserAcademicLine = (row: Pick<DirectoryUserRow, "specialty" | "group">) =>
+    formatAcademicGroupSpecialtyLabel(row.specialty, row.group) ?? "No specialty / group";
+
   const filterOptions = useMemo(() => {
     const opts = [{ label: "All Levels", value: "all" }];
     initialConfig.levels.forEach((l) => {
@@ -242,23 +400,44 @@ export function UserDirectoryShell({
     return opts;
   }, [initialConfig]);
 
-  // Level edit options (only those allowed by grant rules and strictly lower than actor)
+  // Level edit options (grant-rule levels strictly below the actor's tier)
   const assignableLevelOptions = useMemo(() => {
     if (!selectedUser) return [];
-    const actorIndex = currentUser.accessLevelIndex;
+    const actorIndex = currentUser.role === "Admin" ? 0 : currentUser.accessLevelIndex;
     const rule = initialConfig.grantRules[actorIndex as AccessLevelIndex];
     if (!rule) return [];
 
-    return initialConfig.levels
+    const options = initialConfig.levels
       .filter((l) => rule.assignableLevelIndices.includes(l.index) && l.index > actorIndex)
       .map((l) => ({ label: l.label, value: String(l.index) }));
+
+    const currentLevel = String(selectedUser.accessLevelIndex);
+    if (!options.some((opt) => opt.value === currentLevel)) {
+      const currentDef = initialConfig.levels.find((l) => l.index === selectedUser.accessLevelIndex);
+      if (currentDef) {
+        return [{ label: currentDef.label, value: currentLevel }, ...options];
+      }
+    }
+
+    return options;
   }, [selectedUser, currentUser, initialConfig]);
 
-  // Delegatable permissions checkboxes
+  // Delegatable permissions checkboxes — only keys the actor may delegate downward
   const delegatablePermissions = useMemo(() => {
-    const actorIndex = currentUser.accessLevelIndex;
-    const rule = initialConfig.grantRules[actorIndex as AccessLevelIndex];
-    return rule?.delegatablePermissions ?? [];
+    const actorIndex = (
+      currentUser.role === "Admin" ? 0 : currentUser.accessLevelIndex
+    ) as AccessLevelIndex;
+    const rule = initialConfig.grantRules[actorIndex];
+    const fromRules = rule?.delegatablePermissions ?? [];
+    const actorSlice = {
+      role: currentUser.role,
+      accessLevelIndex: actorIndex,
+      delegatedPermissions: currentUser.delegatedPermissions ?? [],
+      sociumRoles: currentUser.sociumRoles ?? [],
+      studentTitle: currentUser.studentTitle ?? null,
+    };
+    const held = new Set(resolveEffectivePermissions(actorSlice, initialConfig));
+    return fromRules.filter((perm) => held.has(perm));
   }, [currentUser, initialConfig]);
 
   // Toggle delegated permission
@@ -268,69 +447,30 @@ export function UserDirectoryShell({
     );
   };
 
-  // Add new socium role
-  const handleAddSociumRole = () => {
-    if (!newRoleKey.trim() || !newRoleLabel.trim()) return;
-    const newRole = {
-      roleKey: newRoleKey.trim(),
-      roleLabel: newRoleLabel.trim(),
-      kind: newRoleKind,
-      source: "admin",
-      assignedAt: new Date().toISOString(),
-    };
-    setEditSociumRoles((prev) => [...prev, newRole]);
-    setNewRoleKey("");
-    setNewRoleLabel("");
-  };
+  const canShowActionToolbar = selectedUser
+    ? (canMutateDirectory && selectedUser.canManage) ||
+      selectedUser.canEditProfile ||
+      selectedUser.canAssignLevel ||
+      selectedUser.canAssignSocium ||
+      selectedUser.canAssignAffiliations
+    : false;
 
-  // Remove socium role
-  const handleRemoveSociumRole = (index: number) => {
-    setEditSociumRoles((prev) => prev.filter((_, i) => i !== index));
-  };
+  const showDetailPane = Boolean(selectedUserId);
+  const showEmptyDetail = !selectedUserId && !isLoadingDetail;
 
-  // Add activity
-  const handleAddActivity = () => {
-    if (!newActivityKey.trim() || !newActivityLabel.trim()) return;
-    const newAct = {
-      activityKey: newActivityKey.trim(),
-      activityLabel: newActivityLabel.trim(),
-      assignedAt: new Date().toISOString(),
-    };
-    setEditActivities((prev) => [...prev, newAct]);
-    setNewActivityKey("");
-    setNewActivityLabel("");
-  };
-
-  // Remove activity
-  const handleRemoveActivity = (index: number) => {
-    setEditActivities((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Add organization
-  const handleAddOrg = () => {
-    if (!newOrgKey.trim() || !newOrgLabel.trim()) return;
-    const newOrg = {
-      organizationKey: newOrgKey.trim(),
-      organizationLabel: newOrgLabel.trim(),
-      assignedAt: new Date().toISOString(),
-    };
-    setEditOrganizations((prev) => [...prev, newOrg]);
-    setNewOrgKey("");
-    setNewOrgLabel("");
-  };
-
-  // Remove organization
-  const handleRemoveOrg = (index: number) => {
-    setEditOrganizations((prev) => prev.filter((_, i) => i !== index));
-  };
+  const listPageSummary = useMemo(() => {
+    if (totalCount <= 0) return undefined;
+    const { from, to } = computePageRowRange(page, DEFAULT_LIST_PAGE_SIZE, totalCount);
+    return `Showing ${from}–${to} of ${totalCount}`;
+  }, [page, totalCount]);
 
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
-      className="global-layout-editor py-12"
+      className="global-layout-editor py-8 md:py-12"
       innerClassName="global-layout-editor__stack"
     >
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md dark:border-zinc-300/10">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 dark:border-zinc-300/10">
         <div className="flex flex-col gap-1.5">
           <Link
             href="/admin"
@@ -347,8 +487,8 @@ export function UserDirectoryShell({
             Institutional User Roster
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Browse, filter, and manage institutional access levels, socium roles, affiliations, and
-            delegated permissions. Sensitive contact fields are redacted unless you outrank the user.
+            Browse, filter, and manage hierarchy levels, profile fields, and social-life discovery
+            labels. Sensitive contact fields are redacted unless you outrank the user.
           </p>
         </div>
       </div>
@@ -356,10 +496,15 @@ export function UserDirectoryShell({
       <GlobalLayoutEditorStatusBanner status={status} />
 
       {/* Dual Column Layout */}
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md md:p-8 dark:border-zinc-300/10">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 lg:p-8 dark:border-zinc-300/10">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: List */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div
+          className={cn(
+            "flex flex-col gap-4 lg:col-span-5",
+            showDetailPane ? "hidden lg:flex" : "flex",
+          )}
+        >
           <div className="glass-panel flex flex-col gap-4 p-4">
             {/* Filters */}
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -383,7 +528,7 @@ export function UserDirectoryShell({
             </div>
 
             {/* List Body */}
-            <div className="flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-1">
+            <div className="flex max-h-none flex-col gap-2 overflow-y-auto pr-1 lg:max-h-[600px]">
               {isLoading && users.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin mb-2" />
@@ -416,7 +561,7 @@ export function UserDirectoryShell({
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{u.fullName}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {u.group || "No Group"} • {u.specialty || "No Specialty"}
+                          {formatUserAcademicLine(u)}
                         </p>
                       </div>
                     </div>
@@ -424,36 +569,35 @@ export function UserDirectoryShell({
                       <Badge variant={u.accessLevelIndex === 0 ? "destructive" : "secondary"}>
                         {u.accessLevelLabel}
                       </Badge>
-                      {u.sociumRoleLabels.length > 0 && (
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                          {u.sociumRoleLabels.join(", ")}
+                      {formatUserSocialLabelLine(u) ? (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                          {formatUserSocialLabelLine(u)}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </button>
                 ))
               )}
 
-              {nextCursor && (
-                <Button
-                  variant="ghost"
-                  onClick={() => fetchUsers(q, levelFilter, nextCursor)}
-                  disabled={isLoadingMore}
-                  className="w-full mt-2"
-                >
-                  {isLoadingMore ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    "Load More"
-                  )}
-                </Button>
-              )}
+              <NexusListPagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                disabled={isLoading}
+                summary={listPageSummary}
+                className="border-t border-border pt-3"
+              />
             </div>
           </div>
         </div>
 
         {/* Right Column: Detail / Edit */}
-        <div className="lg:col-span-7">
+        <div
+          className={cn(
+            "lg:col-span-7",
+            showEmptyDetail ? "hidden lg:block" : "block",
+          )}
+        >
           {isLoadingDetail ? (
             <div className="glass-panel flex flex-col items-center justify-center py-24 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin mb-2" />
@@ -468,9 +612,18 @@ export function UserDirectoryShell({
               </p>
             </div>
           ) : (
-            <div className="glass-panel flex flex-col gap-6 p-6">
+            <div className="glass-panel flex flex-col gap-6 p-4 md:p-6">
+              <button
+                type="button"
+                onClick={handleBackToRoster}
+                className="lg:hidden inline-flex w-fit items-center gap-1.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:text-primary"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back to roster
+              </button>
+
               {/* Profile Header */}
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-6">
+              <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 shrink-0 rounded-full bg-muted flex items-center justify-center overflow-hidden border border-border">
                     {selectedUser.avatar ? (
@@ -482,78 +635,70 @@ export function UserDirectoryShell({
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">{selectedUser.fullName}</h2>
                     <p className="text-sm text-muted-foreground">
-                      {selectedUser.group || "No Group"} • {selectedUser.specialty || "No Specialty"}
+                      {formatUserAcademicLine(selectedUser)}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedUser.accessLevelLabel}
+                    </p>
+                    {canViewSystemLogs ? (
+                      <Link
+                        href={`/admin/logs?section=user-directory&targetUserId=${encodeURIComponent(selectedUser.id)}`}
+                        className="mt-2 inline-flex text-xs text-primary no-underline hover:underline"
+                      >
+                        View audit log
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
 
-                {canMutateDirectory && selectedUser.canManage ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => fetchUserDetail(selectedUser.id)}
-                      disabled={isSaving}
-                    >
-                      Reset
-                    </Button>
-                    <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-                      {isSaving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      Save Changes
-                    </Button>
+                {canShowActionToolbar ? (
+                  <div className="hidden lg:block">
+                    <AdminEditorActionToolbar
+                      onReset={() => fetchUserDetail(selectedUser.id, { force: true })}
+                      onSave={handleSave}
+                      onDelete={selectedUser.canDelete ? handleDeleteAccount : undefined}
+                      isSaving={isSaving}
+                      isDeleting={isDeleting}
+                    />
                   </div>
                 ) : (
                   <p className="text-xs text-(--color-text-secondary)">
-                    {canMutateDirectory
+                    {canMutateDirectory && !selectedUser.canManage
                       ? "You cannot manage users at this hierarchy level."
                       : "Read-only access — you may browse the directory but cannot edit users."}
                   </p>
                 )}
               </div>
 
-              {/* Redacted Contact Info */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 bg-panel/20 p-4 rounded-lg border border-border">
-                <div className="flex items-center gap-3 min-w-0">
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Login Handle</p>
-                    <p className="text-sm font-medium text-foreground truncate">{selectedUser.login || "Redacted / Hidden"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 min-w-0">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Email Address</p>
-                    <p className="text-sm font-medium text-foreground truncate">{selectedUser.email || "Redacted / Hidden"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 min-w-0">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Phone Number</p>
-                    <p className="text-sm font-medium text-foreground truncate">{selectedUser.phone || "Redacted / Hidden"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 min-w-0">
-                  <Send className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Telegram ID</p>
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {selectedUser.telegramId ? String(selectedUser.telegramId) : "Redacted / Unlinked"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              {selectedUser.canEditProfile && editProfile ? (
+                <UserDirectoryProfileFields
+                  value={editProfile}
+                  onChange={setEditProfile}
+                  email={selectedUser.login !== null ? selectedUser.email : undefined}
+                  disabled={isSaving}
+                />
+              ) : null}
+
+              <UserDirectoryPersonalFields
+                user={selectedUser}
+                sociumRoles={editSociumRoles}
+                activities={editActivities}
+                organizations={editOrgs}
+                onSociumRolesChange={setEditSociumRoles}
+                onActivitiesChange={setEditActivities}
+                onOrganizationsChange={setEditOrganizations}
+                canEditSocium={selectedUser.canAssignSocium}
+                canEditAffiliations={selectedUser.canAssignAffiliations}
+                disabled={isSaving || isDeleting}
+              />
 
               {/* Access Level Assignment */}
-              {canMutateDirectory && (
-                <>
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-foreground">Hierarchy Access Level</h3>
-                {selectedUser.canAssignLevel ? (
+              {selectedUser.canAssignLevel ? (
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Hierarchy Access Level</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Assign a hierarchy tier (1–6). Lower index means higher institutional authority.
+                  </p>
                   <div className="w-full sm:w-72">
                     <PuckSelectField
                       value={String(editLevel)}
@@ -561,14 +706,11 @@ export function UserDirectoryShell({
                       options={assignableLevelOptions}
                     />
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-panel/30 p-3 rounded-md border border-border">
-                    <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-                    <span>You do not have permission or sufficient rank to reassign this user's hierarchy level.</span>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : null}
 
+              {canMutateDirectory ? (
+                <>
               {/* Permission Delegation */}
               {selectedUser.canDelegate && delegatablePermissions.length > 0 && (
                 <div className="flex flex-col gap-3 border-t border-border pt-6">
@@ -595,7 +737,8 @@ export function UserDirectoryShell({
                             {isChecked && <Check className="h-3 w-3" />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-medium truncate">{perm}</p>
+                            <p className="text-xs font-medium truncate">{PERMISSION_LABELS[perm]}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{perm}</p>
                           </div>
                         </button>
                       );
@@ -604,167 +747,29 @@ export function UserDirectoryShell({
                 </div>
               )}
 
-              {/* Socium Roles Assignment */}
-              {selectedUser.canAssignSocium && (
-                <div className="flex flex-col gap-3 border-t border-border pt-6">
-                  <h3 className="text-sm font-semibold text-foreground">Socium & Student-Life Roles</h3>
-                  
-                  {/* Current Roles List */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {editSociumRoles.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No socium roles assigned.</p>
-                    ) : (
-                      editSociumRoles.map((role, idx) => (
-                        <Badge key={idx} variant="outline" className="gap-1.5 py-1 px-2.5">
-                          <span>{role.roleLabel} ({role.kind})</span>
-                          <button
-                            onClick={() => handleRemoveSociumRole(idx)}
-                            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Add Role Form */}
-                  <div className="flex flex-col gap-3 bg-panel/10 p-4 rounded-lg border border-border sm:flex-row sm:items-end">
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Role Key</label>
-                      <Input
-                        placeholder="e.g. sector_head"
-                        value={newRoleKey}
-                        onChange={(e) => setNewRoleKey(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Role Label</label>
-                      <Input
-                        placeholder="e.g. Sector Head"
-                        value={newRoleLabel}
-                        onChange={(e) => setNewRoleLabel(e.target.value)}
-                      />
-                    </div>
-                    <div className="w-full sm:w-40 flex flex-col gap-1.5">
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Role Kind</label>
-                      <PuckSelectField
-                        value={newRoleKind}
-                        onChange={setNewRoleKind}
-                        options={[
-                          { label: "Custom", value: "custom" },
-                          { label: "Self Gov Member", value: "self_government_member" },
-                          { label: "Self Gov Head", value: "self_government_head" },
-                          { label: "Self Gov Deputy", value: "self_government_deputy" },
-                          { label: "Starosta", value: "starosta" },
-                          { label: "Teacher", value: "teacher" },
-                        ]}
-                      />
-                    </div>
-                    <Button onClick={handleAddSociumRole} size="icon" className="h-9 w-9 shrink-0">
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Affiliations & Organizations */}
-              {selectedUser.canAssignAffiliations && (
-                <div className="flex flex-col gap-6 border-t border-border pt-6">
-                  {/* Activities */}
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-sm font-semibold text-foreground">Social Group Activities</h3>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {editActivities.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No activities assigned.</p>
-                      ) : (
-                        editActivities.map((act, idx) => (
-                          <Badge key={idx} variant="outline" className="gap-1.5 py-1 px-2.5">
-                            <span>{act.activityLabel}</span>
-                            <button
-                              onClick={() => handleRemoveActivity(idx)}
-                              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-3 bg-panel/10 p-4 rounded-lg border border-border sm:flex-row sm:items-end">
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Activity Key</label>
-                        <Input
-                          placeholder="e.g. football"
-                          value={newActivityKey}
-                          onChange={(e) => setNewActivityKey(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Activity Label</label>
-                        <Input
-                          placeholder="e.g. Football Club"
-                          value={newActivityLabel}
-                          onChange={(e) => setNewActivityLabel(e.target.value)}
-                        />
-                      </div>
-                      <Button onClick={handleAddActivity} size="icon" className="h-9 w-9 shrink-0">
-                        <Plus className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Organizations */}
-                  <div className="flex flex-col gap-3 border-t border-border pt-6">
-                    <h3 className="text-sm font-semibold text-foreground">External Organizations</h3>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {editOrgs.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No organizations assigned.</p>
-                      ) : (
-                        editOrgs.map((org, idx) => (
-                          <Badge key={idx} variant="outline" className="gap-1.5 py-1 px-2.5">
-                            <span>{org.organizationLabel}</span>
-                            <button
-                              onClick={() => handleRemoveOrg(idx)}
-                              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-3 bg-panel/10 p-4 rounded-lg border border-border sm:flex-row sm:items-end">
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Organization Key</label>
-                        <Input
-                          placeholder="e.g. red_cross"
-                          value={newOrgKey}
-                          onChange={(e) => setNewOrgKey(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Organization Label</label>
-                        <Input
-                          placeholder="e.g. Red Cross Volunteer"
-                          value={newOrgLabel}
-                          onChange={(e) => setNewOrgLabel(e.target.value)}
-                        />
-                      </div>
-                      <Button onClick={handleAddOrg} size="icon" className="h-9 w-9 shrink-0">
-                        <Plus className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
                 </>
-              )}
+              ) : null}
+
+              {/* Spacer for sticky mobile toolbar */}
+              {canShowActionToolbar ? <div className="h-16 lg:hidden" aria-hidden="true" /> : null}
             </div>
           )}
         </div>
       </div>
       </div>
+
+      {canShowActionToolbar && selectedUser ? (
+        <div className="admin-mobile-toolbar lg:hidden">
+          <AdminEditorActionToolbar
+            onReset={() => fetchUserDetail(selectedUser.id, { force: true })}
+            onSave={handleSave}
+            onDelete={selectedUser.canDelete ? handleDeleteAccount : undefined}
+            isSaving={isSaving}
+            isDeleting={isDeleting}
+            className="w-full justify-end"
+          />
+        </div>
+      ) : null}
     </StaticPageShell>
   );
 }

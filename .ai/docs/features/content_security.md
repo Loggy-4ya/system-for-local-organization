@@ -1,6 +1,6 @@
 # Content Security (XSS Hardening)
 
-**Status:** In progress — core layers shipped; audit logging and stricter CSP (nonces) planned.
+**Status:** `[~] In Progress` — core layers, CSP nonces, sanitization audit, and admin viewer shipped; CSP reporting planned.
 
 ## Goal
 
@@ -14,6 +14,7 @@ Reduce stored and reflected XSS risk across Puck pages, rich text, and media upl
 | Safe hyperlinks | `shared/lib/safeHref.ts` | Rich text `<a href>`, `NexusButton`, `NexusNewsCard` |
 | Safe media URLs | `shared/lib/safeMediaUrl.ts` | `<img src>`, `<video src>`, Puck `image` props |
 | Puck persistence | `shared/lib/puckContentSanitize.ts` → `POST /api/puck` | Before MongoDB upsert |
+| Sanitization audit | `shared/lib/securitySanitizeAuditLog.ts` | When save sanitization mutates fields |
 | Render-time guards | Puck block renderers (`NexusImageRender`, `NexusVideoRender`, …) | Published pages + editor preview |
 | SVG upload block | `shared/lib/mediaStorage/mediaStorageRules.ts` | All image upload paths |
 | Remote import | `shared/lib/mediaStorage/remoteImageImport.ts` | HTTPS raster sniff only (no SVG) |
@@ -26,25 +27,51 @@ Reduce stored and reflected XSS risk across Puck pages, rich text, and media upl
 
 Rejected: `javascript:`, `data:`, `vbscript:`, protocol-relative `//…`.
 
-## Content-Security-Policy (current)
+## Content-Security-Policy
 
-Balanced for Next.js App Router (`'unsafe-inline'` scripts required today):
+### Nonce mode (production default)
 
+When `CSP_USE_NONCE` is enabled (default in production):
+
+1. Middleware generates a per-request nonce (`generateCspNonce`).
+2. CSP uses `script-src 'self' 'nonce-…' 'strict-dynamic'` (no `'unsafe-inline'`).
+3. Nonce is forwarded on `x-nonce` request header for Server Components.
+4. Root layout passes `nonce` to `next/script` blocks (theme init, wallet shim).
+5. Next.js attaches the nonce to framework script chunks when the CSP request header is set.
+
+Dev default keeps legacy `'unsafe-inline'` unless `CSP_USE_NONCE=true`.
+
+### Legacy inline mode (dev default)
+
+- `script-src 'self' 'unsafe-inline'` (+ `'unsafe-eval'` in dev)
 - `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`
 - `frame-src` allows YouTube and Vimeo embed hosts
-- `img-src` allows self, data/blob, Google avatars, Telegram, GCS hosts
-- Dev mode adds `'unsafe-eval'` for HMR
 
-Future: migrate to nonce-based `script-src` when Next.js static chunks support it.
+## Sanitization audit log
+
+On `POST /api/puck`, when sanitization alters any field:
+
+- Structured `console.warn` with path, field kind, and length metadata (no raw payload).
+- MongoDB document in `security_sanitize_audits` unless `SECURITY_SANITIZE_AUDIT_PERSIST=false`.
+
+Report types: `shared/lib/puckContentSanitizeReport.ts`.
+
+## Environment
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CSP_USE_NONCE` | `true` in production | Enable per-request script nonces |
+| `SECURITY_SANITIZE_AUDIT_PERSIST` | persist | Set `false` for console-only audit |
 
 ## Tests
 
 ```bash
 npm run test:safe-href
 npm run test:puck-content-sanitize
+npm run test:security-sanitize-audit
 npm run test:content-security-policy
 npm run test:nexus-editor-content
-npm run test:media-storage   # includes SVG rejection
+npm run test:media-storage
 ```
 
 Registry: [testing.md](../testing.md)
@@ -56,5 +83,6 @@ Registry: [testing.md](../testing.md)
 - [x] Rich text sanitizer shared between web and Node tests
 - [x] SVG uploads rejected at validation layer
 - [x] CSP header on middleware-matched routes
-- [ ] Stricter CSP with nonces (planned)
-- [ ] Security audit log for blocked sanitization events (planned)
+- [x] CSP nonces in production (`strict-dynamic`, no `unsafe-inline`)
+- [x] Security audit log for blocked sanitization events
+- [x] Admin UI to browse `security_sanitize_audits` at `/admin/logs` (Content sanitization section; legacy `/admin/security-audits` redirects)

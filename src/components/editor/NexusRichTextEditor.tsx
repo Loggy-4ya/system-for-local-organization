@@ -7,6 +7,9 @@
  * news drafts, task reports). Stored value is sanitized HTML containing
  * `data-nexus-mention` badge anchors and block markup from `/` slash commands.
  *
+ * Content policy: scans plain text via {@link containsBlockedWord}; blocks parent
+ * `onChange` while disallowed language is present and reverts on blur.
+ *
  * @module src/components/editor/NexusRichTextEditor
  */
 
@@ -17,6 +20,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +28,8 @@ import {
   isSafeHref,
   sanitizeNexusEditorHtml,
 } from "@/lib/nexusEditor/nexusEditorContent";
+import { CONTENT_POLICY_BLOCKED_WORD_MESSAGE } from "@shared/constants/contentPolicy";
+import { containsBlockedWord } from "@shared/lib/contentPolicy";
 import {
   defaultSearchMentions,
   type NexusMentionSearchFn,
@@ -64,6 +70,8 @@ export interface NexusRichTextEditorProps {
   searchMentions?: NexusMentionSearchFn;
   /** Extra `/` commands merged into the default catalog for this surface. */
   slashCommands?: NexusSlashCommandDefinition[];
+  /** Called when blocked-language state changes (for parent form disable). */
+  onContentPolicyViolation?: (message: string | null) => void;
 }
 
 /** Toolbar button definition. */
@@ -134,10 +142,41 @@ export function NexusRichTextEditor({
   minHeight = 140,
   searchMentions = defaultSearchMentions,
   slashCommands = [],
+  onContentPolicyViolation,
 }: NexusRichTextEditorProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onPolicyViolationRef = useRef(onContentPolicyViolation);
+  onPolicyViolationRef.current = onContentPolicyViolation;
+  const lastGoodHtmlRef = useRef(value || "");
+  const [policyError, setPolicyError] = useState<string | null>(null);
+
+  const reportPolicyViolation = useCallback((message: string | null) => {
+    setPolicyError(message);
+    onPolicyViolationRef.current?.(message);
+  }, []);
+
+  const assessEditorContent = useCallback(
+    (
+      editorInstance: NonNullable<ReturnType<typeof useEditor>>,
+      html: string,
+    ): boolean => {
+      const plainText = editorInstance.getText();
+      if (containsBlockedWord(plainText)) {
+        reportPolicyViolation(CONTENT_POLICY_BLOCKED_WORD_MESSAGE);
+        return false;
+      }
+      reportPolicyViolation(null);
+      lastGoodHtmlRef.current = html;
+      return true;
+    },
+    [reportPolicyViolation],
+  );
+
+  const commitHtml = useCallback((html: string) => {
+    onChangeRef.current(html);
+  }, []);
 
   const searchMentionsFlat = useCallback(
     async (query: string): Promise<NexusMentionItem[]> => {
@@ -154,26 +193,31 @@ export function NexusRichTextEditor({
     [searchMentions],
   );
 
-  const commitHtml = useCallback((html: string) => {
-    onChangeRef.current(html);
-  }, []);
-
   const scheduleCommit = useCallback(
-    (html: string) => {
+    (editorInstance: NonNullable<ReturnType<typeof useEditor>>, html: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        commitHtml(html);
+        if (assessEditorContent(editorInstance, html)) {
+          commitHtml(html);
+        }
       }, HTML_COMMIT_DEBOUNCE_MS);
     },
-    [commitHtml],
+    [assessEditorContent, commitHtml],
   );
 
   const flushCommit = useCallback(
     (editorInstance: NonNullable<ReturnType<typeof useEditor>>) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      commitHtml(sanitizeNexusEditorHtml(editorInstance.getHTML()));
+      const html = sanitizeNexusEditorHtml(editorInstance.getHTML());
+      if (assessEditorContent(editorInstance, html)) {
+        commitHtml(html);
+        return;
+      }
+      editorInstance.commands.setContent(lastGoodHtmlRef.current || "<p></p>", {
+        emitUpdate: false,
+      });
     },
-    [commitHtml],
+    [assessEditorContent, commitHtml],
   );
 
   const extensions = useMemo(
@@ -205,7 +249,8 @@ export function NexusRichTextEditor({
       },
     },
     onUpdate: ({ editor: nextEditor }) => {
-      scheduleCommit(sanitizeNexusEditorHtml(nextEditor.getHTML()));
+      const html = sanitizeNexusEditorHtml(nextEditor.getHTML());
+      scheduleCommit(nextEditor, html);
     },
     onBlur: ({ editor: nextEditor }) => {
       flushCommit(nextEditor);
@@ -226,12 +271,16 @@ export function NexusRichTextEditor({
   useEffect(() => {
     if (!editor) return;
     if (editor.isFocused) return;
-    const current = sanitizeNexusEditorHtml(editor.getHTML());
     const incoming = sanitizeNexusEditorHtml(value || "");
+    const current = sanitizeNexusEditorHtml(editor.getHTML());
     if (incoming !== current) {
       editor.commands.setContent(incoming || "<p></p>", { emitUpdate: false });
+      lastGoodHtmlRef.current = incoming;
+      reportPolicyViolation(
+        containsBlockedWord(editor.getText()) ? CONTENT_POLICY_BLOCKED_WORD_MESSAGE : null,
+      );
     }
-  }, [editor, value]);
+  }, [editor, value, reportPolicyViolation]);
 
   if (!editor) {
     return (
@@ -316,6 +365,7 @@ export function NexusRichTextEditor({
       className={cn(
         "nexus-rich-text-editor glass-panel",
         disabled && "nexus-rich-text-editor--disabled",
+        policyError && "nexus-rich-text-editor--policy-error",
         className,
       )}
     >
@@ -346,6 +396,11 @@ export function NexusRichTextEditor({
         className="nexus-rich-text-editor__surface"
         style={{ minHeight }}
       />
+      {policyError ? (
+        <p className="nexus-rich-text-editor__policy-error" role="alert">
+          {policyError}
+        </p>
+      ) : null}
     </div>
   );
 }

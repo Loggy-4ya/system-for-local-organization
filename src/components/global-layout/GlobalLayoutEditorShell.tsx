@@ -11,8 +11,9 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Loader2, ArrowLeft, Layout, Columns, RotateCcw } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Layout, Columns } from "lucide-react";
 import Link from "next/link";
+import { AdminEditorActionToolbar } from "@/components/admin/AdminEditorActionToolbar";
 import { HeaderChromeEditor } from "./HeaderChromeEditor";
 import { FooterChromeEditor } from "./FooterChromeEditor";
 import { ChromePreviewPanel } from "./ChromePreviewPanel";
@@ -21,6 +22,7 @@ import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { type GlobalLayoutConfig } from "@shared/constants/globalLayout";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import "@/app/global-layout-editor.css";
 
 interface GlobalLayoutEditorShellProps {
@@ -50,6 +52,7 @@ export function GlobalLayoutEditorShell({ initialConfig }: GlobalLayoutEditorShe
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
   const [tabIndicator, setTabIndicator] = useState({ width: 0, offset: 0, ready: false });
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
   const isDirty = useMemo(
     () => serialiseGlobalLayoutConfig(config) !== serialiseGlobalLayoutConfig(savedConfig),
     [config, savedConfig],
@@ -141,54 +144,39 @@ export function GlobalLayoutEditorShell({ initialConfig }: GlobalLayoutEditorShe
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
-      className="global-layout-editor py-12"
+      className="global-layout-editor py-8 md:py-12"
       innerClassName="global-layout-editor__stack"
     >
       {/* Page Header wrapped in a glass-panel */}
-      <div className="glass-panel w-full rounded-lg p-6 shadow-md border border-zinc-700/20 dark:border-zinc-300/10">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 dark:border-zinc-300/10">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <Link
                 href="/admin"
-                className="global-layout-editor__btn-text inline-flex items-center gap-1.5 text-xs text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors hover:bg-zinc-700/10 dark:hover:bg-zinc-300/5 border border-zinc-700/10 dark:border-zinc-300/5"
+                className="global-layout-editor__btn-text inline-flex items-center gap-1.5 border border-zinc-700/10 text-xs text-(--color-text-secondary) no-underline transition-colors hover:bg-zinc-700/10 hover:text-(--color-text-primary) dark:border-zinc-300/5 dark:hover:bg-zinc-300/5"
               >
                 <ArrowLeft size={12} />
                 <span>Back to Administration</span>
               </Link>
             </div>
-            <h1 className="text-2xl font-bold text-(--color-text-primary) tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
               Global Layout Editor
             </h1>
-            <p className="text-sm text-(--color-text-secondary) max-w-xl leading-relaxed">
+            <p className="max-w-xl text-sm leading-relaxed text-(--color-text-secondary)">
               Configure the global navigation header and footer columns for all standard pages. Changes will apply system-wide.
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSaving || !isDirty}
-              onClick={handleReset}
-              className="global-layout-editor__btn-text"
-            >
-              <RotateCcw size={16} />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              disabled={isSaving || !isDirty}
-              onClick={handleSave}
-              className="global-layout-editor__btn-text shadow-md"
-            >
-              {isSaving ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <Save size={16} />
-              )}
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+          <div className="hidden shrink-0 lg:block">
+            <AdminEditorActionToolbar
+              onReset={handleReset}
+              onSave={handleSave}
+              resetDisabled={!isDirty}
+              saveDisabled={!isDirty}
+              isSaving={isSaving}
+              useEditorButtonStyle
+            />
           </div>
         </div>
       </div>
@@ -197,7 +185,7 @@ export function GlobalLayoutEditorShell({ initialConfig }: GlobalLayoutEditorShe
       <GlobalLayoutEditorStatusBanner status={status} />
 
       {/* Editor settings */}
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md md:p-8 dark:border-zinc-300/10">
+      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 lg:p-8 dark:border-zinc-300/10">
         <div
           ref={tabListRef}
           className="global-layout-editor__tabs"
@@ -260,10 +248,47 @@ export function GlobalLayoutEditorShell({ initialConfig }: GlobalLayoutEditorShe
         </div>
       </div>
 
-      {/* Live preview — full width below settings */}
-      <div className="glass-panel w-full rounded-lg border border-zinc-700/20 p-6 shadow-md md:p-8 dark:border-zinc-300/10">
+      {/* Live preview — full width below settings; collapsed on phone by default */}
+      <div className="md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          className="global-layout-editor__btn-text w-full gap-2"
+          onClick={() => setShowMobilePreview((prev) => !prev)}
+        >
+          {showMobilePreview ? (
+            <EyeOff size={16} aria-hidden="true" />
+          ) : (
+            <Eye size={16} aria-hidden="true" />
+          )}
+          {showMobilePreview ? "Hide live preview" : "Show live preview"}
+        </Button>
+      </div>
+
+      <div
+        className={cn(
+          "glass-panel w-full rounded-lg border border-zinc-700/20 p-4 shadow-md md:p-6 lg:p-8 dark:border-zinc-300/10",
+          showMobilePreview ? "block" : "hidden md:block",
+        )}
+      >
         <ChromePreviewPanel header={config.header} footer={config.footer} activeTab={tab} />
       </div>
+
+      {isDirty ? <div className="h-16 lg:hidden" aria-hidden="true" /> : null}
+
+      {isDirty ? (
+        <div className="admin-mobile-toolbar lg:hidden">
+          <AdminEditorActionToolbar
+            onReset={handleReset}
+            onSave={handleSave}
+            resetDisabled={!isDirty}
+            saveDisabled={!isDirty}
+            isSaving={isSaving}
+            useEditorButtonStyle
+            className="w-full justify-end"
+          />
+        </div>
+      ) : null}
     </StaticPageShell>
   );
 }

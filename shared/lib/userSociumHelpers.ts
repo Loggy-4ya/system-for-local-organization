@@ -41,6 +41,25 @@ export function formatUserFullName(name: string, surname: string | null): string
 }
 
 /**
+ * Resolve a user-facing label for mentions, page authorship, and directory rows.
+ *
+ * Prefers full name; falls back to institutional login when the name is empty.
+ *
+ * @param input - Name parts and optional login.
+ * @returns Display label or null when nothing is available.
+ */
+export function resolveUserDisplayLabel(input: {
+  name: string;
+  surname?: string | null;
+  login?: string | null;
+}): string | null {
+  const fullName = formatUserFullName(input.name, input.surname ?? null).trim();
+  if (fullName) return fullName;
+  const login = input.login?.trim();
+  return login || null;
+}
+
+/**
  * Whether the user holds any self-government socium role.
  *
  * @param sociumRoles - User socium role assignments.

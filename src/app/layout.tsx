@@ -4,13 +4,19 @@ import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@teispace/next-themes";
 import { getTheme, getThemeScript } from "@teispace/next-themes/server";
-import { InfiniteGrid } from "@/components/background/InfiniteGrid";
+import { LayoutInfiniteGrid } from "@/components/background/LayoutInfiniteGrid";
 import { HeaderSessionBridge } from "@/components/ui/HeaderSessionBridge";
 import { FooterSessionBridge } from "@/components/ui/FooterSessionBridge";
 import { SessionProvider } from "@/components/auth/SessionProvider";
-import { SiteBroadcastToastHost } from "@/components/notifications/SiteBroadcastToastHost";
+import { SiteProfileProvider } from "@/components/auth/SiteProfileProvider";
+import { RouteNavigationRecoveryHost } from "@/components/navigation/RouteNavigationRecoveryHost";
+import { toBasicSiteProfile } from "@shared/lib/siteProfileBasic";
+import { SiteNotificationToastStack } from "@/components/notifications/SiteNotificationToastStack";
+import { WebNotificationPermissionPromptHost } from "@/components/notifications/WebNotificationPermissionPromptHost";
+import { NexusImageCropHost } from "@/components/media/NexusImageCropHost";
 import { ProfileOnboardingRedirect } from "@/components/profile/ProfileOnboardingRedirect";
 import { SITE_ICONS } from "@/lib/assets";
+import { CSP_NONCE_HEADER } from "@/lib/contentSecurityPolicy";
 import { NEXUS_THEME_OPTIONS } from "@/lib/resolveStoredThemeIsDark";
 import { auth } from "@/auth";
 import { seedAdminUser } from "@shared/lib/seedAdminUser";
@@ -78,6 +84,7 @@ export default async function RootLayout({
   seedAdminUser().catch((err) => console.error("[RootLayout] Seeding error:", err));
 
   const headerStore = await headers();
+  const cspNonce = headerStore.get(CSP_NONCE_HEADER) ?? undefined;
   const initialTheme =
     (await getTheme({
       themes: [...NEXUS_THEME_OPTIONS],
@@ -89,6 +96,8 @@ export default async function RootLayout({
   });
 
   const session = await auth();
+  const initialSiteProfile =
+    session?.user?.id != null ? toBasicSiteProfile(session.user) : null;
 
   /** Brave / wallet extensions may assign to `window.ethereum` before injection completes. */
   const walletProviderShim = `(function(){try{if(typeof window!=="undefined"&&!window.ethereum){window.ethereum={selectedAddress:void 0}}}catch(e){}})();`;
@@ -96,14 +105,14 @@ export default async function RootLayout({
   return (
     <html lang="en" className={fontVariables} suppressHydrationWarning>
       <body className="flex min-h-dvh flex-col touch-manipulation" suppressHydrationWarning>
-        <Script id="nexus-wallet-shim" strategy="beforeInteractive">
+        <Script id="nexus-wallet-shim" strategy="beforeInteractive" nonce={cspNonce}>
           {walletProviderShim}
         </Script>
         {/*
           beforeInteractive: Next.js injects this before hydration (React 19 rejects
           raw <script> in component trees). Pair with ThemeProvider noScript below.
         */}
-        <Script id="nexus-theme-init" strategy="beforeInteractive">
+        <Script id="nexus-theme-init" strategy="beforeInteractive" nonce={cspNonce}>
           {themeScript}
         </Script>
         <ThemeProvider
@@ -113,18 +122,23 @@ export default async function RootLayout({
           disableTransitionOnChange={false}
         >
           <SessionProvider session={session}>
-            <ProfileOnboardingRedirect />
-            {/* Fixed full-viewport background — persists across route changes */}
-            <InfiniteGrid />
-            {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}
-            <div className="nexus-page-stack relative z-1 flex min-h-dvh flex-1 flex-col">
-              <HeaderSessionBridge />
-              <main className="flex min-h-0 flex-1 flex-col">
-                {children}
-              </main>
-              <FooterSessionBridge />
-              <SiteBroadcastToastHost />
-            </div>
+            <SiteProfileProvider initialProfile={initialSiteProfile}>
+              <RouteNavigationRecoveryHost />
+              <ProfileOnboardingRedirect />
+              {/* Fixed full-viewport background — persists across route changes */}
+              <LayoutInfiniteGrid />
+              {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}
+              <div className="nexus-page-stack relative z-1 flex min-h-dvh flex-1 flex-col">
+                <HeaderSessionBridge />
+                <main className="flex min-h-0 flex-1 flex-col">
+                  {children}
+                </main>
+                <FooterSessionBridge />
+                <SiteNotificationToastStack />
+                <WebNotificationPermissionPromptHost />
+                <NexusImageCropHost />
+              </div>
+            </SiteProfileProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

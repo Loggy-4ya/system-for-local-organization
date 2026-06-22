@@ -11,6 +11,7 @@
 
 import { FieldLabel } from "@puckeditor/core";
 import { useDeferredFieldCommit } from "../lib/useDeferredFieldCommit";
+import { formatTabLabel } from "../lib/arrayItemLabels";
 import {
   parseArrayIndexFromFieldName,
   useStripArrayIndexSync,
@@ -40,12 +41,16 @@ export function StripArrayLabelField({ field, name, value, onChange }: StripArra
     textDebounceMs: 400,
   });
 
+  const placeholder =
+    arrayIndex === null ? "Tab" : formatTabLabel(arrayIndex);
+
   return (
     <FieldLabel label={field.label ?? "Label"}>
       <input
         type="text"
         className="nexus-puck-input"
         value={draft}
+        placeholder={placeholder}
         onChange={(event) => onTextChange(event.target.value)}
         onFocus={syncStripIndex}
         onBlur={onTextBlur}

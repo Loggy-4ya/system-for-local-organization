@@ -16,6 +16,7 @@ import {
   Rows3,
   Settings2,
   SlidersHorizontal,
+  Sparkles,
   Type,
 } from "lucide-react";
 import { puckIcon } from "./puckIcons";
@@ -31,6 +32,7 @@ const PlaybackIcon = () => puckIcon(Play);
 const BehaviorIcon = () => puckIcon(Settings2);
 const StyleIcon = () => puckIcon(SlidersHorizontal);
 const LinkIcon = () => puckIcon(Link2);
+const IconChapterIcon = () => puckIcon(Sparkles);
 const SizeIcon = () => puckIcon(Rows3);
 const DividerIcon = () => puckIcon(Rows3);
 const ValidationIcon = () => puckIcon(MousePointerClick);
@@ -213,7 +215,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "accordionBehavior",
-        title: "Behavior",
+        title: "Accordion Options",
         icon: <BehaviorIcon />,
         fieldKeys: ["allowMultiple"],
       },
@@ -224,10 +226,16 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     topLevelFieldKeys: ["items"],
     chapters: [
       {
+        id: "listBehavior",
+        title: "Step Defaults",
+        icon: <BehaviorIcon />,
+        fieldKeys: ["defaultExpandNested"],
+      },
+      {
         id: "listStyle",
-        title: "Style",
+        title: "List Style",
         icon: <StyleIcon />,
-        fieldKeys: ["listType", "itemSpacing"],
+        fieldKeys: ["connectorStyle", "itemSpacing"],
       },
     ],
   },
@@ -241,10 +249,16 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
         fieldKeys: ["label"],
       },
       {
+        id: "buttonIcon",
+        title: "Icon",
+        icon: <IconChapterIcon />,
+        fieldKeys: ["icon", "iconPosition"],
+      },
+      {
         id: "buttonStyle",
         title: "Style",
         icon: <StyleIcon />,
-        fieldKeys: ["variant", "size", "fullWidth", "borderRadius", "icon", "iconPosition"],
+        fieldKeys: ["variant", "size", "fullWidth", "borderRadius"],
       },
       {
         id: "buttonLink",
@@ -260,7 +274,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "tabsBehavior",
-        title: "Behavior",
+        title: "Tab Options",
         icon: <BehaviorIcon />,
         fieldKeys: ["defaultActiveIndex", "align", "size", "accentColor"],
       },
@@ -272,13 +286,13 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "carouselSizeGroup",
-        title: "Size",
+        title: "Carousel Size",
         icon: <SizeIcon />,
         fieldKeys: ["carouselSize"],
       },
       {
         id: "carouselBehavior",
-        title: "Behavior",
+        title: "Carousel Playback",
         icon: <BehaviorIcon />,
         fieldKeys: [
           "autoplay",

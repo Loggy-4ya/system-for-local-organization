@@ -8,9 +8,13 @@
  */
 
 import { z } from "zod";
-import { optionalPhoneSchema } from "@shared/validation/phoneSchema";
+import { optionalPhoneSchema, requiredPhoneSchema } from "@shared/validation/phoneSchema";
+import { optionalAvatarUrlSchema } from "@shared/validation/profileSchemas";
+import { SELF_GOVERNMENT_APPLICATION_FIELD_ERROR } from "@shared/lib/userProfileCompleteness";
+import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
 import { getPasswordStrengthError } from "@shared/lib/passwordStrength";
 import type { StudentTitle } from "@shared/models/User";
+import { addContentPolicyPlainTextIssue } from "@shared/validation/contentPolicySchemas";
 
 /**
  * Unique login handle for credentials sign-in.
@@ -127,6 +131,101 @@ function refineSignupPasswords(
 }
 
 /**
+ * Reject blocked language in signup display fields.
+ *
+ * @param data - Parsed signup object.
+ * @param ctx - Zod refinement context.
+ */
+function refineSignupContentPolicy(
+  data: {
+    name?: string;
+    surname?: string | null;
+    specialty?: string | null;
+    group?: string | null;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  addContentPolicyPlainTextIssue(ctx, data.name, ["name"]);
+  addContentPolicyPlainTextIssue(ctx, data.surname, ["surname"]);
+  addContentPolicyPlainTextIssue(ctx, data.specialty, ["specialty"]);
+  // Group is numeric-only — format validated by signupGroupField, not language policy.
+}
+
+/**
+ * Telegram Login Widget callback payload — verified server-side before linking.
+ */
+export const telegramWidgetPayloadSchema = z.object({
+  id: z.number().int().positive(),
+  first_name: z.string().trim().min(1),
+  last_name: z.string().trim().optional(),
+  username: z.string().trim().optional(),
+  photo_url: z.string().trim().url().optional(),
+  auth_date: z.number().int().positive(),
+  hash: z.string().trim().min(1),
+});
+
+/**
+ * Require phone, avatar URL, and Telegram linkage when applying for self-government at signup.
+ *
+ * Profile photo picked before account creation is uploaded after sign-in; the client
+ * validates a pending cropped file separately. Telegram is collected via the Login Widget
+ * and verified when the account is created.
+ *
+ * @param data - Parsed signup object.
+ * @param ctx - Zod refinement context.
+ */
+function refineSignupSelfGovernmentIntent(
+  data: {
+    applyForSelfGovernment: boolean;
+    phone: string | null;
+    avatar?: string | null;
+    telegramAuth?: TelegramWidgetPayload | null;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (!data.applyForSelfGovernment) return;
+
+  const phoneResult = requiredPhoneSchema.safeParse(data.phone ?? null);
+  if (!phoneResult.success) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message:
+        phoneResult.error.issues[0]?.message ?? SELF_GOVERNMENT_APPLICATION_FIELD_ERROR,
+    });
+  }
+
+  if (!data.telegramAuth) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["telegramAuth"],
+      message: "Connect your Telegram account to apply for self-government membership.",
+    });
+  }
+}
+
+/**
+ * Apply signup password and content-policy refinements.
+ *
+ * @param data - Parsed signup object.
+ * @param ctx - Zod refinement context.
+ */
+function refineSignupPayload(
+  data: {
+    login: string;
+    password: string;
+    confirmPassword: string;
+    name?: string;
+    surname?: string | null;
+    specialty?: string | null;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  refineSignupContentPolicy(data, ctx);
+  refineSignupPasswords(data, ctx);
+}
+
+/**
  * Map self-assignable socium chip to legacy {@link StudentTitle}.
  *
  * @param signupSociumRole - Student or Starosta chip from the form.
@@ -159,6 +258,7 @@ const signupObjectSchema = z.object({
     .or(z.literal(""))
     .transform((val) => (val === "" || val === undefined ? null : val)),
   phone: optionalPhoneSchema,
+  avatar: optionalAvatarUrlSchema.optional(),
   specialty: signupSpecialtyField,
   group: signupGroupField,
   signupSociumRole: signupSociumRoleSchema.default("Student"),
@@ -166,18 +266,23 @@ const signupObjectSchema = z.object({
   personalDataConsent: z.literal(true, {
     message: "You must consent to personal data processing to create an account.",
   }),
+  telegramAuth: telegramWidgetPayloadSchema.nullable().optional(),
 });
 
 /**
  * Schema for student signup (client form).
  */
 export const signupSchema = signupObjectSchema
-  .superRefine(refineSignupPasswords)
+  .superRefine((data, ctx) => {
+    refineSignupPayload(data, ctx);
+    refineSignupSelfGovernmentIntent(data, ctx);
+  })
   .transform((data) => {
-    const { confirmPassword: _confirm, signupSociumRole, ...rest } = data;
+    const { confirmPassword: _confirm, signupSociumRole, telegramAuth, ...rest } = data;
     return {
       ...rest,
       signupSociumRole,
+      telegramAuth: telegramAuth ?? null,
       studentTitle: mapSignupSociumRoleToStudentTitle(signupSociumRole),
     };
   });
@@ -194,12 +299,16 @@ export const registerSchema = signupObjectSchema
       .max(100, "Name must be under 100 characters.")
       .optional(),
   })
-  .superRefine(refineSignupPasswords)
+  .superRefine((data, ctx) => {
+    refineSignupPayload(data, ctx);
+    refineSignupSelfGovernmentIntent(data, ctx);
+  })
   .transform((data) => {
-    const { confirmPassword: _confirm, signupSociumRole, ...rest } = data;
+    const { confirmPassword: _confirm, signupSociumRole, telegramAuth, ...rest } = data;
     return {
       ...rest,
       signupSociumRole,
+      telegramAuth: telegramAuth ?? null,
       studentTitle: mapSignupSociumRoleToStudentTitle(signupSociumRole),
     };
   });

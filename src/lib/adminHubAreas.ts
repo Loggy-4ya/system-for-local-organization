@@ -12,7 +12,17 @@ import {
 } from "@shared/lib/accessControlLogic";
 
 /** Serializable icon key for admin hub tiles (mapped to Lucide in the shell). */
-export type AdminHubIconKey = "layout" | "shield" | "megaphone" | "graduation-cap" | "users";
+export type AdminHubIconKey =
+  | "layout"
+  | "shield"
+  | "shield-alert"
+  | "megaphone"
+  | "graduation-cap"
+  | "users"
+  | "book-open"
+  | "calendar"
+  | "server"
+  | "user-check";
 
 /** Lifecycle state for an admin hub tile. */
 export type AdminHubAreaStatus = "active" | "coming_soon";
@@ -63,6 +73,60 @@ export const ADMIN_HUB_AREAS: AdminHubArea[] = [
     status: "active",
   },
   {
+    id: "general-rules",
+    href: "/admin/general-rules",
+    title: "General Rules",
+    description:
+      "Blocked words, weak-password denylist, user-facing validation messages, and Telegram bot copy.",
+    icon: "book-open",
+    status: "active",
+  },
+  {
+    id: "institutional-calendar",
+    href: "/admin/institutional-calendar",
+    title: "Institutional Calendar",
+    description:
+      "Yearly recurring reminders and auto-created tasks for socium roles and access tiers.",
+    icon: "calendar",
+    status: "active",
+  },
+  {
+    id: "security-audits",
+    href: "/admin/logs",
+    title: "System Logs",
+    description:
+      "Browse institutional audit trails: Puck content sanitization events and User Directory admin mutations.",
+    icon: "shield-alert",
+    status: "active",
+  },
+  {
+    id: "telegram-workspaces",
+    href: "/admin/telegram-workspaces",
+    title: "Telegram Workspaces",
+    description:
+      "Ephemeral Telegram groups for multi-part projects — provisioning policy, templates, and dismantle rules.",
+    icon: "megaphone",
+    status: "active",
+  },
+  {
+    id: "hosting",
+    href: "/admin/hosting",
+    title: "Hosting & Deployment",
+    description:
+      "Resolved hosting mode, scheduler policy, and environment validation for this instance.",
+    icon: "server",
+    status: "active",
+  },
+  {
+    id: "membership-applications",
+    href: "/admin/membership-applications",
+    title: "Membership Applications",
+    description:
+      "Review self-government membership requests, approve applicants, or clear rejected intents.",
+    icon: "user-check",
+    status: "active",
+  },
+  {
     id: "broadcasts",
     title: "System Broadcasts",
     description:
@@ -98,6 +162,8 @@ export async function resolveAdminHubAreasForUser(user: IUser): Promise<AdminHub
     isLegacyAdmin || hasPermission(userSlice, settings, "notifications.broadcast");
   const canViewDirectory =
     isLegacyAdmin || hasPermission(userSlice, settings, "users.view_directory");
+  const canAssignSocium =
+    isLegacyAdmin || hasPermission(userSlice, settings, "users.assign_socium_roles");
 
   return ADMIN_HUB_AREAS.filter((area) => {
     switch (area.id) {
@@ -107,6 +173,18 @@ export async function resolveAdminHubAreasForUser(user: IUser): Promise<AdminHub
         return isLegacyAdmin;
       case "user-access":
         return isLegacyAdmin || canManageAccess;
+      case "general-rules":
+        return isLegacyAdmin;
+      case "institutional-calendar":
+        return isLegacyAdmin;
+      case "telegram-workspaces":
+        return isLegacyAdmin;
+      case "hosting":
+        return isLegacyAdmin;
+      case "membership-applications":
+        return canAssignSocium;
+      case "security-audits":
+        return isLegacyAdmin;
       case "broadcasts":
         return isLegacyAdmin || canBroadcast;
       case "academic-catalog":

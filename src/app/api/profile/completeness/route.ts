@@ -33,7 +33,10 @@ export async function GET() {
     phone: user.phone,
     specialty: user.specialty,
     group: user.group,
+    avatar: user.avatar,
     sociumRoles: user.sociumRoles ?? [],
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+    telegramId: user.telegramId,
   });
 
   return NextResponse.json({ completeness: summary });
