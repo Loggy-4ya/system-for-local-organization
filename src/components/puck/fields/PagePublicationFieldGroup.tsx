@@ -10,6 +10,7 @@
  */
 
 import { useRef } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   MAX_PAGE_ACCESS_EDITORS,
   type PageAccessEditorEntry,
@@ -24,6 +25,8 @@ import { PageMetaReadonlyRow } from "./PageMetaReadonlyRow";
 import { PuckSwitchField } from "./PuckSwitchField";
 import { usePageEditorMeta } from "../lib/pageEditorMetaContext";
 import { NexusDateTimePicker } from "@/components/ui/NexusDateTimePicker";
+import { Button } from "@/components/ui/button";
+import { MAX_PAGE_GALLERY_IMAGES } from "@shared/constants/pageCategoriesHub";
 
 /** Editable publication props stored under root `pagePublication`. */
 export interface PagePublicationValue {
@@ -31,6 +34,8 @@ export interface PagePublicationValue {
   description?: string;
   /** Hero cover image URL. */
   coverImage?: string;
+  /** Additional publication gallery images (`image2`–`image4`). */
+  galleryImages?: string[];
   /** ISO publish schedule — null means immediate on publish. */
   publishAt?: string | null;
   /** Whether comments are enabled on the public page. */
@@ -79,6 +84,7 @@ export function PagePublicationFieldGroup({
   const publication: PagePublicationValue = {
     description: value?.description ?? meta.description ?? "",
     coverImage: value?.coverImage ?? meta.coverImage ?? "",
+    galleryImages: value?.galleryImages ?? meta.galleryImages ?? [],
     publishAt: value?.publishAt ?? meta.publishAt ?? null,
     commentsEnabled: value?.commentsEnabled ?? meta.commentsEnabled ?? true,
     delegatedEditors: value?.delegatedEditors ?? meta.delegatedEditors ?? [],
@@ -118,6 +124,69 @@ export function PagePublicationFieldGroup({
           hideFieldLabel
           showReadablePreview
         />
+      </div>
+
+      <div className="nexus-field-category">
+        <FieldLabelRow
+          label="Gallery Images"
+          hint={
+            "Optional extra images for news catalog cards and ${{ image2 }}–${{ image4 }} page variables " +
+            `(max ${MAX_PAGE_GALLERY_IMAGES}).`
+          }
+        />
+        <div className="flex flex-col gap-3">
+          {(publication.galleryImages ?? []).map((galleryUrl, index) => (
+            <div key={`gallery-${index}`} className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Gallery image {index + 2}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    const next = [...(publication.galleryImages ?? [])];
+                    next.splice(index, 1);
+                    set({ galleryImages: next });
+                  }}
+                  aria-label={`Remove gallery image ${index + 2}`}
+                >
+                  <Trash2 size={12} aria-hidden="true" />
+                </Button>
+              </div>
+              <MediaUploadField
+                field={{
+                  label: `Gallery image ${index + 2}`,
+                  accept: "image",
+                  purpose: "page-cover",
+                }}
+                value={galleryUrl}
+                onChange={(nextUrl) => {
+                  const next = [...(publication.galleryImages ?? [])];
+                  next[index] = nextUrl;
+                  set({ galleryImages: next });
+                }}
+                hideFieldLabel
+                showReadablePreview
+              />
+            </div>
+          ))}
+          {(publication.galleryImages?.length ?? 0) < MAX_PAGE_GALLERY_IMAGES ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                set({ galleryImages: [...(publication.galleryImages ?? []), ""] })
+              }
+            >
+              <Plus size={14} aria-hidden="true" />
+              Add gallery image
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="nexus-field-category">

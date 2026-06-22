@@ -35,11 +35,10 @@ import {
 import { signupSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
-import { filterPhoneInputChange, phoneInputProps } from "@/lib/phoneInputProps";
+import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
 import { AvatarImageField } from "@/components/media/AvatarImageField";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
-import { avatarIsRequiredAtSignup, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_APPLICATION_FIELD_HINT, SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, telegramIsRequiredAtSignup } from "@shared/lib/userProfileCompleteness";
-import { TelegramConnectField } from "@/components/auth/TelegramConnectField";
+import { avatarIsRequiredAtSignup, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_APPLICATION_FIELD_HINT, SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY, TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION } from "@shared/lib/userProfileCompleteness";
 import { useContentPolicyFields } from "@/lib/useContentPolicyField";
 
 /**
@@ -143,7 +142,6 @@ export function StudentSignUpForm() {
   }, [errorParam]);
 
   const avatarRequired = avatarIsRequiredAtSignup(applyForSelfGovernment);
-  const telegramRequired = telegramIsRequiredAtSignup(applyForSelfGovernment);
 
   /**
    * Snapshot current form values for retry after a failed submission.
@@ -181,13 +179,6 @@ export function StudentSignUpForm() {
 
     if (avatarRequired && !pendingAvatarFile && !avatar.trim()) {
       setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
-      setFormError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
-      writeSignupFormDraft(currentSignupDraft());
-      return;
-    }
-
-    if (telegramRequired && !telegramAuth) {
-      setFieldErrors({ telegramAuth: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
       setFormError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
       writeSignupFormDraft(currentSignupDraft());
       return;
@@ -353,9 +344,13 @@ export function StudentSignUpForm() {
             id="signup-phone"
             name="phone"
             {...phoneInputProps}
-            placeholder="+380 XX XXX XX XX"
+            placeholder={phoneInputPlaceholder}
             value={phone}
             onChange={(e) => setPhone(filterPhoneInputChange(e.target.value))}
+            onBlur={() => {
+              const corrected = autocorrectPhoneFieldValue(phone);
+              if (corrected !== phone) setPhone(corrected);
+            }}
             disabled={loading}
             required={applyForSelfGovernment}
           />
@@ -472,8 +467,9 @@ export function StudentSignUpForm() {
               I want to apply for membership in the student self-government
               <span className="mt-1 block text-xs text-(--color-text-secondary)">
                 This records your intent only. Administrators review applications and assign roles.
-                When checked, every item in the requirements notice — including a linked Telegram
-                account — must be completed before you submit.
+                {TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION
+                  ? " When checked, every item in the requirements notice — including a linked Telegram account — must be completed before you submit."
+                  : " When checked, complete every item in the requirements notice before you submit."}
               </span>
             </span>
           </label>
@@ -502,20 +498,10 @@ export function StudentSignUpForm() {
           )}
         </div>
 
-        {applyForSelfGovernment ? (
-          <FormField
-            label="Telegram"
-            error={fieldErrors.telegramAuth}
-            hint={SELF_GOVERNMENT_APPLICATION_FIELD_HINT}
-            required
-          >
-            <TelegramConnectField
-              value={telegramAuth}
-              onChange={setTelegramAuth}
-              disabled={loading}
-              error={fieldErrors.telegramAuth}
-            />
-          </FormField>
+        {applyForSelfGovernment && TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION ? (
+          <FormAlert variant="info" title="After approval">
+            {SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}
+          </FormAlert>
         ) : null}
 
         <Button type="submit" className="mt-2 h-12 w-full" disabled={loading}>
@@ -538,11 +524,6 @@ export function StudentSignUpForm() {
       </form>
 
       <OAuthButtonRow callbackUrl="/profile" />
-
-      <p className="text-center text-xs text-(--color-text-secondary)">
-        Signing up with Telegram below also satisfies the self-government Telegram requirement when
-        you complete the same profile fields.
-      </p>
     </AuthShell>
   );
 }

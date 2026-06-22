@@ -45,7 +45,7 @@ Dev default keeps legacy `'unsafe-inline'` unless `CSP_USE_NONCE=true`.
 
 - `script-src 'self' 'unsafe-inline'` (+ `'unsafe-eval'` in dev)
 - `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`
-- `frame-src` allows YouTube and Vimeo embed hosts
+- `frame-src` allows YouTube, Vimeo, and Telegram Login Widget (`oauth.telegram.org`) embed hosts
 
 ## Sanitization audit log
 

@@ -13,14 +13,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { CreatableCatalogSelect } from "@/components/auth/CreatableCatalogSelect";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { filterPhoneInputChange, phoneInputProps } from "@/lib/phoneInputProps";
+import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
+import { phoneIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
+import {
+  profileEditStateFromDirectoryUser,
+  type UserDirectoryProfileEditState,
+} from "@shared/lib/userDirectoryProfilePatch";
+import type { IUserSociumRole } from "@shared/models/userTypes";
 
-/** Editable profile fields for directory admin mutations. */
-export interface UserDirectoryProfileEditState {
-  specialty: string;
-  group: string;
-  phone: string;
-}
+export type { UserDirectoryProfileEditState };
+export { profileEditStateFromDirectoryUser };
 
 /** Props for {@link UserDirectoryProfileFields}. */
 export interface UserDirectoryProfileFieldsProps {
@@ -30,6 +32,10 @@ export interface UserDirectoryProfileFieldsProps {
   onChange: (next: UserDirectoryProfileEditState) => void;
   /** Read-only email when the actor can see PII; omit when redacted. */
   email?: string | null;
+  /** Pending socium roles — used to surface phone requirement before save. */
+  sociumRoles?: IUserSociumRole[];
+  /** Server or client validation messages keyed by field name. */
+  fieldErrors?: Partial<Record<keyof UserDirectoryProfileEditState, string>>;
   /** When true, inputs are disabled. */
   disabled?: boolean;
 }
@@ -60,8 +66,21 @@ export function UserDirectoryProfileFields({
   value,
   onChange,
   email,
+  sociumRoles = [],
+  fieldErrors,
   disabled = false,
 }: UserDirectoryProfileFieldsProps) {
+  const phoneRequired = phoneIsRequiredForUser({
+    name: "",
+    surname: null,
+    phone: value.phone,
+    specialty: null,
+    group: null,
+    sociumRoles,
+  });
+  const phoneHint = phoneRequired
+    ? "Required while this user holds or is being assigned a self-government socium role."
+    : undefined;
   const [specialtyOptions, setSpecialtyOptions] = useState<string[]>([]);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -154,15 +173,29 @@ export function UserDirectoryProfileFields({
             </FormField>
           ) : null}
 
-          <FormField label="Phone number" htmlFor="directory-phone">
+          <FormField
+            label="Phone number"
+            htmlFor="directory-phone"
+            error={fieldErrors?.phone}
+            hint={phoneHint}
+          >
             <Input
               id="directory-phone"
               {...phoneInputProps}
-              placeholder="+380 XX XXX XX XX"
+              placeholder={phoneInputPlaceholder}
               value={value.phone}
               onChange={(event) =>
                 onChange({ ...value, phone: filterPhoneInputChange(event.target.value) })
               }
+              onInput={(event) =>
+                onChange({ ...value, phone: filterPhoneInputChange(event.currentTarget.value) })
+              }
+              onBlur={() => {
+                const corrected = autocorrectPhoneFieldValue(value.phone);
+                if (corrected !== value.phone) {
+                  onChange({ ...value, phone: corrected });
+                }
+              }}
               disabled={disabled}
             />
           </FormField>
@@ -170,59 +203,4 @@ export function UserDirectoryProfileFields({
       </div>
     </div>
   );
-}
-
-/**
- * Build edit state from a directory detail row.
- *
- * @param user - Selected directory user row.
- * @returns Initial specialty, group, and phone edit state.
- */
-export function profileEditStateFromDirectoryUser(user: {
-  specialty: string | null;
-  group: string | null;
-  phone: string | null;
-}): UserDirectoryProfileEditState {
-  return {
-    specialty: user.specialty ?? "",
-    group: user.group ?? "",
-    phone: user.phone ?? "",
-  };
-}
-
-/**
- * Build a profile PATCH containing only fields the admin actually changed.
- *
- * Avoids re-submitting legacy specialty/group strings that fail current validators
- * when saving unrelated access-control updates.
- *
- * @param edit - Current form state.
- * @param baseline - Snapshot from the loaded directory row.
- * @returns Partial profile patch (may be empty).
- */
-export function buildProfilePatchDelta(
-  edit: UserDirectoryProfileEditState,
-  baseline: UserDirectoryProfileEditState,
-): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-
-  const editSpecialty = edit.specialty.trim();
-  const baseSpecialty = baseline.specialty.trim();
-  if (editSpecialty !== baseSpecialty) {
-    patch.specialty = editSpecialty || null;
-  }
-
-  const editGroup = edit.group.trim();
-  const baseGroup = baseline.group.trim();
-  if (editGroup !== baseGroup) {
-    patch.group = editGroup || null;
-  }
-
-  const editPhone = edit.phone.trim();
-  const basePhone = baseline.phone.trim();
-  if (editPhone !== basePhone) {
-    patch.phone = editPhone || null;
-  }
-
-  return patch;
 }

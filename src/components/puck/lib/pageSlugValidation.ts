@@ -19,6 +19,25 @@ export const RESERVED_SLUG_SEGMENTS = new Set([
 ]);
 
 /**
+ * Whether the current pathname is the Puck visual editor (not app settings under `/pages/*`).
+ *
+ * Hides global header/footer only for CMS editor routes such as `/news/edit`, not
+ * `/pages/categories/edit`.
+ *
+ * @param pathname - Browser pathname.
+ * @returns True when global chrome should be suppressed.
+ */
+export function isPuckEditorRoutePath(pathname: string): boolean {
+  if (!pathname || pathname === "/") return false;
+  if (pathname === "/edit") return true;
+  if (!pathname.endsWith("/edit")) return false;
+
+  const viewerPath = pathname.slice(0, -"/edit".length) || "/";
+  if (viewerPath === "/") return true;
+  return !isBuiltinAppRoutePath(viewerPath);
+}
+
+/**
  * Whether an absolute path is owned by a built-in app route (not Puck CMS).
  *
  * @param normalizedPath - Path such as `/telegram` or `/profile/settings`.

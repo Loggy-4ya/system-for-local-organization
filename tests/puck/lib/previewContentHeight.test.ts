@@ -117,13 +117,14 @@ describe("syncPuckRootHeightToMeasuredContent", () => {
     assert.equal(result.rootHeight, 900);
   });
 
-  it("shrinks rootHeight when measured content is shorter than the current rootHeight", () => {
+  it("shrinks rootHeight when measured content is shorter than the current rootHeight but not below the viewport floor", () => {
     const result = syncPuckRootHeightToMeasuredContent(
       { rootHeight: 1200, zoom: 1, autoZoom: 1 },
       640,
+      720,
     );
 
-    assert.equal(result.rootHeight, 640);
+    assert.equal(result.rootHeight, 720);
   });
 
   it("applies the empty-page floor when measured content is shorter than the minimum", () => {
@@ -135,6 +136,16 @@ describe("syncPuckRootHeightToMeasuredContent", () => {
     assert.equal(result.rootHeight, PREVIEW_EMPTY_PAGE_MIN_ROOT_HEIGHT_PX);
   });
 
+  it("uses the canvas shell floor when measured content is shorter than the shell viewport", () => {
+    const result = syncPuckRootHeightToMeasuredContent(
+      { rootHeight: 200, zoom: 1, autoZoom: 1 },
+      250,
+      720,
+    );
+
+    assert.equal(result.rootHeight, 720);
+  });
+
   it("uses the canvas shell floor when content height is unknown", () => {
     const result = syncPuckRootHeightToMeasuredContent(
       { rootHeight: 200, zoom: 1, autoZoom: 1 },
@@ -143,6 +154,16 @@ describe("syncPuckRootHeightToMeasuredContent", () => {
     );
 
     assert.equal(result.rootHeight, 720);
+  });
+
+  it("grows rootHeight above the shell viewport when blocks exceed the panel", () => {
+    const result = syncPuckRootHeightToMeasuredContent(
+      { rootHeight: 720, zoom: 1, autoZoom: 1 },
+      1800,
+      720,
+    );
+
+    assert.equal(result.rootHeight, 1800);
   });
 
   it("preserves rootHeight when it already matches the synced target", () => {

@@ -15,6 +15,7 @@ import { ProfileAboutSection } from "@/components/profile/ProfileAboutSection";
 import { ProfilePublishedSection } from "@/components/profile/ProfilePublishedSection";
 import { ProfileStatsRow } from "@/components/profile/ProfileStatsRow";
 import { ProfileTasksPanel } from "@/components/profile/ProfileTasksPanel";
+import { ProfileActivityColumn } from "@/components/profile/ProfileActivityColumn";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { buttonVariants } from "@/components/ui/button";
@@ -51,7 +52,7 @@ function PublicProfileAffiliations({
   if (!hasContent) return null;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="glass-panel flex flex-col gap-4 rounded-[var(--radius-md)] p-4">
       {sociumRoleLabels.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Socium roles</h2>
@@ -91,7 +92,7 @@ function PublicProfileAffiliations({
         </div>
       )}
       {qualityScores && (
-        <div className="glass-panel rounded-[var(--radius-md)] p-4 text-sm">
+        <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-4 text-sm">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
             Self-government quality score
           </h2>
@@ -133,14 +134,14 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
   const publishedItems = canPublishCommunityContent(publicUser)
     ? await AuthDomain.getPublishedContentForUser(userId)
     : [];
-  const openTaskCount = await TaskDomain.countOpenTasksForUser(userId);
+  const taskSnapshot = await TaskDomain.getProfileTaskSnapshot(userId);
 
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile}
       className="items-center p-6"
     >
-      <div className="glass-panel flex w-full flex-col gap-4 rounded-[var(--radius-lg)] p-6">
+      <div className="glass-panel flex w-full flex-col gap-5 rounded-[var(--radius-lg)] p-6">
         {profile.isSelf && (
           <div className="flex justify-end">
             <Link href="/profile" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
@@ -148,7 +149,7 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
             </Link>
           </div>
         )}
-        <ProfileHero user={profile} showSettingsLink={profile.isSelf} />
+        <ProfileHero user={profile} showSettingsLink={profile.isSelf} isSelf={profile.isSelf} />
         <ProfileAboutSection about={profile.about} socialLinks={profile.socialLinks} />
         <PublicProfileAffiliations
           sociumRoleLabels={profile.sociumRoleLabels}
@@ -160,14 +161,25 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
         <ProfileStatsRow
           stats={[
             { label: "Stars", value: profile.stars },
-            { label: "Tasks", value: openTaskCount },
+            { label: "Tasks", value: taskSnapshot.openCount },
             { label: "Warnings", value: `${profile.warnings}/3` },
             ...(profile.qualityScores
               ? [{ label: "Quality", value: `${profile.qualityScores.averageScore}/100` }]
               : []),
           ]}
         />
-        <ProfileTasksPanel userId={userId} readOnly={!profile.isSelf} />
+        <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:items-start">
+          <ProfileTasksPanel
+            userId={userId}
+            readOnly={!profile.isSelf}
+            initialOpenByStatus={taskSnapshot.openByStatus}
+          />
+          <ProfileActivityColumn
+            displayName={profile.fullName}
+            snapshot={taskSnapshot}
+            isSelf={profile.isSelf}
+          />
+        </div>
       </div>
     </StaticPageShell>
   );

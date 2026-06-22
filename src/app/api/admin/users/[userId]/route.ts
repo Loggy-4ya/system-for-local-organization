@@ -16,6 +16,9 @@ import type { IUser } from "@shared/models/User";
 import {
   adminUserUpdateSchema,
   DIRECTORY_ERROR_CODES,
+  DIRECTORY_ERROR_MESSAGES,
+  directoryErrorFieldErrors,
+  type DirectoryErrorCode,
 } from "@shared/validation/userDirectorySchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import {
@@ -142,12 +145,15 @@ export async function PATCH(
     }
 
     if (message in DIRECTORY_ERROR_CODES) {
+      const code = message as DirectoryErrorCode;
       let status = 403;
       if (message === "USER_NOT_FOUND") status = 404;
       if (
         message === "SELF_MODIFICATION_FORBIDDEN" ||
         message === "LEVEL_NOT_ASSIGNABLE" ||
-        message === "PERMISSION_NOT_DELEGATABLE"
+        message === "PERMISSION_NOT_DELEGATABLE" ||
+        message === "PROFILE_PHONE_REQUIRED" ||
+        message === "PROFILE_AVATAR_REQUIRED"
       ) {
         status = 400;
       }
@@ -163,7 +169,15 @@ export async function PATCH(
         );
       }
 
-      return NextResponse.json({ error: message, code: message }, { status });
+      const fieldErrors = directoryErrorFieldErrors(code);
+      return NextResponse.json(
+        {
+          error: DIRECTORY_ERROR_MESSAGES[code] ?? message,
+          code: message,
+          ...(fieldErrors ? { fieldErrors } : {}),
+        },
+        { status },
+      );
     }
 
     console.error("[API /api/admin/users/[userId] PATCH]", err);

@@ -64,6 +64,12 @@ export interface IPage extends Document {
   /** Hero/cover image URL (`/uploads/page-covers/…`) — distinct from page background. */
   coverImage: string;
 
+  /**
+   * Additional publication gallery images (`image2`–`image4` variables).
+   * Primary cover remains {@link coverImage} (`image1`).
+   */
+  galleryImages: string[];
+
   /** Original author — set on first save; only admins may reassign. */
   authorUserId?: Types.ObjectId;
 
@@ -148,6 +154,10 @@ const PageSchema = new Schema<IPage>(
       type: String,
       default: "",
       trim: true,
+    },
+    galleryImages: {
+      type: [String],
+      default: () => [],
     },
     authorUserId: {
       type: Schema.Types.ObjectId,

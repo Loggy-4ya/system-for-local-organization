@@ -6,12 +6,19 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { OAUTH_LINK_USER_COOKIE } from "@/lib/oauthLinkCookie";
+import { FormAlert } from "@/components/ui/form-alert";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
+import { normalizeTelegramBotUsername } from "@shared/lib/telegramBotUsername";
+import { devAuthNeedsHttpsTunnel, DEV_AUTH_TUNNEL_HINT } from "@shared/lib/devAuthTunnelHint";
+import {
+  isTelegramWebAppClient,
+  mountTelegramLoginWidget,
+} from "@/lib/telegramLoginWidget";
+import { TelegramWebAppAuthButton } from "@/components/telegram/TelegramWebAppAuthButton";
+import { NEXUS_TELEGRAM_WEBAPP_READY_EVENT } from "@/components/telegram/TelegramWebAppViewportHost";
 
 /** Props for {@link OAuthButtonRow}. */
 export interface OAuthButtonRowProps {
@@ -31,7 +38,7 @@ declare global {
 }
 
 /**
- * Row of third-party sign-in options: Google, Apple, and Telegram Login Widget.
+ * Row of third-party sign-in options: Telegram (widget or Mini App button).
  *
  * @param props - See {@link OAuthButtonRowProps}.
  * @returns OAuth button row JSX.
@@ -42,31 +49,43 @@ export function OAuthButtonRow({
 }: OAuthButtonRowProps) {
   const router = useRouter();
   const telegramRef = useRef<HTMLDivElement>(null);
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
-
-  /**
-   * Set a short-lived cookie so Auth.js merges OAuth into the signed-in account.
-   *
-   * @param userId - MongoDB user id to link.
-   */
-  const setOAuthLinkCookie = useCallback((userId: string) => {
-    document.cookie = `${OAUTH_LINK_USER_COOKIE}=${encodeURIComponent(userId)}; path=/; max-age=300; samesite=lax`;
-  }, []);
-
-  /**
-   * Start OAuth sign-in, optionally linking to an existing account.
-   *
-   * @param provider - Auth.js provider id.
-   */
-  const handleOAuthSignIn = useCallback(
-    (provider: "google" | "apple") => {
-      if (linkUserId) {
-        setOAuthLinkCookie(linkUserId);
-      }
-      void signIn(provider, { callbackUrl });
-    },
-    [callbackUrl, linkUserId, setOAuthLinkCookie],
+  const botUsername = normalizeTelegramBotUsername(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
+  const [needsTunnel, setNeedsTunnel] = useState(false);
+  /** `unknown` until the WebApp SDK loads or times out — avoids mounting the Login Widget in Telegram. */
+  const [telegramContext, setTelegramContext] = useState<"unknown" | "mini-app" | "browser">(
+    "unknown",
   );
+
+  useEffect(() => {
+    const detectTelegramContext = () => {
+      setNeedsTunnel(
+        devAuthNeedsHttpsTunnel(window.location.protocol, window.location.hostname),
+      );
+      if (isTelegramWebAppClient()) {
+        setTelegramContext("mini-app");
+        return;
+      }
+      if (window.Telegram !== undefined) {
+        setTelegramContext("browser");
+      }
+    };
+
+    const onTelegramSdkReady = () => {
+      setTelegramContext(isTelegramWebAppClient() ? "mini-app" : "browser");
+    };
+
+    detectTelegramContext();
+    window.addEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, onTelegramSdkReady);
+
+    const browserFallbackTimer = window.setTimeout(() => {
+      setTelegramContext((current) => (current === "unknown" ? "browser" : current));
+    }, 1500);
+
+    return () => {
+      window.removeEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, onTelegramSdkReady);
+      window.clearTimeout(browserFallbackTimer);
+    };
+  }, []);
 
   /**
    * Handle Telegram widget callback — verify server-side then bridge to session.
@@ -114,23 +133,17 @@ export function OAuthButtonRow({
   useEffect(() => {
     window.onTelegramAuth = handleTelegramAuth;
 
-    if (!botUsername || !telegramRef.current) return;
+    if (!botUsername || !telegramRef.current || telegramContext !== "browser") return;
 
-    telegramRef.current.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "medium");
-    script.setAttribute("data-radius", "8");
-    script.setAttribute("data-onauth", "onTelegramAuth(user)");
-    script.setAttribute("data-request-access", "write");
-    telegramRef.current.appendChild(script);
+    mountTelegramLoginWidget(telegramRef.current, {
+      botUsername,
+      onAuthCallbackName: "onTelegramAuth",
+    });
 
     return () => {
       delete window.onTelegramAuth;
     };
-  }, [botUsername, handleTelegramAuth]);
+  }, [botUsername, handleTelegramAuth, telegramContext]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -140,32 +153,44 @@ export function OAuthButtonRow({
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          onClick={() => handleOAuthSignIn("google")}
-        >
-          Google
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          onClick={() => handleOAuthSignIn("apple")}
-        >
-          Apple
-        </Button>
+      <div className="flex flex-wrap items-stretch gap-2">
+        {telegramContext === "mini-app" && !linkUserId ? (
+          <TelegramWebAppAuthButton
+            callbackUrl={callbackUrl}
+            label="Telegram"
+            variant="outline"
+            fullWidth={false}
+            showIcon={false}
+            className="min-w-[calc(50%-0.25rem)] flex-1"
+          />
+        ) : null}
+
+        {botUsername && telegramContext === "browser" ? (
+          <div
+            ref={telegramRef}
+            className="flex min-w-[calc(50%-0.25rem)] flex-1 items-center justify-center"
+          />
+        ) : null}
       </div>
 
-      {botUsername ? (
-        <div ref={telegramRef} className="flex justify-center" />
-      ) : (
+      {needsTunnel ? (
+        <FormAlert variant="info" title="HTTPS tunnel required">
+          {DEV_AUTH_TUNNEL_HINT}
+        </FormAlert>
+      ) : null}
+
+      {telegramContext === "mini-app" && linkUserId ? (
+        <FormAlert variant="info" title="Link Telegram in the bot">
+          Open Nexus from your bot chat to link Telegram automatically, or use the Login Widget in a
+          regular browser tab.
+        </FormAlert>
+      ) : null}
+
+      {telegramContext === "browser" && !botUsername ? (
         <p className="text-center text-xs text-[var(--color-text-secondary)]">
           Telegram sign-in unavailable (bot not configured)
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

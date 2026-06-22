@@ -18,9 +18,9 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { RoleChipGroup } from "@/components/auth/RoleChipGroup";
 import { clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
-import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_MEMBER_PROFILE_HINT } from "@shared/lib/userProfileCompleteness";
+import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_MEMBER_PROFILE_HINT, SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT } from "@shared/lib/userProfileCompleteness";
 import { useContentPolicyFields } from "@/lib/useContentPolicyField";
-import { filterPhoneInputChange, phoneInputProps } from "@/lib/phoneInputProps";
+import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
 import { AvatarImageField } from "@/components/media/AvatarImageField";
 import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
 import { TaskChannelToggleGroup } from "@/components/tasks/TaskChannelToggleGroup";
@@ -36,6 +36,8 @@ export interface ProfileSettingsFormProps {
   user: PublicUser;
   /** When true, enforces OAuth onboarding required fields and consent. */
   onboardingMode?: boolean;
+  /** When true, member must link Telegram before using member tools. */
+  memberTelegramOnboardingMode?: boolean;
 }
 
 /**
@@ -44,7 +46,11 @@ export interface ProfileSettingsFormProps {
  * @param props - Initial user data from server.
  * @returns Settings form JSX.
  */
-export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSettingsFormProps) {
+export function ProfileSettingsForm({
+  user,
+  onboardingMode = false,
+  memberTelegramOnboardingMode = false,
+}: ProfileSettingsFormProps) {
   const router = useRouter();
   const siteProfile = useOptionalSiteProfile();
 
@@ -125,6 +131,9 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
     telegramId: user.telegramId,
   });
 
+  const showMemberTelegramConnect =
+    (memberTelegramOnboardingMode || (telegramRequired && !user.telegramId)) && !onboardingMode;
+
   const membershipProfileRequired = avatarRequired || phoneRequired || telegramRequired;
 
   /**
@@ -165,12 +174,6 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
 
     if (avatarRequired && !avatar.trim()) {
       setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
-      setError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
-      return;
-    }
-
-    if (telegramRequired && !user.telegramId) {
-      setFieldErrors({ telegramAuth: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
       setError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
       return;
     }
@@ -309,9 +312,13 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
           <Input
             id="settings-phone"
             {...phoneInputProps}
-            placeholder="+380 XX XXX XX XX"
+            placeholder={phoneInputPlaceholder}
             value={phone}
             onChange={(e) => setPhone(filterPhoneInputChange(e.target.value))}
+            onBlur={() => {
+              const corrected = autocorrectPhoneFieldValue(phone);
+              if (corrected !== phone) setPhone(corrected);
+            }}
             required={membershipProfileRequired || onboardingMode}
           />
         </FormField>
@@ -514,6 +521,19 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
         </section>
       ) : null}
 
+      {showMemberTelegramConnect ? (
+        <section className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--color-accent-warning,#f59e0b)]/40 p-4">
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">Telegram required</h2>
+          <p className="text-sm text-(--color-text-secondary)">
+            {SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT}
+          </p>
+          <OAuthButtonRow
+            callbackUrl="/profile/settings?onboarding=member-telegram"
+            linkUserId={user.id}
+          />
+        </section>
+      ) : null}
+
       {onboardingMode && (
         <section className="flex flex-col gap-2">
           <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-secondary)">
@@ -581,16 +601,18 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
               selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
               telegramId: user.telegramId,
             })
-              ? "Telegram is required for self-government members and membership applicants."
+              ? "Telegram is required for self-government members."
               : "Set a password or link Google/Apple before unlinking Telegram."}
           </p>
         )}
-        {!user.googleId && (
+        {!user.telegramId && !showMemberTelegramConnect && (
           <p className="text-xs text-(--color-text-secondary)">
-            Link Google to add your verified email address to this account.
+            Use the Telegram button below to link your account (Login Widget in browser).
           </p>
         )}
-        <OAuthButtonRow callbackUrl="/profile/settings" linkUserId={user.id} />
+        {!showMemberTelegramConnect ? (
+          <OAuthButtonRow callbackUrl="/profile/settings" linkUserId={user.id} />
+        ) : null}
       </section>
       )}
 
@@ -606,7 +628,7 @@ export function ProfileSettingsForm({ user, onboardingMode = false }: ProfileSet
       )}
 
       <Button type="submit" disabled={loading} className="w-full md:w-auto">
-        {loading ? "Saving…" : onboardingMode ? "Save and continue" : "Save changes"}
+        {loading ? "Saving…" : onboardingMode ? "Save and continue" : memberTelegramOnboardingMode ? "Save profile" : "Save changes"}
       </Button>
     </form>
   );

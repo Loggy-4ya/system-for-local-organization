@@ -51,6 +51,7 @@ import {
   UserPublishedContent,
 } from "@shared/models/UserEngagement";
 import { applyProfilePatchToUser, type ProfileUpdateInput } from "@shared/lib/userProfilePatch";
+import { assertDirectoryMemberProfileRequirements } from "@shared/lib/userProfileCompleteness";
 import { DEFAULT_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
 import {
   clampListPageSize,
@@ -525,38 +526,8 @@ export class AccessControlDomain {
     }
 
     const profilePatch = extractAdminProfilePatch(patch as Record<string, unknown>);
-    if (profilePatch) {
-      if (!canActorEditProfile(actorSlice, targetSlice, settings)) {
-        throw new Error("PROFILE_EDIT_FORBIDDEN");
-      }
-      if (profilePatch.specialty !== undefined || profilePatch.group !== undefined) {
-        await AccessControlDomain.ensureAdminAcademicCatalogEntries(
-          profilePatch,
-          actor._id.toString(),
-        );
-      }
-      applyProfilePatchToUser(target, profilePatch);
-    }
 
-    // 2. Level change
-    if (patch.accessLevelIndex !== undefined) {
-      const newLevel = patch.accessLevelIndex as AccessLevelIndex;
-      if (!canActorAssignAccessLevel(actorSlice, targetSlice, newLevel, settings)) {
-        throw new Error("LEVEL_NOT_ASSIGNABLE");
-      }
-      target.accessLevelIndex = newLevel;
-
-      // Sync legacy role field for backward compatibility
-      let newRole: UserRole = "Student";
-      if (newLevel === 0) {
-        newRole = "Admin";
-      } else if (newLevel === 1 || newLevel === 2) {
-        newRole = "StudentCouncil";
-      }
-      target.role = newRole;
-    }
-
-    // 3. Socium Roles change
+    // 2. Socium roles — apply before profile patch so phone/avatar guards see final roles.
     if (patch.sociumRoles !== undefined) {
       if (!canActorAssignSociumRoles(actorSlice, targetSlice, settings)) {
         throw new Error("ROLE_ASSIGNMENT_FORBIDDEN");
@@ -573,6 +544,37 @@ export class AccessControlDomain {
         return role;
       });
       target.sociumRoles = stampedRoles;
+    }
+
+    if (profilePatch) {
+      if (!canActorEditProfile(actorSlice, targetSlice, settings)) {
+        throw new Error("PROFILE_EDIT_FORBIDDEN");
+      }
+      if (profilePatch.specialty !== undefined || profilePatch.group !== undefined) {
+        await AccessControlDomain.ensureAdminAcademicCatalogEntries(
+          profilePatch,
+          actor._id.toString(),
+        );
+      }
+      applyProfilePatchToUser(target, profilePatch);
+    }
+
+    // 3. Level change
+    if (patch.accessLevelIndex !== undefined) {
+      const newLevel = patch.accessLevelIndex as AccessLevelIndex;
+      if (!canActorAssignAccessLevel(actorSlice, targetSlice, newLevel, settings)) {
+        throw new Error("LEVEL_NOT_ASSIGNABLE");
+      }
+      target.accessLevelIndex = newLevel;
+
+      // Sync legacy role field for backward compatibility
+      let newRole: UserRole = "Student";
+      if (newLevel === 0) {
+        newRole = "Admin";
+      } else if (newLevel === 1 || newLevel === 2) {
+        newRole = "StudentCouncil";
+      }
+      target.role = newRole;
     }
 
     // 4. Affiliations change (activities & organizations)
@@ -600,6 +602,8 @@ export class AccessControlDomain {
       }
       target.delegatedPermissions = patch.delegatedPermissions;
     }
+
+    assertDirectoryMemberProfileRequirements(target);
 
     await target.save();
 

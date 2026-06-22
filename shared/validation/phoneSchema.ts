@@ -4,6 +4,9 @@
  * Strips markup and non-telephone characters before persistence so stored values
  * cannot carry HTML/script payloads even when validation is bypassed.
  *
+ * Autocorrect is region-agnostic: values are sanitized and canonicalized to `+<digits>`
+ * without assuming a default country calling code.
+ *
  * @module shared/validation/phoneSchema
  *
  * Tests: `npm run test:phone-schema`
@@ -28,10 +31,14 @@ const PHONE_FORMAT_SCHEMA = z
     "Use digits with optional + prefix (spaces and dashes allowed).",
   );
 
+/** Minimum and maximum inclusive digit counts for stored international numbers. */
+const PHONE_MIN_DIGITS = 7;
+const PHONE_MAX_DIGITS = 15;
+
 /**
  * Strip markup, control characters, and any non-telephone symbols from raw input.
  *
- * Used by {@link normalizePhoneInput} (server persistence) and
+ * Used by {@link autocorrectPhoneInput}, {@link normalizePhoneInput}, and
  * {@link filterPhoneInputChange} (client controlled inputs).
  *
  * @param raw - User-typed or pasted phone string.
@@ -56,19 +63,37 @@ export function filterPhoneInputChange(raw: string): string {
 }
 
 /**
- * Normalize a phone string for storage — trim, strip unsafe chars, collapse whitespace.
+ * Autocorrect dial strings to canonical `+<digits>` E.164-style storage.
+ *
+ * Region-agnostic: strips formatting and ensures a leading `+` without inferring
+ * a local country calling code. Live typing uses {@link filterPhoneInputChange} only;
+ * call this on blur and before persistence.
  *
  * @param raw - User input.
- * @returns Normalized phone or null when empty.
+ * @returns Canonical `+<digits>` string, or null when no dialable number remains.
  */
-export function normalizePhoneInput(raw: string | null | undefined): string | null {
+export function autocorrectPhoneInput(raw: string | null | undefined): string | null {
   if (raw == null) return null;
+
   const stripped = stripPhoneInputToAllowedChars(raw.trim());
   if (stripped === "") return null;
-  const normalized = stripped.replace(/\s+/g, " ");
-  const digitCount = normalized.replace(/\D/g, "").length;
-  if (digitCount === 0) return null;
-  return normalized;
+
+  const digits = stripped.replace(/\D/g, "");
+  if (digits.length < PHONE_MIN_DIGITS || digits.length > PHONE_MAX_DIGITS) {
+    return null;
+  }
+
+  return `+${digits}`;
+}
+
+/**
+ * Normalize a phone string for storage — sanitize, autocorrect, and canonicalize to `+<digits>`.
+ *
+ * @param raw - User input.
+ * @returns Normalized phone or null when empty / undialable.
+ */
+export function normalizePhoneInput(raw: string | null | undefined): string | null {
+  return autocorrectPhoneInput(raw);
 }
 
 /**

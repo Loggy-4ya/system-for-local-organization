@@ -166,7 +166,7 @@ The user directory at `/admin/users` allows authorized actors to view and search
 |---------|-----------|-------|
 | Profile header | Shell | Avatar, name, academic line, access level label; legacy Admin **View audit log** link |
 | Action toolbar | `AdminEditorActionToolbar` | Single-row Reset / Save / Delete; icon-only below `sm`; sticky bottom bar below `lg` on phone |
-| Academic assignment + contact | `UserDirectoryProfileFields` | Editable specialty, group, phone |
+| Academic assignment + contact | `UserDirectoryProfileFields` | Editable specialty, group, phone; inline validation when self-government socium roles require phone |
 | **Personal fields** | `UserDirectoryPersonalFields` | Read-only identity grid (login, email, phone, Telegram, OAuth) + `UserDirectorySocialLabelsEditor` (nested) |
 | Hierarchy | Shell | `PuckSelectField` for `accessLevelIndex` |
 | Delegated permissions | Shell | Checkbox grid when `canDelegate` |

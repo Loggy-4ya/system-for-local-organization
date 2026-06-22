@@ -17,6 +17,7 @@ export const EMPTY_PAGE_EDITOR_META: PageMetadataDto = {
   categories: [],
   description: "",
   coverImage: "",
+  galleryImages: [],
   authorUserId: null,
   authorDisplayName: null,
   publishAt: null,

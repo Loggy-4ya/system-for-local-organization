@@ -33,6 +33,7 @@ import { NexusCarousel } from "./blocks/content/NexusCarousel";
 import { NexusInput } from "./blocks/content/NexusInput";
 
 import { NexusNewsCard } from "./blocks/news/NexusNewsCard";
+import { NexusNewsCatalog } from "./blocks/news/NexusNewsCatalog";
 
 import { NexusUserBadge } from "./blocks/user/NexusUserBadge";
 import { NexusStatCard } from "./blocks/user/NexusStatCard";
@@ -134,6 +135,7 @@ export const puckConfig = {
     NexusInput: shellBlock("NexusInput", NexusInput as any),
 
     NexusNewsCard: shellBlock("NexusNewsCard", NexusNewsCard as any),
+    NexusNewsCatalog: shellBlock("NexusNewsCatalog", NexusNewsCatalog as any),
 
     NexusUserBadge: shellBlock("NexusUserBadge", NexusUserBadge as any),
     NexusStatCard: shellBlock("NexusStatCard", NexusStatCard as any),
@@ -169,7 +171,7 @@ export const puckConfig = {
     news: {
       title: "News & Cards",
       defaultExpanded: false,
-      components: ["NexusNewsCard"],
+      components: ["NexusNewsCard", "NexusNewsCatalog"],
     },
     user: {
       title: "User & Data",

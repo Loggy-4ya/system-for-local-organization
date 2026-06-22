@@ -46,9 +46,10 @@ interface PageRootBodyProps extends PageRootProps {
 /**
  * Shared PageRoot layout — background, optional editor chrome, and content gutter.
  *
- * Site-default grid is the global `InfiniteGrid` in root layout (`#nexus-bg`), not here.
- * Edit layout uses content-sized height so the canvas scrollport tracks blocks, not viewport fill.
- * `NexusPuckZoomGuard` syncs Puck `rootHeight` reactively via `previewContentHeight.ts`.
+ * Site-default background uses the global layout {@link LayoutInfiniteGrid} (`#nexus-bg`) only.
+ * PageRoot stays transparent so the grid shows through the Puck preview iframe and published pages.
+ * Edit layout uses content-sized height; `NexusPuckZoomGuard` syncs Puck `rootHeight` via
+ * `previewContentHeight.ts`.
  *
  * Tests: `tests/puck/lib/previewContentHeight.test.ts` — `npm run test:preview-content-height`
  *
@@ -76,6 +77,7 @@ function PageRootBody({ children, showEditorBackground, ...props }: PageRootBody
     bgStyles.backgroundRepeat = "no-repeat";
   } else {
     bgStyles.background = "transparent";
+    bgStyles.backgroundColor = "transparent";
   }
 
   return (
@@ -135,7 +137,9 @@ function PageRootRender(props: PageRootProps) {
   const insidePuckEditorShell = useInsidePuckEditorShell();
   const showEditorBackground = isPuckEditMode || isNexusEditorCanvas || insidePuckEditorShell;
 
-  return <PageRootBody {...props} showEditorBackground={showEditorBackground} />;
+  return (
+    <PageRootBody {...props} showEditorBackground={showEditorBackground} />
+  );
 }
 
 export const PageRoot = {

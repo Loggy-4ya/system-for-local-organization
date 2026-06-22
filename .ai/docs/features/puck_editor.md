@@ -134,10 +134,13 @@ Root-level blocks use the **`sm`** token. Changing `--spacing-sm` updates new in
 ## 4. Editor Background Transparency
 
 To ensure the editor canvas matches the live site exactly:
-- **`src/app/puck-editor.css`** — Overrides Puck's default opaque canvas and preview backgrounds to `transparent`.
-- **Root Background Picker** — Added `background` (site-default, solid, custom-image) to Puck's root metadata fields.
-- **`PageRoot.tsx`** — Renders page background (solid / custom image / transparent for site-default). **Single grid:** root `layout.tsx` `InfiniteGrid` (`#nexus-bg`) — never duplicated in the preview iframe or Puck scrollport.
-- **Grid motion** (`backgroundGridMotion`) defaults to **Dynamic** (scrolling tiles + cursor spotlight); pages may opt into **Static** (frozen tile offset — ambient blur and cursor glow remain). `infiniteGridMotionEase.ts` ramps scroll speed over ~320ms so toggling does not snap tile offsets. `pageBackgroundGridStore.ts` syncs the active Puck page into layout `LayoutInfiniteGrid` → `InfiniteGrid.isStatic`.
+- **Single grid rule** — only `LayoutInfiniteGrid` (`#nexus-bg`) in root `layout.tsx`. No shell scrollport grid, no iframe-contained grid.
+- **`src/app/puck-editor.css`** — Overrides Puck's opaque canvas and preview backgrounds to `transparent` (including `html:has(.Puck)` rules that beat Puck 0.21 module CSS).
+- **`NexusPuckCanvasTransparencyEnforcer.tsx`** — Inline `background: transparent !important` on canvas shell, preview frame, and iframe after Puck paints.
+- **`PuckIframeTheme.tsx`** — Re-applies iframe document transparency after `CopyHostStyles` clones host stylesheets; forwards preview iframe `pointermove` to the global grid cursor spotlight.
+- **`NexusEditorScrollportGrid.tsx`** — Compact layout CSS var sync only (nav rail height, canvas island stack); does not mount InfiniteGrid.
+- **Root Background Picker** — `background` (site-default, solid, custom-image). Site-default leaves PageRoot transparent for global grid bleed-through.
+- **Grid motion** (`backgroundGridMotion`) syncs via `pageBackgroundGridStore.ts` into the single layout `InfiniteGrid.isStatic`.
 
 ---
 
@@ -153,6 +156,7 @@ The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. Th
 | `src/components/puck/EditorModeToggle.tsx` | Edit vs Interactive preview toggle in Puck `headerActions` |
 | `src/components/puck/NexusEditorCanvasContext.tsx` | Marks Puck editor canvas so `PageRoot` keeps grid + header in interactive preview |
 | `src/components/puck/PuckIframeTheme.tsx` | Puck `iframe` override — sets `data-theme` and injects Nexus CSS variables into the preview iframe |
+| `src/components/puck/PuckAutoFrameStylesheetRejectionGuard.tsx` | Swallows benign DOM `Event` rejections when Puck `AutoFrame` fails to clone a host `<link rel="stylesheet">` (console may still log `AutoFrame couldn't load a stylesheet`; tokens come from `PuckIframeTheme`) |
 | `src/app/puck-editor.css` | Remaps Puck's internal `--puck-color-*` palette when `[data-theme="dark"]` so sidebars/fields stay readable |
 
 **Data flow:** `ThemeProvider` (`layout.tsx`) → `useTheme()` → `ThemeToggle` updates `<html data-theme>` → `PuckIframeTheme` mirrors the attribute inside the preview iframe so block text (`var(--color-text-primary)`) contrasts correctly on light or dark backgrounds.
@@ -204,7 +208,7 @@ On the **preview canvas**, drag an existing block by its overlay handle and drop
 
 **Auto viewport:** On **Full-width**, canvas preview width follows measured canvas frame width when the frame is wider than a fixed preset. **Phone / Tablet / Desktop** presets stay selected; auto-sync does not replace them with full-width.
 
-**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` via `floorLetterboxDevicePreviewZoom`: when the canvas frame is **wider** than the preset, auto-fit zoom scales up moderately (capped at **1.42×**, targeting **72%** of frame width) so narrow phone presets fill the canvas without overshooting; when the frame is **narrower** (phones, tablets, DevTools), Puck **shrink-to-fit** scales the preview down so the full device width stays visible without horizontal clipping. `canvasLetterboxScrollport.ts` expands the inner scrollport and chains wheel events to the canvas shell when scaled previews overflow vertically. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking. **Edit-mode canvas bounds:** `PageRoot` stays content-sized; `previewContentHeight.ts` syncs Puck `rootHeight` to block intrinsic height (+ edit-only 48px overlay pad). **Interactive preview** locks `rootHeight` to the canvas viewport (`shellHeight / zoom`) so tall pages scroll inside the iframe (`overflow-y: auto` via `PuckIframeTheme`) — not via letterbox shell expansion. Letterbox `.PuckCanvas-inner` expansion stays **edit-only**. Tests: `npm run test:preview-content-height`.
+**Device preset scale mode:** Fixed presets change responsive layout inside the preview at the true device width (360 / 768 / 1280). `NexusPuckZoomGuard` via `floorLetterboxDevicePreviewZoom`: when the canvas frame is **wider** than the preset, auto-fit zoom scales up moderately (capped at **1.42×**, targeting **72%** of frame width) so narrow phone presets fill the canvas without overshooting; when the frame is **narrower** (phones, tablets, DevTools), Puck **shrink-to-fit** scales the preview down so the full device width stays visible without horizontal clipping. `canvasLetterboxScrollport.ts` expands the inner scrollport and chains wheel events to the canvas shell when scaled previews overflow vertically. Manual zoom below 100% via the toolbar still works when Puck is not auto-shrinking. **Edit-mode canvas bounds:** `PageRoot` stays content-sized; `previewContentHeight.ts` syncs Puck `rootHeight` to `max(block intrinsic height + edit-only 48px overlay pad, bordered canvas shell viewport)` so sparse pages fill the panel while the InfiniteGrid shows through transparent `#puck-canvas-root` / preview iframe shells (`puck-editor.css` clears Puck 0.21's default white canvas root). **Interactive preview** locks `rootHeight` to the canvas viewport (`shellHeight / zoom`) so tall pages scroll inside the iframe (`overflow-y: auto` via `PuckIframeTheme`) — not via letterbox shell expansion. Letterbox `.PuckCanvas-inner` expansion stays **edit-only**. Tests: `npm run test:preview-content-height`.
 
 **Viewport island:** Canvas device/zoom controls styled as a Nexus glass pill. **Desktop collapsed:** preset FAB in the **top-right** of the canvas. **Desktop expanded:** pill **horizontally centered** with the **close (X) on the left**. **Compact:** collapsed FAB bottom-right; expanded pill bottom-center (panel closed) or top-center (panel open). Tap FAB to expand, X to close.
 

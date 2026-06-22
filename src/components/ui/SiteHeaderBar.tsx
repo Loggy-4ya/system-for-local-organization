@@ -227,7 +227,7 @@ export function SiteHeaderBar({
         <div className="flex w-full min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Link
-              href="/"
+              href="/pages/categories"
               aria-label="Nexus home"
               className="site-header-bar__logo inline-flex shrink-0 items-center no-underline"
               onClick={blockPreviewNavigation}

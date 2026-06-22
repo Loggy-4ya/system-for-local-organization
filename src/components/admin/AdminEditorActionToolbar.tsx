@@ -14,14 +14,33 @@ import { Loader2, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+/**
+ * Invoke an editor action handler and absorb async rejections so click handlers
+ * never surface as unhandled promise rejections in Next.js devtools.
+ *
+ * @param action - Sync or async handler from the toolbar.
+ */
+function invokeEditorAction(action: () => void | Promise<void>): void {
+  try {
+    const result = action();
+    if (result instanceof Promise) {
+      void result.catch((error: unknown) => {
+        console.error(error);
+      });
+    }
+  } catch (error: unknown) {
+    console.error(error);
+  }
+}
+
 /** Props for {@link AdminEditorActionToolbar}. */
 export interface AdminEditorActionToolbarProps {
   /** Called when Reset is pressed. */
   onReset: () => void;
   /** Called when Save is pressed. */
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
   /** Called when Delete is pressed; when omitted, Delete is hidden. */
-  onDelete?: () => void;
+  onDelete?: () => void | Promise<void>;
   /** Disables Reset. */
   resetDisabled?: boolean;
   /** Disables Save. */
@@ -82,7 +101,7 @@ export function AdminEditorActionToolbar({
 
       <Button
         type="button"
-        onClick={onSave}
+        onClick={() => invokeEditorAction(onSave)}
         disabled={saveDisabled || isSaving || isDeleting}
         className={cn(buttonClass, useEditorButtonStyle && "shadow-md")}
         aria-label="Save changes"
@@ -99,7 +118,7 @@ export function AdminEditorActionToolbar({
         <Button
           type="button"
           variant="destructive"
-          onClick={onDelete}
+          onClick={() => invokeEditorAction(onDelete)}
           disabled={deleteDisabled || isSaving || isDeleting}
           className={buttonClass}
           aria-label="Delete account"

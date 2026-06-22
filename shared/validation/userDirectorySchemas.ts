@@ -8,6 +8,10 @@
  */
 
 import { z } from "zod";
+import {
+  PROFILE_PHONE_REQUIRED_ERROR,
+  SELF_GOVERNMENT_APPLICATION_FIELD_ERROR,
+} from "@shared/lib/userProfileCompleteness";
 import { ALL_PERMISSION_KEYS } from "@shared/constants/accessControl";
 import { DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
 import {
@@ -178,6 +182,8 @@ export const DIRECTORY_ERROR_CODES = {
   ROLE_ASSIGNMENT_FORBIDDEN: "ROLE_ASSIGNMENT_FORBIDDEN",
   AFFILIATION_ASSIGNMENT_FORBIDDEN: "AFFILIATION_ASSIGNMENT_FORBIDDEN",
   PROFILE_EDIT_FORBIDDEN: "PROFILE_EDIT_FORBIDDEN",
+  PROFILE_PHONE_REQUIRED: "PROFILE_PHONE_REQUIRED",
+  PROFILE_AVATAR_REQUIRED: "PROFILE_AVATAR_REQUIRED",
   USER_DELETE_FORBIDDEN: "USER_DELETE_FORBIDDEN",
   LAST_SYSTEM_ADMIN_DELETE_FORBIDDEN: "LAST_SYSTEM_ADMIN_DELETE_FORBIDDEN",
   SPECIALTY_NOT_APPROVED: "SPECIALTY_NOT_APPROVED",
@@ -188,3 +194,41 @@ export const DIRECTORY_ERROR_CODES = {
 } as const;
 
 export type DirectoryErrorCode = keyof typeof DIRECTORY_ERROR_CODES;
+
+/** Human-readable messages for directory mutation error codes. */
+export const DIRECTORY_ERROR_MESSAGES: Record<DirectoryErrorCode, string> = {
+  SELF_MODIFICATION_FORBIDDEN: "You cannot modify your own directory record.",
+  OUTRANK_REQUIRED: "You must outrank the target user to perform this action.",
+  LEVEL_NOT_ASSIGNABLE: "That access level cannot be assigned to this user.",
+  PERMISSION_NOT_DELEGATABLE: "One or more permissions cannot be delegated to this user.",
+  ROLE_ASSIGNMENT_FORBIDDEN: "You cannot assign socium roles to this user.",
+  AFFILIATION_ASSIGNMENT_FORBIDDEN: "You cannot assign affiliations to this user.",
+  PROFILE_EDIT_FORBIDDEN: "You cannot edit this user's profile fields.",
+  PROFILE_PHONE_REQUIRED: PROFILE_PHONE_REQUIRED_ERROR,
+  PROFILE_AVATAR_REQUIRED: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR,
+  USER_DELETE_FORBIDDEN: "You cannot delete this user account.",
+  LAST_SYSTEM_ADMIN_DELETE_FORBIDDEN: "Cannot delete the last system administrator.",
+  SPECIALTY_NOT_APPROVED: "Specialty is not approved.",
+  GROUP_NOT_APPROVED: "Group is not approved.",
+  USER_NOT_FOUND: "User not found.",
+  UNAUTHORIZED: "Unauthorized.",
+  FORBIDDEN: "Forbidden.",
+};
+
+/**
+ * Optional field-level errors for profile validation failures.
+ *
+ * @param code - Directory error code.
+ * @returns Field map when the code maps to a single profile input.
+ */
+export function directoryErrorFieldErrors(
+  code: DirectoryErrorCode,
+): Record<string, string> | undefined {
+  if (code === "PROFILE_PHONE_REQUIRED") {
+    return { phone: DIRECTORY_ERROR_MESSAGES.PROFILE_PHONE_REQUIRED };
+  }
+  if (code === "PROFILE_AVATAR_REQUIRED") {
+    return { avatar: DIRECTORY_ERROR_MESSAGES.PROFILE_AVATAR_REQUIRED };
+  }
+  return undefined;
+}

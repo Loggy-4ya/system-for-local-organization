@@ -13,7 +13,7 @@
   initial-value: 0px;
 }
 
-/* Preview shell — transparent; grid paints inside the preview iframe (all breakpoints). */
+/* Preview shell — transparent; global `#nexus-bg` is the only grid (no shell/iframe duplicate). */
 [class*="Puck__canvas"],
 [class*="Puck__preview"],
 [class*="Puck__page"],
@@ -21,10 +21,12 @@
 [class*="puck-preview"],
 .Puck [class*="PuckCanvas-inner"],
 .Puck [class*="PuckCanvas-root"],
+.Puck #puck-canvas-root,
 .Puck [class*="PuckPreview"],
 .Puck [class*="PuckPreview-frame"],
 .Puck [class*="PuckPreview-frame"] iframe,
 iframe#preview-frame {
+  background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
 }
@@ -284,7 +286,7 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
     width: 0 !important;
   }
 
-  /* Puck canvas — transparent interior; scrollport grid fills letterbox gutters. */
+  /* Canvas shell — bordered frame; global `#nexus-bg` shows through transparent preview layers. */
   .Puck
     [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
       [class*="PuckCanvas-root"]
@@ -395,6 +397,8 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
   }
 
   .Puck [class*="PuckPreview-frame"] {
+    background: transparent !important;
+    background-color: transparent !important;
     border-radius: var(--radius-md);
     display: block;
     height: 100%;
@@ -481,6 +485,8 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
       [class*="PuckCanvas-root"]
     ):not([class*="PuckCanvas-loader"]) {
     backdrop-filter: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
     border: var(--nexus-canvas-chrome-border) !important;
     border-radius: var(--nexus-editor-panel-radius) !important;
     box-shadow: none;
@@ -9238,4 +9244,27 @@ body.nexus-outline-pointer-dragging {
   .nexus-puck-header-actions__error {
     display: none;
   }
+}
+
+/* ── Canvas transparency contract (Puck 0.21 — beats module defaults, last in file) ─ */
+html:has(.Puck) .Puck [class*="PuckLayout-inner"],
+html:has(.Puck) .Puck [class*="PuckLayout"]:not([class*="PuckLayout-inner"]),
+html:has(.Puck) .Puck [class*="PuckCanvas--fullScreen"],
+html:has(.Puck) .Puck [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not([class*="PuckCanvas-root"]):not([class*="PuckCanvas-loader"]),
+html:has(.Puck) .Puck [class*="PuckCanvas-inner"],
+html:has(.Puck) .Puck [class*="PuckCanvas-root"],
+html:has(.Puck) .Puck #puck-canvas-root,
+html:has(.Puck) .Puck [class*="PuckPreview"],
+html:has(.Puck) .Puck [class*="PuckPreview-frame"],
+html:has(.Puck) .Puck iframe#preview-frame,
+html:has(.Puck) iframe#preview-frame {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html:has(.Puck) .nexus-page-stack,
+html:has(.Puck) .nexus-page-stack main {
+  background: transparent !important;
+  background-color: transparent !important;
 }

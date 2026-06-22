@@ -165,11 +165,11 @@ export const telegramWidgetPayloadSchema = z.object({
 });
 
 /**
- * Require phone, avatar URL, and Telegram linkage when applying for self-government at signup.
+ * Require phone and avatar URL when applying for self-government at signup.
  *
  * Profile photo picked before account creation is uploaded after sign-in; the client
- * validates a pending cropped file separately. Telegram is collected via the Login Widget
- * and verified when the account is created.
+ * validates a pending cropped file separately. Telegram is collected after membership
+ * approval, not during application.
  *
  * @param data - Parsed signup object.
  * @param ctx - Zod refinement context.
@@ -179,7 +179,6 @@ function refineSignupSelfGovernmentIntent(
     applyForSelfGovernment: boolean;
     phone: string | null;
     avatar?: string | null;
-    telegramAuth?: TelegramWidgetPayload | null;
   },
   ctx: z.RefinementCtx,
 ): void {
@@ -192,14 +191,6 @@ function refineSignupSelfGovernmentIntent(
       path: ["phone"],
       message:
         phoneResult.error.issues[0]?.message ?? SELF_GOVERNMENT_APPLICATION_FIELD_ERROR,
-    });
-  }
-
-  if (!data.telegramAuth) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["telegramAuth"],
-      message: "Connect your Telegram account to apply for self-government membership.",
     });
   }
 }

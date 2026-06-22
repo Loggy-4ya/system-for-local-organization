@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
 import { loadGridIcon } from "./infiniteGridIconLoader";
+import { syncInfiniteGridWrapperCursor } from "./infiniteGridCursorSync";
 import {
   shouldStopGridMotionLoop,
   stepGridMotionScale,
@@ -280,15 +281,7 @@ export function InfiniteGrid({
      * @param clientY - Pointer Y in the same viewport as `safeWrapper`.
      */
     function applyMaskPosition(clientX: number, clientY: number) {
-      const rect = safeWrapper.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-
-      const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
-      const y = Math.min(Math.max(clientY - rect.top, 0), rect.height);
-      const pctX = ((x / rect.width) * 100).toFixed(2);
-      const pctY = ((y / rect.height) * 100).toFixed(2);
-      safeWrapper.style.setProperty("--mouse-x", `${pctX}%`);
-      safeWrapper.style.setProperty("--mouse-y", `${pctY}%`);
+      syncInfiniteGridWrapperCursor(safeWrapper, clientX, clientY);
     }
 
     /**

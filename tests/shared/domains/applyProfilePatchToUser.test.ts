@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applyProfilePatchToUser } from "@shared/lib/userProfilePatch";
+import { PROFILE_AVATAR_REQUIRED, PROFILE_PHONE_REQUIRED } from "@shared/lib/userProfileCompleteness";
 import type { IUser } from "@shared/models/User";
 
 describe("applyProfilePatchToUser", () => {
@@ -81,7 +82,35 @@ describe("applyProfilePatchToUser", () => {
 
     assert.throws(
       () => applyProfilePatchToUser(user, { avatar: null }),
-      /Complete all required fields for self-government application/,
+      { message: PROFILE_AVATAR_REQUIRED },
+    );
+  });
+
+  it("rejects clearing phone for self-government members", () => {
+    const user = {
+      name: "Member",
+      surname: "Person",
+      specialty: "SE",
+      group: "12",
+      studentTitle: "Neither",
+      phone: "+380501234567",
+      sociumRoles: [
+        {
+          roleKey: "self_government_member",
+          roleLabel: "Member",
+          kind: "self_government_member",
+          source: "admin",
+          assignedAt: new Date(),
+        },
+      ],
+      socialLinks: [],
+      avatar: "/uploads/avatars/member.png",
+      about: null,
+    } as unknown as IUser;
+
+    assert.throws(
+      () => applyProfilePatchToUser(user, { phone: null }),
+      { message: PROFILE_PHONE_REQUIRED },
     );
   });
 });

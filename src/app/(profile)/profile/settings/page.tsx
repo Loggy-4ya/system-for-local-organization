@@ -1,7 +1,8 @@
 /**
  * @fileoverview Profile settings page for editing user information.
  *
- * Supports `?onboarding=1` for first-time OAuth / Telegram profile completion.
+ * Supports `?onboarding=1` for first-time OAuth / Telegram profile completion and
+ * `?onboarding=member-telegram` when a self-government member must link Telegram.
  *
  * @module src/app/(profile)/profile/settings/page
  */
@@ -10,15 +11,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
-import { userNeedsProfileOnboarding } from "@shared/lib/userProfileCompleteness";
+import {
+  getOAuthOnboardingGaps,
+  memberNeedsTelegramLinkage,
+  OAUTH_ONBOARDING_EXTRA_LABELS,
+  PROFILE_FIELD_LABELS,
+  SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT,
+  userNeedsProfileOnboarding,
+} from "@shared/lib/userProfileCompleteness";
 import { ProfileSettingsForm } from "@/components/profile/ProfileSettingsForm";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
-import {
-  getOAuthOnboardingGaps,
-  OAUTH_ONBOARDING_EXTRA_LABELS,
-  PROFILE_FIELD_LABELS,
-} from "@shared/lib/userProfileCompleteness";
 
 /** Props for the settings page (Next.js `searchParams`). */
 interface ProfileSettingsPageProps {
@@ -40,6 +43,9 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
 
   const publicUser = AuthDomain.toPublicUser(user);
   const params = await searchParams;
+  const memberTelegramOnboardingMode = memberNeedsTelegramLinkage(user);
+  const forcedMemberTelegramFlow =
+    params.onboarding === "member-telegram" && memberNeedsTelegramLinkage(user);
   const onboardingMode =
     params.onboarding === "1" || userNeedsProfileOnboarding(user);
 
@@ -54,15 +60,21 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {onboardingMode ? "Complete your profile" : "Profile settings"}
+                {forcedMemberTelegramFlow && !publicUser.telegramId
+                  ? "Connect Telegram"
+                  : onboardingMode
+                    ? "Complete your profile"
+                    : "Profile settings"}
               </h1>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                {onboardingMode
-                  ? "Finish the required details below to use Nexus after signing in with Google, Apple, or Telegram."
-                  : "Update your personal information and preferences."}
+                {forcedMemberTelegramFlow && !publicUser.telegramId
+                  ? SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT
+                  : onboardingMode
+                    ? "Finish the required details below to use Nexus after signing in with Google, Apple, or Telegram."
+                    : "Update your personal information and preferences."}
               </p>
             </div>
-            {!onboardingMode && (
+            {!onboardingMode && !forcedMemberTelegramFlow && (
               <Link
                 href="/profile"
                 className="text-sm text-[var(--color-text-primary)] no-underline hover:underline"
@@ -89,7 +101,11 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
             </section>
           )}
 
-          <ProfileSettingsForm user={publicUser} onboardingMode={onboardingMode} />
+          <ProfileSettingsForm
+            user={publicUser}
+            onboardingMode={onboardingMode}
+            memberTelegramOnboardingMode={memberTelegramOnboardingMode}
+          />
         </div>
       </StaticPageShell>
   );

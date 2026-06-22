@@ -6,7 +6,7 @@
 
 import { headers } from "next/headers";
 import { auth } from "@/auth";
-import { enforceProfileOnboarding } from "@/lib/profileOnboardingGate";
+import { enforceMemberTelegramCompliance, enforceProfileOnboarding } from "@/lib/profileOnboardingGate";
 
 /**
  * Runs the profile onboarding gate on every authenticated page render.
@@ -21,6 +21,7 @@ export async function ProfileOnboardingRedirect() {
 
   const pathname = (await headers()).get("x-pathname") ?? "";
   await enforceProfileOnboarding(session.user.id, pathname);
+  await enforceMemberTelegramCompliance(session.user.id, pathname);
 
   return null;
 }

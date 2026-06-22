@@ -54,6 +54,7 @@ Imports in test files use the same `@/` and `@shared/` path aliases as applicati
 | `npm run test:preview-iframe-composite` | `tests/puck/lib/previewIframeShellComposite.test.ts` | `previewIframeShellComposite.ts`, `infiniteGridIconLoader.ts` | WebKit/Safari user-agent probe for iframe-contained edit grid compositing fallback. |
 | `npm run test:preview-iframe-grid-backing` | `tests/puck/lib/previewIframeGridBacking.test.ts` | `previewIframeGridBacking.ts` | `isInsidePuckEditorShell` — Puck shell detection (no duplicate iframe grids). |
 | `npm run test:desktop-letterbox-zoom` | `tests/puck/lib/desktopLetterboxZoom.test.ts` | `sanitizePuckZoomConfig.ts` | Fixed presets shrink-to-fit when canvas is narrower than preset; moderate scale-up (capped) when frame is wider (letterbox). |
+| `npm run test:viewport-zoom-label` | `tests/puck/lib/formatViewportZoomLabel.test.ts` | `formatViewportZoomLabel.ts` | Viewport zoom trigger shows **Auto** for Puck auto-fit values (100% default + shrink-to-fit `(Auto)` options); manual picks stay as percentages. |
 | `npm run test:canvas-letterbox-scrollport` | `tests/puck/lib/canvasLetterboxScrollport.test.ts` | `canvasLetterboxScrollport.ts`, `letterboxScrollportLogic.ts` | Shell overflow detection, iframe→shell wheel chaining, letterbox expand hysteresis (config height over clipped DOM). |
 | `npm run test:resolve-auto-viewport` | `tests/puck/lib/resolveAutoViewport.test.ts` | `resolveAutoViewport.ts` | Fixed presets preserved; full-width auto when frame wider than closest preset. |
 | `npm run test:desktop-editor-scrollport` | `tests/puck/lib/desktopEditorScrollport.test.ts` | `desktopEditorScrollport.ts` | Desktop ≥901px chrome MQ + fixed-viewport centering CSS contract in `puck-editor.css`. |
@@ -80,6 +81,7 @@ Imports in test files use the same `@/` and `@shared/` path aliases as applicati
 | `npm run test:global-layout` | `tests/shared/domains/globalLayoutValidation.test.ts` | `GlobalLayoutDomain.ts` | Header and footer layout configuration validation rules. |
 | `npm run test:page-domain` | `tests/shared/domains/pageDomain.test.ts` | `PageDomain.ts` | Puck page delete path validation (homepage guard, slash prefix). |
 | `npm run test:page-category` | `tests/shared/lib/pageCategoryLogic.test.ts` | `pageCategoryLogic.ts` | Page category label normalization, dedupe, suggestion filter, create-offer rules. |
+| `npm run test:page-categories-hub-logic` | `tests/shared/lib/pageCategoriesHubLogic.test.ts` | `pageCategoriesHubLogic.ts` | Hub section normalization by path domain, unused domain filter, legacy tag migration, publication image collection, catalog card builder. |
 | `npm run test:page-path-logic` | `tests/shared/lib/pagePathLogic.test.ts` | `pagePathLogic.ts` | Page path normalisation, badge labels, catalog filtering. |
 | `npm run test:nexus-page-variables` | `tests/shared/lib/nexusPageVariables.test.ts` | `nexusPageVariables.ts` | `${{ variable }}` page field interpolation. |
 | `npm run test:page-access-logic` | `tests/shared/lib/pageAccessLogic.test.ts` | `pageAccessLogic.ts` | Delegated editor grant rules, candidate filtering, storage normalisation. |
@@ -100,6 +102,8 @@ Imports in test files use the same `@/` and `@shared/` path aliases as applicati
 | `npm run test:split-person-name` | `tests/shared/lib/splitPersonName.test.ts` | `splitPersonName.ts` | OAuth full-name split into given name and surname. |
 | `npm run test:site-profile-basic` | `tests/shared/lib/siteProfileBasic.test.ts` | `siteProfileBasic.ts`, `SiteProfileProvider.tsx`, `GET /api/me` | Header basic profile DTO mapping and admin panel role gate. |
 | `npm run test:public-profile-redaction` | `tests/shared/lib/publicProfileRedaction.test.ts` | `publicProfileRedaction.ts`, `/users/[userId]` | PII redaction between peers vs self/outranking viewers. |
+| `npm run test:profile-contact-logic` | `tests/shared/lib/profileContactLogic.test.ts` | `profileContactLogic.ts`, `ProfileHeroActions.tsx` | Telegram/email contact resolution for profile Message actions. |
+| `npm run test:profile-task-display-logic` | `tests/shared/lib/profileTaskDisplayLogic.test.ts` | `profileTaskDisplayLogic.ts`, `ProfileTasksPanel.tsx` | Open-task filtering, urgency sort, status badge classes. |
 | `npm run test:task-access-logic` | `tests/shared/lib/taskAccessLogic.test.ts` | `taskAccessLogic.ts`, `TaskDomain.ts` | Task dispatch/view/delegate/start/reopen permission rules. |
 | `npm run test:task-score-logic` | `tests/shared/lib/taskScoreLogic.test.ts` | `taskScoreLogic.ts` | Quality/time weighted performer scoring. |
 | `npm run test:task-categories-settings-logic` | `tests/shared/lib/taskCategoriesSettingsLogic.test.ts` | `taskCategoriesSettingsLogic.ts` | General rules task category normalization. |
@@ -120,6 +124,8 @@ Imports in test files use the same `@/` and `@shared/` path aliases as applicati
 | `npm run test:user-search-logic` | `tests/shared/lib/userSearchLogic.test.ts` | `userSearchLogic.ts`, `UserSearchDomain.ts`, `/api/users/search` | User search filters and subtitle formatting. |
 | `npm run test:broadcast-schemas` | `tests/shared/validation/broadcastSchemas.test.ts` | `broadcastSchemas.ts` | Admin broadcast API payload validation (channels, body, variant). |
 | `npm run test:telegram-init-data` | `tests/shared/lib/verifyTelegramWebAppInitData.test.ts` | `verifyTelegramWebAppInitData.ts` | Telegram Mini App `initData` HMAC verification, tamper rejection, auth_date expiry. |
+| `npm run test:telegram-webapp-viewport` | `tests/shared/lib/telegramWebAppViewport.test.ts` | `telegramWebAppViewport.ts`, `TelegramWebAppViewportHost.tsx` | Desktop Telegram viewport stable height resolution and chrome color normalization. |
+| `npm run test:telegram-contact-harvest` | `tests/shared/lib/telegramContactHarvestLogic.test.ts` | `telegramContactHarvestLogic.ts`, `AuthDomain.absorbTelegramSharedContact` | Shared-contact validation and phone normalization for bot harvest. |
 | `npm run test:seed-admin-user` | `tests/shared/lib/seedAdminUser.test.ts` | `seedAdminUserHelpers.ts`, `oauthLinkCookie.ts` | Admin seed Telegram clearance helper; OAuth link cookie build/read/clear. |
 | `npm run test:user-socium` | `tests/shared/lib/userSociumHelpers.test.ts` | `userSociumHelpers.ts`, `User.ts`, `AuthDomain.ts` | Full name formatting, socium role sync from student title, quality score init, publish eligibility. |
 | `npm run test:access-control` | `tests/shared/lib/accessControlLogic.test.ts` | `accessControlLogic.ts`, `AccessControlDomain.ts` | Hierarchy same-tier-or-below administration, effective permissions, role administration and delegation rules. |
@@ -130,7 +136,9 @@ Imports in test files use the same `@/` and `@shared/` path aliases as applicati
 | `npm run test:nexus-list-stepper` | `tests/puck/lib/nexusListStepper.test.ts` | `nexusListStepper.ts` | Flat step id helpers (`step-0`, …) for list editor state. |
 | `npm run test:infinite-grid-icon-loader` | `tests/components/background/infiniteGridIconLoader.test.ts` | `infiniteGridIconLoader.ts` | Grid icon URL resolution; WebKit UA detection. |
 | `npm run test:infinite-grid-motion-ease` | `tests/components/background/infiniteGridMotionEase.test.ts` | `infiniteGridMotionEase.ts`, `InfiniteGrid.tsx` | Exponential ease for dynamic ↔ static grid motion without offset snap. |
+| `npm run test:infinite-grid-cursor-sync` | `tests/components/background/infiniteGridCursorSync.test.ts` | `infiniteGridCursorSync.ts`, `PuckIframeTheme.tsx` | Maps Puck preview iframe pointer coords to global `#nexus-bg` cursor spotlight. |
 | `npm run test:user-directory-schemas` | `tests/shared/validation/userDirectorySchemas.test.ts` | `userDirectorySchemas.ts` | Admin PATCH validation for profile + access-control fields. |
+| `npm run test:user-directory-save` | `tests/shared/lib/userDirectorySaveLogic.test.ts` | `userDirectorySaveLogic.ts` | Pre-save profile requirement checks for User Directory (self-government phone/avatar). |
 | `npm run test:apply-profile-patch` | `tests/shared/domains/applyProfilePatchToUser.test.ts` | `userProfilePatch.ts` | Shared profile patch helper for self-service and admin directory edits. |
 | `npm run test:profile-completeness` | `tests/shared/lib/userProfileCompleteness.test.ts` | `userProfileCompleteness.ts`, `phoneSchema.ts` | Membership profile gaps, phone requirement for self-government members. |
 | `npm run test:strip-user-optional-unique-fields` | `tests/shared/lib/stripUserOptionalUniqueFields.test.ts` | `stripUserOptionalUniqueFields.ts`, `User.ts` | Omit null/empty `email`/`login` before persist; avoids duplicate-key on optional unique indexes. |

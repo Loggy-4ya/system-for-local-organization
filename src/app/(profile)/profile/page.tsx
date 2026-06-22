@@ -23,7 +23,7 @@ import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTo
 /**
  * User profile dashboard matching Figma Profile/User frame `59:47`.
  *
- * @returns Profile page with live user data and placeholder task content.
+ * @returns Profile page with live user data and task activity.
  */
 export default async function ProfilePage() {
   const session = await auth();
@@ -36,15 +36,15 @@ export default async function ProfilePage() {
   const publishedItems = canPublishCommunityContent(publicUser)
     ? await AuthDomain.getPublishedContentForUser(publicUser.id)
     : [];
-  const openTaskCount = await TaskDomain.countOpenTasksForUser(publicUser.id);
+  const taskSnapshot = await TaskDomain.getProfileTaskSnapshot(publicUser.id);
 
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile}
       className="items-center p-6"
     >
-      <div className="glass-panel flex w-full flex-col gap-4 rounded-[var(--radius-lg)] p-6">
-        <ProfileHero user={publicUser} showSettingsLink />
+      <div className="glass-panel flex w-full flex-col gap-5 rounded-[var(--radius-lg)] p-6">
+        <ProfileHero user={publicUser} showSettingsLink isSelf />
         <ProfileMembershipReadiness user={publicUser} />
         <ProfileAboutSection about={publicUser.about} socialLinks={publicUser.socialLinks} />
         <ProfileSociumSection user={publicUser} />
@@ -52,16 +52,23 @@ export default async function ProfilePage() {
         <ProfileStatsRow
           stats={[
             { label: "Stars", value: publicUser.stars },
-            { label: "Tasks", value: openTaskCount },
+            { label: "Tasks", value: taskSnapshot.openCount },
             { label: "Warnings", value: `${publicUser.warnings}/3` },
             ...(publicUser.qualityScores
               ? [{ label: "Quality", value: `${publicUser.qualityScores.averageScore}/100` }]
               : []),
           ]}
         />
-        <div className="flex flex-1 flex-col gap-4 md:flex-row">
-          <ProfileTasksPanel userId={publicUser.id} />
-          <ProfileActivityColumn />
+        <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:items-start">
+          <ProfileTasksPanel
+            userId={publicUser.id}
+            initialOpenByStatus={taskSnapshot.openByStatus}
+          />
+          <ProfileActivityColumn
+            displayName={publicUser.fullName}
+            snapshot={taskSnapshot}
+            isSelf
+          />
         </div>
       </div>
     </StaticPageShell>

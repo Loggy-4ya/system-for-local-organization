@@ -153,6 +153,7 @@ function buildEditorData(
     {
       description: pageMetadata.description,
       coverImage: pageMetadata.coverImage,
+      galleryImages: pageMetadata.galleryImages,
       publishAt: pageMetadata.publishAt,
       commentsEnabled: pageMetadata.commentsEnabled,
       delegatedEditors:

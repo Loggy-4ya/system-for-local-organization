@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assertDirectoryMemberProfileRequirements,
   buildProfileCompletenessSummary,
   getMembershipProfileGaps,
   getOAuthOnboardingGaps,
@@ -16,8 +17,10 @@ import {
   phoneIsRequiredForUser,
   avatarIsRequiredForUser,
   avatarIsRequiredAtSignup,
+  telegramIsRequiredAtSignup,
   userHasExternalAuthIdentity,
   userNeedsProfileOnboarding,
+  PROFILE_PHONE_REQUIRED,
 } from "@shared/lib/userProfileCompleteness";
 
 const completeProfile = {
@@ -124,14 +127,38 @@ describe("avatarIsRequiredAtSignup", () => {
   });
 });
 
+describe("telegramIsRequiredAtSignup", () => {
+  it("does not require Telegram at signup while membership-application flag is off", () => {
+    assert.equal(telegramIsRequiredAtSignup(true), false);
+    assert.equal(telegramIsRequiredAtSignup(false), false);
+  });
+});
+
 describe("telegram membership gaps", () => {
-  it("flags missing Telegram for self-government application intent", () => {
+  it("flags missing Telegram for self-government members", () => {
+    const gaps = getMembershipProfileGaps({
+      ...completeProfile,
+      sociumRoles: [
+        {
+          roleKey: "self_government_member",
+          roleLabel: "Member",
+          kind: "self_government_member",
+          source: "admin",
+          assignedAt: new Date(),
+        },
+      ],
+      telegramId: null,
+    });
+    assert.ok(gaps.includes("telegram"));
+  });
+
+  it("does not require Telegram for membership applicants", () => {
     const gaps = getMembershipProfileGaps({
       ...completeProfile,
       selfGovernmentApplicationIntent: true,
       telegramId: null,
     });
-    assert.ok(gaps.includes("telegram"));
+    assert.ok(!gaps.includes("telegram"));
   });
 
   it("does not require Telegram for general students", () => {
@@ -209,6 +236,48 @@ describe("userHasExternalAuthIdentity", () => {
         telegramId: 42,
       }),
       true,
+    );
+  });
+});
+
+describe("assertDirectoryMemberProfileRequirements", () => {
+  it("throws when a self-government member has no phone on file", () => {
+    assert.throws(
+      () =>
+        assertDirectoryMemberProfileRequirements({
+          ...completeProfile,
+          phone: null,
+          sociumRoles: [
+            {
+              roleKey: "self_government_member",
+              roleLabel: "Member",
+              kind: "self_government_member",
+              source: "admin",
+              assignedAt: new Date(),
+            },
+          ],
+        }),
+      { message: PROFILE_PHONE_REQUIRED },
+    );
+  });
+
+  it("throws when a self-government member only has whitespace phone on file", () => {
+    assert.throws(
+      () =>
+        assertDirectoryMemberProfileRequirements({
+          ...completeProfile,
+          phone: "   ",
+          sociumRoles: [
+            {
+              roleKey: "self_government_member",
+              roleLabel: "Member",
+              kind: "self_government_member",
+              source: "admin",
+              assignedAt: new Date(),
+            },
+          ],
+        }),
+      { message: PROFILE_PHONE_REQUIRED },
     );
   });
 });

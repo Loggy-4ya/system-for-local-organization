@@ -9,6 +9,7 @@
  */
 
 import crypto from "crypto";
+import { normalizeTelegramUserId } from "@shared/lib/telegramContactHarvestLogic";
 
 /** Parsed Telegram user embedded in Web App initData. */
 export interface TelegramWebAppUser {
@@ -130,12 +131,17 @@ export function verifyTelegramWebAppInitData(
     throw new Error("Telegram initData user JSON is invalid.");
   }
 
-  if (!user?.id || !user.first_name) {
+  if (!user?.first_name) {
+    throw new Error("Telegram initData user is incomplete.");
+  }
+
+  const normalizedUserId = normalizeTelegramUserId(user.id);
+  if (normalizedUserId == null) {
     throw new Error("Telegram initData user is incomplete.");
   }
 
   return {
-    user,
+    user: { ...user, id: normalizedUserId },
     authDate,
     startParam: params.get("start_param"),
     chatType: params.get("chat_type"),

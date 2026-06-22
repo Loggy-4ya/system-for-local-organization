@@ -1,8 +1,7 @@
 /**
  * @fileoverview Desktop Puck canvas scrollport — full-shell grid, shell-owned scroll.
  *
- * On desktop (≥901px), the global layout `InfiniteGrid` (`#nexus-bg`) fills the viewport;
- * Puck canvas chrome stays transparent so the grid shows through letterbox gutters.
+ * On desktop (≥901px), the canvas shell is transparent so global `#nexus-bg` shows through.
  *
  * Tests: `tests/puck/lib/desktopEditorScrollport.test.ts` — `npm run test:desktop-editor-scrollport`
  *
@@ -11,6 +10,7 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { PUCK_DESKTOP_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /**
@@ -35,26 +35,81 @@ export function isPuckEditorDocument(doc: Document): boolean {
 }
 
 /**
- * Whether the editor should paint site-default grid on the canvas shell (not in iframe).
+ * Whether the editor shell scrollport grid owns the canvas background.
  *
  * Uses the parent document when called from the Puck preview iframe.
  *
  * @param target - Window to start from; defaults to the current window.
  * @returns True on Puck editor routes where the shell scrollport grid owns the background.
  */
-export function usesDesktopScrollportGrid(target: Window = window): boolean {
+export function usesEditorShellScrollportGrid(target: Window = window): boolean {
   if (typeof target === "undefined") return false;
 
   try {
     const parent = target.parent;
     if (parent && parent !== target) {
+      if (isPuckEditorDocument(parent.document)) {
+        return true;
+      }
       return matchesDesktopEditorLayout(parent);
     }
   } catch {
     /* cross-origin parent — fall through */
   }
 
-  return matchesDesktopEditorLayout(target);
+  return isPuckEditorDocument(target.document) || matchesDesktopEditorLayout(target);
+}
+
+/**
+ * Whether the editor should paint site-default grid on the desktop canvas shell (not in iframe).
+ *
+ * @deprecated Prefer {@link usesEditorShellScrollportGrid} — shell grid applies on compact too.
+ * @param target - Window to start from; defaults to the current window.
+ * @returns True on desktop Puck editor routes.
+ */
+export function usesDesktopScrollportGrid(target: Window = window): boolean {
+  return usesEditorShellScrollportGrid(target);
+}
+
+/**
+ * React hook — tracks shell scrollport grid mode (parent window on iframe routes).
+ *
+ * @returns True when iframe grid should stay off and shell grid owns the canvas panel.
+ */
+export function useEditorShellScrollportGridActive(): boolean {
+  const [active, setActive] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return usesEditorShellScrollportGrid();
+  });
+
+  useEffect(() => {
+    const sync = () => setActive(usesEditorShellScrollportGrid());
+
+    sync();
+
+    let media: MediaQueryList | null = null;
+    try {
+      const owner = window.parent !== window ? window.parent : window;
+      media = owner.matchMedia(PUCK_DESKTOP_EDITOR_MQ);
+      media.addEventListener("change", sync);
+    } catch {
+      /* ignore cross-origin parent */
+    }
+
+    window.addEventListener("resize", sync);
+
+    return () => {
+      media?.removeEventListener("change", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
+  return active;
+}
+
+/** @deprecated Prefer {@link useEditorShellScrollportGridActive}. */
+export function useDesktopScrollportGridActive(): boolean {
+  return useEditorShellScrollportGridActive();
 }
 
 /**

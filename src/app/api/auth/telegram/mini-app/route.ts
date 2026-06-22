@@ -41,12 +41,14 @@ export async function POST(req: NextRequest) {
         needsOnboarding: false,
         bridgeToken,
         userId: String(result.user._id),
+        harvestedPhone: result.user.phone ?? null,
       });
     }
 
     return NextResponse.json({
       needsOnboarding: true,
       telegramUser: result.telegramUser,
+      harvestedPhone: result.harvestedPhone,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Telegram Mini App auth failed.";

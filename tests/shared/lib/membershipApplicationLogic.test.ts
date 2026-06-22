@@ -38,14 +38,14 @@ describe("buildMembershipApplicationStatus", () => {
     assert.deepEqual(status.missingFieldLabels, []);
   });
 
-  it("reports missing fields when telegram is not linked for applicants", () => {
+  it("allows submission without Telegram for applicants", () => {
     const status = buildMembershipApplicationStatus({
       ...completeProfile,
       selfGovernmentApplicationIntent: true,
       telegramId: null,
     });
-    assert.equal(status.readyForSubmission, false);
-    assert.ok(status.missingFieldLabels.includes("Telegram account"));
+    assert.equal(status.readyForSubmission, true);
+    assert.ok(!status.missingFieldLabels.includes("Telegram account"));
   });
 
   it("treats signup intent as an active application when profile is complete", () => {

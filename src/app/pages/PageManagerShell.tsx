@@ -18,7 +18,8 @@ export interface PageManagerRow {
   path: string;
   title: string;
   published: boolean;
-  updatedAt: Date;
+  /** ISO timestamp — serialized at the RSC boundary (not a live `Date` instance). */
+  updatedAt: string;
 }
 
 /** Page manager redirect notice keys from `?error=` query param. */
@@ -31,6 +32,8 @@ interface PageManagerShellProps {
   notice?: PageManagerNotice;
   /** Whether to show admin settings links. */
   showAdminSettings?: boolean;
+  /** Whether to show the news catalog categories editor link. */
+  showCatalogSettings?: boolean;
 }
 
 type ManagerTab = "pages" | "defaults";
@@ -41,7 +44,7 @@ type ManagerTab = "pages" | "defaults";
  * @param props - See {@link PageManagerShellProps}.
  * @returns Tabbed page manager UI.
  */
-export function PageManagerShell({ pages, notice, showAdminSettings = false }: PageManagerShellProps) {
+export function PageManagerShell({ pages, notice, showAdminSettings = false, showCatalogSettings = false }: PageManagerShellProps) {
   const [tab, setTab] = useState<ManagerTab>("pages");
 
   return (
@@ -68,8 +71,26 @@ export function PageManagerShell({ pages, notice, showAdminSettings = false }: P
             </p>
           </div>
 
-          {showAdminSettings && (
+          {showAdminSettings || showCatalogSettings ? (
             <div className="flex flex-wrap gap-2 shrink-0">
+              {showCatalogSettings ? (
+                <>
+                  <Link
+                    href="/pages/categories"
+                    className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors"
+                  >
+                    View catalog
+                  </Link>
+                  <Link
+                    href="/pages/categories/edit"
+                    className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors"
+                  >
+                    Configure catalog
+                  </Link>
+                </>
+              ) : null}
+              {showAdminSettings ? (
+                <>
               <Link
                 href="/admin/global-layout"
                 className="inline-flex items-center justify-center h-9 px-4 text-xs font-semibold rounded-md border border-zinc-700/50 hover:bg-zinc-700/20 text-(--color-text-secondary) hover:text-(--color-text-primary) no-underline transition-colors"
@@ -82,8 +103,10 @@ export function PageManagerShell({ pages, notice, showAdminSettings = false }: P
               >
                 User Access Settings
               </Link>
+                </>
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="page-manager-tabs" role="tablist" aria-label="Page manager sections">

@@ -153,10 +153,6 @@ export function LoginForm() {
           </Link>
         </p>
 
-        <p className="text-center text-xs text-(--color-text-secondary)">
-          Student self-government applicants must link Telegram during signup or in profile
-          settings after sign-in.
-        </p>
       </form>
 
       <OAuthButtonRow callbackUrl={callbackUrl} />

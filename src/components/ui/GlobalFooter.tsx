@@ -8,6 +8,7 @@
 
 import { usePathname } from "next/navigation";
 import { SiteFooterBar } from "@/components/ui/SiteFooterBar";
+import { isPuckEditorRoutePath } from "@/components/puck/lib/pageSlugValidation";
 import { GLOBAL_LAYOUT_FOOTER_SLOT_CLASS, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { type FooterConfig } from "@shared/constants/globalLayout";
 
@@ -27,8 +28,7 @@ export interface GlobalFooterProps {
  */
 export function GlobalFooter({ footer, contentWidth = GLOBAL_LAYOUT_CONTENT_WIDTH }: GlobalFooterProps) {
   const pathname = usePathname();
-  const isEditing = pathname === "/edit" || pathname.endsWith("/edit");
-  if (isEditing) return null;
+  if (isPuckEditorRoutePath(pathname)) return null;
 
   return (
     <footer className={`${GLOBAL_LAYOUT_FOOTER_SLOT_CLASS} w-full`} role="contentinfo">

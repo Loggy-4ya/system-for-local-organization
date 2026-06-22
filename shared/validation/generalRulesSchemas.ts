@@ -30,6 +30,10 @@ const telegramMessagesSchema = z
   .object({
     startWelcome: z.string().trim().min(1).max(2000).optional(),
     startOpenButtonLabel: z.string().trim().min(1).max(120).optional(),
+    startSharePhonePrompt: z.string().trim().min(1).max(2000).optional(),
+    contactShareButtonLabel: z.string().trim().min(1).max(120).optional(),
+    contactPhoneSaved: z.string().trim().min(1).max(2000).optional(),
+    contactPhoneRejected: z.string().trim().min(1).max(2000).optional(),
     broadcastAnnouncementPrefix: z.string().trim().min(1).max(2000).optional(),
   })
   .optional();

@@ -237,6 +237,32 @@ export function buildPagePublicHref(pagePath: string): string {
 }
 
 /**
+ * Whether a stored page path belongs to a path domain (`/news`, `/news/*`).
+ *
+ * @param pagePath - Stored absolute path.
+ * @param domain - Domain segment such as `news`.
+ * @param knownDomains - Optional domain list for single-segment disambiguation.
+ * @returns True when the path is the domain root or a child under it.
+ */
+export function pagePathBelongsToDomain(
+  pagePath: string,
+  domain: string,
+  knownDomains: readonly string[] = DEFAULT_PAGE_PATH_DOMAINS,
+): boolean {
+  const normalizedDomain = normalizePageDomainSegment(domain);
+  if (!normalizedDomain) return false;
+
+  const path = normalizePagePath(pagePath.replace(/^\//, "") || "/");
+  if (path === "/") return false;
+
+  const address = splitPageAddress(path.replace(/^\//, ""), [
+    normalizedDomain,
+    ...knownDomains,
+  ]);
+  return address.domain === normalizedDomain;
+}
+
+/**
  * Filter page path catalog rows by query and optional exclusions.
  *
  * @param query - Case-insensitive substring filter on path and title.

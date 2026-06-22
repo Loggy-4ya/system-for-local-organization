@@ -23,6 +23,7 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 | Area | Spec |
 |------|------|
 | Auth & profiles | [features/auth_and_profiles.md](./features/auth_and_profiles.md) |
+| **Local OAuth setup (dev)** | [features/local_oauth_setup.md](./features/local_oauth_setup.md) |
 | **Public user profiles** | [features/public_user_profiles.md](./features/public_user_profiles.md) |
 | **Task management** | [features/task_management.md](./features/task_management.md) |
 | **Task groups** | [features/task_groups.md](./features/task_groups.md) |
@@ -41,6 +42,7 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 | **Image crop editor** | [features/image_crop_editor.md](./features/image_crop_editor.md) |
 | Puck editor | [features/puck_editor.md](./features/puck_editor.md) |
 | **Page categories (tags)** | [features/page_categories.md](./features/page_categories.md) |
+| **Page categories hub / news catalog** | [features/page_categories_hub.md](./features/page_categories_hub.md) |
 | **Page access & path links** | [features/page_access_and_paths.md](./features/page_access_and_paths.md) |
 | **Page variables (`${{ }}`)** | [features/nexus_page_variables.md](./features/nexus_page_variables.md) |
 | **Page publisher invite links** | [features/page_publisher_invite_links.md](./features/page_publisher_invite_links.md) |

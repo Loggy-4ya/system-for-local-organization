@@ -1,18 +1,28 @@
 /**
- * @fileoverview Server-side redirect gate for OAuth / Telegram sparse profile onboarding.
+ * @fileoverview Server-side redirect gates for OAuth onboarding and member Telegram compliance.
  *
  * Authenticated users with linked external identities and missing required
  * profile fields are sent to `/profile/settings?onboarding=1` until complete.
+ *
+ * Self-government members without Telegram may browse the site but are redirected
+ * from member-functional routes (`/tasks`, `/task-groups`) until Telegram is linked.
  *
  * @module src/lib/profileOnboardingGate
  */
 
 import { redirect } from "next/navigation";
 import { AuthDomain } from "@shared/domains/AuthDomain";
-import { userNeedsProfileOnboarding, userNeedsSelfGovernmentProfileCompliance } from "@shared/lib/userProfileCompleteness";
+import {
+  userNeedsMemberTelegramOnboarding,
+  userNeedsProfileOnboarding,
+} from "@shared/lib/userProfileCompleteness";
 
 /** Settings route used for first-time OAuth profile completion. */
 export const PROFILE_ONBOARDING_SETTINGS_PATH = "/profile/settings?onboarding=1";
+
+/** Settings route used when a member must link Telegram before member tools. */
+export const MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH =
+  "/profile/settings?onboarding=member-telegram";
 
 /**
  * Paths that must remain reachable while onboarding is incomplete.
@@ -36,6 +46,18 @@ export function isProfileOnboardingExemptPath(pathname: string): boolean {
 }
 
 /**
+ * Member-functional routes that require a linked Telegram account.
+ *
+ * @param pathname - Request pathname from middleware (`x-pathname` header).
+ * @returns True when member Telegram compliance should be enforced.
+ */
+export function isMemberFunctionalPath(pathname: string): boolean {
+  if (!pathname) return false;
+
+  return pathname.startsWith("/tasks") || pathname.startsWith("/task-groups");
+}
+
+/**
  * Redirect sparse OAuth/Telegram accounts to profile settings when required fields are missing.
  *
  * @param userId - Authenticated MongoDB user id.
@@ -54,8 +76,30 @@ export async function enforceProfileOnboarding(userId: string, pathname: string)
   if (userNeedsProfileOnboarding(user)) {
     redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
   }
+}
 
-  if (userNeedsSelfGovernmentProfileCompliance(user)) {
-    redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
+/**
+ * Redirect self-government members without Telegram away from member tools.
+ *
+ * General browsing remains allowed; a site-wide banner reminds them to connect.
+ *
+ * @param userId - Authenticated MongoDB user id.
+ * @param pathname - Current request pathname.
+ */
+export async function enforceMemberTelegramCompliance(
+  userId: string,
+  pathname: string,
+): Promise<void> {
+  if (!isMemberFunctionalPath(pathname)) {
+    return;
+  }
+
+  const user = await AuthDomain.getUserById(userId);
+  if (!user) {
+    return;
+  }
+
+  if (userNeedsMemberTelegramOnboarding(user)) {
+    redirect(MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH);
   }
 }

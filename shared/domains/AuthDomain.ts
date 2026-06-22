@@ -34,6 +34,12 @@ import {
 } from "@shared/lib/accessControlLogic";
 import { phoneIsRequiredForUser, telegramIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
 import { normalizePhoneInput } from "@shared/validation/phoneSchema";
+import TelegramContactHarvest from "@shared/models/TelegramContactHarvest";
+import {
+  normalizeTelegramUserId,
+  validateTelegramSharedContact,
+  type TelegramSharedContactPayload,
+} from "@shared/lib/telegramContactHarvestLogic";
 import { registerSchema } from "@shared/validation/authSchemas";
 import {
   isApprovedAcademicLabel,
@@ -159,7 +165,12 @@ export interface TelegramMiniAppPublicUser {
 /** Result of Mini App initData authentication. */
 export type TelegramMiniAppAuthenticateResult =
   | { status: "authenticated"; user: IUser }
-  | { status: "needs_onboarding"; telegramUser: TelegramMiniAppPublicUser };
+  | {
+      status: "needs_onboarding";
+      telegramUser: TelegramMiniAppPublicUser;
+      /** Phone shared with the bot before account creation, when available. */
+      harvestedPhone: string | null;
+    };
 
 export type { ProfileUpdateInput };
 
@@ -463,12 +474,14 @@ export const AuthDomain = {
       user.avatar = verified.user.photo_url ?? user.avatar;
       user.lastTelegramSyncAt = syncAt;
       await user.save();
+      await AuthDomain.mergeHarvestedPhoneIntoUser(user);
       return { status: "authenticated", user };
     }
 
     return {
       status: "needs_onboarding",
       telegramUser: toTelegramMiniAppPublicUser(verified.user),
+      harvestedPhone: await AuthDomain.resolvePhoneForTelegramUser(verified.user.id),
     };
   },
 
@@ -498,6 +511,8 @@ export const AuthDomain = {
       throw new Error("This Telegram account is already linked to Nexus.");
     }
 
+    const harvestedPhone = await AuthDomain.resolvePhoneForTelegramUser(verified.user.id);
+
     const signupSociumRole: SignupSociumRole =
       input.signupSociumRole ??
       (input.studentTitle === "Starosta" ? "Starosta" : "Student");
@@ -509,7 +524,7 @@ export const AuthDomain = {
       confirmPassword: input.password,
       name: input.name || input.login,
       surname: input.surname ?? null,
-      phone: input.phone ?? null,
+      phone: input.phone ?? harvestedPhone ?? null,
       avatar: input.avatar ?? null,
       specialty: input.specialty,
       group: input.group,
@@ -575,6 +590,12 @@ export const AuthDomain = {
       submittedByUserId: String(user._id),
     });
 
+    await AuthDomain.mergeHarvestedPhoneIntoUser(user);
+    const normalizedTelegramId = normalizeTelegramUserId(verified.user.id);
+    if (normalizedTelegramId != null) {
+      await TelegramContactHarvest.deleteOne({ telegramId: normalizedTelegramId });
+    }
+
     return user;
   },
 
@@ -633,7 +654,101 @@ export const AuthDomain = {
     user.lastTelegramSyncAt = syncAt;
     await user.save();
 
+    await AuthDomain.mergeHarvestedPhoneIntoUser(user);
+
     return user;
+  },
+
+  /**
+   * Persist a phone number shared via the Telegram bot contact button.
+   *
+   * Updates an existing linked user immediately; otherwise stages the phone until
+   * Mini App onboarding creates the account.
+   *
+   * @param senderTelegramId - `message.from.id` from the webhook update.
+   * @param contact - Telegram shared contact payload.
+   * @returns Whether the phone was stored and the normalized value when accepted.
+   */
+  async absorbTelegramSharedContact(
+    senderTelegramId: number | string,
+    contact: TelegramSharedContactPayload,
+  ): Promise<{ saved: boolean; phone: string | null; reason: "self_mismatch" | "invalid_phone" | null }> {
+    const normalizedSenderId = normalizeTelegramUserId(senderTelegramId);
+    if (normalizedSenderId == null) {
+      return { saved: false, phone: null, reason: "invalid_phone" };
+    }
+
+    const validation = validateTelegramSharedContact(normalizedSenderId, contact);
+    if (!validation.ok || !validation.phone) {
+      return {
+        saved: false,
+        phone: null,
+        reason: validation.reason === "self_mismatch" ? "self_mismatch" : "invalid_phone",
+      };
+    }
+
+    await connectDB();
+    const now = new Date();
+    const user = await User.findOne({ telegramId: normalizedSenderId });
+
+    if (user) {
+      user.phone = validation.phone;
+      user.lastTelegramSyncAt = now;
+      await user.save();
+      await TelegramContactHarvest.deleteOne({ telegramId: normalizedSenderId });
+      return { saved: true, phone: validation.phone, reason: null };
+    }
+
+    await TelegramContactHarvest.findOneAndUpdate(
+      { telegramId: normalizedSenderId },
+      { phone: validation.phone, harvestedAt: now },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    return { saved: true, phone: validation.phone, reason: null };
+  },
+
+  /**
+   * Resolve a harvested or persisted phone for a Telegram user id.
+   *
+   * @param telegramUserId - Numeric Telegram user id.
+   * @returns Normalized phone when known on the user row or harvest cache.
+   */
+  async resolvePhoneForTelegramUser(telegramUserId: number | string): Promise<string | null> {
+    const normalizedTelegramId = normalizeTelegramUserId(telegramUserId);
+    if (normalizedTelegramId == null) {
+      return null;
+    }
+
+    await connectDB();
+    const user = await User.findOne({ telegramId: normalizedTelegramId }).select("phone");
+    if (user?.phone) {
+      return user.phone;
+    }
+
+    const harvest = await TelegramContactHarvest.findOne({ telegramId: normalizedTelegramId }).select(
+      "phone",
+    );
+    return harvest?.phone ?? null;
+  },
+
+  /**
+   * Copy a staged harvest phone onto a user when the account is created or linked.
+   *
+   * @param user - User document to update when phone is still empty.
+   */
+  async mergeHarvestedPhoneIntoUser(user: IUser): Promise<void> {
+    const normalizedTelegramId = normalizeTelegramUserId(user.telegramId);
+    if (normalizedTelegramId == null || user.phone) return;
+
+    const harvest = await TelegramContactHarvest.findOne({ telegramId: normalizedTelegramId }).select(
+      "phone",
+    );
+    if (!harvest?.phone) return;
+
+    user.phone = harvest.phone;
+    await user.save();
+    await TelegramContactHarvest.deleteOne({ telegramId: normalizedTelegramId });
   },
 
   /**
@@ -667,7 +782,7 @@ export const AuthDomain = {
       })
     ) {
       throw new Error(
-        "Telegram is required for self-government members and membership applicants.",
+        "Telegram is required for self-government members.",
       );
     }
 

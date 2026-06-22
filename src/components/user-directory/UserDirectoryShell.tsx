@@ -41,10 +41,18 @@ import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { GlobalLayoutEditorStatusBanner } from "@/components/global-layout/GlobalLayoutEditorStatusBanner";
 import {
   UserDirectoryProfileFields,
-  buildProfilePatchDelta,
   profileEditStateFromDirectoryUser,
   type UserDirectoryProfileEditState,
 } from "@/components/user-directory/UserDirectoryProfileFields";
+import {
+  buildDirectoryProfileSavePatch,
+  directoryRowRequiresMemberPhone,
+  resolveDirectoryEffectiveSociumRoles,
+  resolveDirectoryPhoneForSave,
+  validateDirectorySaveProfileRequirements,
+} from "@shared/lib/userDirectorySaveLogic";
+import { PROFILE_PHONE_REQUIRED_ERROR } from "@shared/lib/userProfileCompleteness";
+import { autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
 import { UserDirectoryPersonalFields } from "@/components/user-directory/UserDirectoryPersonalFields";
 import {
   editSnapshotFromDirectoryUser,
@@ -54,6 +62,14 @@ import {
 } from "@/components/user-directory/lib/userDirectoryDetailState";
 import { cn } from "@/lib/utils";
 import "@/app/global-layout-editor.css";
+
+/** Read the live phone input value when React state lags browser autofill. */
+function readDirectoryPhoneDomValue(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const element = document.getElementById("directory-phone");
+  if (!(element instanceof HTMLInputElement)) return undefined;
+  return element.value;
+}
 
 /** Props for {@link UserDirectoryShell}. */
 export interface UserDirectoryShellProps {
@@ -95,6 +111,8 @@ export function UserDirectoryShell({
   const [editActivities, setEditActivities] = useState<any[]>([]);
   const [editOrgs, setEditOrganizations] = useState<any[]>([]);
   const [editProfile, setEditProfile] = useState<UserDirectoryProfileEditState | null>(null);
+  const [profileEditBaseline, setProfileEditBaseline] = useState<UserDirectoryProfileEditState | null>(null);
+  const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -117,6 +135,8 @@ export function UserDirectoryShell({
     setEditActivities(snapshot.activities);
     setEditOrganizations(snapshot.organizations);
     setEditProfile(snapshot.profile);
+    setProfileEditBaseline(snapshot.profile);
+    setProfileFieldErrors({});
   }, []);
 
   /**
@@ -258,6 +278,7 @@ export function UserDirectoryShell({
     setSelectedUserId(null);
     setSelectedUser(null);
     setEditProfile(null);
+    setProfileEditBaseline(null);
   };
 
   // Save updates
@@ -274,70 +295,142 @@ export function UserDirectoryShell({
 
     setIsSaving(true);
     setStatus(null);
-
-    const patch: Record<string, unknown> = {};
-
-    if (canEditProfileFields && editProfile) {
-      Object.assign(
-        patch,
-        buildProfilePatchDelta(
-          editProfile,
-          profileEditStateFromDirectoryUser(selectedUser),
-        ),
-      );
-    }
-
-    if (canChangeLevel) {
-      patch.accessLevelIndex = editLevel;
-    }
-
-    if (selectedUser.canAssignSocium) {
-      patch.sociumRoles = editSociumRoles;
-    }
-    if (selectedUser.canAssignAffiliations) {
-      patch.socialGroupActivities = editActivities;
-      patch.organizations = editOrgs;
-    }
-
-    if (canEditAccess) {
-      if (selectedUser.canDelegate) {
-        patch.delegatedPermissions = editDelegated;
-      }
-    }
+    setProfileFieldErrors({});
 
     try {
+      const effectiveSociumRoles = resolveDirectoryEffectiveSociumRoles({
+        canAssignSocium: selectedUser.canAssignSocium,
+        editSociumRoles,
+        storedSociumRoles: selectedUser.sociumRoles,
+      });
+
+      const requiresMemberPhone = directoryRowRequiresMemberPhone({
+        sociumRoles: effectiveSociumRoles,
+        sociumRoleLabels: selectedUser.sociumRoleLabels,
+      });
+
+      let profileForSave = editProfile;
+      const domPhone = readDirectoryPhoneDomValue();
+      if (canEditProfileFields && editProfile) {
+        const resolvedPhone = resolveDirectoryPhoneForSave({
+          storedPhone: selectedUser.phone,
+          editPhone: editProfile.phone,
+          domPhone,
+          canEditProfile: true,
+        });
+        const correctedPhone = resolvedPhone ?? autocorrectPhoneFieldValue(domPhone || editProfile.phone);
+        if (correctedPhone !== editProfile.phone) {
+          profileForSave = { ...editProfile, phone: correctedPhone };
+          setEditProfile(profileForSave);
+        }
+      }
+
+      const profileValidationErrors = validateDirectorySaveProfileRequirements({
+        name: selectedUser.name,
+        surname: selectedUser.surname,
+        specialty: selectedUser.specialty,
+        group: selectedUser.group,
+        avatar: selectedUser.avatar,
+        storedPhone: selectedUser.phone,
+        editPhone: profileForSave?.phone,
+        domPhone,
+        sociumRoles: effectiveSociumRoles,
+        sociumRoleLabels: selectedUser.sociumRoleLabels,
+        canEditProfile: Boolean(canEditProfileFields),
+      });
+
+      if (Object.keys(profileValidationErrors).length > 0) {
+        setProfileFieldErrors(profileValidationErrors);
+        const primaryMessage =
+          profileValidationErrors.phone ?? Object.values(profileValidationErrors)[0];
+        setStatus({
+          type: "error",
+          message: primaryMessage ?? PROFILE_PHONE_REQUIRED_ERROR,
+        });
+        return;
+      }
+
+      const patch: Record<string, unknown> = {};
+
+      if (canEditProfileFields && profileForSave) {
+        const resolvedPhone = resolveDirectoryPhoneForSave({
+          storedPhone: selectedUser.phone,
+          editPhone: profileForSave.phone,
+          domPhone: readDirectoryPhoneDomValue(),
+          canEditProfile: true,
+        });
+
+        Object.assign(
+          patch,
+          buildDirectoryProfileSavePatch({
+            profile: profileForSave,
+            profileBaseline:
+              profileEditBaseline ?? profileEditStateFromDirectoryUser(selectedUser),
+            storedPhone: selectedUser.phone,
+            resolvedPhone,
+            requiresPhone: requiresMemberPhone,
+          }),
+        );
+      }
+
+      if (canChangeLevel) {
+        patch.accessLevelIndex = editLevel;
+      }
+
+      if (selectedUser.canAssignSocium) {
+        patch.sociumRoles = editSociumRoles;
+      }
+      if (selectedUser.canAssignAffiliations) {
+        patch.socialGroupActivities = editActivities;
+        patch.organizations = editOrgs;
+      }
+
+      if (canEditAccess) {
+        if (selectedUser.canDelegate) {
+          patch.delegatedPermissions = editDelegated;
+        }
+      }
+
       const res = await fetch(`/api/admin/users/${selectedUserId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        fieldErrors?: Record<string, string>;
+        user?: DirectoryUserRow;
+      };
+
       if (!res.ok) {
-        const fieldSummary =
-          data.fieldErrors && typeof data.fieldErrors === "object"
-            ? Object.entries(data.fieldErrors as Record<string, string>)
-                .map(([field, message]) => `${field}: ${message}`)
-                .join(" · ")
-            : "";
-        const message = [data.error || "Failed to save updates.", fieldSummary]
-          .filter(Boolean)
-          .join(" — ");
-        throw new Error(message);
+        if (data.fieldErrors && typeof data.fieldErrors === "object") {
+          setProfileFieldErrors(data.fieldErrors);
+        }
+        setStatus({
+          type: "error",
+          message: data.error || "Failed to save updates.",
+        });
+        return;
       }
 
       setStatus({ type: "success", message: "User access configuration saved successfully." });
-      
-      // Update local list row
+      setProfileFieldErrors({});
+
       setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUserId ? { ...u, ...data.user } : u))
+        prev.map((u) => (u.id === selectedUserId ? { ...u, ...data.user } : u)),
       );
-      detailCacheRef.current.set(data.user);
-      setSelectedUser(data.user);
-      applyDetailToEditState(data.user);
-    } catch (err: any) {
+      if (data.user) {
+        detailCacheRef.current.set(data.user);
+        setSelectedUser(data.user);
+        applyDetailToEditState(data.user);
+      }
+    } catch (err) {
       console.error(err);
-      setStatus({ type: "error", message: err.message || "Failed to save updates." });
+      setStatus({
+        type: "error",
+        message: err instanceof Error ? err.message : "Failed to save updates.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -367,6 +460,7 @@ export function UserDirectoryShell({
       setSelectedUserId(null);
       setSelectedUser(null);
       setEditProfile(null);
+      setProfileEditBaseline(null);
       setStatus({ type: "success", message: "User account deleted." });
     } catch (err: unknown) {
       console.error(err);
@@ -457,6 +551,15 @@ export function UserDirectoryShell({
 
   const showDetailPane = Boolean(selectedUserId);
   const showEmptyDetail = !selectedUserId && !isLoadingDetail;
+
+  const effectiveSociumRolesForProfile = useMemo(() => {
+    if (!selectedUser) return [];
+    return resolveDirectoryEffectiveSociumRoles({
+      canAssignSocium: selectedUser.canAssignSocium,
+      editSociumRoles,
+      storedSociumRoles: selectedUser.sociumRoles,
+    });
+  }, [selectedUser, editSociumRoles]);
 
   const listPageSummary = useMemo(() => {
     if (totalCount <= 0) return undefined;
@@ -673,14 +776,25 @@ export function UserDirectoryShell({
               {selectedUser.canEditProfile && editProfile ? (
                 <UserDirectoryProfileFields
                   value={editProfile}
-                  onChange={setEditProfile}
+                  onChange={(next) => {
+                    setEditProfile(next);
+                    if (profileFieldErrors.phone) {
+                      setProfileFieldErrors((prev) => {
+                        const { phone: _phone, ...rest } = prev;
+                        return rest;
+                      });
+                    }
+                  }}
                   email={selectedUser.login !== null ? selectedUser.email : undefined}
+                  sociumRoles={effectiveSociumRolesForProfile}
+                  fieldErrors={profileFieldErrors}
                   disabled={isSaving}
                 />
               ) : null}
 
               <UserDirectoryPersonalFields
                 user={selectedUser}
+                pendingPhone={selectedUser.canEditProfile ? editProfile?.phone : undefined}
                 sociumRoles={editSociumRoles}
                 activities={editActivities}
                 organizations={editOrgs}

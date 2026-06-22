@@ -9,7 +9,6 @@
 
 "use client";
 
-import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { StudentTitle } from "@shared/models/User";
@@ -21,12 +20,15 @@ import {
   TelegramNotConfiguredCard,
   TelegramOutsideAppCard,
 } from "@/components/telegram/TelegramMiniAppStatusCard";
+import { NEXUS_TELEGRAM_WEBAPP_READY_EVENT } from "@/components/telegram/TelegramWebAppViewportHost";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Spinner } from "@/components/ui/spinner";
 import { submitTelegramBridgeSignIn } from "@/lib/credentialsAuthClient";
+import { phoneInputProps, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
+import { filterPhoneInputChange } from "@shared/validation/phoneSchema";
 import { signupSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
@@ -85,6 +87,8 @@ export function TelegramMiniAppEntry({
   const [login, setLogin] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phonePrefilledFromBot, setPhonePrefilledFromBot] = useState(false);
   const [specialty, setSpecialty] = useState("");
   const [group, setGroup] = useState("");
   const [studentTitle, setStudentTitle] = useState<StudentTitle | null>("Neither");
@@ -130,6 +134,7 @@ export function TelegramMiniAppEntry({
           needsOnboarding?: boolean;
           bridgeToken?: string;
           telegramUser?: TelegramMiniAppPublicUser;
+          harvestedPhone?: string | null;
         };
 
         if (res.status === 503) {
@@ -152,6 +157,10 @@ export function TelegramMiniAppEntry({
             ? data.telegramUser.username.toLowerCase().replace(/[^a-z0-9._-]/g, "")
             : `tg${data.telegramUser.id}`;
           setLogin(suggestedLogin.slice(0, 32));
+          if (data.harvestedPhone) {
+            setPhone(data.harvestedPhone);
+            setPhonePrefilledFromBot(true);
+          }
           setPhase("onboarding");
           return;
         }
@@ -186,9 +195,18 @@ export function TelegramMiniAppEntry({
 
   useEffect(() => {
     if (!botConfigured) return;
-    if (window.Telegram?.WebApp?.initData) {
-      bootstrapTelegram();
-    }
+
+    const tryBootstrap = () => {
+      if (window.Telegram?.WebApp?.initData) {
+        bootstrapTelegram();
+      }
+    };
+
+    tryBootstrap();
+    window.addEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, tryBootstrap);
+    return () => {
+      window.removeEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, tryBootstrap);
+    };
   }, [bootstrapTelegram, botConfigured]);
 
   /**
@@ -205,6 +223,7 @@ export function TelegramMiniAppEntry({
       login,
       email: email || null,
       password,
+      phone: phone || null,
       specialty: specialty || null,
       group: group || null,
       studentTitle: studentTitle ?? "Neither",
@@ -233,6 +252,7 @@ export function TelegramMiniAppEntry({
           login: parsed.data.login,
           password: parsed.data.password,
           email: parsed.data.email,
+          phone: parsed.data.phone,
           specialty: parsed.data.specialty,
           group: parsed.data.group,
           studentTitle: parsed.data.studentTitle,
@@ -278,18 +298,7 @@ export function TelegramMiniAppEntry({
   }
 
   if (phase === "loading") {
-    return (
-      <>
-        {botConfigured && (
-          <Script
-            src="https://telegram.org/js/telegram-web-app.js"
-            strategy="afterInteractive"
-            onLoad={bootstrapTelegram}
-          />
-        )}
-        <TelegramLoadingCard />
-      </>
-    );
+    return <TelegramLoadingCard />;
   }
 
   if (phase === "outside_telegram") {
@@ -308,7 +317,8 @@ export function TelegramMiniAppEntry({
     <div className="glass-panel w-full rounded-lg p-6 md:p-8">
       <h1 className="text-xl font-semibold text-(--color-text-primary)">{greeting}</h1>
       <p className="mt-2 text-sm text-(--color-text-secondary)">
-        Set a login and password to finish linking your Telegram account to Nexus.
+        Set a login and password to finish linking your Telegram account to Nexus. Share your phone
+        with the bot first to pre-fill it here.
       </p>
 
       <form onSubmit={handleOnboardingSubmit} className="mt-6 flex flex-col gap-4" noValidate>
@@ -350,6 +360,29 @@ export function TelegramMiniAppEntry({
             autoComplete="new-password"
             disabled={submitting}
             required
+          />
+        </FormField>
+
+        <FormField
+          label="Phone"
+          htmlFor="tg-phone"
+          error={fieldErrors.phone}
+          hint={
+            phonePrefilledFromBot
+              ? "Imported from your Telegram bot contact share — you can edit it."
+              : "Optional — share your contact with the bot via /start, then reopen this form."
+          }
+        >
+          <Input
+            id="tg-phone"
+            value={phone}
+            onChange={(e) => setPhone(filterPhoneInputChange(e.target.value))}
+            onBlur={() => {
+              const corrected = autocorrectPhoneFieldValue(phone);
+              if (corrected !== phone) setPhone(corrected);
+            }}
+            disabled={submitting}
+            {...phoneInputProps}
           />
         </FormField>
 

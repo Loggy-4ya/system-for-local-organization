@@ -9,6 +9,7 @@
 import { usePathname } from "next/navigation";
 import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
 import { SiteHeaderBar } from "@/components/ui/SiteHeaderBar";
+import { isPuckEditorRoutePath } from "@/components/puck/lib/pageSlugValidation";
 import { GLOBAL_LAYOUT_HEADER_SLOT_CLASS, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { type HeaderConfig } from "@shared/constants/globalLayout";
 
@@ -50,8 +51,7 @@ export function GlobalHeader({
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const siteProfile = useOptionalSiteProfile();
-  const isEditing = pathname === "/edit" || pathname.endsWith("/edit");
-  if (isEditing) return null;
+  if (isPuckEditorRoutePath(pathname)) return null;
 
   const resolvedProfile = preview ? null : siteProfile?.profile ?? null;
   const resolvedShowAdminPanel = preview

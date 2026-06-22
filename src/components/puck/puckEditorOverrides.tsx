@@ -44,6 +44,7 @@ import { NexusHistoryCanvasIsland } from "@/components/puck/NexusHistoryToolbar"
 import { NexusMobileViewportToggleIcon } from "@/components/puck/NexusMobileViewportToggleIcon";
 import { NexusPublishButton } from "@/components/puck/NexusPublishButton";
 import { NexusEditorScrollportGrid } from "@/components/puck/NexusEditorScrollportGrid";
+import { NexusPuckCanvasTransparencyEnforcer } from "@/components/puck/NexusPuckCanvasTransparencyEnforcer";
 import { NexusCanvasWheelBridge } from "@/components/puck/NexusCanvasWheelBridge";
 import { NexusCompactEditorAttr } from "@/components/puck/NexusCompactEditorAttr";
 import { NexusCompactRightSidebarGuard } from "@/components/puck/NexusCompactRightSidebarGuard";
@@ -294,6 +295,7 @@ function PuckRootOverride({ children }: { children: React.ReactNode }) {
       <NexusHistoryCanvasIsland />
       <NexusMobileViewportToggleIcon />
       <NexusEditorScrollportGrid />
+      <NexusPuckCanvasTransparencyEnforcer />
       <NexusCanvasWheelBridge />
       <NexusGridItemPlacementGuard />
     </>

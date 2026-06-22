@@ -10,6 +10,7 @@ import {
   buildProfileCompletenessSummary,
   PROFILE_FIELD_LABELS,
   SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT,
+  SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY,
   SELF_GOVERNMENT_MEMBER_PROFILE_HINT,
 } from "@shared/lib/userProfileCompleteness";
 import { buttonVariants } from "@/components/ui/button";
@@ -73,6 +74,9 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
           {user.selfGovernmentApplicationIntent
             ? " Your application is pending reviewer approval."
             : " Submit your application when you are ready."}
+        </p>
+        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+          {SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}
         </p>
         <Link
           href="/profile/membership"

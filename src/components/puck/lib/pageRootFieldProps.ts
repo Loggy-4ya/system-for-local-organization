@@ -128,6 +128,7 @@ export function resolvePagePublicationProps(
   return {
     description: props.pagePublication?.description ?? metaDefaults?.description ?? "",
     coverImage: props.pagePublication?.coverImage ?? metaDefaults?.coverImage ?? "",
+    galleryImages: props.pagePublication?.galleryImages ?? metaDefaults?.galleryImages ?? [],
     publishAt: props.pagePublication?.publishAt ?? metaDefaults?.publishAt ?? null,
     commentsEnabled:
       props.pagePublication?.commentsEnabled ?? metaDefaults?.commentsEnabled ?? true,

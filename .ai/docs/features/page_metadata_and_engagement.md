@@ -108,5 +108,5 @@ Pure rules: `shared/lib/pageEditAccessLogic.ts` — tests `npm run test:page-edi
 ## Deferred
 
 - [ ] Page Manager badge display for categories (see [page_categories.md](./page_categories.md))
-- [ ] News hub listing consuming `description`, `coverImage`, categories
+- [x] News hub listing via Page Categories Hub + `NexusNewsCatalog` block — see [page_categories_hub.md](./page_categories_hub.md)
 - [ ] Comment section block wired to `commentsEnabled` + `UserComment`

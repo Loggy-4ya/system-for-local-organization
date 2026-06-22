@@ -10,7 +10,7 @@
 
 Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Login Widget, **Telegram Mini App** (`/telegram`), and login/password credentials into a single MongoDB `users` document. Auth.js (NextAuth v5) issues JWT sessions; all mutations flow through `shared/domains/AuthDomain.ts`.
 
-**Telegram surfaces:** Browser users link via the Login Widget; Telegram app users open the Mini App at `/telegram` (auto-login or onboarding). See [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md).
+**Telegram surfaces:** Browser users link via the Login Widget; Telegram app users open the Mini App at `/telegram` (auto-login or onboarding). See [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md). **Local dev checklist:** [local_oauth_setup.md](./local_oauth_setup.md).
 
 **Credentials model:** Students sign in with a unique **`login`** handle (3–32 chars, lowercase alphanumeric plus `.`, `-`, `_`). **Email is optional** at signup — used only as a linked contact/OAuth merge field, not for credentials sign-in.
 
@@ -88,7 +88,7 @@ See full specification: [user_model_and_social_identity.md](./user_model_and_soc
 | `name` | `string` | Given / first name |
 | `surname` | `string \| null` | Family name; combined as `fullName` in API |
 | `phone` | `string \| null` | Contact number; optional (recommended) for students, required for self-government members and applicants |
-| `telegramId` | `number \| null` | Telegram Login Widget / Mini App link; **required** for self-government members and membership applicants |
+| `telegramId` | `number \| null` | Telegram Login Widget / Mini App link; **required** for self-government members (not applicants) before member tools |
 | `selfGovernmentApplicationIntent` | `boolean` | Signup checkbox — student wants to apply for self-government (admin reviews) |
 | `personalDataConsentAt` | `Date \| null` | Timestamp when user accepted personal data processing at signup |
 | `email` | `string \| null` | Optional linked email; sparse unique index; OAuth merge |
@@ -200,6 +200,7 @@ All authentication and profile settings forms are validated using **Zod** schema
 - **Socium role (signup):** `Student` (default), `Starosta`, or `Teacher` — select control; maps to socium kinds. Other roles are admin-assigned.
 - **Group:** Numeric only (1–4 digits, e.g. `42`).
 - **Membership intent:** `applyForSelfGovernment` boolean — records intent, does not grant roles. When true, signup requires phone, profile photo, and a verified **Telegram Login Widget** connection (`telegramAuth` on `POST /api/auth/register`).
+- **Membership intent (temp override):** `TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION` in `shared/lib/userProfileCompleteness.ts` is currently `false` — login/signup do not require or prompt for Telegram during application. Set to `true` to restore application-time Telegram collection. Post-approval member Telegram gates are unchanged.
 - **Personal data consent:** `personalDataConsent: true` required at signup; stored as `personalDataConsentAt`.
 - **Student Title (legacy):** `Starosta | Deputy | Neither` — signup exposes Student/Starosta chips; `Deputy` remains editable in profile settings.
 - **Display Name:** Required, trimmed, 1–100 characters.

@@ -191,9 +191,9 @@ export function resolvePreviewCanvasShellClientHeightPx(): number | null {
 /**
  * Sync Puck `rootHeight` to measured page content (grow and shrink).
  *
- * When content height is known, `rootHeight` tracks blocks (with a small absolute floor).
- * When content is not yet measurable, falls back to the canvas shell viewport minimum
- * so the editor does not collapse to a sliver on first load.
+ * When content height is known, `rootHeight` is `max(content, canvas shell viewport floor)` so sparse
+ * pages fill the bordered panel while tall pages grow with blocks. When content is not yet measurable,
+ * falls back to the shell viewport minimum once the canvas shell is laid out.
  *
  * @param config - Sanitized zoom config candidate.
  * @param contentHeightPx - Measured iframe content height in px.
@@ -205,26 +205,23 @@ export function syncPuckRootHeightToMeasuredContent(
   contentHeightPx: number | null,
   canvasMinRootHeightPx: number = PREVIEW_EMPTY_PAGE_MIN_ROOT_HEIGHT_PX,
 ): PuckZoomConfig {
-  if (contentHeightPx === null || contentHeightPx <= 0) {
-    const unknownContentFloor = Math.max(
-      PREVIEW_EMPTY_PAGE_MIN_ROOT_HEIGHT_PX,
-      Math.ceil(canvasMinRootHeightPx),
-    );
+  const viewportFloor = Math.max(
+    PREVIEW_EMPTY_PAGE_MIN_ROOT_HEIGHT_PX,
+    Math.ceil(canvasMinRootHeightPx),
+  );
 
-    if (config.rootHeight >= unknownContentFloor) {
+  if (contentHeightPx === null || contentHeightPx <= 0) {
+    if (config.rootHeight >= viewportFloor) {
       return config;
     }
 
     return {
       ...config,
-      rootHeight: unknownContentFloor,
+      rootHeight: viewportFloor,
     };
   }
 
-  const targetRootHeight = Math.max(
-    PREVIEW_EMPTY_PAGE_MIN_ROOT_HEIGHT_PX,
-    Math.ceil(contentHeightPx),
-  );
+  const targetRootHeight = Math.max(viewportFloor, Math.ceil(contentHeightPx));
 
   if (config.rootHeight === targetRootHeight) {
     return config;

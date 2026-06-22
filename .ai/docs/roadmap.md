@@ -27,7 +27,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
 - [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, Telegram Mini App, and login/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md` and `.ai/docs/features/telegram_mini_app_and_bot.md`.
-- [~] **Bot Data Harvesting:** Telegram Login Widget and Mini App merge name, username, avatar into unified MongoDB record; phone harvest via bot contact remains Phase 4.
+- [~] **Bot Data Harvesting:** Telegram Login Widget and Mini App merge name, username, avatar into unified MongoDB record; **phone harvest via bot `request_contact`** stores pre-registration phones and updates linked profiles — see [telegram_mini_app_and_bot.md](./features/telegram_mini_app_and_bot.md).
 - [~] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields. **Public member profiles** at `/users/[userId]` — see [public_user_profiles.md](./features/public_user_profiles.md). Extended socium identity, about, social links — see [user_model_and_social_identity.md](./features/user_model_and_social_identity.md). Task panels wired to live engine (Phase 5).
 - [~] **Student Registration Flow:** `/signup` — two-column name/surname, phone, password strength + confirm, creatable specialty/group dropdowns, socium role (Student/Starosta), self-government application intent, personal data consent. **Membership review** at `/admin/membership-applications` — see [membership_applications.md](./features/membership_applications.md). See [signin_identity_matrix.md](./features/signin_identity_matrix.md).
 
@@ -54,7 +54,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [~] **Constant Reminders System:** `task_reminder` scheduler delivers web toasts + Telegram DMs; see [task_management.md](./features/task_management.md).
 - [~] **Community Interactions:** Build comment sections for news posts, allowing ordinary users to comment, propose ideas, and submit applications. Foundation models in `UserEngagement.ts` — see [user_model_and_social_identity.md](./features/user_model_and_social_identity.md).
 - [~] **Notion-Style Text Editor:** Site-wide TipTap kit with `@` user/page mentions — see `.ai/docs/features/nexus_rich_text_editor.md`. Page hover preview cards remain planned.
-- [~] **News Hub:** Page publication metadata (description, cover, schedule, views/likes) in Puck Page Settings — see [page_metadata_and_engagement.md](./features/page_metadata_and_engagement.md). Full category hub layout deferred.
+- [~] **News Hub:** Page publication metadata (description, cover, schedule, views/likes) in Puck Page Settings — see [page_metadata_and_engagement.md](./features/page_metadata_and_engagement.md). **Page Categories Hub** admin editor + `NexusNewsCatalog` block — see [page_categories_hub.md](./features/page_categories_hub.md).
 
 ---
 *Note for AI Agents: ALL features implemented must strictly adhere to the English JSDoc formatting rules, the Domain Consolidation Principle, and [directory_hygiene.md](./directory_hygiene.md) (single-purpose folders — no misplaced or duplicate files). DO NOT proceed with any task without first verifying this document and related specifications inside `.ai/docs/`.*

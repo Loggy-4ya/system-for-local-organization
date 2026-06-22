@@ -15,9 +15,11 @@ import { SiteNotificationToastStack } from "@/components/notifications/SiteNotif
 import { WebNotificationPermissionPromptHost } from "@/components/notifications/WebNotificationPermissionPromptHost";
 import { NexusImageCropHost } from "@/components/media/NexusImageCropHost";
 import { ProfileOnboardingRedirect } from "@/components/profile/ProfileOnboardingRedirect";
+import { ProfileMemberTelegramBanner } from "@/components/profile/ProfileMemberTelegramBanner";
+import { TelegramWebAppViewportHost } from "@/components/telegram/TelegramWebAppViewportHost";
 import { SITE_ICONS } from "@/lib/assets";
 import { CSP_NONCE_HEADER } from "@/lib/contentSecurityPolicy";
-import { NEXUS_THEME_OPTIONS } from "@/lib/resolveStoredThemeIsDark";
+import { NEXUS_THEME_OPTIONS, resolveStoredThemeIsDark } from "@/lib/resolveStoredThemeIsDark";
 import { auth } from "@/auth";
 import { seedAdminUser } from "@shared/lib/seedAdminUser";
 import "./globals.css";
@@ -94,6 +96,7 @@ export default async function RootLayout({
     ...THEME_CONFIG,
     initialTheme: initialTheme ?? undefined,
   });
+  const ssrDataTheme = (await resolveStoredThemeIsDark("dark")) ? "dark" : "light";
 
   const session = await auth();
   const initialSiteProfile =
@@ -103,7 +106,10 @@ export default async function RootLayout({
   const walletProviderShim = `(function(){try{if(typeof window!=="undefined"&&!window.ethereum){window.ethereum={selectedAddress:void 0}}}catch(e){}})();`;
 
   return (
-    <html lang="en" className={fontVariables} suppressHydrationWarning>
+    <html lang="en" className={fontVariables} data-theme={ssrDataTheme} suppressHydrationWarning>
+      <head>
+        {cspNonce ? <meta name="csp-nonce" content={cspNonce} /> : null}
+      </head>
       <body className="flex min-h-dvh flex-col touch-manipulation" suppressHydrationWarning>
         <Script id="nexus-wallet-shim" strategy="beforeInteractive" nonce={cspNonce}>
           {walletProviderShim}
@@ -125,11 +131,13 @@ export default async function RootLayout({
             <SiteProfileProvider initialProfile={initialSiteProfile}>
               <RouteNavigationRecoveryHost />
               <ProfileOnboardingRedirect />
+              <TelegramWebAppViewportHost />
               {/* Fixed full-viewport background — persists across route changes */}
               <LayoutInfiniteGrid />
               {/* Content above grid — z-index avoids iOS WebKit painting fixed canvas behind body bg */}
               <div className="nexus-page-stack relative z-1 flex min-h-dvh flex-1 flex-col">
                 <HeaderSessionBridge />
+                <ProfileMemberTelegramBanner />
                 <main className="flex min-h-0 flex-1 flex-col">
                   {children}
                 </main>

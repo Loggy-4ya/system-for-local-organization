@@ -43,10 +43,19 @@ Domain helper: `AuthDomain.getPublicProfileForViewer(viewer, targetUserId)`.
 
 | Component | Notes |
 |-----------|-------|
-| `ProfileHero` | Accepts `PublicUser \| PublicProfileUser`; `showSettingsLink` on own profile |
+| `ProfileHero` | Accepts `PublicUser \| PublicProfileUser`; badges for RBAC, access level, socium roles; `ProfileHeroActions` for Edit / Message / Copy link |
+| `ProfileHeroActions` | Message via Telegram DM or `mailto:` when contact is visible; public social links work for peers when PII is redacted |
 | `ProfileAboutSection` | `about` + `socialLinks` props |
 | `ProfilePublishedSection` | Published news/social feed when author is eligible |
-| `ProfileTasksPanel` | Live assigned tasks via `/api/tasks?scope=assigned` |
+| `ProfileTasksPanel` | Live open assigned tasks via `/api/tasks?scope=assigned`; urgency sort, category/tags, status strip |
+| `ProfileActivityColumn` | Recent open tasks + 30-day completion snapshot from `TaskDomain.getProfileTaskSnapshot` |
+| `ProfileStatsRow` | Stars, open task count, warnings, optional quality score |
+
+### Contact / Message button
+
+Peers cannot see login, email, or Telegram username unless they outrank the target or are Admin. The **Message** action still works when the profile owner published a **Telegram social link** (always visible). Otherwise the button is disabled with “Message unavailable”.
+
+Pure rules: `shared/lib/profileContactLogic.ts` — tests `npm run test:profile-contact-logic`.
 
 ---
 

@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, UserCheck } from "lucide-react";
 import type { MembershipApplicationStatusDto } from "@shared/domains/MembershipApplicationDomain";
-import { SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT } from "@shared/lib/userProfileCompleteness";
+import { SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY } from "@shared/lib/userProfileCompleteness";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -133,6 +133,7 @@ export function ProfileMembershipApplicationShell() {
           <>
             <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
               <p>{SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT}</p>
+              <p className="mt-2 text-xs">{SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}</p>
               {!status?.readyForSubmission && status?.missingFieldLabels.length ? (
                 <p className="mt-2">
                   Still missing:{" "}

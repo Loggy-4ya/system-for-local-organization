@@ -42,6 +42,7 @@ describe("buildNexusPageVariableMap", () => {
     const map = buildNexusPageVariableMap({
       title: "Hello",
       coverImage: "/img.png",
+      galleryImages: ["/two.png", "/three.png"],
       authorDisplayName: "Ada Lovelace",
       viewCount: 12,
       likeCount: 3,
@@ -49,6 +50,9 @@ describe("buildNexusPageVariableMap", () => {
 
     assert.equal(map.image, "/img.png");
     assert.equal(map.coverImage, "/img.png");
+    assert.equal(map.image1, "/img.png");
+    assert.equal(map.image2, "/two.png");
+    assert.equal(map.image3, "/three.png");
     assert.equal(map.author, "Ada Lovelace");
     assert.equal(map.authorName, "Ada Lovelace");
     assert.equal(map.views, "12");

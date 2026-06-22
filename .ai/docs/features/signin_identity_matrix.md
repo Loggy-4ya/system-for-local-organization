@@ -59,7 +59,7 @@ Implementation:
 |----------|------------------------------|-------------------------------------|-------|
 | Google | `name` → split to `name`/`surname`, `email`, `avatar` | `?name=&surname=&email=` | No phone scope by default |
 | Apple | Same as Google | Same | Relay emails supported |
-| Telegram widget | `first_name`/`last_name`, `username`, `avatar` | `?name=&surname=` | Phone via bot contact — Phase 4 |
+| Telegram widget | `first_name`/`last_name`, `username`, `avatar` | `?name=&surname=` | Phone via bot `request_contact` → profile / Mini App pre-fill |
 | Credentials signup | All form fields | — | Source of truth for specialty/group/phone at enrolment |
 
 OAuth name splitting: `shared/lib/splitPersonName.ts` used in `AuthDomain.mergeOAuthUser()`.

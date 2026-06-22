@@ -28,7 +28,7 @@ export default auth((req) => {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/task-groups") ||
-    pathname.startsWith("/users/");
+    pathname.startsWith("/users/") 
 
   if (isProtected && !req.auth) {
     const loginUrl = publicUrl("/login", req);

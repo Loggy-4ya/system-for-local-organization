@@ -12,8 +12,23 @@
 import React from "react";
 import { Link2, Mail, Phone, Send, User } from "lucide-react";
 import type { DirectoryUserRow } from "@shared/lib/directoryRedaction";
+import { normalizePhoneInput } from "@shared/validation/phoneSchema";
 import type { IUserOrganizationMembership, IUserSocialGroupActivity, IUserSociumRole } from "@shared/models/userTypes";
 import { UserDirectorySocialLabelsEditor } from "@/components/user-directory/UserDirectorySocialLabelsEditor";
+
+/**
+ * Format phone for read-only directory display.
+ *
+ * @param phone - Redacted or raw phone from a directory row.
+ * @returns Dialable phone or a redacted / missing label.
+ */
+function formatDirectoryPhoneDisplay(phone: string | null): string {
+  if (phone === null) return "Redacted / Hidden";
+  if (!phone.trim()) return "Not on file";
+  const normalized = normalizePhoneInput(phone);
+  if (!normalized) return "Not on file";
+  return normalized;
+}
 
 /**
  * Whether redactable PII fields are exposed on a directory row.
@@ -64,6 +79,8 @@ export interface UserDirectoryPersonalFieldsProps {
   onActivitiesChange: (next: IUserSocialGroupActivity[]) => void;
   /** Called when organizations change. */
   onOrganizationsChange: (next: IUserOrganizationMembership[]) => void;
+  /** When set, overrides read-only phone display with the pending edit value. */
+  pendingPhone?: string | null;
   /** When false, socium role inputs are hidden. */
   canEditSocium?: boolean;
   /** When false, activity and organization inputs are hidden. */
@@ -88,10 +105,14 @@ export function UserDirectoryPersonalFields({
   onOrganizationsChange,
   canEditSocium = false,
   canEditAffiliations = false,
+  pendingPhone,
   disabled = false,
 }: UserDirectoryPersonalFieldsProps) {
   const piiVisible = directoryPiiVisible(user);
   const showSocialLabels = canEditSocium || canEditAffiliations;
+  const phoneDisplay = formatDirectoryPhoneDisplay(
+    pendingPhone !== undefined ? pendingPhone || null : user.phone,
+  );
 
   return (
     <div className="flex flex-col gap-6 border-b border-border pb-6">
@@ -126,9 +147,7 @@ export function UserDirectoryPersonalFields({
           <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone Number</p>
-            <p className="truncate text-sm font-medium text-foreground">
-              {user.phone || "Redacted / Hidden"}
-            </p>
+            <p className="truncate text-sm font-medium text-foreground">{phoneDisplay}</p>
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-3">

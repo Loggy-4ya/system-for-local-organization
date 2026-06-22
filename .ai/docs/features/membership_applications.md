@@ -24,7 +24,7 @@ Students apply for self-government membership after completing required profile 
 ### Submit rules
 
 - Applicant must not already hold a self-government socium role.
-- Profile must include surname, phone, specialty, group, avatar, and linked Telegram.
+- Profile must include surname, phone, specialty, group, and avatar (Telegram **not** required to apply).
 - `POST /api/membership-application` sets `selfGovernmentApplicationIntent: true`.
 - `DELETE /api/membership-application` clears intent (withdraw).
 
@@ -47,6 +47,8 @@ Students apply for self-government membership after completing required profile 
 2. Call `ensureQualityScoresInitialized()`.
 3. Clear `selfGovernmentApplicationIntent`.
 4. Record `UserDirectoryAudit` row (`membershipApplicationAction: approve` in metadata).
+
+Approved members **without** a linked `telegramId` may browse the site but see `ProfileMemberTelegramBanner` and are redirected from `/tasks` and `/task-groups` to `/profile/settings?onboarding=member-telegram` until Telegram is connected.
 
 ### Permission model
 

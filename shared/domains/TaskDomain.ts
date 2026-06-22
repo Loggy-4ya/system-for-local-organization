@@ -12,6 +12,7 @@ import type { AccessLevelIndex } from "@shared/constants/accessControl";
 import {
   DEFAULT_TASK_REMINDER_SETTINGS,
   type TaskAssignmentNotifyTarget,
+  type TaskGroupStatus,
   type TaskStatus,
 } from "@shared/constants/taskSettings";
 import {
@@ -86,6 +87,20 @@ import type {
   TaskUpdateInput,
 } from "@shared/validation/taskSchemas";
 import { Types } from "mongoose";
+
+/** Aggregated task metrics for profile dashboard panels. */
+export interface ProfileTaskSnapshot {
+  /** Total open assigned tasks (excludes completed/cancelled). */
+  openCount: number;
+  /** Open task counts keyed by lifecycle status. */
+  openByStatus: Partial<Record<TaskStatus, number>>;
+  /** Recently updated open tasks for activity sidebar. */
+  recentOpenTasks: TaskListRow[];
+  /** Assigned tasks completed within the last 30 days. */
+  completedLast30Days: number;
+  /** Active multi-part projects where the user is on the roster. */
+  activeGroupCount: number;
+}
 
 /** Public list row for task manager UI. */
 export interface TaskListRow {
@@ -1070,6 +1085,55 @@ export class TaskDomain {
       "performers.userId": userId,
       status: { $nin: ["cancelled", "completed"] },
     });
+  }
+
+  /**
+   * Load task metrics and recent work for profile dashboard panels.
+   *
+   * @param userId - Profile owner id.
+   * @returns Snapshot for stats, activity column, and task summaries.
+   */
+  public static async getProfileTaskSnapshot(userId: string): Promise<ProfileTaskSnapshot> {
+    await connectDB();
+
+    const performerFilter = { "performers.userId": userId };
+    const openStatusFilter = { status: { $nin: ["cancelled", "completed"] as TaskStatus[] } };
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [openDocs, completedLast30Days, activeGroupCount, statusAgg] = await Promise.all([
+      Task.find({ ...performerFilter, ...openStatusFilter })
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .lean(),
+      Task.countDocuments({
+        ...performerFilter,
+        status: "completed",
+        updatedAt: { $gte: thirtyDaysAgo },
+      }),
+      TaskGroup.countDocuments({
+        performerUserIds: userId,
+        status: { $in: ["draft", "active"] as TaskGroupStatus[] },
+      }),
+      Task.aggregate<{ _id: TaskStatus; count: number }>([
+        { $match: { ...performerFilter, ...openStatusFilter } },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const openByStatus: Partial<Record<TaskStatus, number>> = {};
+    for (const row of statusAgg) {
+      openByStatus[row._id] = row.count;
+    }
+
+    const openCount = Object.values(openByStatus).reduce((sum, count) => sum + (count ?? 0), 0);
+
+    return {
+      openCount,
+      openByStatus,
+      recentOpenTasks: openDocs.map((doc) => toTaskListRow(doc as ITask)),
+      completedLast30Days,
+      activeGroupCount,
+    };
   }
 
   /**

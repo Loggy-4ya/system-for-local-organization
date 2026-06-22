@@ -166,6 +166,7 @@ export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [
     id: "explore",
     label: "Explore",
     items: [
+      { id: "pages-catalog", href: "/pages/categories", label: "Pages", icon: "FileText" },
       { id: "news", href: "/news", label: "News", icon: "Newspaper" },
       { id: "council-apply", href: "/council-apply", label: "Council Apply", icon: "Award" },
       { id: "propose-activity", href: "/propose-activity", label: "Propose Activity", icon: "MessageSquare" },
@@ -196,6 +197,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterConfig = {
       id: "resources",
       title: "Resources",
       links: [
+        { id: "pages-catalog", href: "/pages/categories", label: "Browse Pages" },
         { id: "pages-list", href: "/pages", label: "Page Manager" },
         { id: "news-feed", href: "/news", label: "News Feed" },
       ],

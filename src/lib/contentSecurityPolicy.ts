@@ -60,18 +60,22 @@ export function generateCspNonce(): string {
 export function buildContentSecurityPolicy(
   options: ContentSecurityPolicyOptions = {},
 ): string {
+  const telegramScriptHost = "https://telegram.org";
+  const telegramWidgetFrameHost = "https://oauth.telegram.org";
+
   const scriptSrc = options.nonce
     ? [
         "script-src 'self'",
         `'nonce-${options.nonce}'`,
         "'strict-dynamic'",
+        telegramScriptHost,
         options.isDev ? "'unsafe-eval'" : null,
       ]
         .filter(Boolean)
         .join(" ")
     : options.isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'";
+      ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${telegramScriptHost}`
+      : `script-src 'self' 'unsafe-inline' ${telegramScriptHost}`;
 
   const directives = [
     "default-src 'self'",
@@ -81,7 +85,7 @@ export function buildContentSecurityPolicy(
     "media-src 'self' blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https:",
-    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    `frame-src 'self' ${telegramWidgetFrameHost} https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

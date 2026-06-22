@@ -28,7 +28,11 @@ Unknown names stay literal so editors can spot mistakes.
 |----------|--------|
 | `title` | Page Details → title |
 | `description` | Publication → description |
-| `image`, `coverImage` | Publication → cover image URL |
+| `image`, `coverImage` | Publication → cover image URL (alias of `image1`) |
+| `image1` | Primary publication cover image URL |
+| `image2` | Second publication gallery image |
+| `image3` | Third publication gallery image |
+| `image4` | Fourth publication gallery image |
 | `slug` | Page Details → URL slug |
 | `path`, `url` | Canonical page path (`/news/fair`) |
 | `categories` | Page Details → categories (comma-separated) |
@@ -60,6 +64,7 @@ Editor and published views both wrap content in `PageEditorMetaProvider` + `Nexu
 - Button (label + href)
 - Blockquote (text + author)
 - News Card (image, title, description, category, read time, href)
+- News Catalog block (admin-curated hub — see [page_categories_hub.md](./page_categories_hub.md))
 
 ---
 

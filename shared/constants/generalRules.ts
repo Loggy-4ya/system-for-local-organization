@@ -22,6 +22,10 @@ export const GENERAL_RULES_SETTINGS_ID = "nexus_general_rules";
 export type TelegramMessageTemplateKey =
   | "startWelcome"
   | "startOpenButtonLabel"
+  | "startSharePhonePrompt"
+  | "contactShareButtonLabel"
+  | "contactPhoneSaved"
+  | "contactPhoneRejected"
   | "broadcastAnnouncementPrefix";
 
 /** Metadata for one Telegram template field in the admin UI. */
@@ -49,6 +53,32 @@ export const TELEGRAM_MESSAGE_TEMPLATE_DEFS: readonly TelegramMessageTemplateDef
     label: "Mini App open button",
     description: "Label on the inline keyboard button that opens the Telegram Mini App.",
     defaultText: "Open Nexus",
+  },
+  {
+    key: "startSharePhonePrompt",
+    label: "Share phone prompt",
+    description:
+      "Follow-up DM after /start asking the user to share their phone for profile pre-fill.",
+    defaultText:
+      "Share your phone number so Nexus can pre-fill your profile. Tap the button below — only your own contact is accepted.",
+  },
+  {
+    key: "contactShareButtonLabel",
+    label: "Share phone button",
+    description: "Reply keyboard label with Telegram request_contact.",
+    defaultText: "Share phone number",
+  },
+  {
+    key: "contactPhoneSaved",
+    label: "Phone saved confirmation",
+    description: "Sent after a valid shared contact is stored on the user or harvest cache.",
+    defaultText: "Thanks — your phone number is saved. Open Nexus to finish your profile.",
+  },
+  {
+    key: "contactPhoneRejected",
+    label: "Invalid contact rejection",
+    description: "Sent when the shared contact is not the sender's own card or phone is invalid.",
+    defaultText: "Please share your own phone contact using the button below.",
   },
   {
     key: "broadcastAnnouncementPrefix",

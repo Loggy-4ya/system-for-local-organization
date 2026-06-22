@@ -27,6 +27,7 @@ import {
   filterPageCategorySuggestions,
   normalizePageCategoryList,
 } from "@shared/lib/pageCategoryLogic";
+import { normalizePageGalleryImages } from "@shared/lib/pageCategoriesHubLogic";
 import {
   type PageAccessEditorCandidate,
   type PageAccessEditorEntry,
@@ -77,6 +78,7 @@ import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 export interface PagePublicationInput {
   description?: string;
   coverImage?: string;
+  galleryImages?: string[];
   publishAt?: Date | string | null;
   commentsEnabled?: boolean;
 }
@@ -89,6 +91,7 @@ export interface PageMetadataDto {
   categories: string[];
   description: string;
   coverImage: string;
+  galleryImages: string[];
   authorUserId: string | null;
   authorDisplayName: string | null;
   publishAt: string | null;
@@ -491,6 +494,7 @@ export class PageDomain {
       | "categories"
       | "description"
       | "coverImage"
+      | "galleryImages"
       | "authorUserId"
       | "publishAt"
       | "commentsEnabled"
@@ -514,6 +518,7 @@ export class PageDomain {
       categories: doc.categories ?? [],
       description: doc.description ?? "",
       coverImage: doc.coverImage ?? "",
+      galleryImages: doc.galleryImages ?? [],
       authorUserId: doc.authorUserId ? String(doc.authorUserId) : null,
       authorDisplayName,
       publishAt: doc.publishAt ? new Date(doc.publishAt).toISOString() : null,
@@ -729,6 +734,10 @@ export class PageDomain {
       }),
       description: (publication.description ?? existing?.description ?? "").trim(),
       coverImage: (publication.coverImage ?? existing?.coverImage ?? "").trim(),
+      galleryImages:
+        publication.galleryImages !== undefined
+          ? normalizePageGalleryImages(publication.galleryImages)
+          : existing?.galleryImages ?? [],
       commentsEnabled: publication.commentsEnabled ?? existing?.commentsEnabled ?? true,
       publishAt: scheduledFuture ? publishAt : publishNow ? publishAt : null,
       published: publishNow,

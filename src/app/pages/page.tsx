@@ -11,6 +11,7 @@
 import connectDB from "@shared/lib/db";
 import Page from "@shared/models/Page";
 import { auth } from "@/auth";
+import { canSessionManagePageCategoriesHub } from "@/lib/pageCategoriesHubAccess";
 import { PageManagerShell, type PageManagerNotice, type PageManagerRow } from "./PageManagerShell";
 
 /**
@@ -40,7 +41,7 @@ export default async function PagesPage({
       path: d.path,
       title: d.title,
       published: d.published,
-      updatedAt: d.updatedAt,
+      updatedAt: new Date(d.updatedAt).toISOString(),
     }));
   } catch (err) {
     console.error("[PagesPage] DB error:", err);
@@ -48,9 +49,17 @@ export default async function PagesPage({
 
   const session = await auth();
   const showAdminSettings = session?.user?.role === "Admin";
+  const showCatalogSettings = await canSessionManagePageCategoriesHub(session);
 
   const notice: PageManagerNotice | undefined =
     error === "reserved-slug" || error === "homepage-code-only" ? error : undefined;
 
-  return <PageManagerShell pages={pages} notice={notice} showAdminSettings={showAdminSettings} />;
+  return (
+    <PageManagerShell
+      pages={pages}
+      notice={notice}
+      showAdminSettings={showAdminSettings}
+      showCatalogSettings={showCatalogSettings}
+    />
+  );
 }

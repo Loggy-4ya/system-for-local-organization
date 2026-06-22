@@ -50,16 +50,20 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/lib/utils.ts` | Shadcn `cn()` helper (`clsx` + `tailwind-merge`) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
 | `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
-| `src/app/pages/` | Page Manager UI (`/pages`), `PageManagerShell.tsx` tabs, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
+| `src/app/pages/` | Page Manager UI (`/pages`), public categories catalog (`/pages/categories`), publisher editor (`/pages/categories/edit`), `PageManagerShell.tsx`, `EditorDefaultsPanel.tsx`, `NewPageForm.tsx` | Active |
+| `src/app/pages/categories/` | Public page catalog + publisher curation editor | Active |
 | `src/app/pages/join/[token]/` | Publisher invite redemption — adds delegate and redirects to Puck editor | Active |
 | `src/app/admin/` | Administration hub — area picker at `/admin` | Active |
 | `src/app/admin/global-layout/` | Admin Global Layout Editor page | Active |
+| `src/app/admin/page-categories/` | Legacy redirect → `/pages/categories/edit` | Active |
 | `src/app/admin/user-access/` | Admin User Access & permissions matrix editor | Active |
 | `src/app/admin/users/` | Admin User Directory page | Active |
 | `src/app/admin/logs/` | Multi-section system audit logs (`/admin/logs`) | Active |
 | `src/app/admin/security-audits/` | Legacy redirect → `/admin/logs?section=content-sanitization` | Active |
 | `src/app/api/puck/` | REST API for loading/saving/deleting Puck page layouts to MongoDB | Active |
 | `src/app/api/pages/categories/` | GET distinct page category labels for Puck editor autocomplete | Active |
+| `src/app/api/page-categories/settings/` | GET/POST hub settings for page publishers | Active |
+| `src/app/api/page-categories/hub/` | GET resolved news catalog hub payload | Active |
 | `src/app/api/pages/publisher-invite/` | POST create publisher invite link for a persisted page | Active |
 | `src/app/api/pages/view/` | POST increment public page view count (anonymous allowed, cookie dedupe) | Active |
 | `src/app/api/pages/like/` | POST toggle authenticated user like on a published page | Active |
@@ -110,7 +114,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/lib/resolveStoredThemeIsDark.ts` | SSR helper — resolves dark/light from theme cookie + color-scheme client hint | Active |
 | `src/components/auth/` | Auth UI: `AuthShell`, OAuth row, role chips, forms | Active |
 | `src/components/profile/` | Profile dashboard and settings components | Active |
-| `src/components/admin/` | Administration hub shell (`AdminHubShell`), `AdminSystemLogsShell`, shared `AdminEditorActionToolbar` | Active |
+| `src/components/admin/` | Administration hub shell (`AdminHubShell`), `AdminSystemLogsShell`, shared `AdminEditorActionToolbar`, page categories hub editor | Active |
 | `src/components/access-control/` | User access hierarchy & permission matrix editor UI | Active |
 | `src/components/ui/pagination.tsx` | Shadcn pagination primitives | Active |
 | `src/components/ui/calendar.tsx` | Shadcn calendar (react-day-picker) for scheduled publish | Active |
@@ -161,12 +165,14 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/models/AcademicCatalog.ts` | Admin-reviewed specialty and group catalog (`academic_catalog`) | Active |
 | `shared/models/SociumCatalog.ts` | Admin-configurable socium role, activity, and organization catalogs | Active |
 | `shared/models/UserEngagement.ts` | Community engagement stubs — comments, survey participation, published content feed | Active |
+| `shared/models/TelegramContactHarvest.ts` | Staged phone numbers from bot `request_contact` before account creation | Active |
 | `shared/models/SystemBroadcast.ts` | Institution-wide broadcast messages | Active |
 | `shared/models/UserBroadcastReceipt.ts` | Per-user broadcast delivery and dismissal receipts | Active |
 | `shared/models/Page.ts` | Puck page layout schema (path → puckData, publication metadata, engagement counters) | Active |
 | `shared/models/PageLike.ts` | Per-user page like records | Active |
 | `shared/models/Task.ts` | Institutional task assignments, reports, scoring, optional `telegramForumTopicId` | Active |
 | `shared/models/TaskGroup.ts` | Multi-part project shell — `plannedRoster`, child task aggregates, `telegramWorkspace` | Active |
+| `shared/models/PageCategoriesSettings.ts` | Singleton page categories hub / news catalog configuration | Active |
 | `shared/models/PagePathSettings.ts` | Singleton hidden page path domain labels for the editor picker | Active |
 | `shared/models/EditorSettings.ts` | Singleton Puck editor settings (`islandDefaultComponents`) | Active |
 | `shared/models/GlobalLayout.ts` | Singleton Global Layout configuration model | Active |
@@ -206,6 +212,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/validation/contentPolicySchemas.ts` | Zod refinements for blocked-word validation | Active |
 | `shared/lib/academicCatalogLogic.ts` | Specialty/group catalog slug and approval helpers | Active |
 | `shared/lib/pageCategoryLogic.ts` | Puck page category label normalization and suggestion filter | Active |
+| `shared/lib/pageCategoriesHubLogic.ts` | Page categories hub normalization and news catalog card helpers | Active |
 | `shared/lib/publicProfileRedaction.ts` | Member profile PII redaction DTO for `/users/[userId]` | Active |
 | `shared/lib/taskAccessLogic.ts` | Pure task permission and delegation quota rules | Active |
 | `shared/domains/UserSearchDomain.ts` | Institution user search for pickers |
@@ -218,6 +225,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/lib/scheduledEventHandlers/` | Background task handler registrations | Active |
 | `shared/domains/MediaDomain.ts` | Media upload validation + storage provider orchestration | Active |
 | `shared/domains/PageDomain.ts` | Puck page persistence (delete, category catalog aggregation) | Active |
+| `shared/domains/PageCategoriesDomain.ts` | Page categories hub settings load/update and catalog payload resolution | Active |
 | `shared/domains/SchedulerDomain.ts` | Central background task scheduler and execution engine | Active |
 | `shared/domains/MentionDomain.ts` | User + page mention search for rich text `@` autocomplete | Active |
 | `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
@@ -231,6 +239,8 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/lib/puckContentSanitizeReport.ts` | Field-level sanitization diff types for audit logging | Active |
 | `shared/lib/securitySanitizeAuditLog.ts` | Console + MongoDB audit for blocked Puck content | Active |
 | `shared/lib/userDirectoryAuditLog.ts` | Console + MongoDB audit for User Directory admin mutations | Active |
+| `shared/lib/userDirectorySaveLogic.ts` | Pre-save profile requirement checks for User Directory admin PATCH | Active |
+| `shared/lib/userDirectoryProfilePatch.ts` | Profile field patch delta builder for User Directory admin saves | Active |
 | `shared/models/GeneralRulesSettings.ts` | Singleton general rules (blocklist, Telegram templates) | Active |
 | `shared/domains/GeneralRulesDomain.ts` | Load/update general rules + publish effective cache | Active |
 | `shared/domains/UserDirectoryAuditDomain.ts` | List and record User Directory admin audit rows | Active |

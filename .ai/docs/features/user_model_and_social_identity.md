@@ -21,7 +21,7 @@ Community participation (comments on news/proposals, surveys, quizzes) is stored
 | Credentials | `login`, `passwordHash` | User at signup; admin seed | Login uses a **partial unique index** (only when set). Omitted — not stored as `null`. Password is bcrypt; never exposed in APIs. |
 | Linked email | `email` | OAuth link; optional at signup | Partial unique index when non-empty (`partialFilterExpression: { email: { $gt: "" } }`). Omitted when unset — never persist `email: null` (prevents E11000). |
 | Contact | `phone` | User in settings; Telegram bot sync | Optional for students (recommended). **Required** for self-government members and applicants. |
-| Telegram | `telegramId`, `username` | Login Widget / Mini App / `POST /api/profile/telegram` | Optional for general students. **Required** for self-government members and applicants. |
+| Telegram | `telegramId`, `username` | Login Widget / Mini App / `POST /api/profile/telegram` | Optional for general students and **membership applicants**. **Required** for self-government members before task/member tools (`memberNeedsTelegramLinkage`). |
 | Legal name | `name`, `surname` | User in signup/settings | Display via `formatUserFullName()` — `"Name Surname"`. Surname required before membership application. |
 | System RBAC | `role` | Server / admin only | `Admin` · `StudentCouncil` · `Student`. Legacy dashboard gate; see [access_control_and_hierarchy.md](./access_control_and_hierarchy.md). |
 | Access hierarchy | `accessLevelIndex` | Admin / authorised actors | **0 = highest** — system admin through common student (index 6). |
@@ -126,29 +126,29 @@ Comments and survey history panels remain placeholder until News Hub ships (Phas
 
 ---
 
-## Phone number & membership readiness
+## Phone, Telegram & membership readiness
 
-| Audience | Phone requirement |
-|----------|-------------------|
-| Common students | Optional but **recommended** in profile settings |
-| Self-government members | **Required** — cannot be cleared while member role is active |
-| Membership applicants | Must complete phone, profile photo, specialty, group, surname, and **Telegram** before application is considered ready |
+| Audience | Phone | Telegram |
+|----------|-------|----------|
+| Common students | Optional (recommended) | Optional |
+| Membership applicants | **Required** with surname, specialty, group, avatar | Optional at apply time; advisory shown in UI |
+| Self-government members | **Required** — cannot be cleared while member role is active | **Required** for member tools — site banner + redirect from `/tasks` and `/task-groups` until linked |
 
 Helpers in `shared/lib/userProfileCompleteness.ts`:
 
-- `getMembershipProfileGaps()` — missing fields for application (includes `telegram` when required)
-- `isProfileReadyForMembershipApplication()` — gate for future apply flow
+- `getMembershipProfileGaps()` — missing fields for application (Telegram only when already a member)
+- `isProfileReadyForMembershipApplication()` — gate for submit flow
 - `phoneIsRequiredForUser()` — blocks clearing phone for active members
-- `telegramIsRequiredForUser()` — blocks unlinking Telegram for members and applicants
-- `userNeedsSelfGovernmentProfileCompliance()` — redirects incomplete applicants to settings
+- `telegramIsRequiredForUser()` / `memberNeedsTelegramLinkage()` — blocks unlinking Telegram for members
+- `userNeedsMemberTelegramOnboarding()` — member Telegram gate (see `src/lib/profileOnboardingGate.ts`)
 
 Profile UI:
 
-- `/profile/settings` — editable phone field with contextual hint
-- `/profile` — `ProfileMembershipReadiness` banner listing gaps
+- `/profile/settings` — editable phone field; `?onboarding=member-telegram` for forced member Telegram connect
+- `/profile` — `ProfileMembershipReadiness` banner listing gaps; `ProfileMemberTelegramBanner` in root layout for members without Telegram
 - `GET /api/profile/completeness` — JSON summary for apply forms
 
-Telegram bot contact harvest (Phase 4) may pre-fill `phone`; users can override in settings.
+Telegram bot contact harvest stores phones shared via `request_contact` on the linked user or in `TelegramContactHarvest` until Mini App onboarding; users can override in settings.
 
 ---
 

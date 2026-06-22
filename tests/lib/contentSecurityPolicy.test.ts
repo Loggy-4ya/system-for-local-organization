@@ -18,7 +18,7 @@ describe("buildContentSecurityPolicy", () => {
     const csp = buildContentSecurityPolicy();
     assert.match(csp, /object-src 'none'/);
     assert.match(csp, /base-uri 'self'/);
-    assert.match(csp, /frame-src 'self' https:\/\/www\.youtube\.com/);
+    assert.match(csp, /frame-src 'self' https:\/\/oauth\.telegram\.org https:\/\/www\.youtube\.com/);
   });
 
   it("allows unsafe-eval in development for Next.js HMR", () => {
@@ -34,6 +34,7 @@ describe("buildContentSecurityPolicy", () => {
   it("uses nonce and strict-dynamic when nonce is provided", () => {
     const csp = buildContentSecurityPolicy({ nonce: "abc123", isDev: false });
     assert.match(csp, /script-src 'self' 'nonce-abc123' 'strict-dynamic'/);
+    assert.match(csp, /https:\/\/telegram\.org/);
     assert.doesNotMatch(csp, /script-src[^;]*unsafe-inline/);
   });
 

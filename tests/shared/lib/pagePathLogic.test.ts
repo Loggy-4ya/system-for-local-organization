@@ -16,6 +16,7 @@ import {
   formatPagePathLabel,
   mergePagePathDomains,
   normalizePagePath,
+  pagePathBelongsToDomain,
   pagePathToSlug,
   slugifyPageTitleToSlugSegment,
   splitPageAddress,
@@ -123,6 +124,14 @@ describe("page path domain visibility", () => {
     const result = validatePagePathDomainSegment("admin");
     assert.equal(result.valid, false);
     assert.match(result.error ?? "", /reserved/i);
+  });
+});
+
+describe("pagePathBelongsToDomain", () => {
+  it("matches domain root and child paths", () => {
+    assert.equal(pagePathBelongsToDomain("/news", "news"), true);
+    assert.equal(pagePathBelongsToDomain("/news/spring-fair", "news"), true);
+    assert.equal(pagePathBelongsToDomain("/surveys/poll", "news"), false);
   });
 });
 

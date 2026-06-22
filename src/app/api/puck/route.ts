@@ -258,6 +258,7 @@ export async function POST(req: NextRequest) {
       publication: {
         description: pub.description,
         coverImage: pub.coverImage,
+        galleryImages: pub.galleryImages,
         publishAt: pub.publishAt,
         commentsEnabled: pub.commentsEnabled,
       },

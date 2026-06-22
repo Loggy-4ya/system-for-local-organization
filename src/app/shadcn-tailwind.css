@@ -25,6 +25,8 @@
 }
 
 /* Custom variants */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @custom-variant data-open {
   &:where([data-state="open"]),
   &:where([data-open]:not([data-open="false"])) {

@@ -7,6 +7,8 @@
  * @module shared/domains/TelegramBotDomain
  */
 
+import { normalizeTelegramUserId } from "@shared/lib/telegramContactHarvestLogic";
+import { AuthDomain } from "@shared/domains/AuthDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { TelegramGroupCommandDomain } from "@shared/domains/TelegramGroupCommandDomain";
 import { TelegramWorkspaceDomain } from "@shared/domains/TelegramWorkspaceDomain";
@@ -31,6 +33,18 @@ export interface TelegramBotChat {
   title?: string;
 }
 
+/** Telegram shared contact on inbound messages. */
+export interface TelegramBotContact {
+  /** Phone number in E.164-style formatting. */
+  phone_number?: string;
+  /** Optional vCard when Telegram omits `phone_number`. */
+  vcard?: string;
+  /** Telegram user id when the contact is a registered Telegram user. */
+  user_id?: number | string;
+  /** Contact given name. */
+  first_name?: string;
+}
+
 /** Telegram Bot API message update payload. */
 export interface TelegramBotMessage {
   /** Chat reference. */
@@ -39,6 +53,8 @@ export interface TelegramBotMessage {
   from?: TelegramBotUser;
   /** Message text body. */
   text?: string;
+  /** Shared contact card when the user taps request_contact. */
+  contact?: TelegramBotContact;
 }
 
 /** Telegram Bot API update envelope. */
@@ -179,11 +195,23 @@ export const TelegramBotDomain = {
    */
   async handleUpdate(update: TelegramBotUpdate, botToken: string): Promise<boolean> {
     const message = update.message;
-    if (!message?.text || !message.chat?.id) return false;
+    if (!message?.chat?.id) return false;
+
+    if (message.contact) {
+      await TelegramBotDomain.handleContactMessage(botToken, message);
+      return true;
+    }
+
+    if (!message.text) return false;
 
     const command = message.text.trim().split(/\s+/)[0]?.toLowerCase();
     if (command === "/start") {
       await TelegramBotDomain.handleStartCommand(botToken, message);
+      return true;
+    }
+
+    if (command === "/phone") {
+      await TelegramBotDomain.handlePhoneCommand(botToken, message);
       return true;
     }
 
@@ -228,6 +256,97 @@ export const TelegramBotDomain = {
             },
           ],
         ],
+      },
+    });
+
+    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+  },
+
+  /**
+   * Re-send the share-phone reply keyboard (`/phone`).
+   *
+   * @param botToken - BotFather token.
+   * @param message - Inbound private chat message.
+   */
+  async handlePhoneCommand(botToken: string, message: TelegramBotMessage): Promise<void> {
+    const chatType = message.chat.type ?? "private";
+    if (chatType !== "private") {
+      await callTelegramBotApi(botToken, "sendMessage", {
+        chat_id: message.chat.id,
+        text: "Share your phone in a private chat with the bot.",
+      });
+      return;
+    }
+
+    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+  },
+
+  /**
+   * Persist a shared contact phone number and confirm to the user.
+   *
+   * @param botToken - BotFather token.
+   * @param message - Inbound message carrying `contact`.
+   */
+  async handleContactMessage(botToken: string, message: TelegramBotMessage): Promise<void> {
+    const chatType = message.chat.type ?? "private";
+    if (chatType !== "private") {
+      return;
+    }
+
+    if (!message.contact) {
+      return;
+    }
+
+    const senderId = normalizeTelegramUserId(message.from?.id ?? message.contact.user_id);
+    if (senderId == null) {
+      return;
+    }
+
+    await GeneralRulesDomain.ensureLoaded();
+    const savedText = await GeneralRulesDomain.getTelegramMessageTemplate("contactPhoneSaved");
+    const rejectedText = await GeneralRulesDomain.getTelegramMessageTemplate("contactPhoneRejected");
+
+    const result = await AuthDomain.absorbTelegramSharedContact(
+      senderId,
+      message.contact,
+    );
+
+    if (result.saved) {
+      await callTelegramBotApi(botToken, "sendMessage", {
+        chat_id: message.chat.id,
+        text: savedText,
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
+
+    await callTelegramBotApi(botToken, "sendMessage", {
+      chat_id: message.chat.id,
+      text: rejectedText,
+    });
+    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+  },
+
+  /**
+   * Ask the user to share their phone via Telegram `request_contact` keyboard.
+   *
+   * @param botToken - BotFather token.
+   * @param chatId - Private chat id.
+   */
+  async sendSharePhonePrompt(botToken: string, chatId: number): Promise<void> {
+    await GeneralRulesDomain.ensureLoaded();
+    const promptText = await GeneralRulesDomain.getTelegramMessageTemplate("startSharePhonePrompt");
+    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate(
+      "contactShareButtonLabel",
+    );
+
+    await callTelegramBotApi(botToken, "sendMessage", {
+      chat_id: chatId,
+      text: promptText,
+      reply_markup: {
+        keyboard: [[{ text: buttonLabel, request_contact: true }]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
       },
     });
   },

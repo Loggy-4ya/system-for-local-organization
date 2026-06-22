@@ -275,22 +275,25 @@ export function NexusPuckZoomGuard(): null {
       let sanitized = sanitizePuckZoomConfig(next, zoomFallbackRef.current);
       sanitized = applyLetterboxZoomFloor(appStore, sanitized);
       const synced = syncPuckRootHeightToPreviewContent(sanitized, previewMode);
+      const current = sanitizePuckZoomConfig(
+        appStore.getState().zoomConfig,
+        zoomFallbackRef.current,
+      );
       if (
-        synced.rootHeight === sanitized.rootHeight &&
-        synced.zoom === sanitized.zoom &&
-        synced.autoZoom === sanitized.autoZoom
+        synced.rootHeight === current.rootHeight &&
+        synced.zoom === current.zoom &&
+        synced.autoZoom === current.autoZoom
       ) {
-        zoomFallbackRef.current = sanitized;
+        zoomFallbackRef.current = synced;
         return;
       }
 
-      sanitized = synced;
-      zoomFallbackRef.current = sanitized;
-      originalSetZoom(sanitized);
+      zoomFallbackRef.current = synced;
+      originalSetZoom(synced);
 
       if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => {
-          syncCanvasInnerScrollportHeight(sanitized);
+          syncCanvasInnerScrollportHeight(synced);
         });
       }
     };

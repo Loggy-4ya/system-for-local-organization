@@ -83,6 +83,7 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
     categories: [],
     description: "",
     coverImage: "",
+    galleryImages: [],
     authorUserId: undefined,
     publishAt: null,
     commentsEnabled: true,

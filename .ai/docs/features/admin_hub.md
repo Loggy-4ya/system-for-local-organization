@@ -20,6 +20,7 @@ Defined in `src/lib/adminHubAreas.ts` (`ADMIN_HUB_AREAS`).
 | Area | Route | Visibility |
 |------|-------|------------|
 | Global Layout | `/admin/global-layout` | Legacy `Admin` role |
+| Page Categories Hub | `/pages/categories` (public), `/pages/categories/edit` (publishers) | Page publishers (Admin, StudentCouncil, `pages.create`) |
 | User Access & Permissions | `/admin/user-access` | `access_control.manage_settings` or legacy `Admin` |
 | User Directory | `/admin/users` | `users.view_directory` or legacy `Admin` |
 | Membership Applications | `/admin/membership-applications` | `users.assign_socium_roles` or legacy `Admin` |
@@ -50,6 +51,7 @@ Use this component anywhere a navigable glass card is needed outside Puck.
 |-------|-------|
 | `/admin` | Middleware: authenticated. Page: at least one visible hub area or redirect `/profile`. |
 | `/admin/global-layout` | Middleware: legacy `Admin` role. |
+| `/admin/page-categories` | Legacy redirect → `/pages/categories/edit`. |
 | `/admin/users` | Page: `canUserViewDirectory` or legacy `Admin`; unauthorised callers receive **404** (`notFound`) via shared `src/app/not-found.tsx` (footer remains visible). |
 | `/admin/user-access` | Page: `canUserManageSettings` or legacy `Admin`; unauthorised callers receive **404** (`notFound`). |
 | `/admin/membership-applications` | Page: `users.assign_socium_roles` or legacy `Admin`; unauthorised callers receive **404** (`notFound`). |

@@ -6,8 +6,16 @@
  * @module src/components/auth/TelegramConnectField
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
+import { normalizeTelegramBotUsername } from "@shared/lib/telegramBotUsername";
+import { devAuthNeedsHttpsTunnel, DEV_AUTH_TUNNEL_HINT } from "@shared/lib/devAuthTunnelHint";
+import {
+  isTelegramWebAppClient,
+  mountTelegramLoginWidget,
+} from "@/lib/telegramLoginWidget";
+import { TelegramWebAppAuthButton } from "@/components/telegram/TelegramWebAppAuthButton";
+import { NEXUS_TELEGRAM_WEBAPP_READY_EVENT } from "@/components/telegram/TelegramWebAppViewportHost";
 import { FormAlert } from "@/components/ui/form-alert";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +53,42 @@ export function TelegramConnectField({
   className,
 }: TelegramConnectFieldProps) {
   const telegramRef = useRef<HTMLDivElement>(null);
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+  const botUsername = normalizeTelegramBotUsername(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
+  const [needsTunnel, setNeedsTunnel] = useState(false);
+  const [telegramContext, setTelegramContext] = useState<"unknown" | "mini-app" | "browser">(
+    "unknown",
+  );
+
+  useEffect(() => {
+    const detectTelegramContext = () => {
+      setNeedsTunnel(
+        devAuthNeedsHttpsTunnel(window.location.protocol, window.location.hostname),
+      );
+      if (isTelegramWebAppClient()) {
+        setTelegramContext("mini-app");
+        return;
+      }
+      if (window.Telegram !== undefined) {
+        setTelegramContext("browser");
+      }
+    };
+
+    const onTelegramSdkReady = () => {
+      setTelegramContext(isTelegramWebAppClient() ? "mini-app" : "browser");
+    };
+
+    detectTelegramContext();
+    window.addEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, onTelegramSdkReady);
+
+    const browserFallbackTimer = window.setTimeout(() => {
+      setTelegramContext((current) => (current === "unknown" ? "browser" : current));
+    }, 1500);
+
+    return () => {
+      window.removeEventListener(NEXUS_TELEGRAM_WEBAPP_READY_EVENT, onTelegramSdkReady);
+      window.clearTimeout(browserFallbackTimer);
+    };
+  }, []);
 
   const handleTelegramAuth = useCallback(
     (payload: TelegramWidgetPayload) => {
@@ -57,29 +100,46 @@ export function TelegramConnectField({
   useEffect(() => {
     window.onNexusTelegramConnect = handleTelegramAuth;
 
-    if (!botUsername || !telegramRef.current || disabled) return;
+    if (!botUsername || !telegramRef.current || disabled || telegramContext !== "browser") return;
 
-    telegramRef.current.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "medium");
-    script.setAttribute("data-radius", "8");
-    script.setAttribute("data-onauth", "onNexusTelegramConnect(user)");
-    script.setAttribute("data-request-access", "write");
-    telegramRef.current.appendChild(script);
+    mountTelegramLoginWidget(telegramRef.current, {
+      botUsername,
+      onAuthCallbackName: "onNexusTelegramConnect",
+    });
 
     return () => {
       delete window.onNexusTelegramConnect;
     };
-  }, [botUsername, disabled, handleTelegramAuth]);
+  }, [botUsername, disabled, handleTelegramAuth, telegramContext]);
 
   if (!botUsername) {
     return (
       <FormAlert variant="info" title="Telegram unavailable">
         Telegram connection is required but the bot is not configured on this server.
       </FormAlert>
+    );
+  }
+
+  if (needsTunnel) {
+    return (
+      <FormAlert variant="info" title="HTTPS tunnel required">
+        {DEV_AUTH_TUNNEL_HINT}
+      </FormAlert>
+    );
+  }
+
+  if (telegramContext === "mini-app") {
+    return (
+      <div className={cn("flex flex-col gap-2", className)}>
+        <p className="text-xs text-[var(--color-text-secondary)]">
+          You are inside Telegram — use the button below to verify your account. New users are sent
+          to the Mini App signup flow.
+        </p>
+        <TelegramWebAppAuthButton
+          label="Connect with Telegram"
+          callbackUrl="/signup"
+        />
+      </div>
     );
   }
 
@@ -93,7 +153,7 @@ export function TelegramConnectField({
       ) : (
         <p className="text-xs text-[var(--color-text-secondary)]">
           Tap the button below and approve access in Telegram. Required for self-government
-          membership applications.
+          members after approval.
         </p>
       )}
 

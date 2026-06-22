@@ -96,7 +96,7 @@ sequenceDiagram
 | `/api/auth/telegram` | API | Login Widget verify (existing) |
 | `/api/auth/telegram/mini-app` | API | POST `initData` → bridge or needsOnboarding |
 | `/api/auth/telegram/mini-app/register` | API | POST onboarding + `initData` → create user + bridge |
-| `/api/telegram/webhook` | API | Bot updates (`/start`, `/link`, `/status`, `/task_done`) |
+| `/api/telegram/webhook` | API | Bot updates (`/start`, `/phone`, contact share, `/link`, `/status`, `/task_done`) |
 | `/api/profile/telegram` | API | DELETE — unlink Telegram (session required) |
 
 ---
@@ -118,6 +118,35 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 
 `NEXTAUTH_URL` must be HTTPS and reachable by Telegram (use ngrok or LAN tunnel for local dev).
 
+### Desktop Telegram viewport
+
+Telegram Desktop expands the Mini App window after `WebApp.expand()`. Nexus mirrors `viewportStableHeight` **and** `window.innerWidth` / `innerHeight` onto `--tg-viewport-*` CSS variables (Telegram’s SDK height often lags behind the host on desktop). Layout uses `100vh` fallbacks — not `100dvh`, which can resolve to `0` in the Desktop WebView and collapse the page. Opaque `--color-bg-surface` is set on `html`/`body` and via `setBackgroundColor` so the host’s default white backing does not show as strips on the right/bottom.
+
+### Telegram Login Widget (browser only)
+
+The Login Widget on `/login`, `/signup`, and profile settings embeds an iframe from `https://oauth.telegram.org`. It **does not work inside the Telegram Mini App** (broken button / Android icon) — use Mini App auto-auth instead.
+
+**Browser checklist:**
+
+1. Register your site domain in BotFather: `/setdomain` → choose your bot → enter hostname only (e.g. `nexus.example.com` or ngrok host without `https://`).
+2. Set `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` (no `@`) and `TELEGRAM_BOT_TOKEN` in `.env.local`.
+3. Open the site over **HTTPS** (or `localhost` for dev). LAN IPs need an ngrok tunnel — see `DEV_AUTH_TUNNEL_HINT` in `shared/lib/devAuthTunnelHint.ts`.
+4. CSP must allow `frame-src https://oauth.telegram.org` — see [content_security.md](./content_security.md).
+
+When the page runs inside Telegram (`data-telegram-webapp`), Nexus **does not** mount the Login Widget. Instead, `/login` shows a **Telegram** provider button beside Google and Apple (`TelegramWebAppAuthButton`) that authenticates via signed `initData` — the same flow as `/telegram`.
+
+### Phone harvest (`request_contact`)
+
+1. User sends `/start` (or `/phone`) in a **private** chat with the bot.
+2. Bot replies with a reply keyboard button **Share phone number** (`request_contact`).
+3. Webhook `message.contact` → `AuthDomain.absorbTelegramSharedContact()`:
+   - Linked user → updates `users.phone` immediately.
+   - No account yet → stages phone in `TelegramContactHarvest` keyed by `telegramId`.
+4. Mini App onboarding reads `harvestedPhone` from `POST /api/auth/telegram/mini-app` and pre-fills the phone field.
+5. Registration persists the phone on the new user and clears the harvest row.
+
+Pure rules: `shared/lib/telegramContactHarvestLogic.ts` — normalizes Telegram user ids (webhook JSON may send `user_id` as a string) and accepts vCard `TEL` fallbacks. Tests: `npm run test:telegram-contact-harvest`.
+
 ---
 
 ## Code map
@@ -129,6 +158,11 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 | `shared/domains/TelegramBotDomain.ts` | Webhook dispatch, `/start` + Web App button, `sendDirectMessage()` for broadcasts |
 | `src/lib/telegramBridge.ts` | Short-lived bridge token for Auth.js Credentials provider |
 | `src/components/telegram/TelegramMiniAppEntry.tsx` | Client auto-login + onboarding |
+| `src/components/telegram/TelegramWebAppViewportHost.tsx` | Root layout — expand WebView, sync stable viewport height, opaque WebView backing |
+| `shared/lib/telegramContactHarvestLogic.ts` | Validate shared-contact payloads |
+| `shared/models/TelegramContactHarvest.ts` | Pre-registration phone staging by `telegramId` |
+| `AuthDomain.absorbTelegramSharedContact` | Persist harvested phone on user or staging row |
+| `shared/lib/telegramWebAppViewport.ts` | Viewport height + chrome color helpers |
 | `src/app/api/telegram/webhook/route.ts` | Telegram Bot API webhook |
 
 ---
@@ -140,7 +174,8 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 | `authenticateTelegramMiniApp(initData)` | Verify initData; returning user → bridge payload; else onboarding |
 | `registerFromTelegramMiniApp(initData, signup)` | First-time Mini App registration + link |
 | `verifyTelegramLoginWidget(payload, botToken)` | Existing widget flow |
-| `unlinkTelegram(userId)` | Remove `telegramId` when another auth method exists |
+| `absorbTelegramSharedContact(senderId, contact)` | Store bot-shared phone on user or harvest cache |
+| `resolvePhoneForTelegramUser(telegramUserId)` | Read profile or staged phone for Mini App pre-fill |
 
 ---
 
@@ -155,7 +190,7 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEXTAUTH_URL>/api/tele
 - [x] Login Widget path unchanged for browser linking
 - [x] Bot group commands `/status`, `/task_done` in linked project groups — see [telegram_project_workspaces.md](./telegram_project_workspaces.md)
 - [ ] Bot `/report` with media scraping — Phase 4c
-- [ ] Phone harvest on bot contact — roadmap `[~]` bot harvesting
+- [x] Phone harvest on bot contact — `request_contact` keyboard, webhook persistence, Mini App pre-fill
 
 ---
 

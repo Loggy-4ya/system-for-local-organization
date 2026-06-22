@@ -16,6 +16,7 @@ import {
   resolvePageEditHref,
   shouldShowPageEditFab,
 } from "@/lib/pageEditAccess";
+import { isPuckEditorRoutePath } from "@/components/puck/lib/pageSlugValidation";
 
 function sessionWithRole(role: string, id = "user-1"): Session {
   return {
@@ -71,5 +72,13 @@ describe("shouldShowPageEditFab", () => {
 describe("resolvePageEditHref", () => {
   it("returns edit URL for Puck pages when the user can edit", () => {
     assert.equal(resolvePageEditHref("/news", true), "/news/edit");
+  });
+});
+
+describe("isPuckEditorRoutePath", () => {
+  it("hides chrome only on Puck CMS editor routes", () => {
+    assert.equal(isPuckEditorRoutePath("/news/edit"), true);
+    assert.equal(isPuckEditorRoutePath("/pages/categories/edit"), false);
+    assert.equal(isPuckEditorRoutePath("/pages/categories"), false);
   });
 });

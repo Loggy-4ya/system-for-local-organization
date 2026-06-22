@@ -7,6 +7,7 @@
  * @module shared/lib/nexusPageVariables
  */
 
+import { collectPublicationImageUrls } from "@shared/lib/pageCategoriesHubLogic";
 import { normalizePagePath } from "@shared/lib/pagePathLogic";
 
 /** Regex matching `${{ variableName }}` with optional inner whitespace. */
@@ -23,6 +24,8 @@ export interface NexusPageVariableSource {
   description?: string;
   /** Cover image URL. */
   coverImage?: string;
+  /** Additional publication gallery image URLs. */
+  galleryImages?: readonly string[];
   /** Combined slug without leading slash. */
   slug?: string;
   /** Canonical MongoDB path such as `/news/fair`. */
@@ -65,7 +68,12 @@ export function formatNexusPagePublishDateLabel(publishAt: string | null | undef
 export function buildNexusPageVariableMap(source: NexusPageVariableSource): NexusPageVariableMap {
   const title = (source.title ?? "").trim() || "Untitled Page";
   const description = (source.description ?? "").trim();
-  const coverImage = (source.coverImage ?? "").trim();
+  const imageUrls = collectPublicationImageUrls(source.coverImage, source.galleryImages);
+  const coverImage = imageUrls[0] ?? "";
+  const image1 = coverImage;
+  const image2 = imageUrls[1] ?? "";
+  const image3 = imageUrls[2] ?? "";
+  const image4 = imageUrls[3] ?? "";
   const slug = (source.slug ?? "").trim();
   const normalizedPath = source.path?.trim()
     ? normalizePagePath(source.path.replace(/^\//, "") || "/")
@@ -87,6 +95,10 @@ export function buildNexusPageVariableMap(source: NexusPageVariableSource): Nexu
     description,
     image: coverImage,
     coverImage,
+    image1,
+    image2,
+    image3,
+    image4,
     slug,
     path,
     url: path,

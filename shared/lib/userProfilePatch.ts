@@ -7,7 +7,12 @@
  */
 
 import { accessLevelForStarostaRegistration } from "@shared/lib/accessControlLogic";
-import { phoneIsRequiredForUser, avatarIsRequiredForUser, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR } from "@shared/lib/userProfileCompleteness";
+import {
+  phoneIsRequiredForUser,
+  avatarIsRequiredForUser,
+  PROFILE_PHONE_REQUIRED,
+  PROFILE_AVATAR_REQUIRED,
+} from "@shared/lib/userProfileCompleteness";
 import { applyStudentTitleSociumSync } from "@shared/lib/userSociumHelpers";
 import type {
   IUser,
@@ -69,7 +74,7 @@ export function applyProfilePatchToUser(user: IUser, patch: ProfileUpdateInput):
       selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent ?? false,
     };
     if (avatarIsRequiredForUser(memberContext) && !nextAvatar) {
-      throw new Error(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      throw new Error(PROFILE_AVATAR_REQUIRED);
     }
     user.avatar = nextAvatar;
   }
@@ -86,7 +91,7 @@ export function applyProfilePatchToUser(user: IUser, patch: ProfileUpdateInput):
       sociumRoles: user.sociumRoles ?? [],
     };
     if (phoneIsRequiredForUser(memberContext) && !nextPhone) {
-      throw new Error("Phone number is required for self-government members.");
+      throw new Error(PROFILE_PHONE_REQUIRED);
     }
     user.phone = nextPhone;
   }
