@@ -166,6 +166,8 @@ Telegram widget on plain `localhost` is **unreliable** (HTTPS + domain issues). 
 |---------|-----|
 | Google “Invalid Origin: must end with public TLD” | You used a LAN IP — switch to ngrok URL |
 | Telegram widget missing on LAN IP | Expected — run `npm run dev:tunnel`, `/setdomain` with ngrok host |
+| LAN page has no theme / broken JS | Set `NEXUS_DEV_ALLOWED_ORIGINS=<LAN-IP>,<LAN-IP>:8080` in `.env.local`, recreate `web` — see [auth_and_profiles.md](./auth_and_profiles.md) |
+| `MissingCSRF` on LAN HTTP | Fixed in dev via `useSecureCookies: false` when `NODE_ENV=development`; hard-refresh and clear site cookies for `192.168.x.x` |
 | Telegram “bot domain invalid” | `/setdomain` host ≠ browser host |
 | Signed in then back to `/login` | `NEXTAUTH_URL` ≠ browser URL; `docker compose up -d --force-recreate web` |
 | ngrok URL changed after restart | Re-run sync + update Google/BotFather; or set `NGROK_STATIC_DOMAIN` |

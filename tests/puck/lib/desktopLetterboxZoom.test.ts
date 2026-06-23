@@ -12,6 +12,7 @@ import {
   floorDesktopLetterboxDevicePreviewZoom,
   LETTERBOX_DEVICE_MAX_ZOOM,
   resolveLetterboxDeviceTargetZoom,
+  resolveShrinkToFitDeviceZoom,
   type PuckZoomConfig,
 } from "@/components/puck/lib/sanitizePuckZoomConfig";
 
@@ -54,16 +55,26 @@ describe("floorLetterboxDevicePreviewZoom", () => {
     assert.equal(result.autoZoom, 1);
   });
 
-  it("preserves shrink-to-fit when desktop preset is wider than the frame", () => {
-    const result = floorLetterboxDevicePreviewZoom(shrunk, 1280, 450);
-    assert.equal(result.zoom, 0.72);
-    assert.equal(result.autoZoom, 0.72);
+  it("shrinks 1× desktop preset when the canvas frame is narrower", () => {
+    const atOne: PuckZoomConfig = { autoZoom: 1, rootHeight: 900, zoom: 1 };
+    const result = floorLetterboxDevicePreviewZoom(atOne, 1280, 450);
+    const fitZoom = resolveShrinkToFitDeviceZoom(1280, 450);
+    assert.equal(result.zoom, fitZoom);
+    assert.equal(result.autoZoom, fitZoom);
   });
 
-  it("preserves shrink-to-fit when tablet preset is wider than the frame", () => {
+  it("clamps insufficient shrink when desktop preset is wider than the frame", () => {
+    const result = floorLetterboxDevicePreviewZoom(shrunk, 1280, 450);
+    const fitZoom = resolveShrinkToFitDeviceZoom(1280, 450);
+    assert.equal(result.zoom, fitZoom);
+    assert.equal(result.autoZoom, fitZoom);
+  });
+
+  it("clamps insufficient shrink when tablet preset is wider than the frame", () => {
     const result = floorLetterboxDevicePreviewZoom(shrunk, 768, 390);
-    assert.equal(result.zoom, 0.72);
-    assert.equal(result.autoZoom, 0.72);
+    const fitZoom = resolveShrinkToFitDeviceZoom(768, 390);
+    assert.equal(result.zoom, fitZoom);
+    assert.equal(result.autoZoom, fitZoom);
   });
 
   it("preserves sub-1 user zoom when autoZoom is already 1", () => {

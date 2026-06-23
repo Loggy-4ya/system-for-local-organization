@@ -12,9 +12,9 @@ Nexus runs on **one codebase** with three deployment profiles:
 
 | Mode | Typical target | Scheduler | Media storage | Telegram auto-create |
 |------|----------------|-----------|---------------|-------------------|
-| `vps` | Docker, VPS, bare metal | In-process `setInterval` | `local` or `gcs` | Optional on same host |
-| `serverless` | Vercel, Lambda + Atlas | HTTP cron (`vercel.json`) | **`gcs` required** in prod | Manual `/link` only |
-| `hybrid` | Vercel web + worker | HTTP cron on web | **`gcs` required** in prod | Separate `telegram-worker` |
+| `vps` | Docker, VPS, bare metal | In-process `setInterval` | `local`, `gcs`, or `s3` | Optional on same host |
+| `serverless` | Vercel, Lambda + Atlas | HTTP cron (`vercel.json`) | **`gcs` or `s3` required** in prod | Manual `/link` only |
+| `hybrid` | Vercel web + worker | HTTP cron on web | **`gcs` or `s3` required** on web | Separate `telegram-worker` |
 
 Set explicitly:
 
@@ -31,7 +31,7 @@ When unset:
 
 ## Env files — which one to use?
 
-Nexus ships **five** env example files. They are not interchangeable copies of the same content — each has a different job:
+Nexus ships **six** env example files. They are not interchangeable copies of the same content — each has a different job:
 
 | File | Role | You copy it to… |
 |------|------|-----------------|
@@ -40,6 +40,7 @@ Nexus ships **five** env example files. They are not interchangeable copies of t
 | **`.env.vps-external-db.example`** | **External MongoDB** — app on VPS/Docker, DB on Atlas or another host | `.env.local` + `docker compose up` |
 | **`.env.vercel.example`** | **Ready-made serverless profile** — vars to paste into Vercel project settings | Vercel dashboard (not a file in the repo) |
 | **`.env.hybrid.example`** | **Ready-made hybrid profile** — web vars for Vercel + notes for the worker | Vercel dashboard + worker host env |
+| **`.env.aws.example`** | **Ready-made AWS object-storage profile** — S3 media vars for VPS/ECS on AWS | `.env.local` or container/task env |
 
 ### What to do with `.env.example`
 
@@ -98,7 +99,7 @@ docker compose -f docker-compose.yml -f docker-compose.bundled-db.yml --profile 
 ```
 
 - `MONGODB_URI=mongodb://db:27017/nexus` — hostname `db` is the Compose service name
-- `MEDIA_STORAGE_DRIVER=local` — uploads on the Docker volume
+- `MEDIA_STORAGE_DRIVER=local` — uploads on the Docker volume (see [Media storage at deploy time](#media-storage-at-deploy-time))
 
 #### External MongoDB (Atlas / dedicated DB host)
 
@@ -126,11 +127,12 @@ npm run build && npm run start
 
 ### Vercel (serverless)
 
-For the web app on Vercel with MongoDB Atlas and GCS media.
+For the web app on Vercel with MongoDB Atlas and **cloud object storage** (GCS or S3).
 
-1. Open [`.env.vercel.example`](../../.env.vercel.example).
+1. Open [`.env.vercel.example`](../../.env.vercel.example) (GCS) or configure S3 vars from [`.env.aws.example`](../../.env.aws.example).
 2. In Vercel → **Project → Settings → Environment Variables**, add each variable (Production, and Preview if needed).
-3. Deploy — [vercel.json](../../vercel.json) registers crons that call:
+3. Set `MEDIA_STORAGE_DRIVER=gcs` (typical on Vercel/GCP) **or** `MEDIA_STORAGE_DRIVER=s3` (when using AWS S3 / CloudFront).
+4. Deploy — [vercel.json](../../vercel.json) registers crons that call:
    - every minute → `/api/admin/jobs/process-scheduled-events`
    - daily 03:00 UTC → `/api/admin/jobs/media-orphan-cleanup`
 4. Vercel sends `Authorization: Bearer <CRON_SECRET>` automatically.
@@ -147,7 +149,7 @@ When you need serverless web **and** automatic Telegram group creation via MTPro
 
 **Web app (Vercel):**
 
-1. Copy vars from [`.env.hybrid.example`](../../.env.hybrid.example) into Vercel env (same rules as serverless: `CRON_SECRET`, `MEDIA_STORAGE_DRIVER=gcs`, no in-process tick).
+1. Copy vars from [`.env.hybrid.example`](../../.env.hybrid.example) into Vercel env (same rules as serverless: `CRON_SECRET`, cloud media driver `gcs` or `s3`, no in-process tick).
 2. Set `NEXUS_HOSTING_MODE=hybrid`.
 
 **Worker (separate always-on host — Phase 4b, planned):**
@@ -165,8 +167,9 @@ When you need serverless web **and** automatic Telegram group creation via MTPro
 |------|----------|
 | [`.env.vps.example`](../../.env.vps.example) | Local Docker dev with bundled MongoDB |
 | [`.env.vps-external-db.example`](../../.env.vps-external-db.example) | VPS / Docker with Atlas or remote MongoDB |
-| [`.env.vercel.example`](../../.env.vercel.example) | Vercel project env vars |
+| [`.env.vercel.example`](../../.env.vercel.example) | Vercel project env vars (GCS media) |
 | [`.env.hybrid.example`](../../.env.hybrid.example) | Vercel + separate MTProto worker |
+| [`.env.aws.example`](../../.env.aws.example) | VPS / ECS / Lambda with S3 media |
 | [`.env.example`](../../.env.example) | Full variable reference — not a deploy profile |
 
 ---
@@ -188,6 +191,8 @@ When you need serverless web **and** automatic Telegram group creation via MTPro
 | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` | In-process scheduler (recommended) |
 | `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24` | Optional in-process cleanup |
 | `MEDIA_STORAGE_DRIVER=local` | OK with persistent volume |
+| `MEDIA_STORAGE_DRIVER=gcs` | Optional — object storage instead of disk |
+| `MEDIA_STORAGE_DRIVER=s3` | Optional — object storage instead of disk |
 | `CRON_SECRET` | Optional — only if using external crontab instead of in-process tick |
 
 ### `serverless`
@@ -195,7 +200,13 @@ When you need serverless web **and** automatic Telegram group creation via MTPro
 | Variable | Notes |
 |----------|-------|
 | `CRON_SECRET` | **Required in production** — Vercel cron auth |
-| `MEDIA_STORAGE_DRIVER=gcs` | **Required in production** |
+| `MEDIA_STORAGE_DRIVER` | **Must be `gcs` or `s3` in production** — `local` is rejected |
+| `GCS_MEDIA_BUCKET` | Required when driver is `gcs` |
+| `GCS_MEDIA_PUBLIC_BASE_URL` | Optional CDN origin for GCS URLs |
+| `S3_MEDIA_BUCKET` | Required when driver is `s3` |
+| `S3_MEDIA_REGION` | Required when driver is `s3` (falls back to `AWS_REGION`) |
+| `S3_MEDIA_PUBLIC_BASE_URL` | Optional CloudFront/CDN origin for S3 URLs |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required on Vercel when using S3 (no IAM role) |
 | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS` | **Must be unset** — boot error if set |
 | `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS` | **Must be unset** — use [vercel.json](../../vercel.json) cron |
 
@@ -209,7 +220,121 @@ Same rules as `serverless` on the **web app**. Additionally:
 
 ---
 
-## Boot validation
+## Media storage at deploy time
+
+User uploads (avatars, Puck page media, future task attachments) share one pipeline. The active backend is selected **only** via `MEDIA_STORAGE_DRIVER` — no code changes in Puck fields or upload APIs.
+
+Full architecture: [media_storage.md](./media_storage.md).
+
+### Driver summary
+
+| Driver | `MEDIA_STORAGE_DRIVER` | Typical deploy target | Serverless-safe? |
+|--------|------------------------|----------------------|------------------|
+| Local disk | `local` (default) | VPS / Docker with a persistent volume | **No** — files are lost on cold starts |
+| Google Cloud Storage | `gcs` | Vercel, Cloud Run, GCP VPS | **Yes** |
+| Amazon S3 | `s3` | AWS ECS/EC2/Lambda, Vercel + S3, AWS VPS | **Yes** |
+
+Boot validation rejects `MEDIA_STORAGE_DRIVER=local` in production on `serverless` and `hybrid` modes. Use `gcs` or `s3` instead.
+
+Object keys are identical across cloud drivers: `{segment}/{filename}` under prefixes such as `avatars/`, `puck-blocks/`, `page-covers/`.
+
+### Google Cloud Storage (GCS)
+
+**When:** Vercel deployments, GCP-hosted VPS, or any environment where you already use Google Cloud.
+
+**Env vars:**
+
+```bash
+MEDIA_STORAGE_DRIVER=gcs
+GCS_MEDIA_BUCKET=your-nexus-media-bucket
+# Optional — CDN or custom public origin (recommended in production):
+# GCS_MEDIA_PUBLIC_BASE_URL=https://cdn.example.com/media
+```
+
+**Credentials:**
+
+- **GCP / Cloud Run:** Application Default Credentials (no key file).
+- **Vercel / external host:** service account JSON via `GOOGLE_APPLICATION_CREDENTIALS`, or inject the JSON contents as an env var your platform supports.
+
+**IAM (service account):** `storage.objects.create`, `storage.objects.delete`, `storage.objects.list` on the media bucket.
+
+**Checklist:**
+
+1. Create a GCS bucket (uniform bucket-level access recommended).
+2. Make objects publicly readable **or** serve them through a CDN that maps to `GCS_MEDIA_PUBLIC_BASE_URL`.
+3. Set env vars in Vercel / `.env.local` (see [`.env.vercel.example`](../../.env.vercel.example)).
+4. Add the CDN hostname (or `storage.googleapis.com`) to `images.remotePatterns` in [`next.config.ts`](../../next.config.ts) if you use Next.js image optimisation for avatars/covers.
+5. Orphan cleanup runs via [vercel.json](../../vercel.json) cron (serverless) or `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS` (VPS).
+
+### Amazon S3
+
+**When:** AWS ECS/EC2/Lambda, VPS on AWS, or Vercel when your media bucket lives in S3 (often fronted by CloudFront).
+
+**Env vars:**
+
+```bash
+MEDIA_STORAGE_DRIVER=s3
+S3_MEDIA_BUCKET=your-nexus-media-bucket
+S3_MEDIA_REGION=eu-central-1
+# Optional — CloudFront or custom CDN (recommended in production):
+# S3_MEDIA_PUBLIC_BASE_URL=https://cdn.example.com/media
+```
+
+`S3_MEDIA_REGION` falls back to `AWS_REGION` when unset.
+
+**Credentials:**
+
+- **ECS / EC2 / Lambda:** attach an IAM role with S3 permissions (preferred — no static keys).
+- **Vercel / external host:** `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for an IAM user or access key.
+
+**IAM policy (bucket + objects):**
+
+| Action | Purpose |
+|--------|---------|
+| `s3:PutObject` | Upload API |
+| `s3:DeleteObject` | Orphan cleanup |
+| `s3:ListBucket` | Orphan inventory scan (scoped to `avatars/*`, `puck-blocks/*`, etc. prefixes) |
+
+**Checklist:**
+
+1. Create an S3 bucket in your target region.
+2. Configure public read access **or** put CloudFront (or another CDN) in front and set `S3_MEDIA_PUBLIC_BASE_URL` to that origin.
+3. Copy [`.env.aws.example`](../../.env.aws.example) into `.env.local` (VPS) or your task/container env (ECS), **or** add the S3 lines to an existing profile such as [`.env.vps-external-db.example`](../../.env.vps-external-db.example).
+4. On Vercel: set the same `MEDIA_STORAGE_DRIVER=s3` vars plus `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` in project settings.
+5. Add the S3 virtual-hosted hostname or CloudFront domain to `images.remotePatterns` in [`next.config.ts`](../../next.config.ts).
+6. Orphan cleanup uses the same HTTP cron / in-process schedule as GCS — it lists and deletes unreferenced keys in `S3_MEDIA_BUCKET`.
+
+**Public URL shape (when no CDN base is set):**
+
+- `https://{bucket}.s3.{region}.amazonaws.com/{segment}/{file}`
+- `us-east-1` legacy: `https://{bucket}.s3.amazonaws.com/{segment}/{file}`
+
+Stored Puck/avatar URLs must match what browsers can fetch — use `S3_MEDIA_PUBLIC_BASE_URL` when CloudFront serves media under a different hostname.
+
+### Local disk (VPS only)
+
+**When:** Docker or bare-metal VPS with a mounted volume at `public/uploads/`.
+
+```bash
+MEDIA_STORAGE_DRIVER=local
+```
+
+- Default in [`.env.vps.example`](../../.env.vps.example) and [`.env.vps-external-db.example`](../../.env.vps-external-db.example).
+- URLs are root-relative (`/uploads/avatars/…`) and served by Next.js static hosting.
+- Ensure the upload directory is on persistent storage in production Docker (`volume` mount for `public/uploads`).
+- Orphan cleanup can run in-process via `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24`.
+
+### Migrating between drivers
+
+1. Provision the target bucket (GCS or S3).
+2. Copy existing `public/uploads/**` objects preserving `{segment}/{filename}` keys (one-off `gsutil` / `aws s3 sync` script).
+3. Switch `MEDIA_STORAGE_DRIVER` and related env vars.
+4. Update `next.config.ts` `images.remotePatterns` if the public hostname changes.
+5. Existing MongoDB documents keep working for URLs already stored — reference scanning supports `/uploads/…`, GCS URLs, and S3 URLs. New uploads use the active driver.
+
+Details: [media_storage.md § Deployment migration](./media_storage.md#deployment-migration).
+
+---
 
 On Node server start (`src/instrumentation.ts`):
 
@@ -298,7 +423,7 @@ flowchart TD
   F -->|Yes| H[hybrid + telegram-worker]
   D --> I[docker compose -f docker-compose.yml -f docker-compose.bundled-db.yml --profile bundled-db up]
   E --> J[docker compose up or bare-metal]
-  G --> K[CRON_SECRET + gcs + vercel.json]
+  G --> K[CRON_SECRET + gcs or s3 + vercel.json]
   H --> K
   H --> L[Worker with TELEGRAM_OPERATOR_SESSION]
 ```

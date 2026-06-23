@@ -7,7 +7,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { chainWheelDeltaToCanvasShell } from "@/components/puck/lib/canvasLetterboxScrollport";
+import { chainWheelDeltaToCanvasShell, syncCanvasInnerHorizontalScrollOrigin } from "@/components/puck/lib/canvasLetterboxScrollport";
 import {
   LETTERBOX_SCROLLPORT_HYSTERESIS_PX,
   resolveLetterboxVisualHeightPx,
@@ -62,5 +62,29 @@ describe("shouldExpandLetterboxScrollport", () => {
       shouldExpandLetterboxScrollport(shell - LETTERBOX_SCROLLPORT_HYSTERESIS_PX, shell, true),
       false,
     );
+  });
+});
+
+describe("syncCanvasInnerHorizontalScrollOrigin", () => {
+  it("clears stale scrollLeft when the preview fits horizontally", () => {
+    const inner = {
+      scrollWidth: 640,
+      clientWidth: 640,
+      scrollLeft: 48,
+    } as HTMLElement;
+
+    syncCanvasInnerHorizontalScrollOrigin(inner);
+    assert.equal(inner.scrollLeft, 0);
+  });
+
+  it("preserves scrollLeft when the preview overflows horizontally", () => {
+    const inner = {
+      scrollWidth: 900,
+      clientWidth: 640,
+      scrollLeft: 120,
+    } as HTMLElement;
+
+    syncCanvasInnerHorizontalScrollOrigin(inner);
+    assert.equal(inner.scrollLeft, 120);
   });
 });

@@ -43,8 +43,9 @@ You are an elite, pragmatic AI Software Architect and autonomous developer agent
 | [`.env.vps-external-db.example`](.env.vps-external-db.example) | VPS with Atlas / remote MongoDB |
 | [`.env.vercel.example`](.env.vercel.example) | Vercel serverless checklist |
 | [`.env.hybrid.example`](.env.hybrid.example) | Vercel web + separate telegram-worker |
+| [`.env.aws.example`](.env.aws.example) | AWS S3 media storage (VPS/ECS/Vercel) |
 
-**Do not duplicate** deploy commands or env lists in chat when `hosting_and_deployment.md` already documents them — summarize the **choice** (VPS bundled vs external DB vs Vercel vs hybrid) and link to that file.
+**Do not duplicate** deploy commands or env lists in chat when `hosting_and_deployment.md` already documents them — summarize the **choice** (VPS bundled vs external DB vs Vercel vs hybrid vs AWS S3 media) and link to that file.
 
 ### Agent response shape for onboarding questions
 

@@ -79,6 +79,25 @@ export function canvasShellNeedsVerticalScroll(): boolean {
 }
 
 /**
+ * Keep horizontal scroll origin aligned when the scaled preview fits the inner frame.
+ *
+ * Puck centers `#puck-canvas-root` with flex, but `overflow-x: auto` on the inner host
+ * can retain a stale `scrollLeft` after mount — clipping the page start on editor entry.
+ *
+ * @param inner - `.PuckCanvas-inner` element.
+ */
+export function syncCanvasInnerHorizontalScrollOrigin(inner: HTMLElement | null | undefined): void {
+  if (!inner) {
+    return;
+  }
+
+  const maxScrollLeft = inner.scrollWidth - inner.clientWidth;
+  if (maxScrollLeft <= 1) {
+    inner.scrollLeft = 0;
+  }
+}
+
+/**
  * Expand `.PuckCanvas-inner` when a letterboxed, scaled preview exceeds the shell viewport.
  *
  * @param config - Optional sanitized zoom config for height fallback math.
@@ -97,6 +116,7 @@ export function syncDesktopLetterboxCanvasScrollport(config?: PuckZoomConfig): v
     inner.style.removeProperty("height");
     inner.style.removeProperty("min-height");
     letterboxScrollportExpanded = false;
+    syncCanvasInnerHorizontalScrollOrigin(inner);
     return;
   }
 
@@ -112,6 +132,7 @@ export function syncDesktopLetterboxCanvasScrollport(config?: PuckZoomConfig): v
     inner.style.removeProperty("height");
     inner.style.removeProperty("min-height");
     letterboxScrollportExpanded = false;
+    syncCanvasInnerHorizontalScrollOrigin(inner);
     return;
   }
 
@@ -129,11 +150,13 @@ export function syncDesktopLetterboxCanvasScrollport(config?: PuckZoomConfig): v
     const heightPx = `${Math.ceil(visualHeight)}px`;
     inner.style.setProperty("height", heightPx, "important");
     inner.style.setProperty("min-height", heightPx, "important");
+    syncCanvasInnerHorizontalScrollOrigin(inner);
     return;
   }
 
   inner.style.removeProperty("height");
   inner.style.removeProperty("min-height");
+  syncCanvasInnerHorizontalScrollOrigin(inner);
 }
 
 /**

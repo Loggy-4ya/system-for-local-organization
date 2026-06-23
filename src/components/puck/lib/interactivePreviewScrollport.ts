@@ -12,6 +12,7 @@
  */
 
 import {
+  PUCK_CANVAS_INNER_SELECTOR,
   PUCK_CANVAS_SHELL_SELECTOR,
   PUCK_MOBILE_CANVAS_SHELL_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
@@ -111,6 +112,42 @@ export function resolveInteractivePreviewShellViewportPx(
 }
 
 /**
+ * Lock interactive preview iframe document height to the frame viewport.
+ *
+ * Percentage `min-height` chains inside the iframe fail when copied host CSS leaves
+ * `body` content-sized — `#frame-root` collapses to block height and the host grid
+ * shows a dead band below the preview. Explicit px heights keep PageRoot `min-height: 100%`
+ * aligned with `#preview-frame`.
+ *
+ * @param iframeDoc - Preview iframe document.
+ */
+export function syncInteractivePreviewIframeDocumentViewport(
+  iframeDoc: Document | null | undefined,
+): void {
+  if (!iframeDoc?.documentElement || !iframeDoc.body) {
+    return;
+  }
+
+  const frame = iframeDoc.defaultView?.frameElement as HTMLIFrameElement | null | undefined;
+  const viewportHeightPx = frame?.clientHeight ?? 0;
+  if (viewportHeightPx <= 0 || !Number.isFinite(viewportHeightPx)) {
+    return;
+  }
+
+  const heightPx = `${Math.ceil(viewportHeightPx)}px`;
+  iframeDoc.documentElement.style.minHeight = heightPx;
+  iframeDoc.body.style.minHeight = heightPx;
+  iframeDoc.body.style.removeProperty("height");
+
+  const frameRoot = iframeDoc.getElementById("frame-root");
+  if (frameRoot && typeof frameRoot === "object" && "style" in frameRoot) {
+    const root = frameRoot as HTMLElement;
+    root.style.minHeight = heightPx;
+    root.style.removeProperty("height");
+  }
+}
+
+/**
  * Sync the interactive controls inset CSS variable on `<html>`.
  *
  * @param previewMode - Active Puck preview mode.
@@ -136,14 +173,15 @@ export function syncInteractiveCanvasControlsInsetVar(
 }
 
 /**
- * Reset shell and iframe scroll offsets when entering interactive preview.
+ * Reset shell, inner, and iframe scroll offsets on editor entry and mode switches.
  *
- * Edit mode scroll on the canvas shell must not carry over — it shifts the locked iframe
- * viewport and clips the page top under viewport controls.
+ * Edit-mode letterbox layout can leave a non-zero `.PuckCanvas-inner` `scrollLeft`,
+ * which clips the left edge of the preview ("…to your page"). The canvas shell owns
+ * vertical scroll so the scrollbar stays on the panel's right edge.
  *
  * @param doc - Editor document.
  */
-export function resetInteractivePreviewScrollports(
+export function resetEditorCanvasScrollports(
   doc: Document | null | undefined = typeof document !== "undefined" ? document : null,
 ): void {
   if (!doc) {
@@ -159,8 +197,21 @@ export function resetInteractivePreviewScrollports(
     shell.scrollLeft = 0;
   }
 
+  const inner = doc.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
+  if (inner) {
+    inner.scrollTop = 0;
+    inner.scrollLeft = 0;
+  }
+
   const iframe = doc.getElementById("preview-frame") as HTMLIFrameElement | null;
   iframe?.contentWindow?.scrollTo(0, 0);
+}
+
+/** @deprecated Prefer {@link resetEditorCanvasScrollports}. */
+export function resetInteractivePreviewScrollports(
+  doc?: Document | null,
+): void {
+  resetEditorCanvasScrollports(doc);
 }
 
 /**

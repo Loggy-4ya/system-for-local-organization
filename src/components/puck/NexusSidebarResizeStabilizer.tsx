@@ -16,6 +16,7 @@ import {
   PUCK_CANVAS_INNER_SELECTOR,
   PUCK_CANVAS_SHELL_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
+import { PUCK_CANVAS_TRANSFORM_FROZEN_ATTR } from "@/components/puck/lib/sanitizePuckZoomConfig";
 
 /** Attribute set on `<html>` while a Puck sidebar resize handle is active. */
 export const NEXUS_SIDEBAR_RESIZING_ATTR = "data-nexus-sidebar-resizing";
@@ -66,6 +67,7 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root) return;
 
+  root.setAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR, "");
   root.style.setProperty("height", `${frozen.heightPx}px`, "important");
   root.style.setProperty("transform", frozen.transform, "important");
   root.style.setProperty("transition", "none", "important");
@@ -76,8 +78,9 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
  */
 function clearFrozenCanvasStyle(): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
-  if (!root) return;
+  if (!root?.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) return;
 
+  root.removeAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR);
   root.style.removeProperty("height");
   root.style.removeProperty("transform");
   root.style.removeProperty("transition");

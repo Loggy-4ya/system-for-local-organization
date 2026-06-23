@@ -12,6 +12,7 @@
 
 import { useEffect, useRef } from "react";
 import { isMobilePanelLayoutMutating } from "@/components/puck/lib/mobilePanelLayout";
+import { PUCK_CANVAS_TRANSFORM_FROZEN_ATTR } from "@/components/puck/lib/sanitizePuckZoomConfig";
 
 /** Puck preview root inside the canvas — receives zoom `height` / `transform`. */
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
@@ -51,6 +52,7 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root) return;
 
+  root.setAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR, "");
   root.style.setProperty("transform", frozen.transform, "important");
 }
 
@@ -59,8 +61,9 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
  */
 function clearFrozenCanvasStyle(): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
-  if (!root) return;
+  if (!root?.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) return;
 
+  root.removeAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR);
   root.style.removeProperty("transform");
 }
 

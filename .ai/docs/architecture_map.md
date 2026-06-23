@@ -33,6 +33,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.env.vps-external-db.example` | VPS/Docker profile with external MongoDB (Atlas, remote host) | Active |
 | `.env.vercel.example` | Vercel serverless deployment profile template | Active |
 | `.env.hybrid.example` | Hybrid (Vercel web + telegram-worker) profile template | Active |
+| `.env.aws.example` | AWS S3 media storage profile (merge with VPS or Vercel env) | Active |
 | `docker-compose.bundled-db.yml` | Compose override — wait for bundled `db` health before web | Active |
 | `vercel.json` | Vercel cron schedules for scheduled-events and media cleanup | Active |
 
@@ -231,9 +232,9 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
 | `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
 | `shared/constants/imageCropContexts.ts` | Preview mask definitions for the app-wide image crop editor | Active |
-| `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS stub) | Active |
+| `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS, S3) | Active |
 | `shared/lib/safeHref.ts` | Hyperlink allowlist for Puck blocks and rich text | Active |
-| `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, GCS, HTTPS) | Active |
+| `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, GCS, S3, HTTPS) | Active |
 | `shared/lib/nexusRichTextSanitize.ts` | TipTap HTML allowlist + mention anchor normalization | Active |
 | `shared/lib/puckContentSanitize.ts` | Deep-walk Puck JSON sanitization on page save | Active |
 | `shared/lib/puckContentSanitizeReport.ts` | Field-level sanitization diff types for audit logging | Active |
@@ -259,7 +260,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
 | `.ai/docs/features/puck_field_controls.md` | Puck sidebar field controls — outline-flat select/segmented/switch/input style | Markdown spec | — |
 | `.ai/docs/features/puck_grid_item_zone_policy.md` | Grid Item placement rule (`{gridId}:content`), slot disallow, outline/root guards | Markdown spec | — |
-| `.ai/docs/features/media_storage.md` | Unified media upload/storage architecture (local + GCS migration path) | Markdown spec | — |
+| `.ai/docs/features/media_storage.md` | Unified media upload/storage architecture (local + GCS + S3) | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |

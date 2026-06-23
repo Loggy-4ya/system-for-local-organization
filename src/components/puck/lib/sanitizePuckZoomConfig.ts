@@ -4,7 +4,8 @@
  * Used by {@link NexusPuckZoomGuard} (production) and canvas stabilizers so NaN /
  * non-finite `rootHeight` / `zoom` / `autoZoom` values never reach Puck's preview layout.
  *
- * Tests: `tests/puck/lib/desktopLetterboxZoom.test.ts` — `npm run test:desktop-letterbox-zoom`
+ * Tests: `tests/puck/lib/desktopLetterboxZoom.test.ts` — `npm run test:desktop-letterbox-zoom`;
+ * `tests/puck/lib/puckCanvasRootZoomPresentation.test.ts` — `npm run test:puck-canvas-root-zoom-presentation`
  *
  * @module src/components/puck/lib/sanitizePuckZoomConfig
  */
@@ -104,12 +105,30 @@ export function resolveLetterboxDeviceTargetZoom(
 }
 
 /**
+ * Resolve the scale factor so a fixed preset fits inside the canvas inner frame width.
+ *
+ * @param viewportWidth - Active device preset width in px.
+ * @param frameWidth - Measured `.PuckCanvas-inner` width in px.
+ * @returns Scale ≤ 1 that fits the preset inside the frame.
+ */
+export function resolveShrinkToFitDeviceZoom(
+  viewportWidth: number,
+  frameWidth: number,
+): number {
+  if (viewportWidth <= 0 || frameWidth <= 0) {
+    return 1;
+  }
+
+  return Math.min(1, frameWidth / viewportWidth);
+}
+
+/**
  * Resolve auto-fit zoom on fixed device presets from canvas frame vs preset width.
  *
  * @param config - Sanitized Puck zoom config.
  * @param viewportWidth - Active viewport preset width from Puck UI.
  * @param frameWidth - Measured `.PuckCanvas-inner` width in px, when known.
- * @returns Zoom config — shrink-to-fit preserved when the frame is narrower than the preset.
+ * @returns Zoom config — shrink-to-fit when the frame is narrower than the preset.
  */
 export function floorLetterboxDevicePreviewZoom(
   config: PuckZoomConfig,
@@ -121,7 +140,22 @@ export function floorLetterboxDevicePreviewZoom(
   }
 
   if (typeof frameWidth === "number" && frameWidth > 0 && frameWidth < viewportWidth) {
-    return config;
+    const fitZoom = resolveShrinkToFitDeviceZoom(viewportWidth, frameWidth);
+
+    // Toolbar zoom-out below 100% — honour user choice (may letterbox horizontally).
+    if (config.autoZoom >= 1 && config.zoom < 1) {
+      return config;
+    }
+
+    if (config.zoom <= fitZoom + 0.001 && (config.autoZoom < 1 || config.autoZoom <= fitZoom + 0.001)) {
+      return config;
+    }
+
+    return {
+      ...config,
+      zoom: Math.min(config.zoom, fitZoom),
+      autoZoom: config.autoZoom >= 1 ? fitZoom : Math.min(config.autoZoom, fitZoom),
+    };
   }
 
   const wasAutoShrinking = config.autoZoom < 1;
@@ -233,4 +267,103 @@ export function resolvePuckScaledRootHeightPx(config: PuckZoomConfig): number | 
   }
 
   return Math.ceil(scaled);
+}
+
+/** Puck preview root id — receives zoom `height` / `transform`. */
+const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
+
+/** DOM flag set while sidebar/panel stabilizers freeze canvas transform. */
+export const PUCK_CANVAS_TRANSFORM_FROZEN_ATTR = "data-nexus-canvas-transform-frozen";
+
+/** Float tolerance when comparing Puck zoom to parsed CSS transform scale. */
+const ZOOM_PRESENTATION_TOLERANCE = 0.001;
+
+/**
+ * Parse `scale(n)` or `matrix(a, …)` from an inline / computed transform string.
+ *
+ * @param transform - CSS transform value.
+ * @returns Scale factor or null when not parseable.
+ */
+export function parseCssTransformScale(transform: string | null | undefined): number | null {
+  if (!transform || transform === "none") {
+    return null;
+  }
+
+  const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
+  if (scaleMatch) {
+    return Number.parseFloat(scaleMatch[1]);
+  }
+
+  const matrixMatch = transform.match(/matrix\(([^)]+)\)/);
+  if (matrixMatch) {
+    const parts = matrixMatch[1].split(",").map((segment) => Number.parseFloat(segment.trim()));
+    if (parts.length >= 1 && Number.isFinite(parts[0])) {
+      return parts[0];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Whether `#puck-canvas-root` inline presentation drifted from Puck zoom config.
+ *
+ * @param config - Sanitized Puck zoom config.
+ * @param root - Canvas root element (defaults to live `#puck-canvas-root`).
+ * @returns True when transform or height no longer match the store config.
+ */
+export function puckCanvasRootZoomPresentationDrifted(
+  config: PuckZoomConfig,
+  root: HTMLElement | null = typeof document !== "undefined"
+    ? (document.getElementById(PUCK_CANVAS_ROOT_ID) as HTMLElement | null)
+    : null,
+): boolean {
+  if (!root) {
+    return false;
+  }
+
+  const expectedScale = resolvePuckPreviewVisualScale(config);
+  const parsedScale = parseCssTransformScale(root.style.transform);
+  const scaleDrifted =
+    parsedScale === null || Math.abs(parsedScale - expectedScale) > ZOOM_PRESENTATION_TOLERANCE;
+
+  const expectedHeight = String(config.rootHeight);
+  const heightDrifted =
+    config.rootHeight > 0 &&
+    root.style.height !== expectedHeight &&
+    root.style.height !== `${expectedHeight}px`;
+
+  return scaleDrifted || heightDrifted;
+}
+
+/**
+ * Re-apply Puck shrink-to-fit transform/height when DOM presentation drifted from store config.
+ *
+ * Mobile preview clear helpers and panel stabilizers may strip React-owned inline styles
+ * without scheduling a Puck re-render. This heals the canvas root in place when zoom is frozen
+ * off and presentation no longer matches the sanitized store config.
+ *
+ * @param config - Sanitized zoom config from the Puck app store.
+ * @returns True when inline transform/height were patched.
+ */
+export function applyPuckCanvasRootZoomPresentation(config: PuckZoomConfig): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const root = document.getElementById(PUCK_CANVAS_ROOT_ID) as HTMLElement | null;
+  if (!root || root.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) {
+    return false;
+  }
+
+  if (!puckCanvasRootZoomPresentationDrifted(config, root)) {
+    return false;
+  }
+
+  root.style.transform = `scale(${config.zoom})`;
+  if (config.rootHeight > 0) {
+    root.style.height = String(config.rootHeight);
+  }
+
+  return true;
 }

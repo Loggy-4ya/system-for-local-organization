@@ -8,14 +8,18 @@
 import { test, expect } from "@playwright/test";
 import {
   gotoDesktopPuckEditor,
+  gotoInteractivePuckEditor,
   readCanvasScrollSnapshot,
+  readDesktopLetterboxSnapshot,
+  readInteractiveCanvasHeightSnapshot,
+  readInteractivePreviewGutterSnapshot,
   scrollCanvasShellToBottom,
   tapDesktopViewportPreset,
 } from "../helpers/puckCanvasScrollport";
 
 test.describe("Puck desktop canvas scrollport", () => {
   test.beforeEach(async ({ page }) => {
-    await gotoDesktopPuckEditor(page);
+    await gotoDesktopPuckEditor(page, process.env.PUCK_E2E_EDIT_PATH ?? "/test/edit");
   });
 
   test("does not expose duplicate document + canvas vertical scrollbars", async ({ page }) => {
@@ -61,5 +65,43 @@ test.describe("Puck desktop canvas scrollport", () => {
 
     const after = await readCanvasScrollSnapshot(page);
     expect(Math.abs(after.rootScaledHeight - before.rootScaledHeight)).toBeLessThanOrEqual(2);
+  });
+
+  test("desktop 1280 preset shrinks to fit between open sidebars on Full HD", async ({ page }) => {
+    const snapshot = await readDesktopLetterboxSnapshot(page);
+
+    expect(snapshot.viewportWidth).toBe(1280);
+    expect(snapshot.zoom).toBeLessThan(1);
+    expect(snapshot.inlineTransform).toContain("scale(");
+    expect(snapshot.rootVisualWidth).toBeLessThanOrEqual(snapshot.innerWidth + 2);
+    expect(snapshot.rootOverLeft).toBe(false);
+    expect(snapshot.rootOverRight).toBe(false);
+  });
+});
+
+test.describe("Puck interactive preview scrollport", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoInteractivePuckEditor(page, process.env.PUCK_E2E_EDIT_PATH ?? "/test/edit");
+  });
+
+  test("does not reserve an empty scrollbar gutter stripe inside the preview", async ({ page }) => {
+    const snapshot = await readInteractivePreviewGutterSnapshot(page);
+
+    expect(snapshot.previewMode).toBe("interactive");
+    expect(snapshot.shellGutter).not.toBe("stable");
+    expect(snapshot.iframeHtmlGutter).not.toBe("stable");
+    expect(snapshot.innerOverflowX).toBe("hidden");
+    expect(snapshot.reservedGutterPx).toBeLessThanOrEqual(2);
+    expect(snapshot.h1ClippedByIframeTop).toBe(false);
+  });
+
+  test("canvas shell fills the viewport below the header", async ({ page }) => {
+    const snapshot = await readInteractiveCanvasHeightSnapshot(page);
+
+    expect(snapshot.shellBottomGapPx).toBeLessThanOrEqual(2);
+    expect(snapshot.rootInnerBottomGapPx).toBeLessThanOrEqual(2);
+    expect(snapshot.shellHeight).toBeGreaterThanOrEqual(snapshot.minExpectedShellHeight - 4);
+    expect(snapshot.iframeHeight).toBeGreaterThanOrEqual(snapshot.rootHeight - 4);
+    expect(snapshot.rootHeight).toBeGreaterThanOrEqual(snapshot.innerHeight - 4);
   });
 });

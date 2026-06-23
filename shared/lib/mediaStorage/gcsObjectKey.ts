@@ -7,12 +7,9 @@
  * Registry: `.ai/docs/testing.md`
  */
 
-import { MEDIA_PURPOSE_POLICIES } from "@shared/constants/mediaStorage";
+import { normalizeStorageKey } from "@shared/lib/mediaStorage/storageObjectKey";
 
-/** Allowed upload segment prefixes (avatars, puck-blocks, …). */
-const UPLOAD_STORAGE_SEGMENTS = new Set(
-  Object.values(MEDIA_PURPOSE_POLICIES).map((policy) => policy.storageSegment),
-);
+export { normalizeStorageKey };
 
 /** Context for resolving GCS/CDN URLs back to storage keys. */
 export interface GcsMediaReferenceContext {
@@ -20,26 +17,6 @@ export interface GcsMediaReferenceContext {
   gcsBucket?: string;
   /** Optional CDN or public base URL prefix for bucket objects. */
   gcsPublicBaseUrl?: string;
-}
-
-/**
- * Validate and normalise a storage key (`segment/filename`).
- *
- * @param storageKey - Candidate object key.
- * @returns Normalised key or null when invalid.
- */
-export function normalizeStorageKey(storageKey: string): string | null {
-  const trimmed = storageKey.replace(/^\/+/, "").trim();
-  const slashIndex = trimmed.indexOf("/");
-  if (slashIndex <= 0) return null;
-
-  const segment = trimmed.slice(0, slashIndex);
-  const filename = trimmed.slice(slashIndex + 1);
-
-  if (!UPLOAD_STORAGE_SEGMENTS.has(segment)) return null;
-  if (!filename || filename.includes("..") || filename.includes("\\")) return null;
-
-  return `${segment}/${filename}`;
 }
 
 /**

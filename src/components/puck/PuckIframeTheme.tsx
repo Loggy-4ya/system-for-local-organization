@@ -22,7 +22,11 @@ import {
   chainWheelDeltaToCanvasShell,
 } from "@/components/puck/lib/canvasLetterboxScrollport";
 import { usePuckPreviewMode } from "@/components/puck/lib/useNexusPuck";
-import { resetInteractivePreviewScrollports } from "@/components/puck/lib/interactivePreviewScrollport";
+import {
+  resetInteractivePreviewScrollports,
+  resolveDesktopCanvasControlsInsetPx,
+  syncInteractivePreviewIframeDocumentViewport,
+} from "@/components/puck/lib/interactivePreviewScrollport";
 import { syncLayoutInfiniteGridCursorFromPreviewIframe } from "@/components/background/infiniteGridCursorSync";
 
 /** DOM id used for the injected token `<style>` element inside the preview iframe. */
@@ -144,7 +148,7 @@ html {
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-text-secondary) 44%, transparent) transparent;
   -webkit-overflow-scrolling: touch;
@@ -174,6 +178,7 @@ body {
   margin: 0;
   min-height: 100%;
   overflow: visible;
+  box-sizing: border-box;
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -184,8 +189,29 @@ body {
   overflow: visible !important;
 }
 
+.global-layout-page-content-slot {
+  box-sizing: border-box;
+  padding-top: var(--nexus-preview-controls-inset, 0px);
+}
+
 ${sharedTransparentRules}
 `;
+}
+
+/**
+ * Mirror host viewport-controls inset into the iframe for first-line content clearance.
+ *
+ * @param iframeDoc - Preview iframe document.
+ */
+function syncInteractivePreviewContentControlsInset(iframeDoc: Document): void {
+  const parentDoc = iframeDoc.defaultView?.parent?.document ?? null;
+  if (!parentDoc?.documentElement) {
+    iframeDoc.documentElement.style.removeProperty("--nexus-preview-controls-inset");
+    return;
+  }
+
+  const insetPx = resolveDesktopCanvasControlsInsetPx(parentDoc);
+  iframeDoc.documentElement.style.setProperty("--nexus-preview-controls-inset", `${insetPx}px`);
 }
 
 /**
@@ -210,6 +236,8 @@ function applyPreviewDocumentScrollStyles(
     body.style.minHeight = "100%";
     body.style.removeProperty("height");
     body.style.overflow = "visible";
+    syncInteractivePreviewIframeDocumentViewport(iframeDoc);
+    syncInteractivePreviewContentControlsInset(iframeDoc);
     return;
   }
 
@@ -402,10 +430,25 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     });
     headObserver.observe(iframeDoc.head, { childList: true });
 
+    let frameResizeObserver: ResizeObserver | null = null;
+    if (previewMode === "interactive") {
+      const frame = iframeDoc.defaultView?.frameElement;
+      if (frame && typeof ResizeObserver !== "undefined") {
+        const syncViewport = () => {
+          syncInteractivePreviewIframeDocumentViewport(iframeDoc);
+          syncInteractivePreviewContentControlsInset(iframeDoc);
+        };
+        frameResizeObserver = new ResizeObserver(syncViewport);
+        frameResizeObserver.observe(frame);
+        syncViewport();
+      }
+    }
+
     return () => {
       iframeDoc.removeEventListener("wheel", onWheel, { capture: true });
       iframeDoc.removeEventListener("pointermove", onPointerMove);
       headObserver.disconnect();
+      frameResizeObserver?.disconnect();
     };
   }, [iframeDoc, previewMode, theme]);
 

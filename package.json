@@ -28,6 +28,7 @@
     "test:preview-iframe-composite": "npx tsx --test tests/puck/lib/previewIframeShellComposite.test.ts",
     "test:preview-iframe-grid-backing": "npx tsx --test tests/puck/lib/previewIframeGridBacking.test.ts",
     "test:desktop-letterbox-zoom": "npx tsx --test tests/puck/lib/desktopLetterboxZoom.test.ts",
+    "test:puck-canvas-root-zoom-presentation": "npx tsx --test tests/puck/lib/puckCanvasRootZoomPresentation.test.ts",
     "test:viewport-zoom-label": "npx tsx --test tests/puck/lib/formatViewportZoomLabel.test.ts",
     "test:canvas-letterbox-scrollport": "npx tsx --test tests/puck/lib/canvasLetterboxScrollport.test.ts",
     "test:browser:install": "npx playwright install chromium",
@@ -152,6 +153,7 @@
     "test:puck": "npm run test:mobile-nav-gestures && npm run test:carousel-pagination && npm run test:carousel-nav && npm run test:carousel-edit-swipe && npm run test:carousel-media-fill && npm run test:outline-sortable && npm run test:nexus-grid-item-zone && npm run test:grid-item-array-reorder && npm run test:grid-cell-placement && npm run test:grid-edit-sizing && npm run test:nexus-grid-migration && npm run test:island-defaults && npm run test:block-shell-band && npm run test:content-width-tokens && npm run test:separator-block && npm run test:embed-media && npm run test:canvas-drop-target && npm run test:canvas-reparent && npm run test:canvas-carousel-drag && npm run test:canvas-section-drop && npm run test:block-render-visibility"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
     "@base-ui/react": "^1.5.0",
     "@google-cloud/storage": "^7.21.0",
     "@puckeditor/core": "^0.21.3",

@@ -14,6 +14,7 @@ import {
   resolveDesktopCanvasControlsInsetPx,
   resolveInteractivePreviewInnerContentHeightPx,
   resolveInteractivePreviewShellViewportPx,
+  syncInteractivePreviewIframeDocumentViewport,
 } from "@/components/puck/lib/interactivePreviewScrollport";
 
 describe("resolveInteractivePreviewInnerContentHeightPx", () => {
@@ -38,8 +39,43 @@ describe("resolveInteractivePreviewShellViewportPx", () => {
     assert.equal(resolveInteractivePreviewShellViewportPx(820, 52), 768);
   });
 
+  it("uses the full shell height when inset is zero", () => {
+    assert.equal(resolveInteractivePreviewShellViewportPx(820, 0), 820);
+  });
+
   it("returns null when shell height is unavailable", () => {
     assert.equal(resolveInteractivePreviewShellViewportPx(null, 52), null);
+  });
+});
+
+describe("syncInteractivePreviewIframeDocumentViewport", () => {
+  it("locks iframe document min-heights to the frame client height", () => {
+    const frameRoot = {
+      style: { minHeight: "", height: "12px", removeProperty: (key: string) => {
+        if (key === "height") frameRoot.style.height = "";
+      } },
+    };
+    const body = {
+      style: { minHeight: "", height: "12px", removeProperty: (key: string) => {
+        if (key === "height") body.style.height = "";
+      } },
+    };
+    const documentElement = { style: { minHeight: "" } };
+    const iframeDoc = {
+      documentElement,
+      body,
+      getElementById: (id: string) => (id === "frame-root" ? frameRoot : null),
+      defaultView: {
+        frameElement: { clientHeight: 962 },
+      },
+    } as unknown as Document;
+
+    syncInteractivePreviewIframeDocumentViewport(iframeDoc);
+
+    assert.equal(documentElement.style.minHeight, "962px");
+    assert.equal(body.style.minHeight, "962px");
+    assert.equal(frameRoot.style.minHeight, "962px");
+    assert.equal(frameRoot.style.height, "");
   });
 });
 

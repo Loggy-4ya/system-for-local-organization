@@ -105,9 +105,14 @@ export async function loginForPuckEditor(
   await page.goto(`/login?callbackUrl=${encodeURIComponent(callback)}`, {
     waitUntil: "domcontentloaded",
   });
-  await page.fill('input[name="login"], input[autocomplete="username"]', PUCK_E2E_LOGIN);
-  await page.fill('input[name="password"], input[type="password"]', PUCK_E2E_PASSWORD);
-  await page.click('button[type="submit"]');
+
+  const loginInput = page.locator("#login-handle, input[name='login']").first();
+  const passwordInput = page.locator("#login-password, input[name='password']").first();
+  await loginInput.waitFor({ state: "visible", timeout: 30_000 });
+  await loginInput.fill(PUCK_E2E_LOGIN);
+  await passwordInput.fill(PUCK_E2E_PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL(`**${callback}**`, { timeout: 30_000 });
   await page.locator(".Puck").waitFor({ state: "visible", timeout: 30_000 });
 }
 

@@ -69,6 +69,7 @@ Shipped in codebase; **production verification still required.**
 |------|--------|-------|
 | Local driver (`MEDIA_STORAGE_DRIVER=local`) | `[x]` | Default dev setup |
 | GCS driver (`MEDIA_STORAGE_DRIVER=gcs`) | `[~]` | Requires `GCS_MEDIA_BUCKET`, credentials, optional `GCS_MEDIA_PUBLIC_BASE_URL` |
+| S3 driver (`MEDIA_STORAGE_DRIVER=s3`) | `[~]` | Requires `S3_MEDIA_BUCKET`, `S3_MEDIA_REGION` (or `AWS_REGION`), credentials, optional `S3_MEDIA_PUBLIC_BASE_URL` |
 | Orphan upload cleanup job | `[~]` | `npm run job:media-orphan-cleanup` / API cron — configure `MEDIA_ORPHAN_MIN_AGE_HOURS`, schedule in prod |
 | GCS orphan cleanup (`listInventory`) | `[x]` | Same job scans GCS when driver is `gcs` |
 | **Prod:** schedule orphan cleanup (cron or `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS`) | `[ ]` | Do not rely on manual CLI in prod |
@@ -128,9 +129,12 @@ Copy [`.env.example`](../.env.example) to `.env.local` and follow the inline com
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | Yes | Session signing + public site URL for OAuth |
 | `CSP_USE_NONCE` | Default `true` in production | Stricter script CSP |
 | `SECURITY_SANITIZE_AUDIT_PERSIST` | Default persist | Set `false` to log-only |
-| `MEDIA_STORAGE_DRIVER` | Yes | `local` (dev) or `gcs` (Vercel / prod) |
-| `GCS_MEDIA_BUCKET` | If `gcs` | Object storage bucket |
-| `GCS_MEDIA_PUBLIC_BASE_URL` | Optional | CDN origin for media URLs |
+| `MEDIA_STORAGE_DRIVER` | Yes | `local` (dev), `gcs` (GCP/Vercel), or `s3` (AWS) |
+| `GCS_MEDIA_BUCKET` | If `gcs` | GCS object storage bucket |
+| `GCS_MEDIA_PUBLIC_BASE_URL` | Optional | CDN origin for GCS media URLs |
+| `S3_MEDIA_BUCKET` | If `s3` | S3 object storage bucket |
+| `S3_MEDIA_REGION` | If `s3` | AWS region (`AWS_REGION` fallback) |
+| `S3_MEDIA_PUBLIC_BASE_URL` | Optional | CDN/CloudFront origin for S3 media URLs |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | Recommended | Hours before an unreferenced upload may be deleted (default 24) |
 
 **Background jobs — pick one hosting mode** ([scheduled_events.md](./features/scheduled_events.md)):

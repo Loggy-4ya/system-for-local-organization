@@ -69,4 +69,13 @@ describe("isSafeMediaUrl", () => {
       true,
     );
   });
+
+  it("recognises S3 storage URLs", () => {
+    assert.equal(
+      isSafeMediaUrl(
+        "https://nexus-media.s3.eu-central-1.amazonaws.com/puck-blocks/foo.png",
+      ),
+      true,
+    );
+  });
 });

@@ -36,7 +36,8 @@ export interface MediaStorageUploadResult {
 /**
  * Pluggable media storage backend.
  *
- * Implementations: {@link LocalFilesystemMediaProvider}, future GCS provider.
+ * Implementations: {@link LocalFilesystemMediaProvider}, {@link GcsMediaProvider},
+ * {@link S3MediaProvider}.
  */
 export interface MediaStorageProvider {
   /**
@@ -73,4 +74,10 @@ export interface MediaStorageEnvConfig {
   gcsBucket?: string;
   /** Optional CDN or bucket public base URL for GCS objects. */
   gcsPublicBaseUrl?: string;
+  /** S3 bucket name — required when driver is `s3`. */
+  s3Bucket?: string;
+  /** AWS region for the S3 bucket — required when driver is `s3`. */
+  s3Region?: string;
+  /** Optional CDN or bucket public base URL for S3 objects. */
+  s3PublicBaseUrl?: string;
 }

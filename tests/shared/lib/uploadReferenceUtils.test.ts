@@ -105,6 +105,73 @@ describe("mediaUrlToStorageKey — GCS/CDN", () => {
   });
 });
 
+describe("mediaUrlToStorageKey — S3/CDN", () => {
+  const context = {
+    s3Bucket: "nexus-media-prod",
+    s3Region: "eu-central-1",
+    s3PublicBaseUrl: "https://cdn.nexus.example/media",
+  };
+
+  it("parses virtual-hosted S3 URLs", () => {
+    assert.equal(
+      mediaUrlToStorageKey(
+        "https://nexus-media-prod.s3.eu-central-1.amazonaws.com/avatars/user-1.png",
+        context,
+      ),
+      "avatars/user-1.png",
+    );
+  });
+
+  it("parses path-style S3 URLs", () => {
+    assert.equal(
+      mediaUrlToStorageKey(
+        "https://s3.eu-central-1.amazonaws.com/nexus-media-prod/puck-blocks/a.webp",
+        context,
+      ),
+      "puck-blocks/a.webp",
+    );
+  });
+
+  it("parses S3 CDN base URLs", () => {
+    assert.equal(
+      mediaUrlToStorageKey("https://cdn.nexus.example/media/page-covers/hero.jpg", context),
+      "page-covers/hero.jpg",
+    );
+  });
+
+  it("rejects S3 bucket mismatches", () => {
+    assert.equal(
+      mediaUrlToStorageKey(
+        "https://other-bucket.s3.eu-central-1.amazonaws.com/avatars/user-1.png",
+        context,
+      ),
+      null,
+    );
+  });
+});
+
+describe("buildS3PublicUrl", () => {
+  it("uses CDN base when configured", async () => {
+    const { buildS3PublicUrl } = await import("@shared/lib/mediaStorage/s3ObjectKey");
+    assert.equal(
+      buildS3PublicUrl("avatars/a.png", "bucket", "eu-central-1", "https://cdn.example.com/media"),
+      "https://cdn.example.com/media/avatars/a.png",
+    );
+  });
+
+  it("falls back to virtual-hosted S3 URLs", async () => {
+    const { buildS3PublicUrl } = await import("@shared/lib/mediaStorage/s3ObjectKey");
+    assert.equal(
+      buildS3PublicUrl("avatars/a.png", "my-bucket", "eu-central-1"),
+      "https://my-bucket.s3.eu-central-1.amazonaws.com/avatars/a.png",
+    );
+    assert.equal(
+      buildS3PublicUrl("avatars/a.png", "my-bucket", "us-east-1"),
+      "https://my-bucket.s3.amazonaws.com/avatars/a.png",
+    );
+  });
+});
+
 describe("buildGcsPublicUrl", () => {
   it("uses CDN base when configured", () => {
     assert.equal(

@@ -31,7 +31,7 @@ export interface NexusHostingEnvSnapshot {
   cronSecret?: string;
   /** Alias cron secret for external crontab. */
   nexusCronSecret?: string;
-  /** Media storage driver (`local` | `gcs`). */
+  /** Media storage driver (`local` | `gcs` | `s3`). */
   mediaStorageDriver?: string;
   /** MTProto operator session for telegram-worker. */
   telegramOperatorSession?: string;
@@ -254,7 +254,7 @@ export function validateNexusHostingConfiguration(
     (snapshot.mediaStorageDriver ?? "local") === "local"
   ) {
     errors.push(
-      `MEDIA_STORAGE_DRIVER=local is not supported in production on ${mode}. Set MEDIA_STORAGE_DRIVER=gcs.`,
+      `MEDIA_STORAGE_DRIVER=local is not supported in production on ${mode}. Set MEDIA_STORAGE_DRIVER=gcs or s3.`,
     );
   }
 

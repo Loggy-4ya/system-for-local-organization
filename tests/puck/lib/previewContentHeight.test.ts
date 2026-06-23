@@ -176,7 +176,7 @@ describe("syncPuckRootHeightToMeasuredContent", () => {
     assert.deepEqual(syncPuckRootHeightToPreviewContent(config, "interactive"), config);
   });
 
-  it("locks interactive rootHeight to the inner viewport below viewport controls", () => {
+  it("locks interactive rootHeight to the full canvas inner viewport", () => {
     const inner = { clientHeight: 740 };
     const doc = {
       querySelector: (selector: string) => {
@@ -210,7 +210,7 @@ describe("syncPuckRootHeightToMeasuredContent", () => {
         "interactive",
       );
 
-      assert.equal(result.rootHeight, 690);
+      assert.equal(result.rootHeight, 740);
     } finally {
       Object.defineProperty(globalThis, "document", {
         configurable: true,

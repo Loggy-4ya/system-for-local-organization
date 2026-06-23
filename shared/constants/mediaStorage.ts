@@ -8,7 +8,7 @@
  */
 
 /** Supported storage backends — swap via `MEDIA_STORAGE_DRIVER`. */
-export type MediaStorageDriver = "local" | "gcs";
+export type MediaStorageDriver = "local" | "gcs" | "s3";
 
 /**
  * Upload category controlling validation rules and on-disk/cloud prefix.

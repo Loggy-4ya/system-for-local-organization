@@ -14,6 +14,12 @@ import type { NextAuthConfig } from "next-auth";
  */
 export const authConfig = {
   trustHost: true,
+  /**
+   * In dev, Auth.js infers HTTPS from `NEXTAUTH_URL` (e.g. ngrok) even when the
+   * browser opens plain HTTP on a LAN IP — `Secure` cookies are then dropped and
+   * client `signIn` fails with MissingCSRF. Production keeps secure cookies.
+   */
+  useSecureCookies: process.env.NODE_ENV === "production",
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",

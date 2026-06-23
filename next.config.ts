@@ -13,7 +13,21 @@ function resolveDevLanOrigin(): string | undefined {
   }
 }
 
+/**
+ * Extra dev hostnames (comma-separated) for LAN testing while `NEXTAUTH_URL` stays on ngrok.
+ * Example: `NEXUS_DEV_ALLOWED_ORIGINS=192.168.50.10` — find IP via `hostname -I`.
+ */
+function resolveExtraDevOrigins(): string[] {
+  const raw = process.env.NEXUS_DEV_ALLOWED_ORIGINS?.trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && entry !== "localhost" && entry !== "127.0.0.1");
+}
+
 const devLanOrigin = resolveDevLanOrigin();
+const extraDevOrigins = resolveExtraDevOrigins();
 
 const nextConfig: NextConfig = {
   // Enable standalone output for the production Docker image
@@ -22,6 +36,7 @@ const nextConfig: NextConfig = {
   // Phone/LAN testing: Next.js 16 blocks dev assets from non-localhost origins unless listed.
   allowedDevOrigins: [
     ...(devLanOrigin ? [devLanOrigin] : []),
+    ...extraDevOrigins,
     "localhost",
     "127.0.0.1",
   ],

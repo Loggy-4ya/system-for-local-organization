@@ -137,9 +137,10 @@ ADMIN_SEED_PASSWORD=
 
 1. **`localhost` redirect on phone (most common):** Auth redirects are built from `NEXTAUTH_URL` via `resolvePublicOrigin()` (`src/lib/publicOrigin.ts`). If the dev machine still has `NEXTAUTH_URL=http://localhost:8080` while you browse from an iPhone at `http://YOUR_LAN_IP:8080`, post-login redirects send the phone to **its own** `localhost`, not your PC. Set `NEXTAUTH_URL` to the LAN URL you actually open (e.g. `http://192.168.50.10:8080`), then `docker compose up -d --force-recreate web`. Find your LAN IP: `hostname -I | awk '{print $1}'`.
 2. **URL mismatch:** `NEXTAUTH_URL` must match the browser address bar (host **and** port). Docker maps host **8080** → container **3000**; use **8080** in both the URL you open and `NEXTAUTH_URL`.
-3. **Next.js dev blocks LAN assets:** When `NEXTAUTH_URL` uses a LAN hostname, `next.config.ts` auto-adds it to `allowedDevOrigins` so dev JS/CSS load from the phone.
-4. **Credentials forms:** `/login` and `/signup` submit via client-side Auth.js (`signIn({ redirect: false })` and `/api/auth/register`). Invalid credentials show inline without a full page reload. Legacy `/api/auth/login` and `/api/auth/signup` form POST routes remain as no-JS fallbacks.
-5. **Stale session:** Clear site cookies for the host, sign in again.
+3. **Next.js dev blocks LAN assets:** When `NEXTAUTH_URL` uses a LAN hostname, `next.config.ts` auto-adds it to `allowedDevOrigins` so dev JS/CSS load from the phone. If `NEXTAUTH_URL` stays on **ngrok** but you browse via LAN IP, set `NEXUS_DEV_ALLOWED_ORIGINS=192.168.x.x,192.168.x.x:8080` in `.env.local`, then `docker compose up -d --force-recreate web`. OAuth still requires the ngrok URL; LAN is for layout/theme/JS smoke tests only.
+4. **`MissingCSRF` on LAN HTTP while `NEXTAUTH_URL` is HTTPS (ngrok):** Auth.js would set `Secure` cookies from the ngrok URL while you browse `http://192.168.x.x:8080` — the browser drops them. Dev builds set `useSecureCookies: false` in `auth.config.ts` so credentials sign-in works on LAN. Google/Telegram still need the ngrok URL.
+5. **Credentials forms:** `/login` and `/signup` submit via client-side Auth.js (`signIn({ redirect: false })` and `/api/auth/register`). Invalid credentials show inline without a full page reload. Legacy `/api/auth/login` and `/api/auth/signup` form POST routes remain as no-JS fallbacks.
+6. **Stale session:** Clear site cookies for the host, sign in again.
 
 ### React hydration warnings on `/profile`
 

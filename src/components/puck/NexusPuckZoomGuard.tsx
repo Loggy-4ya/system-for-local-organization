@@ -38,13 +38,14 @@ import {
 } from "@/components/puck/lib/canvasLetterboxScrollport";
 import {
   installEditorCanvasScrollportBootstrap,
-  resetInteractivePreviewScrollports,
+  resetEditorCanvasScrollports,
   syncInteractiveCanvasControlsInsetVar,
 } from "@/components/puck/lib/interactivePreviewScrollport";
 import { matchesDesktopEditorLayout } from "@/components/puck/lib/desktopEditorScrollport";
 import {
   floorLetterboxDevicePreviewZoom,
   DEFAULT_PUCK_ZOOM_CONFIG,
+  applyPuckCanvasRootZoomPresentation,
   resolvePuckAppStore,
   resolvePuckViewportWidthFromAppStore,
   sanitizePuckZoomConfig,
@@ -188,7 +189,9 @@ export function NexusPuckZoomGuard(): null {
 
       syncRafRef.current = requestAnimationFrame(() => {
         syncRafRef.current = null;
-        syncCanvasInnerScrollportHeight(config);
+        const resolvedConfig = config ?? zoomFallbackRef.current;
+        applyPuckCanvasRootZoomPresentation(resolvedConfig);
+        syncCanvasInnerScrollportHeight(resolvedConfig);
       });
     };
 
@@ -293,6 +296,7 @@ export function NexusPuckZoomGuard(): null {
 
       if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => {
+          applyPuckCanvasRootZoomPresentation(synced);
           syncCanvasInnerScrollportHeight(synced);
         });
       }
@@ -324,7 +328,7 @@ export function NexusPuckZoomGuard(): null {
         lastPreviewMode = previewMode;
         resetLetterboxScrollportState();
         syncInteractiveCanvasControlsInsetVar(previewMode);
-        resetInteractivePreviewScrollports();
+        resetEditorCanvasScrollports();
         resyncRootHeightFromPreviewContent();
         requestAnimationFrame(() => {
           syncCanvasInnerScrollportHeight(zoomFallbackRef.current);
@@ -366,18 +370,24 @@ export function NexusPuckZoomGuard(): null {
     const bootstrapPreviewScrollport = () => {
       const previewMode = resolvePuckPreviewModeFromAppStore(appStore);
       syncInteractiveCanvasControlsInsetVar(previewMode);
-      resetInteractivePreviewScrollports();
+      resetEditorCanvasScrollports();
       resyncRootHeightFromPreviewContent();
       requestAnimationFrame(() => {
         syncCanvasInnerScrollportHeight(zoomFallbackRef.current);
       });
     };
 
-    resetInteractivePreviewScrollports();
+    resetEditorCanvasScrollports();
     syncInteractiveCanvasControlsInsetVar(resolvePuckPreviewModeFromAppStore(appStore));
     const teardownScrollportBootstrap = installEditorCanvasScrollportBootstrap(
       bootstrapPreviewScrollport,
     );
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resyncRootHeightFromPreviewContent();
+      });
+    });
 
     let frameResizeRaf: number | null = null;
     const scheduleLetterboxRecalcFromFrameResize = () => {

@@ -21,7 +21,6 @@ import {
 } from "@/components/puck/lib/puckCanvasSelectors";
 import {
   matchesDesktopEditorLayoutViewport,
-  resolveDesktopCanvasControlsInsetPx,
   resolveInteractivePreviewInnerContentHeightPx,
   resolveInteractivePreviewShellViewportPx,
 } from "@/components/puck/lib/interactivePreviewScrollport";
@@ -286,17 +285,13 @@ export function syncPuckRootHeightToPreviewContent(
 ): PuckZoomConfig {
   const resolvedMode = previewMode ?? resolvePuckPreviewModeFromDocument();
   const shellClientHeightPx = resolvePreviewCanvasShellClientHeightPx();
-  const interactiveControlsInsetPx =
-    resolvedMode === "interactive" && matchesDesktopEditorLayoutViewport()
-      ? resolveDesktopCanvasControlsInsetPx()
-      : 0;
   const interactiveInnerContentHeightPx =
     resolvedMode === "interactive" && matchesDesktopEditorLayoutViewport()
       ? resolveInteractivePreviewInnerContentHeightPx()
       : null;
   const interactiveShellViewportPx = resolveInteractivePreviewShellViewportPx(
     interactiveInnerContentHeightPx ?? shellClientHeightPx,
-    interactiveControlsInsetPx,
+    0,
   );
   const canvasMinRootHeightPx = resolvePreviewCanvasMinRootHeightPx(
     config,
