@@ -816,9 +816,10 @@ export class PageDomain {
     existingCookieValue: string | undefined,
   ): Promise<{ viewCount: number; counted: boolean }> {
     await connectDB();
-    const doc = await Page.findOne({ path }).lean();
+    const normalizedPath = normalizePagePath(path);
+    const doc = await Page.findOne({ path: normalizedPath }).lean();
     if (!doc || !PageDomain.isPubliclyVisible(doc)) {
-      throw new PageDomainError("Page not found.", 404);
+      return { viewCount: 0, counted: false };
     }
 
     if (!shouldIncrementPageView(existingCookieValue)) {
@@ -826,7 +827,7 @@ export class PageDomain {
     }
 
     const updated = await Page.findOneAndUpdate(
-      { path },
+      { path: normalizedPath },
       { $inc: { viewCount: 1 } },
       { returnDocument: "after" },
     ).lean();

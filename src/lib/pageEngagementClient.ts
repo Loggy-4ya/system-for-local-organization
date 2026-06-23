@@ -16,22 +16,31 @@ export interface PageLikeResult {
   likeCount: number;
 }
 
+const EMPTY_VIEW_RESULT: PageViewResult = { viewCount: 0, counted: false };
+
 /**
  * Record a page view (deduped server-side via cookie).
  *
+ * Best-effort only — failures are swallowed so public pages never surface
+ * console errors when a view cannot be counted (draft page, path mismatch, etc.).
+ *
  * @param pagePath - Normalised page path.
- * @returns Updated view count payload.
+ * @returns Updated view count payload, or a zero-count fallback.
  */
 export async function recordPageView(pagePath: string): Promise<PageViewResult> {
-  const res = await fetch("/api/pages/view", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: pagePath }),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to record page view.");
+  try {
+    const res = await fetch("/api/pages/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: pagePath }),
+    });
+    if (!res.ok) {
+      return EMPTY_VIEW_RESULT;
+    }
+    return (await res.json()) as PageViewResult;
+  } catch {
+    return EMPTY_VIEW_RESULT;
   }
-  return (await res.json()) as PageViewResult;
 }
 
 /**

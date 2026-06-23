@@ -19,7 +19,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import type { BasicSiteProfile } from "@shared/lib/siteProfileBasic";
 import { showAdminPanelForRole } from "@shared/lib/siteProfileBasic";
 import { fetchBasicSiteProfile } from "@/lib/siteProfileClient";
@@ -70,6 +70,11 @@ export function SiteProfileProvider({
     setIsLoading(true);
     try {
       const next = await fetchBasicSiteProfile();
+      if (next === null) {
+        setProfile(null);
+        await signOut({ redirect: false });
+        return;
+      }
       setProfile(next);
     } catch (err) {
       console.error("[SiteProfileProvider] bootstrap failed:", err);

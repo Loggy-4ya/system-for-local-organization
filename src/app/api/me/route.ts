@@ -25,7 +25,7 @@ export async function GET() {
 
   const user = await AuthDomain.getUserById(session.user.id);
   if (!user) {
-    return NextResponse.json({ error: "User not found." }, { status: 404 });
+    return NextResponse.json({ error: "Session expired." }, { status: 401 });
   }
 
   return NextResponse.json({

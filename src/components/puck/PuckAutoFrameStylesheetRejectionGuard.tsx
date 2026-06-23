@@ -12,7 +12,7 @@
  * @module src/components/puck/PuckAutoFrameStylesheetRejectionGuard
  */
 
-import { useEffect } from "react";
+let guardInstalled = false;
 
 /**
  * Whether a promise rejection reason is a DOM event object rather than an Error.
@@ -20,40 +20,56 @@ import { useEffect } from "react";
  * @param reason - Value passed to `unhandledrejection`.
  * @returns True when the rejection is a non-Error DOM event.
  */
-function isDomEventRejection(reason: unknown): reason is Event {
+export function isDomEventRejection(reason: unknown): reason is Event {
   if (reason instanceof Event) {
     return true;
   }
 
-  if (typeof reason === "object" && reason !== null && "type" in reason) {
-    const eventType = (reason as Event).type;
-    return eventType === "error" || eventType === "abort";
+  if (typeof reason === "object" && reason !== null) {
+    if (Object.prototype.toString.call(reason) === "[object Event]") {
+      return true;
+    }
+
+    if ("type" in reason) {
+      const eventType = (reason as Event).type;
+      return eventType === "error" || eventType === "abort";
+    }
   }
 
   return false;
 }
 
 /**
- * Mount inside the Puck editor shell to swallow AutoFrame stylesheet `Event` rejections.
+ * Register a capture-phase listener that swallows AutoFrame stylesheet `Event` rejections.
  *
- * @returns Null — side-effect only.
+ * Idempotent — safe to call from both the install module and legacy mount sites.
+ */
+export function installPuckAutoFrameStylesheetRejectionGuard(): void {
+  if (guardInstalled || typeof window === "undefined") {
+    return;
+  }
+
+  guardInstalled = true;
+
+  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+    if (!isDomEventRejection(event.reason)) {
+      return;
+    }
+
+    event.preventDefault();
+  };
+
+  window.addEventListener("unhandledrejection", onUnhandledRejection, true);
+}
+
+/**
+ * @deprecated Prefer importing `@/lib/puckAutoFrameStylesheetRejectionInstall` before Puck loads.
+ * Kept as a no-op mount point for older call sites.
+ *
+ * @returns Null — install runs synchronously via {@link installPuckAutoFrameStylesheetRejectionGuard}.
  */
 export function PuckAutoFrameStylesheetRejectionGuard() {
-  useEffect(() => {
-    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (!isDomEventRejection(event.reason)) {
-        return;
-      }
-
-      event.preventDefault();
-    };
-
-    window.addEventListener("unhandledrejection", onUnhandledRejection);
-    return () => {
-      window.removeEventListener("unhandledrejection", onUnhandledRejection);
-    };
-  }, []);
-
+  installPuckAutoFrameStylesheetRejectionGuard();
   return null;
 }
 

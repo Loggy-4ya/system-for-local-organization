@@ -50,18 +50,34 @@ export class PageCategoriesDomain {
   /**
    * Load or seed the singleton hub settings document.
    *
+   * Uses an atomic upsert so concurrent callers (e.g. parallel page/API requests)
+   * cannot trigger duplicate-key errors on the singleton `_id`.
+   *
    * @returns Persisted settings row.
    */
   public static async loadOrSeed(): Promise<IPageCategoriesSettings> {
     await connectDB();
 
-    const existing = await PageCategoriesSettings.findById(PAGE_CATEGORIES_SETTINGS_ID).exec();
-    if (existing) return existing;
+    const doc = await PageCategoriesSettings.findOneAndUpdate(
+      { _id: PAGE_CATEGORIES_SETTINGS_ID },
+      {
+        $setOnInsert: {
+          sections: [],
+        },
+      },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+    ).exec();
 
-    return PageCategoriesSettings.create({
-      _id: PAGE_CATEGORIES_SETTINGS_ID,
-      sections: [],
-    });
+    if (doc) {
+      return doc;
+    }
+
+    const fallback = await PageCategoriesSettings.findById(PAGE_CATEGORIES_SETTINGS_ID).exec();
+    if (!fallback) {
+      throw new Error("Failed to load or seed page categories hub settings.");
+    }
+
+    return fallback;
   }
 
   /**

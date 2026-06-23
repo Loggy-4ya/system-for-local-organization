@@ -121,7 +121,8 @@ Icons appear **before** link and category labels on desktop and mobile. Chevron 
 ## Acceptance Criteria
 
 - [x] Singleton global layout config stored in MongoDB (`_id: "nexus-site"`).
-- [x] Default settings seeded on first access.
+- [x] Default settings seeded on first access (header nav categories start empty; user menu defaults to Profile + Settings).
+- [x] Legacy factory header presets (Explore/Manage dropdowns) are cleared automatically on load when the stored document still matches the old seed unchanged.
 - [x] Header categories and items are fully configurable by Admins.
 - [x] Header supports link and button variants, Lucide icons, and role-based visibility.
 - [x] Site chrome Lucide glyphs use a single size token — see [icon_sizes.md](../icon_sizes.md) (`SITE_CHROME_ICON_SIZE` / `--site-chrome-icon-size`: **18px**, stroke **2.25**).

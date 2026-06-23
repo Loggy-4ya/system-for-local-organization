@@ -7,6 +7,7 @@
  */
 
 import "@/lib/safePointerCaptureInstall";
+import "@/lib/puckAutoFrameStylesheetRejectionInstall";
 import { Puck, fieldsPlugin } from "@puckeditor/core";
 import puckConfig from "@/components/puck/config";
 import type { PagePublicationValue } from "@/components/puck/fields/PagePublicationFieldGroup";
@@ -26,7 +27,6 @@ import { NexusEditorCanvasProvider } from "@/components/puck/NexusEditorCanvasCo
 import { PuckEditorErrorProvider } from "@/components/puck/PuckEditorErrorContext";
 import { PUCK_EDITOR_OVERRIDES } from "@/components/puck/puckEditorOverrides";
 import { handleNexusGridItemPlacementAction } from "@/components/puck/NexusGridItemPlacementGuard";
-import { PuckAutoFrameStylesheetRejectionGuard } from "@/components/puck/PuckAutoFrameStylesheetRejectionGuard";
 import type { Data } from "@puckeditor/core";
 import { useCallback, useState } from "react";
 
@@ -196,7 +196,6 @@ export function PuckEditorShell({
 
   return (
     <PuckEditorErrorProvider error={error} onPublish={handlePublish}>
-      <PuckAutoFrameStylesheetRejectionGuard />
       <NexusEditorCanvasProvider>
         <Puck
           key={`${path}-${puckMountKey}-${isCompactEditor ? "compact" : "desktop"}`}

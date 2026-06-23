@@ -23,8 +23,7 @@ export const NexusNewsCatalog = {
     },
   },
   defaultProps: {
-    emptyStateMessage:
-      "No published pages are available in the catalog yet.",
+    emptyStateMessage: "Nothing published yet.",
   },
   render({
     emptyStateMessage,
@@ -73,7 +72,6 @@ export const NexusNewsCatalog = {
         activeSectionId={activeSectionId}
         onActiveSectionChange={setActiveSectionId}
         emptyMessage={emptyStateMessage}
-        settingsHref="/pages/categories/edit"
       />
     );
   },

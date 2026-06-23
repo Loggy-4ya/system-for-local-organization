@@ -259,7 +259,7 @@ When a signed-in viewer loads any site page, the root layout seeds {@link BasicS
 | Layer | Path | Role |
 |-------|------|------|
 | DTO | `shared/lib/siteProfileBasic.ts` | `BasicSiteProfile` — id, name, fullName, email, avatar, role |
-| API | `GET /api/me` | Session-required snapshot for header chrome |
+| API | `GET /api/me` | Session-required snapshot for header chrome; returns 401 when the JWT references a missing user (stale session after DB reset) |
 | Client | `SiteProfileProvider` | Seeds from SSR session, re-fetches on authenticated entry |
 | Header | `GlobalHeader` | Reads profile context; SSR theme still from `resolveStoredThemeIsDark()` |
 

@@ -8,13 +8,13 @@
 
 ## Overview
 
-All visitors browse published Puck pages grouped by **path domain** at **`/pages/categories`** (News, Surveys, …).
+All visitors browse published Puck pages grouped by **path domain** at **`/pages/categories`** (News, Surveys, …). The public catalog is **image-first**: category tabs plus preview cards driven by cover/gallery images — descriptions and admin copy are not shown to visitors.
 
-Page publishers optionally curate which domains appear and which pages show (order + layout) at **`/pages/categories/edit`**. When a section has no hand-picked pages, the public catalog **auto-lists all published child pages** under that domain (newest first).
+Page publishers optionally curate which domains appear and which pages show (order + layout) at **`/pages/categories/edit`**. When a section has no hand-picked pages, the public catalog **auto-lists all published child pages** under that domain (newest first). Publishers see **Configure catalog** in the tab bar; visitors do not.
 
 Obsidian-style **page category tags** (`Page.categories`) remain available in Page Settings for metadata — they do **not** drive catalog tabs.
 
-The **News Catalog** Puck block (`NexusNewsCatalog`) reuses the same hub payload and layout on embedded pages (e.g. `/news`).
+The **News Catalog** Puck block (`NexusNewsCatalog`) reuses the same hub payload and layout on embedded pages (e.g. `/news`). Cards use a compact **auto-fill grid** (≈200–280px wide); the large featured hero layout applies only when a section has **three or more** pages and `featured-grid` is selected.
 
 ---
 
@@ -35,7 +35,7 @@ Page Manager links: **View catalog** → `/pages/categories`, **Configure catalo
 
 | Layer | Storage | Notes |
 |-------|---------|-------|
-| Hub settings | `page_categories_settings` singleton (`_id: nexus-page-categories`) | `sections[]` keyed by path domain |
+| Hub settings | `page_categories_settings` singleton (`_id: nexus-page-categories`) | `sections[]` keyed by path domain; seeded via atomic upsert in `PageCategoriesDomain.loadOrSeed()` |
 | Page gallery | `pages.galleryImages: string[]` | Up to 3 extra URLs beyond cover |
 | Page cover | `pages.coverImage` | Primary image (`image1`) |
 

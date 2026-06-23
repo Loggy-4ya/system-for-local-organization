@@ -156,7 +156,7 @@ The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. Th
 | `src/components/puck/EditorModeToggle.tsx` | Edit vs Interactive preview toggle in Puck `headerActions` |
 | `src/components/puck/NexusEditorCanvasContext.tsx` | Marks Puck editor canvas so `PageRoot` keeps grid + header in interactive preview |
 | `src/components/puck/PuckIframeTheme.tsx` | Puck `iframe` override — sets `data-theme` and injects Nexus CSS variables into the preview iframe |
-| `src/components/puck/PuckAutoFrameStylesheetRejectionGuard.tsx` | Swallows benign DOM `Event` rejections when Puck `AutoFrame` fails to clone a host `<link rel="stylesheet">` (console may still log `AutoFrame couldn't load a stylesheet`; tokens come from `PuckIframeTheme`) |
+| `src/components/puck/PuckAutoFrameStylesheetRejectionGuard.tsx` | Swallows benign DOM `Event` rejections when Puck `AutoFrame` fails to clone a host `<link rel="stylesheet">` (console may still log `AutoFrame couldn't load a stylesheet`; tokens come from `PuckIframeTheme`). Installed synchronously via `src/lib/puckAutoFrameStylesheetRejectionInstall.ts` before Puck loads — not in `useEffect`. |
 | `src/app/puck-editor.css` | Remaps Puck's internal `--puck-color-*` palette when `[data-theme="dark"]` so sidebars/fields stay readable |
 
 **Data flow:** `ThemeProvider` (`layout.tsx`) → `useTheme()` → `ThemeToggle` updates `<html data-theme>` → `PuckIframeTheme` mirrors the attribute inside the preview iframe so block text (`var(--color-text-primary)`) contrasts correctly on light or dark backgrounds.

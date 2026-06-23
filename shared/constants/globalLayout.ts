@@ -160,29 +160,13 @@ export const DEFAULT_HEADER_USER_MENU: HeaderNavItem[] = [
   { id: "profile-settings", href: "/profile/settings", label: "Settings", icon: "Settings" },
 ];
 
-/** Default header categories — grouped for desktop dropdowns and mobile accordions. */
-export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [
-  {
-    id: "explore",
-    label: "Explore",
-    items: [
-      { id: "pages-catalog", href: "/pages/categories", label: "Pages", icon: "FileText" },
-      { id: "news", href: "/news", label: "News", icon: "Newspaper" },
-      { id: "council-apply", href: "/council-apply", label: "Council Apply", icon: "Award" },
-      { id: "propose-activity", href: "/propose-activity", label: "Propose Activity", icon: "MessageSquare" },
-    ],
-  },
-  {
-    id: "manage",
-    label: "Manage",
-    align: "end",
-    adminOnly: true,
-    items: [
-      { id: "pages", href: "/pages", label: "Create Page", icon: "Plus" },
-      { id: "admin", href: "/admin", label: "Administration", icon: "Shield", adminOnly: true },
-    ],
-  },
-];
+/**
+ * Default header categories — empty on fresh seed.
+ *
+ * Admins configure navigation in `/admin/global-layout`. Factory-seeded Explore/Manage
+ * dropdowns were removed because preset hrefs were misleading on real deployments.
+ */
+export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [];
 
 /** Default footer grid layout. */
 export const DEFAULT_FOOTER_LAYOUT: FooterLayout = {

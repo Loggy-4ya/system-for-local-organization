@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { PageDomain, PageDomainError } from "@shared/domains/PageDomain";
+import { normalizePagePath } from "@shared/lib/pagePathLogic";
 import {
   buildPageViewCookieName,
   PAGE_VIEW_DEDUPE_TTL_SECONDS,
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const path = body.path?.trim();
-  if (!path || !path.startsWith("/")) {
+  const path = normalizePagePath(body.path?.trim() ?? "");
+  if (!path || path === "/") {
     return NextResponse.json({ error: "A valid `path` is required." }, { status: 400 });
   }
 

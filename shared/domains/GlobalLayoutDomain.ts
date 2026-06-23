@@ -30,6 +30,37 @@ import { getBlockedWordError } from "@shared/lib/contentPolicy";
 const LEGACY_GLOBAL_LAYOUT_COLLECTION = "site_chrome";
 
 /**
+ * Detect the removed factory header nav seed so existing deployments can migrate once.
+ *
+ * @param categories - Stored header categories from MongoDB.
+ * @returns True when categories still match the old Explore/Manage preset exactly.
+ */
+function isLegacyFactoryHeaderCategories(categories: HeaderCategory[]): boolean {
+  if (categories.length !== 2) {
+    return false;
+  }
+
+  const explore = categories.find((category) => category.id === "explore");
+  const manage = categories.find((category) => category.id === "manage");
+
+  if (!explore || !manage) {
+    return false;
+  }
+
+  const exploreItemIds = explore.items.map((item) => item.id).sort().join(",");
+  const manageItemIds = manage.items.map((item) => item.id).sort().join(",");
+
+  return (
+    explore.label === "Explore" &&
+    exploreItemIds === "council-apply,news,pages-catalog,propose-activity" &&
+    manage.label === "Manage" &&
+    manage.align === "end" &&
+    manage.adminOnly === true &&
+    manageItemIds === "admin,pages"
+  );
+}
+
+/**
  * Reject user-visible layout copy that violates the institutional blocklist.
  *
  * @param value - Candidate label or prose string.
@@ -115,6 +146,12 @@ export class GlobalLayoutDomain {
         throw new Error("Failed to load or seed global layout settings.");
       }
       return fallback;
+    }
+
+    if (isLegacyFactoryHeaderCategories(doc.header?.categories ?? [])) {
+      doc.header.categories = [];
+      doc.markModified("header.categories");
+      await doc.save();
     }
 
     return doc;

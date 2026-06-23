@@ -3,6 +3,9 @@
 /**
  * @fileoverview Render layer for the News Catalog Puck block (Figma news hub layout).
  *
+ * Public catalog cards are image-first: titles sit on the preview media so visitors
+ * recognize pages from content, not long descriptions.
+ *
  * @module src/components/puck/blocks/news/NexusNewsCatalogRender
  */
 
@@ -14,7 +17,7 @@ import type {
   NewsCatalogHubSection,
   NewsCatalogPageCard,
 } from "@shared/constants/pageCategoriesHub";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 /** Props for {@link NexusNewsCatalogRender}. */
 export interface NexusNewsCatalogRenderProps {
@@ -29,7 +32,7 @@ export interface NexusNewsCatalogRenderProps {
 /**
  * Multi-image area for a catalog card.
  *
- * @param props - Image URLs and layout variant.
+ * @param props - Image URLs, title fallback, and layout variant.
  * @returns Image strip UI.
  */
 function CatalogCardImages({
@@ -45,8 +48,13 @@ function CatalogCardImages({
 
   if (safeImages.length === 0) {
     return (
-      <div className={cn("nexus-news-catalog__media", `nexus-news-catalog__media--${variant}`)}>
-        <span className="nexus-news-catalog__media-placeholder">No image</span>
+      <div
+        className={cn(
+          "nexus-news-catalog__media nexus-news-catalog__media--placeholder",
+          `nexus-news-catalog__media--${variant}`,
+        )}
+      >
+        <span className="nexus-news-catalog__media-fallback-title">{title}</span>
       </div>
     );
   }
@@ -55,7 +63,7 @@ function CatalogCardImages({
     return (
       <div className={cn("nexus-news-catalog__media", `nexus-news-catalog__media--${variant}`)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={safeImages[0]!} alt={title} className="nexus-news-catalog__media-img" />
+        <img src={safeImages[0]!} alt="" className="nexus-news-catalog__media-img" />
       </div>
     );
   }
@@ -71,7 +79,7 @@ function CatalogCardImages({
       {safeImages.map((src, index) => (
         <div key={`${src}-${index}`} className="nexus-news-catalog__media-cell">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={`${title} image ${index + 1}`} className="nexus-news-catalog__media-img" />
+          <img src={src} alt="" className="nexus-news-catalog__media-img" />
         </div>
       ))}
     </div>
@@ -79,57 +87,67 @@ function CatalogCardImages({
 }
 
 /**
- * Large featured preview card (left column in hub layout).
+ * Image-led preview card — title overlays the media; no description or CTA chrome.
  *
- * @param props - Card data.
- * @returns Featured card UI.
+ * @param props - Card data and size variant.
+ * @returns Visual catalog card UI.
  */
-function FeaturedCatalogCard({ page }: { page: NewsCatalogPageCard }) {
+function VisualCatalogCard({
+  page,
+  variant,
+}: {
+  page: NewsCatalogPageCard;
+  variant: "featured" | "tile";
+}) {
+  const hasImages = page.images.some((src) => sanitizeMediaUrl(src));
+  const TitleTag = variant === "featured" ? "h2" : "h3";
+
   return (
-    <Link href={page.href} className="nexus-news-catalog__featured-link">
-      <article className="nexus-news-catalog__featured glass-panel">
-        <CatalogCardImages images={page.images} title={page.title} variant="featured" />
-        <div className="nexus-news-catalog__featured-body">
-          {page.authorDisplayName ? (
-            <p className="nexus-news-catalog__eyebrow">{page.authorDisplayName}</p>
-          ) : null}
-          <h2 className="nexus-news-catalog__featured-title">{page.title}</h2>
-          {page.description ? (
-            <p className="nexus-news-catalog__featured-description">{page.description}</p>
-          ) : null}
-          <div className="nexus-news-catalog__featured-actions">
-            <Button type="button" size="sm" className="nexus-news-catalog__cta pointer-events-none">
-              View More
-            </Button>
+    <Link
+      href={page.href}
+      className={cn(
+        "nexus-news-catalog__card-link",
+        variant === "featured"
+          ? "nexus-news-catalog__featured-link"
+          : "nexus-news-catalog__tile-link",
+      )}
+      aria-label={page.title}
+    >
+      <article
+        className={cn(
+          "nexus-news-catalog__card glass-panel",
+          variant === "featured" ? "nexus-news-catalog__featured" : "nexus-news-catalog__tile",
+        )}
+      >
+        <div
+          className={cn(
+            "nexus-news-catalog__card-media-wrap",
+            !hasImages && "nexus-news-catalog__card-media-wrap--no-image",
+          )}
+        >
+          <CatalogCardImages images={page.images} title={page.title} variant={variant} />
+          <div className="nexus-news-catalog__card-caption">
+            <TitleTag
+              className={
+                variant === "featured"
+                  ? "nexus-news-catalog__featured-title"
+                  : "nexus-news-catalog__tile-title"
+              }
+            >
+              {page.title}
+            </TitleTag>
             {page.publishDate ? (
-              <time className="nexus-news-catalog__featured-date">{page.publishDate}</time>
+              <time
+                className={
+                  variant === "featured"
+                    ? "nexus-news-catalog__featured-date"
+                    : "nexus-news-catalog__tile-date"
+                }
+              >
+                {page.publishDate}
+              </time>
             ) : null}
           </div>
-        </div>
-      </article>
-    </Link>
-  );
-}
-
-/**
- * Compact tile card (right grid in hub layout).
- *
- * @param props - Card data.
- * @returns Tile card UI.
- */
-function TileCatalogCard({ page }: { page: NewsCatalogPageCard }) {
-  return (
-    <Link href={page.href} className="nexus-news-catalog__tile-link">
-      <article className="nexus-news-catalog__tile glass-panel">
-        <CatalogCardImages images={page.images} title={page.title} variant="tile" />
-        <div className="nexus-news-catalog__tile-body">
-          <h3 className="nexus-news-catalog__tile-title">{page.title}</h3>
-          {page.description ? (
-            <p className="nexus-news-catalog__tile-description">{page.description}</p>
-          ) : null}
-          {page.publishDate ? (
-            <time className="nexus-news-catalog__tile-date">{page.publishDate}</time>
-          ) : null}
         </div>
       </article>
     </Link>
@@ -145,37 +163,37 @@ function TileCatalogCard({ page }: { page: NewsCatalogPageCard }) {
 function CatalogSectionGrid({ section }: { section: NewsCatalogHubSection }) {
   if (section.pages.length === 0) {
     return (
-      <p className="nexus-news-catalog__empty-section">No published pages in this category yet.</p>
-    );
-  }
-
-  if (section.cardLayout === "featured-grid") {
-    const [featured, ...rest] = section.pages;
-    return (
-      <div className="nexus-news-catalog__layout">
-        <FeaturedCatalogCard page={featured} />
-        {rest.length > 0 ? (
-          <div className="nexus-news-catalog__tile-grid">
-            {rest.map((page) => (
-              <TileCatalogCard key={page.path} page={page} />
-            ))}
-          </div>
-        ) : null}
+      <div className="nexus-news-catalog__empty-section glass-panel" aria-hidden="true">
+        <span className="nexus-news-catalog__empty-section-icon" />
       </div>
     );
   }
 
+  if (section.pages.length <= 2 || section.cardLayout === "uniform-grid") {
+    return (
+      <div className="nexus-news-catalog__uniform-grid">
+        {section.pages.map((page) => (
+          <VisualCatalogCard key={page.path} page={page} variant="tile" />
+        ))}
+      </div>
+    );
+  }
+
+  const [featured, ...rest] = section.pages;
   return (
-    <div className="nexus-news-catalog__uniform-grid">
-      {section.pages.map((page) => (
-        <TileCatalogCard key={page.path} page={page} />
-      ))}
+    <div className="nexus-news-catalog__layout">
+      <VisualCatalogCard page={featured} variant="featured" />
+      <div className="nexus-news-catalog__tile-grid">
+        {rest.map((page) => (
+          <VisualCatalogCard key={page.path} page={page} variant="tile" />
+        ))}
+      </div>
     </div>
   );
 }
 
 /**
- * News catalog renderer — header-style category tabs + featured/tile grid.
+ * News catalog renderer — category tabs + image-first preview grid.
  *
  * @param props - Hub payload and active tab state.
  * @returns Catalog UI.
@@ -184,18 +202,25 @@ export function NexusNewsCatalogRender({
   sections,
   activeSectionId,
   onActiveSectionChange,
-  emptyMessage = "No published pages are available in the catalog yet.",
+  emptyMessage = "Nothing published yet.",
   settingsHref = null,
 }: NexusNewsCatalogRenderProps) {
   if (sections.length === 0) {
     return (
       <div className="nexus-news-catalog nexus-news-catalog--empty glass-panel">
-        <p className="nexus-news-catalog__empty-message">{emptyMessage}</p>
         {settingsHref ? (
-          <Link href={settingsHref} className="nexus-news-catalog__settings-link">
-            Configure categories
-          </Link>
-        ) : null}
+          <>
+            <p className="nexus-news-catalog__empty-message">{emptyMessage}</p>
+            <Link
+              href={settingsHref}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Configure catalog
+            </Link>
+          </>
+        ) : (
+          <div className="nexus-news-catalog__empty-section-icon" aria-hidden="true" />
+        )}
       </div>
     );
   }
@@ -205,36 +230,46 @@ export function NexusNewsCatalogRender({
 
   return (
     <div className="nexus-news-catalog">
-      <nav className="nexus-news-catalog__nav glass-panel" aria-label="News categories">
-        <ul className="nexus-news-catalog__nav-list">
-          {sections.map((section) => {
-            const isActive = section.id === activeSection?.id;
-            return (
-              <li key={section.id}>
-                <button
-                  type="button"
-                  className={cn(
-                    "nexus-news-catalog__nav-item",
-                    isActive && "nexus-news-catalog__nav-item--active",
-                  )}
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => onActiveSectionChange?.(section.id)}
-                >
-                  <span className="nexus-news-catalog__nav-label">{section.sectionLabel}</span>
-                  {!isActive ? (
-                    <ChevronDown
-                      size={14}
-                      strokeWidth={2.25}
-                      className="nexus-news-catalog__nav-chevron"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <div className="nexus-news-catalog__nav glass-panel">
+        <nav aria-label="Page categories">
+          <ul className="nexus-news-catalog__nav-list">
+            {sections.map((section) => {
+              const isActive = section.id === activeSection?.id;
+              return (
+                <li key={section.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "nexus-news-catalog__nav-item",
+                      isActive && "nexus-news-catalog__nav-item--active",
+                    )}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => onActiveSectionChange?.(section.id)}
+                  >
+                    <span className="nexus-news-catalog__nav-label">{section.sectionLabel}</span>
+                    {!isActive ? (
+                      <ChevronDown
+                        size={14}
+                        strokeWidth={2.25}
+                        className="nexus-news-catalog__nav-chevron"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        {settingsHref ? (
+          <Link
+            href={settingsHref}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+          >
+            Configure catalog
+          </Link>
+        ) : null}
+      </div>
 
       {activeSection ? <CatalogSectionGrid section={activeSection} /> : null}
     </div>

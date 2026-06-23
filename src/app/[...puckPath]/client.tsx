@@ -7,6 +7,7 @@
  */
 
 import "@/lib/safePointerCaptureInstall";
+import "@/lib/puckAutoFrameStylesheetRejectionInstall";
 import "@puckeditor/core/puck.css";
 import "@/app/puck-editor.css";
 import puckConfig from "@/components/puck/config";
@@ -280,12 +281,12 @@ export function PuckClient({
     setPuckMountKey((key) => key + 1);
   }, [data, pageTitle, pageCategories, pageMetadata, path, isEditing]);
 
+  const isPersistedPage = Boolean(pageMetadata.isPersisted);
+
   useEffect(() => {
-    if (isEditing || !isPublicView || !path) return;
-    void recordPageView(path).catch((err) => {
-      console.error("[PuckClient] view count", err);
-    });
-  }, [isEditing, isPublicView, path]);
+    if (isEditing || !isPublicView || !path || !isPersistedPage) return;
+    void recordPageView(path);
+  }, [isEditing, isPublicView, isPersistedPage, path]);
 
   const handleEditorDataChange = useCallback((nextData: Data) => {
     latestDataRef.current = nextData;

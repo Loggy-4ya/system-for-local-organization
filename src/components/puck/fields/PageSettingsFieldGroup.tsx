@@ -88,19 +88,15 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   onChangeRef.current = onChange;
   settingsRef.current = settings;
 
-  const isHomepageSlug =
-    settings.slugLocked || meta.path === "/" || editorPagePathRef.currentPath === "/";
-
   const {
     draft: titleDraft,
     onTextChange: onTitleDraftChange,
     onTextFocus: onTitleFocus,
     onTextBlur: onTitleBlur,
-    commit: commitTitle,
   } = useDeferredFieldCommit({
     value: settings.title,
     onChange: (next) => {
-      onChangeRef.current({ ...settingsRef.current, title: next });
+      mergePageSettingsCommit({ title: next });
     },
     textDebounceMs: 0,
   });
@@ -110,14 +106,31 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     onTextChange: onSlugDraftChange,
     onTextFocus: onSlugFocus,
     onTextBlur: onSlugBlur,
-    commit: commitSlug,
   } = useDeferredFieldCommit({
     value: settings.slug,
     onChange: (next) => {
-      onChangeRef.current({ ...settingsRef.current, slug: next });
+      mergePageSettingsCommit({ slug: next });
     },
     textDebounceMs: 0,
   });
+
+  const titleDraftRef = useRef(titleDraft);
+  const slugDraftRef = useRef(slugDraft);
+  titleDraftRef.current = titleDraft;
+  slugDraftRef.current = slugDraft;
+
+  /** Commit page settings without clobbering uncommitted title/slug drafts. */
+  function mergePageSettingsCommit(partial: Partial<PageSettingsValue>) {
+    onChangeRef.current({
+      ...settingsRef.current,
+      title: titleDraftRef.current,
+      slug: slugDraftRef.current,
+      ...partial,
+    });
+  }
+
+  const isHomepageSlug =
+    settings.slugLocked || meta.path === "/" || editorPagePathRef.currentPath === "/";
 
   const autoSlugFromTitle = useSyncExternalStore(
     subscribePageAutoSlugFromTitlePreference,
@@ -211,13 +224,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
             }
           }}
           onFocus={onTitleFocus}
-          onBlur={() => {
-            onTitleBlur();
-            commitTitle();
-            if (autoSlugFromTitle && !isHomepageSlug) {
-              commitSlug();
-            }
-          }}
+          onBlur={onTitleBlur}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -267,7 +274,9 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
                   setPageAutoSlugFromTitlePreference(checked);
                   if (checked && !isHomepageSlug) {
                     syncSlugFromTitle(titleDraft, slugDraft);
-                    commitSlug();
+                    mergePageSettingsCommit({
+                      slug: applyAutoSlugFromTitle(titleDraft, slugDraft),
+                    });
                   }
                 }}
               />
@@ -281,7 +290,6 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
             onSlugFocus={onSlugFocus}
             onSlugBlur={() => {
               onSlugBlur();
-              commitSlug();
             }}
             onSlugChange={(next) => {
               onSlugDraftChange(next);
@@ -300,7 +308,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
         <PageCategoryTagsField
           value={settings.categories ?? []}
           onChange={(categories) => {
-            onChangeRef.current({ ...settingsRef.current, categories });
+            mergePageSettingsCommit({ categories });
           }}
         />
       </div>

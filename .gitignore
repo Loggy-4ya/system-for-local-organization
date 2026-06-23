@@ -49,3 +49,6 @@ next-env.d.ts
 # User-generated uploads — keep directory structure, ignore binary payloads
 public/uploads/**/*
 !public/uploads/**/.gitkeep
+
+# Diploma thesis documentation (schemas, UML) — local only, not part of project docs
+/diploma-docs/

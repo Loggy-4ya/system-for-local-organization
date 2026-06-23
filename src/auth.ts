@@ -188,30 +188,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     /**
      * Hydrate session.user from MongoDB on each request.
      *
+     * When the JWT references a deleted or missing user (e.g. after a DB reset),
+     * the session is returned without `user.id` so API routes treat the viewer
+     * as signed out instead of returning 404 profile errors.
+     *
      * @param params - Auth.js session callback parameters.
-     * @returns Session with full public user fields.
+     * @returns Session with full public user fields when the MongoDB row exists.
      */
     async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
-        if (token.role) {
-          (session.user as { role?: string }).role = token.role as string;
-        }
+      if (!token.sub || !session.user) {
+        return session;
       }
 
-      if (token.sub) {
-        const user = await AuthDomain.getUserById(token.sub);
-        if (user) {
-          const publicUser = AuthDomain.toPublicUser(user);
-          const { AccessControlDomain } = await import("@shared/domains/AccessControlDomain");
-          const effectivePermissions = await AccessControlDomain.resolvePermissionsForUser(user);
-          session.user = {
-            ...publicUser,
-            effectivePermissions,
-            emailVerified: user.emailVerified ?? null,
-          } as typeof session.user;
-        }
+      const user = await AuthDomain.getUserById(token.sub);
+      if (!user) {
+        return session;
       }
+
+      const publicUser = AuthDomain.toPublicUser(user);
+      const { AccessControlDomain } = await import("@shared/domains/AccessControlDomain");
+      const effectivePermissions = await AccessControlDomain.resolvePermissionsForUser(user);
+      session.user = {
+        ...publicUser,
+        effectivePermissions,
+        emailVerified: user.emailVerified ?? null,
+      } as typeof session.user;
 
       return session;
     },

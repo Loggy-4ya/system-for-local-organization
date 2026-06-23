@@ -14,7 +14,7 @@ export interface SiteMeResponse {
 /**
  * Load the authenticated viewer's basic profile from the server.
  *
- * @returns Parsed profile or `null` when the viewer is not signed in.
+ * @returns Parsed profile or `null` when the viewer is not signed in or the session is stale.
  * @throws When the network fails or the server returns an unexpected error.
  */
 export async function fetchBasicSiteProfile(): Promise<BasicSiteProfile | null> {
@@ -24,7 +24,7 @@ export async function fetchBasicSiteProfile(): Promise<BasicSiteProfile | null> 
     cache: "no-store",
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 || res.status === 404) {
     return null;
   }
 
