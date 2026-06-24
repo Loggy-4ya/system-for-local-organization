@@ -60,7 +60,6 @@ import {
   computeTotalPages,
   pageToSkip,
 } from "@shared/lib/listPaginationLogic";
-import { mongooseDocToPlain } from "@shared/lib/mongoosePlainObject";
 import { toDirectoryRow, type DirectoryUserRow } from "@shared/lib/directoryRedaction";
 import { UserDirectoryAuditDomain } from "@shared/domains/UserDirectoryAuditDomain";
 
@@ -193,15 +192,13 @@ export class AccessControlDomain {
    * @returns Serializable configuration.
    */
   public static toPublicConfig(doc: IAccessControlSettings): AccessControlSettingsConfig {
-    const plain = mongooseDocToPlain(doc);
-
     return {
-      levels: [...(plain.levels ?? [])],
+      levels: [...(doc.levels ?? [])],
       levelPermissions: {
-        ...(plain.levelPermissions ?? {}),
+        ...(doc.levelPermissions ?? {}),
       } as AccessControlSettingsConfig["levelPermissions"],
       grantRules: {
-        ...(plain.grantRules ?? {}),
+        ...(doc.grantRules ?? {}),
       } as AccessControlSettingsConfig["grantRules"],
     };
   }
