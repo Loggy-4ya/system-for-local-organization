@@ -100,6 +100,95 @@ export async function fetchPageCommentsCached<T>(
 }
 
 /**
+ * Apply a partial update to one comment node inside a DTO tree.
+ *
+ * @param comment - Comment row (may include nested replies).
+ * @param commentId - Target comment id.
+ * @param patch - Fields to merge onto the matching row.
+ * @returns Updated tree with the patch applied when matched.
+ */
+export function applyPageCommentDtoPatch(
+  comment: PageCommentDto,
+  commentId: string,
+  patch: Partial<PageCommentDto>,
+): PageCommentDto {
+  if (comment.id === commentId) {
+    return { ...comment, ...patch };
+  }
+  if (comment.replies.length === 0) {
+    return comment;
+  }
+  return {
+    ...comment,
+    replies: comment.replies.map((reply) =>
+      applyPageCommentDtoPatch(reply, commentId, patch),
+    ),
+  };
+}
+
+/**
+ * Patch a cached comment row in every list/reply payload for one page.
+ *
+ * Keeps drawer re-open instant while reflecting vote/heart mutations without
+ * waiting for a network round-trip.
+ *
+ * @param pagePath - Normalised page path.
+ * @param commentId - Comment id to update.
+ * @param patch - Partial DTO fields (votes, author heart, etc.).
+ */
+export function patchPageCommentsCacheComment(
+  pagePath: string,
+  commentId: string,
+  patch: Partial<PageCommentDto>,
+): void {
+  const pagePrefix = `${pagePath}:`;
+  const repliesPrefix = "replies:";
+
+  for (const [key, entry] of valueCache.entries()) {
+    if (Date.now() >= entry.expiresAt) {
+      valueCache.delete(key);
+      continue;
+    }
+
+    const value = entry.value;
+
+    if (key.startsWith(pagePrefix)) {
+      if (
+        value &&
+        typeof value === "object" &&
+        "comments" in value &&
+        Array.isArray((value as PageCommentListResult).comments)
+      ) {
+        const list = value as PageCommentListResult;
+        entry.value = {
+          ...list,
+          comments: list.comments.map((row) =>
+            applyPageCommentDtoPatch(row, commentId, patch),
+          ),
+        };
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        entry.value = (value as PageCommentDto[]).map((row) =>
+          applyPageCommentDtoPatch(row, commentId, patch),
+        );
+      }
+      continue;
+    }
+
+    if (
+      key.startsWith(repliesPrefix) &&
+      Array.isArray(value)
+    ) {
+      entry.value = (value as PageCommentDto[]).map((row) =>
+        applyPageCommentDtoPatch(row, commentId, patch),
+      );
+    }
+  }
+}
+
+/**
  * Invalidate all cached comment payloads for one page path.
  *
  * @param pagePath - Normalised page path.

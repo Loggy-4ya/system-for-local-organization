@@ -15,6 +15,8 @@ import {
   PAGE_COMMENTS_LIST_CLIENT_TTL_MS,
   PAGE_COMMENTS_REPLIES_CLIENT_TTL_MS,
   pageCommentsCacheKeys,
+  patchPageCommentsCacheComment,
+  writePageCommentsCache,
 } from "@/lib/pageCommentsClientCache";
 
 /** Default page size for comment list / infinite scroll batches. */
@@ -76,7 +78,9 @@ export async function fetchPageComments(
   };
 
   if (options.bypassCache) {
-    return load();
+    const result = await load();
+    writePageCommentsCache(cacheKey, result, PAGE_COMMENTS_LIST_CLIENT_TTL_MS);
+    return result;
   }
 
   return fetchPageCommentsCached(cacheKey, PAGE_COMMENTS_LIST_CLIENT_TTL_MS, load);
@@ -180,6 +184,7 @@ export async function postPageComment(
 export async function voteOnPageComment(
   commentId: string,
   vote: CommentVotePolarity,
+  pagePath?: string,
 ): Promise<CommentVoteResult> {
   const res = await fetch("/api/pages/comments/vote", {
     method: "POST",
@@ -190,7 +195,11 @@ export async function voteOnPageComment(
     const payload = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(payload.error ?? "Failed to update vote.");
   }
-  return (await res.json()) as CommentVoteResult;
+  const result = (await res.json()) as CommentVoteResult;
+  if (pagePath) {
+    patchPageCommentsCacheComment(pagePath, commentId, result);
+  }
+  return result;
 }
 
 /**
@@ -237,6 +246,7 @@ export async function fetchTopLikedPageComments(
  */
 export async function toggleCommentAuthorHeart(
   commentId: string,
+  pagePath?: string,
 ): Promise<CommentAuthorHeartResult> {
   const res = await fetch("/api/pages/comments/author-heart", {
     method: "POST",
@@ -247,7 +257,11 @@ export async function toggleCommentAuthorHeart(
     const payload = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(payload.error ?? "Failed to update author heart.");
   }
-  return (await res.json()) as CommentAuthorHeartResult;
+  const result = (await res.json()) as CommentAuthorHeartResult;
+  if (pagePath) {
+    patchPageCommentsCacheComment(pagePath, commentId, result);
+  }
+  return result;
 }
 
 export { invalidatePageCommentsClientCache };

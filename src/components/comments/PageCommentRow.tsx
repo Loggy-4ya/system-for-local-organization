@@ -142,7 +142,7 @@ function PageCommentRowComponent({
       }));
 
       try {
-        const result = await voteOnPageComment(localComment.id, vote);
+        const result = await voteOnPageComment(localComment.id, vote, pagePath);
         const next = {
           ...snapshot,
           likeCount: result.likeCount,
@@ -162,7 +162,7 @@ function PageCommentRowComponent({
         setVoteBusy(false);
       }
     },
-    [canInteract, localComment, onVoteChange, voteBusy],
+    [canInteract, localComment, onVoteChange, pagePath, voteBusy],
   );
 
   const handleAuthorHeart = useCallback(async () => {
@@ -174,7 +174,7 @@ function PageCommentRowComponent({
     onVoteChange?.(localComment.id, { authorHearted: !snapshot });
 
     try {
-      const result = await toggleCommentAuthorHeart(localComment.id);
+      const result = await toggleCommentAuthorHeart(localComment.id, pagePath);
       setLocalComment((prev) => ({ ...prev, authorHearted: result.authorHearted }));
       onVoteChange?.(localComment.id, { authorHearted: result.authorHearted });
     } catch (err) {
@@ -184,7 +184,7 @@ function PageCommentRowComponent({
     } finally {
       setHeartBusy(false);
     }
-  }, [canAuthorHeart, heartBusy, localComment.authorHearted, localComment.id, onVoteChange]);
+  }, [canAuthorHeart, heartBusy, localComment.authorHearted, localComment.id, onVoteChange, pagePath]);
 
   const authorHeartLabel = pageAuthorDisplayName?.trim() || "Author";
 

@@ -34,6 +34,7 @@ import {
 } from "@/lib/pageCommentsClient";
 import {
   pageCommentsCacheKeys,
+  patchPageCommentsCacheComment,
   readPageCommentsCache,
   runWhenBrowserIdle,
 } from "@/lib/pageCommentsClientCache";
@@ -270,8 +271,8 @@ export function PageCommentsPanel({
 
   useEffect(() => {
     if (!open || preview) return;
-    void loadComments(1, "replace", comments.length === 0);
-  }, [comments.length, loadComments, open, preview]);
+    void loadComments(1, "replace", true);
+  }, [loadComments, open, preview]);
 
   useEffect(() => {
     if (!open || preview || loadingInitial || loadingMore) return;
@@ -300,6 +301,29 @@ export function PageCommentsPanel({
   const refreshComments = useCallback(() => {
     void loadComments(1, "replace", true);
   }, [loadComments]);
+
+  const handleCommentPatch = useCallback(
+    (commentId: string, patch: Partial<PageCommentDto>) => {
+      setComments((prev) =>
+        prev.map((row) => {
+          if (row.id === commentId) {
+            return { ...row, ...patch };
+          }
+          if (row.replies.length === 0) {
+            return row;
+          }
+          return {
+            ...row,
+            replies: row.replies.map((reply) =>
+              reply.id === commentId ? { ...reply, ...patch } : reply,
+            ),
+          };
+        }),
+      );
+      patchPageCommentsCacheComment(pagePath, commentId, patch);
+    },
+    [pagePath],
+  );
 
   if (!commentsEnabled) {
     return renderBand(
@@ -464,6 +488,7 @@ export function PageCommentsPanel({
                   canAuthorHeart={canAuthorHeart}
                   pageAuthorDisplayName={pageAuthorDisplayName}
                   onReplyPosted={refreshComments}
+                  onVoteChange={handleCommentPatch}
                 />
               ))}
               {listPage < totalPages ? (
