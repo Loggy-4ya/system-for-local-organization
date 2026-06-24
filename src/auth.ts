@@ -13,6 +13,7 @@ import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
 import { cookies } from "next/headers";
 import { AuthDomain, type OAuthProfileInput } from "@shared/domains/AuthDomain";
+import connectDB from "@shared/lib/db";
 import { verifyTelegramBridgeToken } from "@/lib/telegramBridge";
 import { OAUTH_LINK_USER_COOKIE } from "@/lib/oauthLinkCookie";
 import { authConfig } from "@/auth.config";
@@ -161,24 +162,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account && account.provider !== "credentials") {
-        let dbUser = null;
-        const { default: User } = await import("@shared/models/User");
+        try {
+          await connectDB();
+          let dbUser = null;
+          const { default: User } = await import("@shared/models/User");
 
-        if (account.provider === "google") {
-          const p = profile as { sub?: string } | undefined;
-          const googleId = p?.sub ?? account.providerAccountId;
-          dbUser = await User.findOne({ googleId });
-        }
+          if (account.provider === "google") {
+            const p = profile as { sub?: string } | undefined;
+            const googleId = p?.sub ?? account.providerAccountId;
+            dbUser = await User.findOne({ googleId });
+          }
 
-        if (account.provider === "apple") {
-          const p = profile as { sub?: string } | undefined;
-          const appleId = p?.sub ?? account.providerAccountId;
-          dbUser = await User.findOne({ appleId });
-        }
+          if (account.provider === "apple") {
+            const p = profile as { sub?: string } | undefined;
+            const appleId = p?.sub ?? account.providerAccountId;
+            dbUser = await User.findOne({ appleId });
+          }
 
-        if (dbUser) {
-          token.sub = String(dbUser._id);
-          token.role = dbUser.role;
+          if (dbUser) {
+            token.sub = String(dbUser._id);
+            token.role = dbUser.role;
+          }
+        } catch (error) {
+          console.error("[auth] OAuth JWT hydration failed:", error);
         }
       }
 
@@ -192,6 +198,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * the session is returned without `user.id` so API routes treat the viewer
      * as signed out instead of returning 404 profile errors.
      *
+     * MongoDB outages must not throw — Auth.js maps any session-callback error to
+     * `JWTSessionError` and deletes the session cookie. On transient DB failure we
+     * fall back to JWT `sub` / `role` only so the cookie survives until MongoDB
+     * is reachable again.
+     *
      * @param params - Auth.js session callback parameters.
      * @returns Session with full public user fields when the MongoDB row exists.
      */
@@ -200,21 +211,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return session;
       }
 
-      const user = await AuthDomain.getUserById(token.sub);
-      if (!user) {
+      try {
+        const user = await AuthDomain.getUserById(token.sub);
+        if (!user) {
+          return session;
+        }
+
+        const publicUser = AuthDomain.toPublicUser(user);
+        const { AccessControlDomain } = await import("@shared/domains/AccessControlDomain");
+        const effectivePermissions = await AccessControlDomain.resolvePermissionsForUser(user);
+        session.user = {
+          ...publicUser,
+          effectivePermissions,
+          emailVerified: user.emailVerified ?? null,
+        } as typeof session.user;
+
+        return session;
+      } catch (error) {
+        console.error("[auth] Session hydration failed — using JWT fallback:", error);
+        session.user.id = token.sub;
+        if (token.role) {
+          (session.user as { role?: string }).role = token.role as string;
+        }
         return session;
       }
-
-      const publicUser = AuthDomain.toPublicUser(user);
-      const { AccessControlDomain } = await import("@shared/domains/AccessControlDomain");
-      const effectivePermissions = await AccessControlDomain.resolvePermissionsForUser(user);
-      session.user = {
-        ...publicUser,
-        effectivePermissions,
-        emailVerified: user.emailVerified ?? null,
-      } as typeof session.user;
-
-      return session;
     },
   },
 });

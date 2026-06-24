@@ -79,7 +79,10 @@ export interface NewsCatalogPageCard {
   images: string[];
   /** Catalog preview size — `featured` may occupy the section hero slot when eligible. */
   cardVariant: NewsCatalogPageCardVariant;
+  /** Display label for publish / last-update time (DD.MM.YYYY HH:mm). */
   publishDate: string;
+  /** ISO-8601 value for `<time dateTime>`. */
+  publishDateTime: string;
   authorDisplayName: string | null;
   categories: string[];
 }

@@ -97,7 +97,7 @@ Pure rules: `shared/lib/pageAccessLogic.ts` — `canManagePageAccess()`
 
 Publisher UX: author badge always visible; **+** opens the same `nexus-puck-input` combobox used for categories. Category tags stay in **Page Details** with the always-visible search field.
 
-**Auto slug:** Page Details includes an **Auto slug from title** switch (default on, persisted in `localStorage`). When enabled, title edits slugify into the page slug segment while preserving the selected domain (`derivePageSlugFromTitle` in `pagePathLogic.ts`).
+**Auto slug:** Page Details includes an **Auto slug from title** switch (default on, persisted in `localStorage`). When enabled, title edits slugify into the page slug segment while preserving the selected domain (`derivePageSlugFromTitle` in `pagePathLogic.ts`). Domain picker selections commit to Puck immediately; page-slug typing still commits on blur.
 
 **Invite links:** see [page_publisher_invite_links.md](./page_publisher_invite_links.md) — shareable `/pages/join/[token]` URLs that add collaborators on open.
 

@@ -93,7 +93,11 @@ export function NewPagePopover({ availableDomains, notice }: NewPagePopoverProps
               </p>
             ) : null}
 
-            <NewPageForm availableDomains={availableDomains} onNavigate={navigateToEditor} />
+            <NewPageForm
+              availableDomains={availableDomains}
+              canAddDomains
+              onNavigate={navigateToEditor}
+            />
           </div>
         ) : null}
 

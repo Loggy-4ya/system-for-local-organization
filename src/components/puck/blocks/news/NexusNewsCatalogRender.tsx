@@ -151,7 +151,7 @@ function VisualCatalogCard({
                     ? "nexus-news-catalog__featured-date"
                     : "nexus-news-catalog__tile-date"
                 }
-                dateTime={page.publishDate}
+                dateTime={page.publishDateTime || page.publishDate}
               >
                 {page.publishDate}
               </time>

@@ -148,7 +148,8 @@ function ManagerCatalogSectionBlock({
                 onChange={(next) => onUpdateVisibility(section.id, next)}
               />
             ) : null}
-            {onRemoveSection ? (
+            {onRemoveSection &&
+            section.domain !== PAGE_CATALOG_UNCATEGORIZED_DOMAIN ? (
               <Button
                 type="button"
                 variant="destructive"
@@ -399,12 +400,9 @@ function EditablePageManagerCatalog({
 
   const requestRemoveDomainSection = (sectionId: string) => {
     const section = sections.find((row) => row.id === sectionId);
-    if (!section) return;
+    if (!section || section.domain === PAGE_CATALOG_UNCATEGORIZED_DOMAIN) return;
 
-    if (
-      isCatalogAdmin &&
-      section.domain !== PAGE_CATALOG_UNCATEGORIZED_DOMAIN
-    ) {
+    if (isCatalogAdmin) {
       setPendingRemove({
         sectionId,
         domain: section.domain,

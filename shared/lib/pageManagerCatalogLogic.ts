@@ -15,6 +15,7 @@ import type {
 import { MAX_PAGES_PER_HUB_SECTION } from "@shared/constants/pageCategoriesHub";
 import {
   buildManagerCatalogPageCard,
+  ensureHubSectionsCoverDomains,
   mergeCuratedAndAutoHubPagePaths,
   resolvePageCatalogSectionLabel,
   type PageCategoryHubPageSource,
@@ -147,10 +148,40 @@ export function buildUncategorizedHubSection(): PageCategoryHubSection {
 }
 
 /**
+ * Path domains that have at least one page row in MongoDB.
+ *
+ * @param pageSources - Loaded page rows.
+ * @param availableDomains - Known domain segments for address parsing.
+ * @returns Sorted domain labels with content.
+ */
+export function listDomainsWithPages(
+  pageSources: readonly PageCategoryHubPageSource[],
+  availableDomains: readonly string[],
+): string[] {
+  const found = new Set<string>();
+
+  for (const row of pageSources) {
+    const path = normalizePagePath(row.path);
+    if (!path || path === "/") continue;
+
+    for (const domain of availableDomains) {
+      const normalized = normalizePageDomainSegment(domain);
+      if (!normalized) continue;
+      if (pagePathBelongsToDomain(path, normalized, availableDomains)) {
+        found.add(normalized);
+      }
+    }
+  }
+
+  return [...found].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+/**
  * Resolve hub section rows for the Page Manager editor (`/pages/edit`).
  *
- * Uses saved MongoDB config only — does **not** auto-insert every path domain
- * (public catalog uses {@link ensureHubSectionsCoverDomains} separately).
+ * Auto-inserts hub rows for path domains that already have pages (but not empty
+ * domains with no content). Public `/pages` uses {@link ensureHubSectionsCoverDomains}
+ * via {@link PageCategoriesDomain.resolveCatalogHubSections}.
  * Appends an uncategorized row when flat pages exist but no section covers them.
  *
  * @param sections - Normalized hub sections from MongoDB.
@@ -163,7 +194,8 @@ export function resolveManagerEditorHubSections(
   availableDomains: readonly string[],
   pageSources: readonly PageCategoryHubPageSource[],
 ): PageCategoryHubSection[] {
-  let resolved = [...sections];
+  const domainsWithPages = listDomainsWithPages(pageSources, availableDomains);
+  let resolved = ensureHubSectionsCoverDomains(sections, domainsWithPages);
 
   const hasUncategorized = pageSources.some((row) => {
     const path = normalizePagePath(row.path);

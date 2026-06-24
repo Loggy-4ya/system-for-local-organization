@@ -23,7 +23,7 @@ import {
   type PageCategoryHubSection,
 } from "@shared/constants/pageCategoriesHub";
 import { normalizePageCatalogDomainVisibility } from "@shared/lib/pageCatalogDomainVisibilityLogic";
-import { isPagePubliclyVisible } from "@shared/lib/pagePublicationLogic";
+import { isPagePubliclyVisible, normalizePublishAt } from "@shared/lib/pagePublicationLogic";
 import {
   formatPageDomainLabel,
   normalizePageDomainSegment,
@@ -38,12 +38,73 @@ import {
  */
 export function formatCatalogHubDate(publishAt: string | Date | null | undefined): string {
   if (!publishAt) return "";
-  const parsed = publishAt instanceof Date ? publishAt : new Date(String(publishAt));
-  if (Number.isNaN(parsed.getTime())) return String(publishAt).trim();
+  const parsed = parseCatalogHubTimestamp(publishAt);
+  if (!parsed) return String(publishAt).trim();
   const day = String(parsed.getDate()).padStart(2, "0");
   const month = String(parsed.getMonth() + 1).padStart(2, "0");
   const year = parsed.getFullYear();
   return `${day}.${month}.${year}`;
+}
+
+/**
+ * Format a publish timestamp for catalog card badges (DD.MM.YYYY HH:mm, local time).
+ *
+ * @param publishAt - ISO string, Date, or null.
+ * @returns Date + time label or empty string.
+ */
+export function formatCatalogHubDateTime(publishAt: string | Date | null | undefined): string {
+  if (!publishAt) return "";
+  const parsed = parseCatalogHubTimestamp(publishAt);
+  if (!parsed) return String(publishAt).trim();
+  const date = formatCatalogHubDate(parsed);
+  const hours = String(parsed.getHours()).padStart(2, "0");
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  return `${date} ${hours}:${minutes}`;
+}
+
+/**
+ * Normalise a catalog timestamp to ISO-8601 for `<time dateTime>`.
+ *
+ * @param publishAt - ISO string, Date, or null.
+ * @returns ISO string or empty when unavailable.
+ */
+export function formatCatalogHubDateTimeIso(publishAt: string | Date | null | undefined): string {
+  const parsed = parseCatalogHubTimestamp(publishAt);
+  return parsed ? parsed.toISOString() : "";
+}
+
+/**
+ * Parse a hub/catalog timestamp into a valid Date.
+ *
+ * @param value - Raw timestamp from MongoDB or API.
+ * @returns Parsed date or null.
+ */
+function parseCatalogHubTimestamp(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+/**
+ * Resolve the timestamp shown on catalog card previews.
+ *
+ * Immediate publishes often store `publishAt: null` while `published` is true;
+ * fall back to `updatedAt` so cards still show a meaningful date.
+ *
+ * @param page - Hub page source row.
+ * @returns Raw date for {@link formatCatalogHubDate}, or null when unavailable.
+ */
+export function resolveCatalogCardPublishAt(
+  page: Pick<PageCategoryHubPageSource, "publishAt" | "updatedAt">,
+): string | Date | null {
+  if (normalizePublishAt(page.publishAt)) {
+    return page.publishAt ?? null;
+  }
+  if (page.updatedAt) {
+    return page.updatedAt;
+  }
+  return null;
 }
 
 /** Minimal page row for hub card resolution. */
@@ -427,6 +488,8 @@ export function buildNewsCatalogPageCard(page: PageCategoryHubPageSource): NewsC
   const availableImages = collectPublicationImageUrls(page.coverImage, page.galleryImages);
   const images = availableImages.slice(0, Math.min(imagesPerCard, availableImages.length));
 
+  const resolvedPublishAt = resolveCatalogCardPublishAt(page);
+
   return {
     path,
     href: path,
@@ -434,7 +497,8 @@ export function buildNewsCatalogPageCard(page: PageCategoryHubPageSource): NewsC
     description: (page.description ?? "").trim(),
     images,
     cardVariant: normalizeNewsCatalogPageCardVariant(page.catalogCardVariant),
-    publishDate: formatCatalogHubDate(page.publishAt),
+    publishDate: formatCatalogHubDateTime(resolvedPublishAt),
+    publishDateTime: formatCatalogHubDateTimeIso(resolvedPublishAt),
     authorDisplayName: page.authorDisplayName ?? null,
     categories: (page.categories ?? []).map((entry) => entry.trim()).filter(Boolean),
   };

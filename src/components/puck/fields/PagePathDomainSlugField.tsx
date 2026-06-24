@@ -119,14 +119,23 @@ export function PagePathDomainSlugField({
   const slugError = pasteError ?? validation.error;
   const canManageDomains = meta.canManagePagePathDomains;
 
-  const updateAddress = (nextDomain: string, nextPageSlug: string) => {
+  const updateAddress = (
+    nextDomain: string,
+    nextPageSlug: string,
+    options?: { commit?: boolean },
+  ) => {
     onClearPasteError?.();
     setDomainError(null);
     onSlugChange(composePageAddress(nextDomain, nextPageSlug));
+    // Domain picker changes do not focus the slug input, so deferred Puck commit
+    // (blur-only) would never run — persist immediately when the domain changes.
+    if (options?.commit) {
+      onSlugBlur?.();
+    }
   };
 
   const selectDomain = (domain: string) => {
-    updateAddress(domain, address.pageSlug);
+    updateAddress(domain, address.pageSlug, { commit: true });
     setListOpen(false);
   };
 
@@ -145,7 +154,7 @@ export function PagePathDomainSlugField({
       setDomains(nextDomains);
 
       if (address.domain === domain) {
-        updateAddress("", address.pageSlug);
+        updateAddress("", address.pageSlug, { commit: true });
         setListOpen(true);
       }
 

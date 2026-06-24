@@ -98,7 +98,7 @@ describe("pageManagerCatalogLogic", () => {
 });
 
 describe("resolveManagerEditorHubSections", () => {
-  it("does not auto-insert every path domain for the editor", () => {
+  it("does not auto-insert empty path domains for the editor", () => {
     const sections = resolveManagerEditorHubSections(
       [{ id: "news", domain: "news", pagePaths: [] }],
       ["news", "surveys"],
@@ -106,6 +106,15 @@ describe("resolveManagerEditorHubSections", () => {
     );
     assert.equal(sections.length, 1);
     assert.equal(sections[0]?.domain, "news");
+  });
+
+  it("auto-inserts domains that already have pages", () => {
+    const sections = resolveManagerEditorHubSections(
+      [{ id: "news", domain: "news", pagePaths: [] }],
+      ["news", "surveys"],
+      [{ path: "/surveys/q1", title: "Q1", published: true }],
+    );
+    assert.equal(sections.some((section) => section.domain === "surveys"), true);
   });
 
   it("appends uncategorized when flat pages exist", () => {

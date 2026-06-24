@@ -75,6 +75,15 @@ export function PageCatalogCard({
     >
       <div className="page-catalog-card__media-shell">
         <CatalogCardImage src={primaryImage} title={page.title} />
+        {page.publishDate ? (
+          <time
+            className="page-catalog-card__media-date"
+            dateTime={page.publishDateTime || page.publishDate}
+            aria-label={`Published ${page.publishDate}`}
+          >
+            {page.publishDate}
+          </time>
+        ) : null}
       </div>
 
       <div className="page-catalog-card__body">
@@ -98,12 +107,6 @@ export function PageCatalogCard({
               />
             ) : null}
           </div>
-
-          {page.publishDate ? (
-            <time className="page-catalog-card__date" dateTime={page.publishDate}>
-              {page.publishDate}
-            </time>
-          ) : null}
 
           {visibleCategories.length > 0 ? (
             <ul className="page-catalog-card__categories" aria-label="Categories">

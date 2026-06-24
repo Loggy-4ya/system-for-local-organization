@@ -8,6 +8,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 
 | Path | Purpose | Allowed | Not allowed |
 |------|---------|---------|-------------|
+| `README.md` | Human + machine project entry — quick start, doc router, env profiles | Setup instructions, links to `.ai/docs/` | Duplicating full feature specs (link instead) |
 | `src/` | Next.js App Router application (UI, API routes, client components) | Pages, layouts, components, hooks, lib utilities | Mongoose models, domain business logic |
 | `shared/` | Cross-service shared code consumed by web, workers, and containers | Mongoose models (`shared/models/`), domain engines (`shared/domains/`) | React components, Next.js-specific code |
 | `public/` | Static assets served at URL root | Organised subfolders: `icons/`, `brand/` | Secrets, compiled bundles, create-next-app boilerplate SVGs |

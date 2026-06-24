@@ -18,6 +18,8 @@ import {
   normalizePageGalleryImages,
   resolveEffectiveHubSectionPagePaths,
   resolveHubSectionDisplayLabel,
+  resolveCatalogCardPublishAt,
+  formatCatalogHubDateTime,
   resolvePageCatalogSectionLabel,
 } from "@shared/lib/pageCategoriesHubLogic";
 
@@ -182,6 +184,31 @@ describe("buildDefaultHubSectionsForDomains", () => {
   });
 });
 
+describe("formatCatalogHubDateTime", () => {
+  it("formats local date and time", () => {
+    const label = formatCatalogHubDateTime(new Date(2026, 2, 15, 14, 30));
+    assert.equal(label, "15.03.2026 14:30");
+  });
+});
+
+describe("resolveCatalogCardPublishAt", () => {
+  it("prefers publishAt when set", () => {
+    const value = resolveCatalogCardPublishAt({
+      publishAt: "2026-06-20T12:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.equal(value, "2026-06-20T12:00:00.000Z");
+  });
+
+  it("falls back to updatedAt when publishAt is null", () => {
+    const value = resolveCatalogCardPublishAt({
+      publishAt: null,
+      updatedAt: "2026-03-15T08:30:00.000Z",
+    });
+    assert.equal(value, "2026-03-15T08:30:00.000Z");
+  });
+});
+
 describe("buildNewsCatalogPageCard", () => {
   it("limits images to per-page catalogImagesPerCard", () => {
     const card = buildNewsCatalogPageCard({
@@ -213,6 +240,20 @@ describe("buildNewsCatalogPageCard", () => {
 
     assert.ok(card);
     assert.deepEqual(card?.images, ["/1.jpg"]);
+  });
+
+  it("uses updatedAt when publishAt is missing", () => {
+    const card = buildNewsCatalogPageCard({
+      path: "/first-page",
+      title: "first-page",
+      published: true,
+      publishAt: null,
+      updatedAt: new Date(2026, 2, 15, 9, 5),
+    });
+
+    assert.ok(card);
+    assert.equal(card?.publishDate, "15.03.2026 09:05");
+    assert.equal(card?.publishDateTime, new Date(2026, 2, 15, 9, 5).toISOString());
   });
 });
 

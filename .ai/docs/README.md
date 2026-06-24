@@ -10,6 +10,7 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 
 | Document | Purpose |
 |----------|---------|
+| **[README.md](../README.md)** | **Project entry for humans and agents** — quick start, env profiles, common commands, machine-readable YAML block |
 | **[production_readiness.md](./production_readiness.md)** | **Production deploy checklist and deferred work** — verify before go-live; track future tasks from security, media, admin, and platform workstreams |
 | [roadmap.md](./roadmap.md) | Master feature progress tracker (`Planned` / `In Progress` / `Completed`) |
 | [architecture_map.md](./architecture_map.md) | Directory purposes and domain map |

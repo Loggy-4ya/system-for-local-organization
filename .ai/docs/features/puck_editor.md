@@ -249,7 +249,7 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 ### A. Page Title Synchronization
 - **Hydration:** The database `Page.title` is loaded on the server and merged into `root.props.pageSettings.title` during initialization (`buildEditorData` in `PuckClient`).
 - **Header label:** `PageHeaderLabel` portals into the Puck header title slot and reads `editorPageMetadataStore` via `useSyncExternalStore` — updates live while typing in the sidebar without Puck document mutations.
-- **Deferred commit:** `PageSettingsFieldGroup` commits title and slug to Puck on blur only (`useDeferredFieldCommit`, `textDebounceMs: 0`).
+- **Deferred commit:** `PageSettingsFieldGroup` commits title and page-slug typing to Puck on blur only (`useDeferredFieldCommit`, `textDebounceMs: 0`). Domain picker changes in `PagePathDomainSlugField` commit immediately (they never focus the slug input).
 - **Persistence:** **Save draft** writes layout + metadata without publishing. **Publish** sets `published: true` (or schedules via `publishAt`). Metadata is extracted via `resolvePageMetadata()` in `PuckEditorShell`.
 - **Background autosave:** `usePuckBackgroundDraftSave` in `PuckEditorShell` POSTs draft saves every **12s** when the document is dirty and the editor has been idle for **2.5s** (`PUCK_DRAFT_AUTOSAVE_*` in `shared/constants/editorSettings.ts`). Autosave is silent (no `router.refresh()`, no toast). Manual **Save draft** / **Publish** show a success toast via `siteClientToast.ts` and still refresh server props / surface validation errors on failure.
 

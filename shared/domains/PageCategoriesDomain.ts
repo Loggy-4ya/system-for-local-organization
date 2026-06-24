@@ -301,7 +301,7 @@ export class PageCategoriesDomain {
     const { pageSources, domainRootTitleByDomain } =
       await PageCategoriesDomain.loadCatalogPageSources();
 
-    const sections = resolveManagerEditorHubSections(
+    const sections = PageCategoriesDomain.resolveCatalogHubSections(
       normalized,
       allDomains,
       pageSources,

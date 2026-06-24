@@ -112,6 +112,7 @@ docker compose up
 - No `db` container — only the `web` service starts
 - Point `MONGODB_URI` at MongoDB Atlas, a database VPS, or any reachable host
 - On Atlas: add your server IP to **Network Access**; use a database user with read/write on the `nexus` database
+- **Atlas + Docker on Linux:** if logs show `querySrv ESERVFAIL` for `mongodb+srv://`, the web container cannot resolve Atlas SRV records. `docker-compose.yml` sets public DNS (`8.8.8.8` / `8.8.4.4`) on `web` and `telegram-worker`. After changing `.env.local`, run `docker compose up -d --force-recreate web`. Alternative: use Atlas **Drivers → Connect → standard connection string** (`mongodb://host1,host2,host3/...`) instead of `mongodb+srv://`, or run `npm run dev` on the host (outside Docker) where host DNS already works.
 
 **Bare-metal production** (no Compose):
 

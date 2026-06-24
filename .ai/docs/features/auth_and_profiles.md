@@ -148,6 +148,12 @@ ADMIN_SEED_PASSWORD=
 4. **`MissingCSRF` on LAN HTTP while `NEXTAUTH_URL` is HTTPS (ngrok):** Auth.js would set `Secure` cookies from the ngrok URL while you browse `http://192.168.x.x:8080` — the browser drops them. Dev builds set `useSecureCookies: false` in `auth.config.ts` so credentials sign-in works on LAN. Google/Telegram still need the ngrok URL.
 5. **Credentials forms:** `/login` and `/signup` submit via client-side Auth.js (`signIn({ redirect: false })` and `/api/auth/register`). Invalid credentials show inline without a full page reload. Legacy `/api/auth/login` and `/api/auth/signup` form POST routes remain as no-JS fallbacks.
 6. **Stale session:** Clear site cookies for the host, sign in again.
+7. **`JWTSessionError` in the server console:** Auth.js logs this when the JWT session pipeline fails. Common causes:
+   - **MongoDB unreachable** (check `[auth][cause]` in Docker / terminal logs). Example: `querySrv ESERVFAIL` while `MONGODB_URI` points at Atlas but the container or host cannot resolve Atlas DNS. When using bundled MongoDB (`docker compose … --profile bundled-db up`), set `MONGODB_URI=mongodb://db:27017/nexus` in `.env.local` and run `docker compose up -d --force-recreate web`. For Atlas, verify network access and the SRV connection string.
+   - **`NEXTAUTH_SECRET` changed** or Docker still has an old secret from before `.env.local` was edited — run `docker compose up -d --force-recreate web`, then clear cookies and sign in again. Generate a real secret (`npx auth secret`); avoid leaving the `.env.vps.example` placeholder in production.
+   - **Invalid / cross-host cookies** — sign in on the same host you set in `NEXTAUTH_URL` (ngrok vs `localhost:8080` vs LAN IP).
+
+   `src/auth.ts` session hydration catches MongoDB errors and falls back to JWT `sub` / `role` so transient DB outages do not delete the session cookie. Profile pages still need a live MongoDB connection to load user rows.
 
 ### React hydration warnings on `/profile`
 
