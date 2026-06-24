@@ -13,6 +13,7 @@ import { FieldLabel, type Overrides } from "@puckeditor/core";
 import Link from "next/link";
 import { GripVertical, LayoutList } from "lucide-react";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
+import { injectPuckAutoFrameStylesheetRejectionGuardScript } from "@/components/puck/PuckAutoFrameStylesheetRejectionGuard";
 import { PuckIframeTheme } from "@/components/puck/PuckIframeTheme";
 import { EditorModeToggle } from "@/components/puck/EditorModeToggle";
 import { IslandInsertDefaultsSync } from "@/components/puck/IslandInsertDefaultsSync";
@@ -43,6 +44,7 @@ import { NexusViewportZoomEnhancer } from "@/components/puck/NexusViewportZoomEn
 import { NexusHistoryCanvasIsland } from "@/components/puck/NexusHistoryToolbar";
 import { NexusMobileViewportToggleIcon } from "@/components/puck/NexusMobileViewportToggleIcon";
 import { NexusPublishButton } from "@/components/puck/NexusPublishButton";
+import { NexusSaveButton } from "@/components/puck/NexusSaveButton";
 import { NexusEditorScrollportGrid } from "@/components/puck/NexusEditorScrollportGrid";
 import { NexusPuckCanvasTransparencyEnforcer } from "@/components/puck/NexusPuckCanvasTransparencyEnforcer";
 import { NexusCanvasWheelBridge } from "@/components/puck/NexusCanvasWheelBridge";
@@ -170,6 +172,10 @@ function PuckIframeOverride({
   children: React.ReactNode;
   document?: Document;
 }) {
+  if (document) {
+    injectPuckAutoFrameStylesheetRejectionGuardScript(document);
+  }
+
   return <PuckIframeTheme document={document}>{children}</PuckIframeTheme>;
 }
 
@@ -258,6 +264,7 @@ function PuckHeaderActionsOverride() {
 
       <EditorModeToggle className="nexus-mode-toggle nexus-editor-header-btn" />
 
+      <NexusSaveButton />
       <NexusPublishButton />
     </span>
   );

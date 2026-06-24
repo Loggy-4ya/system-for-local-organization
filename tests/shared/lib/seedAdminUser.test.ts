@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clearTelegramLinkage } from "@shared/lib/seedAdminUserHelpers";
+import { clearTelegramLinkage, seedAdminPasswordNeedsUpdate, seedAdminLoginNeedsUpdate, applySeedAdminEnvSync } from "@shared/lib/seedAdminUserHelpers";
 import {
   buildOAuthLinkCookie,
   clearOAuthLinkCookie,
@@ -38,6 +38,76 @@ describe("clearTelegramLinkage", () => {
     };
 
     assert.equal(clearTelegramLinkage(user), false);
+  });
+});
+
+describe("seedAdminPasswordNeedsUpdate", () => {
+  it("returns true when no hash exists", async () => {
+    assert.equal(await seedAdminPasswordNeedsUpdate(null, "secret"), true);
+  });
+
+  it("returns false when hash matches env password", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("secret", 4);
+    assert.equal(await seedAdminPasswordNeedsUpdate(hash, "secret"), false);
+  });
+
+  it("returns true when env password changed", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("old-secret", 4);
+    assert.equal(await seedAdminPasswordNeedsUpdate(hash, "new-secret"), true);
+  });
+});
+
+describe("seedAdminLoginNeedsUpdate", () => {
+  it("returns false when login matches env", () => {
+    assert.equal(seedAdminLoginNeedsUpdate("admin", "admin"), false);
+  });
+
+  it("returns true when login differs from env", () => {
+    assert.equal(seedAdminLoginNeedsUpdate("admin", "superadmin"), true);
+  });
+
+  it("returns true when stored login is missing", () => {
+    assert.equal(seedAdminLoginNeedsUpdate(null, "admin"), true);
+  });
+});
+
+describe("applySeedAdminEnvSync", () => {
+  it("updates login and password when both differ from env", async () => {
+    const bcrypt = await import("bcryptjs");
+    const user = {
+      login: "admin",
+      passwordHash: await bcrypt.hash("old-secret", 4),
+      telegramId: null,
+      username: null,
+      lastTelegramSyncAt: null,
+    };
+
+    const sync = await applySeedAdminEnvSync(user, "superadmin", "new-secret", await bcrypt.hash("new-secret", 4));
+
+    assert.equal(sync.syncedLogin, true);
+    assert.equal(sync.syncedPassword, true);
+    assert.equal(user.login, "superadmin");
+    assert.equal(await bcrypt.compare("new-secret", user.passwordHash), true);
+  });
+
+  it("leaves credentials unchanged when env already matches", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("secret", 4);
+    const user = {
+      login: "admin",
+      passwordHash: hash,
+      telegramId: null,
+      username: null,
+      lastTelegramSyncAt: null,
+    };
+
+    const sync = await applySeedAdminEnvSync(user, "admin", "secret", hash);
+
+    assert.equal(sync.syncedLogin, false);
+    assert.equal(sync.syncedPassword, false);
+    assert.equal(user.passwordHash, hash);
   });
 });
 

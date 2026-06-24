@@ -4,10 +4,10 @@
  * @module src/components/editor/extensions/createNexusEditorExtensions
  */
 
-import Link from "@tiptap/extension-link";
 import StarterKit from "@tiptap/starter-kit";
 import type { Extensions } from "@tiptap/react";
 import type { NexusEditorVariant } from "@/lib/nexusEditor/editorTypes";
+import { NexusEditorLinkExtension } from "./NexusEditorLinkExtension";
 import {
   NexusMentionExtension,
   type NexusMentionExtensionOptions,
@@ -44,7 +44,7 @@ export function createNexusEditorExtensions(
         levels: [1, 2, 3],
       },
     }),
-    Link.configure({
+    NexusEditorLinkExtension.configure({
       openOnClick: false,
       autolink: true,
       defaultProtocol: "https",

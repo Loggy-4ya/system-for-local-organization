@@ -1,6 +1,6 @@
 # Telegram project workspaces (ephemeral groups)
 
-**Status:** `[~] In Progress` — operator auto-provision, maintenance jobs, bot commands, and forum topics per task shipped; `/report` media scraping remains planned.
+**Status:** `[~] In Progress` — operator auto-provision, maintenance jobs, bot task commands (DM + linked groups), and forum topics per task shipped.
 
 **Related:** [task_groups.md](./task_groups.md), [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md), [scheduled_events.md](./scheduled_events.md), [hosting_and_deployment.md](./hosting_and_deployment.md), [roadmap.md](../roadmap.md) Phase 4
 
@@ -19,7 +19,7 @@ Nexus splits responsibilities:
 | Invite performers | Limited | ✓ `channels.InviteToChannel` |
 | Promote bot admin | ✗ | ✓ `channels.EditAdmin` (+ `manageTopics`) |
 | Post in main chat / topics | ✓ | ✗ (bot posts after setup) |
-| `/link`, `/status`, `/task_done` | ✓ | ✗ |
+| `/link`, `/tasks`, `/task_report`, `/see_report`, `/completed` | ✓ | ✗ |
 | Delete / leave group on complete | `leaveChat` only | ✓ `DeleteChannel` / `LeaveChannel` |
 
 ---
@@ -215,11 +215,35 @@ On dispatch, `TaskDomain` → `TelegramWorkspaceDomain.syncTaskForumTopic()`. If
 
 ---
 
+## Bot task commands (DM + linked groups)
+
+| Command | Where | Purpose |
+|---------|-------|---------|
+| `/tasks` | DM or linked group | List open parts — group scope uses `telegramWorkspace.chatId`; unlinked groups get `tasksUnlinkedGroupTemplate` |
+| `/task_report [n]` | DM or linked group | Start configurable report wizard (`description` / `media` steps) |
+| `/see_report [n]` | DM or linked group | Show stored performer report |
+| `/completed [n]` | DM or linked group | Mark task completed when `botCompletedCommandEnabled` and actor has dispatch authority |
+| `/cancel` | During wizard | Discard in-progress draft |
+| `/done` / `/skip` | Media step | Finish collecting attachments or skip optional media |
+
+**Group binding:** Auto-created groups store `chatId` on the project when provisioning completes. Manual groups require `/link <token>`. If the bot was added to a random group without linking, `/tasks` explains how to bind the chat.
+
+**Report drafts:** In-progress `/task_report` data lives in `telegram_bot_sessions` (TTL ~30 min) only. Task documents are updated on successful wizard completion via `TaskDomain.submitReport`. Any other bot command discards the draft first (configurable `taskReportSessionInterruptedTemplate`).
+
+**Proof media:** Tasks carry `reportMediaAllowed` (default `false`). When false, the `media` wizard step is skipped even if listed in institution `reportFlowSteps`.
+
+**Templates:** All message patterns editable live at `/admin/telegram-workspaces` → **Bot task commands** (no redeploy).
+
+---
+
 ## Tests
 
 ```bash
 npm run test:telegram-workspace-logic
 npm run test:telegram-channel-id-logic
+npm run test:telegram-bot-command-logic
+npm run test:telegram-report-flow-logic
+npm run test:telegram-bot-task-logic
 ```
 
 ---
@@ -231,6 +255,6 @@ npm run test:telegram-channel-id-logic
 - [x] Operator auto-creates groups with Topics + bot promotion
 - [x] Operator maintenance: enable forum, sync members, dismantle
 - [x] Manual `/link` binds group; operator completes forum/member setup when env set
-- [x] In-group `/status` and `/task_done` commands
+- [x] `/tasks`, `/task_report`, `/see_report` in DM and linked groups; configurable templates + report step order
+- [x] Optional `/completed` for dispatch admins (`botCompletedCommandEnabled`)
 - [x] Forum topic per dispatched task part (bot API after operator enables Topics)
-- [ ] `/report` with media scraping (Phase 4c)

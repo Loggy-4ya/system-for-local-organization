@@ -35,6 +35,7 @@ const telegramMessagesSchema = z
     contactPhoneSaved: z.string().trim().min(1).max(2000).optional(),
     contactPhoneRejected: z.string().trim().min(1).max(2000).optional(),
     broadcastAnnouncementPrefix: z.string().trim().min(1).max(2000).optional(),
+    pagePublishedAnnouncement: z.string().trim().min(1).max(2000).optional(),
   })
   .optional();
 

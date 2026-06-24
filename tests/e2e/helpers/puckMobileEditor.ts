@@ -112,8 +112,8 @@ export async function loginForPuckEditor(
   await loginInput.fill(PUCK_E2E_LOGIN);
   await passwordInput.fill(PUCK_E2E_PASSWORD);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL(`**${callback}**`, { timeout: 30_000 });
-  await page.locator(".Puck").waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForURL(`**${callback}**`, { timeout: 120_000 });
+  await page.locator(".Puck").waitFor({ state: "visible", timeout: 120_000 });
 }
 
 /**

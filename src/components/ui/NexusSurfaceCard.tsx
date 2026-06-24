@@ -1,8 +1,8 @@
 /**
  * @fileoverview Reusable glass-panel surface card — Puck-style layout with Tailwind only.
  *
- * Mirrors the visual language of Puck blocks such as {@link NexusNewsCard} and
- * {@link NexusStatCard}: opaque `glass-panel`, optional media/icon header, title,
+ * Mirrors the visual language of Puck blocks such as {@link NexusNewsCard}: opaque
+ * `glass-panel`, optional media/icon header, title,
  * description, and hover lift. Safe to use on static pages, admin hubs, and future
  * non-Puck surfaces.
  *

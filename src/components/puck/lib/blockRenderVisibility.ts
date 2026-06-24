@@ -296,12 +296,8 @@ export const PUCK_BLOCK_VISIBILITY_REGISTRY: readonly PuckBlockVisibilitySpec[] 
       textBlockPageVisibility("NexusQuote", "The best way to predict the future is to invent it."),
   },
   {
-    blockType: "NexusButton",
-    evaluate: () => textBlockPageVisibility("NexusButton", "Action"),
-  },
-  {
     blockType: "NexusInput",
-    evaluate: () => textBlockPageVisibility("NexusInput", "Full Name"),
+    evaluate: () => textBlockPageVisibility("NexusInput", "What is your answer?"),
   },
   {
     blockType: "NexusList",
@@ -327,18 +323,6 @@ export const PUCK_BLOCK_VISIBILITY_REGISTRY: readonly PuckBlockVisibilitySpec[] 
     blockType: "NexusNewsCard",
     evaluate: () =>
       textBlockPageVisibility("NexusNewsCard", "Council budget approved for spring events"),
-  },
-  {
-    blockType: "NexusUserBadge",
-    evaluate: () => textBlockPageVisibility("NexusUserBadge", "Anna Koval"),
-  },
-  {
-    blockType: "NexusStatCard",
-    evaluate: () => textBlockPageVisibility("NexusStatCard", "128"),
-  },
-  {
-    blockType: "NexusAvatar",
-    evaluate: () => textBlockPageVisibility("NexusAvatar", "User"),
   },
   {
     blockType: "NexusSpacer",

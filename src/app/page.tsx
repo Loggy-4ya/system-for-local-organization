@@ -1,16 +1,24 @@
 /**
- * @fileoverview Nexus root homepage — redirects to the public pages catalog.
+ * @fileoverview Nexus root homepage — code-only marketing landing (not Puck-managed).
  *
  * @module src/app/page
  */
 
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { HomeLandingShell } from "@/components/marketing/HomeLandingShell";
+
+/** Document metadata for the public homepage. */
+export const metadata: Metadata = {
+  title: "Nexus — Institutional Management Platform",
+  description:
+    "A scalable platform for student councils — visual pages, task tracking, profiles, and Telegram automation in one place.",
+};
 
 /**
- * Site entry point — public pages-by-category catalog.
+ * Site entry point — brief platform overview with a link to the public page catalog.
  *
- * @returns Never renders; redirects to {@link /pages/categories}.
+ * @returns Homepage JSX inside global header/footer chrome.
  */
 export default function HomePage() {
-  redirect("/pages/categories");
+  return <HomeLandingShell />;
 }

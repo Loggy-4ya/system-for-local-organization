@@ -13,6 +13,7 @@ import { useCallback, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { normalizeNexusEditorHtmlForRender } from "@/lib/nexusEditor/nexusEditorContent";
+import { normalizeMentionLabel } from "@shared/lib/nexusMentionTypes";
 import { useInterpolatedNexusValue } from "@/components/puck/lib/nexusPageVariablesContext";
 
 /** Props for {@link NexusRichTextView}. */
@@ -123,7 +124,7 @@ export function NexusMentionBadgeLink({
       data-label={label}
       {...(mentionType === "page" ? { "data-page-path": href } : {})}
     >
-      @{label}
+      @{normalizeMentionLabel(label)}
     </Link>
   );
 }

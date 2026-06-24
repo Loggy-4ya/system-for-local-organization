@@ -12,6 +12,7 @@ import { describe, it } from "node:test";
 import {
   buildUserSearchMongoFilter,
   canSearchUsersByEmail,
+  dedupeUserSearchCandidates,
   filterUserSearchCandidates,
   formatUserSearchSubtitle,
 } from "@shared/lib/userSearchLogic";
@@ -61,12 +62,21 @@ describe("userSearchLogic", () => {
   it("filters excluded user ids", () => {
     const rows = filterUserSearchCandidates(
       [
-        { userId: "a", displayName: "A", subtitle: null, avatar: null },
-        { userId: "b", displayName: "B", subtitle: null, avatar: null },
+        { userId: "a", displayName: "A", subtitle: null, avatar: null, login: null },
+        { userId: "b", displayName: "B", subtitle: null, avatar: null, login: null },
       ],
       ["a"],
     );
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.userId, "b");
+  });
+
+  it("dedupes repeated user ids and shared logins", () => {
+    const rows = dedupeUserSearchCandidates([
+      { userId: "1", displayName: "admin", subtitle: "@admin", avatar: null, login: "admin" },
+      { userId: "2", displayName: "admin", subtitle: "@admin", avatar: null, login: "admin" },
+      { userId: "1", displayName: "admin", subtitle: "@admin", avatar: null, login: "admin" },
+    ]);
+    assert.equal(rows.length, 1);
   });
 });

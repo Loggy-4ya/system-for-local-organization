@@ -188,8 +188,8 @@ a.nexus-mention:hover,
 /* ── @ suggestion popup ───────────────────────────────────────────────────── */
 
 .nexus-mention-suggestion-portal {
-  position: absolute;
-  z-index: 80;
+  position: fixed;
+  z-index: 1200;
 }
 
 .nexus-mention-suggestion {
@@ -279,8 +279,8 @@ a.nexus-mention:hover,
 /* ── / slash command popup ────────────────────────────────────────────────── */
 
 .nexus-slash-suggestion-portal {
-  position: absolute;
-  z-index: 80;
+  position: fixed;
+  z-index: 1200;
 }
 
 .nexus-slash-suggestion {

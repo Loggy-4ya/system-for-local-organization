@@ -147,6 +147,20 @@ When the page runs inside Telegram (`data-telegram-webapp`), Nexus **does not** 
 
 Pure rules: `shared/lib/telegramContactHarvestLogic.ts` — normalizes Telegram user ids (webhook JSON may send `user_id` as a string) and accepts vCard `TEL` fallbacks. Tests: `npm run test:telegram-contact-harvest`.
 
+### Bot user recognition (register / finish profile)
+
+Before task commands (`/tasks`, `/task_report`, `/see_report`, `/completed`), the bot resolves the sender via `users.telegramId`:
+
+| State | Meaning | Bot response |
+|-------|---------|--------------|
+| **Unknown** | No Nexus row for this Telegram id | `botRegisterPrompt` + **Open Nexus** Mini App button |
+| **Incomplete** | Account exists but OAuth onboarding gaps remain | `botFinishRegistrationPrompt` with `{missingFields}` + Mini App button |
+| **Ready** | Profile complete | Command proceeds |
+
+`/start` appends the same register/finish hint to the welcome message when applicable. `/link` uses the register prompt when the linker is not in Nexus.
+
+Templates are editable in **Admin → General Rules → Telegram messages** (`botRegisterPrompt`, `botFinishRegistrationPrompt`). Logic: `shared/lib/telegramBotUserLogic.ts`, `shared/domains/TelegramBotUserDomain.ts`. Tests: `npm run test:telegram-bot-user-logic`.
+
 ---
 
 ## Code map
@@ -155,7 +169,9 @@ Pure rules: `shared/lib/telegramContactHarvestLogic.ts` — normalizes Telegram 
 |--------|------|
 | `shared/lib/verifyTelegramWebAppInitData.ts` | Parse + HMAC-verify Mini App `initData` |
 | `shared/domains/AuthDomain.ts` | `authenticateTelegramMiniApp`, `registerFromTelegramMiniApp`, `unlinkTelegram` |
-| `shared/domains/TelegramBotDomain.ts` | Webhook dispatch, `/start` + Web App button, `sendDirectMessage()` for broadcasts |
+| `shared/domains/TelegramBotDomain.ts` | Webhook dispatch, `/start` + Web App button, registration gating, `sendDirectMessage()` for broadcasts |
+| `shared/domains/TelegramBotUserDomain.ts` | Resolve Telegram sender → Nexus user registration state |
+| `shared/lib/telegramBotUserLogic.ts` | Pure register / incomplete / ready classification |
 | `src/lib/telegramBridge.ts` | Short-lived bridge token for Auth.js Credentials provider |
 | `src/components/telegram/TelegramMiniAppEntry.tsx` | Client auto-login + onboarding |
 | `src/components/telegram/TelegramWebAppViewportHost.tsx` | Root layout — expand WebView, sync stable viewport height, opaque WebView backing |

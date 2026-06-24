@@ -61,6 +61,52 @@ export function shouldPublishImmediately(
   return normalized.getTime() <= now.getTime();
 }
 
+/** Resolved publication fields applied on editor save. */
+export interface PageSavePublicationState {
+  published: boolean;
+  publishAt: Date | null;
+  /** True when a future `publish_page` scheduler event should be upserted. */
+  scheduledFuture: boolean;
+}
+
+/**
+ * Resolve `published` / `publishAt` for {@link PageDomain.upsertFromEditorSave}.
+ *
+ * Draft saves persist layout and metadata without changing live publication state.
+ * Publish saves apply immediate or scheduled go-live rules.
+ *
+ * @param input - Save mode, editor publish-at value, and existing page fields.
+ * @returns Publication fields to `$set` on the page document.
+ */
+export function resolvePublicationStateOnSave(input: {
+  requestPublish: boolean;
+  publishAt: Date | string | null | undefined;
+  existingPublished?: boolean;
+  existingPublishAt?: Date | string | null;
+  now?: Date;
+}): PageSavePublicationState {
+  const now = input.now ?? new Date();
+
+  if (!input.requestPublish) {
+    return {
+      published: input.existingPublished ?? false,
+      publishAt: normalizePublishAt(input.existingPublishAt),
+      scheduledFuture: false,
+    };
+  }
+
+  const normalizedPublishAt = normalizePublishAt(input.publishAt);
+  const publishNow = shouldPublishImmediately(normalizedPublishAt, now);
+  const scheduledFuture =
+    normalizedPublishAt != null && normalizedPublishAt.getTime() > now.getTime();
+
+  return {
+    published: publishNow,
+    publishAt: scheduledFuture ? normalizedPublishAt : publishNow ? normalizedPublishAt : null,
+    scheduledFuture,
+  };
+}
+
 /**
  * Build the idempotency key for a scheduled page publish event.
  *

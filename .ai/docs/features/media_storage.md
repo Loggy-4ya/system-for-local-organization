@@ -134,7 +134,7 @@ flowchart LR
 
 **Errors:** `400` invalid URL, blocked host, unsupported file, or size limit; `401` unauthorised; `500` provider failure.
 
-**Client:** `importMediaImageFromUrl()` in `src/lib/mediaUploadClient.ts`; Puck `MediaUploadField` shows **Import image from link** when the field value is an HTTPS URL (not already under `/uploads/`).
+**Client:** `importMediaImageFromUrl()` in `src/lib/mediaUploadClient.ts` (API-backed; not exposed in Puck `MediaUploadField`, which is file pick/drop only).
 
 ---
 

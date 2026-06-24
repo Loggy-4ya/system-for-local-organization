@@ -18,6 +18,7 @@ import {
   filterPageCategorySuggestions,
   MAX_PAGE_CATEGORIES,
   normalizePageCategoryLabel,
+  pageCategoryEditorBadgeClassName,
   shouldOfferCreatePageCategory,
 } from "@shared/lib/pageCategoryLogic";
 import {
@@ -175,7 +176,7 @@ export function PageCategoryTagsField({ value, onChange }: PageCategoryTagsField
           selected.map((label, index) => (
             <span
               key={`${label}-${index}`}
-              className="nexus-page-category-badge"
+              className={pageCategoryEditorBadgeClassName(label)}
               role="listitem"
             >
               <span className="nexus-page-category-badge__label">{label}</span>

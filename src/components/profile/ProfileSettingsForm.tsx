@@ -18,7 +18,8 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { RoleChipGroup } from "@/components/auth/RoleChipGroup";
 import { clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
-import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_MEMBER_PROFILE_HINT, SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT } from "@shared/lib/userProfileCompleteness";
+import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_MEMBER_PROFILE_HINT, SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT, resolveSelfGovernmentMemberProfileHint, TEACHER_APPLICATION_FIELD_HINT } from "@shared/lib/userProfileCompleteness";
+import { isTeacherUser } from "@shared/lib/userSociumHelpers";
 import { useContentPolicyFields } from "@/lib/useContentPolicyField";
 import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
 import { AvatarImageField } from "@/components/media/AvatarImageField";
@@ -36,6 +37,8 @@ export interface ProfileSettingsFormProps {
   user: PublicUser;
   /** When true, enforces OAuth onboarding required fields and consent. */
   onboardingMode?: boolean;
+  /** When true, enforces teacher application fields (no specialty/group). */
+  teacherOnboardingMode?: boolean;
   /** When true, member must link Telegram before using member tools. */
   memberTelegramOnboardingMode?: boolean;
 }
@@ -49,10 +52,25 @@ export interface ProfileSettingsFormProps {
 export function ProfileSettingsForm({
   user,
   onboardingMode = false,
+  teacherOnboardingMode = false,
   memberTelegramOnboardingMode = false,
 }: ProfileSettingsFormProps) {
   const router = useRouter();
   const siteProfile = useOptionalSiteProfile();
+  const isTeacher = isTeacherUser(user.sociumRoles);
+  const profileSlice = {
+    name: user.name,
+    surname: user.surname,
+    phone: user.phone,
+    specialty: user.specialty,
+    group: user.group,
+    avatar: user.avatar,
+    sociumRoles: user.sociumRoles,
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+    telegramId: user.telegramId,
+    teacherAccessApproved: user.teacherAccessApproved,
+  };
+  const memberProfileHint = resolveSelfGovernmentMemberProfileHint(profileSlice);
 
   const [name, setName] = useState(user.name);
   const [surname, setSurname] = useState(user.surname ?? "");
@@ -173,8 +191,8 @@ export function ProfileSettingsForm({
     clearLiveErrors();
 
     if (avatarRequired && !avatar.trim()) {
-      setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
-      setError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      setFieldErrors({ avatar: "Profile photo is required." });
+      setError("Profile photo is required.");
       return;
     }
 
@@ -288,7 +306,7 @@ export function ProfileSettingsForm({
           label="Surname"
           htmlFor="settings-surname"
           error={fieldError("surname", fieldErrors.surname)}
-          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
+          hint={membershipProfileRequired ? memberProfileHint : undefined}
         >
           <Input
             id="settings-surname"
@@ -305,7 +323,9 @@ export function ProfileSettingsForm({
           error={fieldErrors.phone}
           hint={
             membershipProfileRequired
-              ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT
+              ? memberProfileHint
+              : isTeacher
+                ? TEACHER_APPLICATION_FIELD_HINT
               : "Optional but recommended for general students."
           }
         >
@@ -341,44 +361,50 @@ export function ProfileSettingsForm({
           </p>
         </div>
 
-        <FormField
-          label="Specialty"
-          htmlFor="settings-specialty"
-          error={fieldErrors.specialty}
-          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
-        >
-          <Input
-            id="settings-specialty"
-            value={specialty}
-            onChange={(e) => setSpecialty(e.target.value)}
-            required={onboardingMode}
-          />
-        </FormField>
+        {!isTeacher ? (
+          <>
+            <FormField
+              label="Specialty"
+              htmlFor="settings-specialty"
+              error={fieldErrors.specialty}
+              hint={membershipProfileRequired ? memberProfileHint : undefined}
+            >
+              <Input
+                id="settings-specialty"
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                required={onboardingMode && !teacherOnboardingMode}
+              />
+            </FormField>
 
-        <FormField
-          label="Group"
-          htmlFor="settings-group"
-          error={fieldErrors.group}
-          hint={membershipProfileRequired ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT : undefined}
-        >
-          <Input
-            id="settings-group"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={group}
-            onChange={(e) => setGroup(e.target.value.replace(/\D/g, ""))}
-            required={onboardingMode}
-          />
-        </FormField>
+            <FormField
+              label="Group"
+              htmlFor="settings-group"
+              error={fieldErrors.group}
+              hint={membershipProfileRequired ? memberProfileHint : undefined}
+            >
+              <Input
+                id="settings-group"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={group}
+                onChange={(e) => setGroup(e.target.value.replace(/\D/g, ""))}
+                required={onboardingMode && !teacherOnboardingMode}
+              />
+            </FormField>
+          </>
+        ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-(--color-text-primary)">Student title</span>
-          <RoleChipGroup
-            value={studentTitle}
-            onChange={(v) => setStudentTitle(v)}
-          />
-        </div>
+        {!isTeacher ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-(--color-text-primary)">Student title</span>
+            <RoleChipGroup
+              value={studentTitle}
+              onChange={(v) => setStudentTitle(v)}
+            />
+          </div>
+        ) : null}
 
         <FormField
           label="Profile photo"
@@ -386,7 +412,7 @@ export function ProfileSettingsForm({
           error={fieldErrors.avatar}
           hint={
             membershipProfileRequired
-              ? SELF_GOVERNMENT_MEMBER_PROFILE_HINT
+              ? memberProfileHint
               : "Upload a profile photo. Without a photo, a User icon is shown in the header and directory."
           }
         >

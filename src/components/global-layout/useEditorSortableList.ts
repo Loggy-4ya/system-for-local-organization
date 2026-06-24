@@ -191,6 +191,7 @@ export function useEditorSortableList<T>({
         }
 
         event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
         sessionRef.current = {
           active: false,
           pointerId: event.pointerId,

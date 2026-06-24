@@ -33,6 +33,7 @@ Collection: `tasks` — `shared/models/Task.ts`
 | `reminderSettings` | `{ enabled, mode, value, unit, channels[], repeatUntilDue?, atTime?, weekdays? }` | Flexible periodic / before-deadline / `ongoing` reminders |
 | `groupId` / `groupTitle` | ObjectId? / string? | Optional link to a multi-part project — see [task_groups.md](./task_groups.md) |
 | `delegationCount` | number | Enforces per-tier delegation quota |
+| `reportMediaAllowed` | boolean | When true, completion reports may include proof media (default `false`) |
 
 ---
 
@@ -146,7 +147,7 @@ Media UI: `TaskMediaAttachmentsField`, `TaskMediaGallery` in `src/components/tas
 
 Reminder UI: `TaskReminderSettingsField` — mode, amount, unit, repeat-until-due, clock time, channels.
 
-Web delivery: `TaskReminderToastHost` in `SiteNotificationToastStack` — polls `GET /api/notifications/task-reminders` every 60s (+ on window focus). Scheduler fires create rows in `task_reminder_notifications` and optional Telegram DMs.
+Web delivery: `TaskReminderToastHost` in `SiteNotificationToastStack` — polls `GET /api/notifications/task-reminders` every 60s (+ on window focus). Scheduler fires create rows in `task_reminder_notifications` and optional Telegram DMs. Durable history: [notification_center.md](./notification_center.md) (`user_notifications` + task assignment rows on dispatch).
 
 Tags UI: `TaskCategoryTagsField` — reuses `/api/pages/categories` catalog.
 

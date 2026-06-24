@@ -12,7 +12,10 @@ import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
 import { NexusMentionBadge } from "../NexusMentionBadge";
 import { mentionBadgeClassName } from "@/lib/nexusEditor/nexusEditorContent";
-import type { NexusMentionItem } from "@shared/lib/nexusMentionTypes";
+import {
+  normalizeMentionLabel,
+  type NexusMentionItem,
+} from "@shared/lib/nexusMentionTypes";
 
 /** TipTap plugin key for the mention suggestion popup. */
 export const nexusMentionPluginKey = new PluginKey("nexusMentionSuggestion");
@@ -40,6 +43,9 @@ export interface NexusMentionExtensionOptions {
 export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
   name: "nexusMention",
 
+  /** Parse before {@link Link} so `a[data-nexus-mention]` stays an atom node. */
+  priority: 200,
+
   group: "inline",
 
   inline: true,
@@ -47,6 +53,9 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
   selectable: false,
 
   atom: true,
+
+  /** Mention badges are self-linking atoms — never combine with the link mark. */
+  marks: "",
 
   addOptions() {
     return {
@@ -74,7 +83,10 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
       },
       label: {
         default: null,
-        parseHTML: (element) => element.getAttribute("data-label"),
+        parseHTML: (element) =>
+          normalizeMentionLabel(
+            element.getAttribute("data-label") || element.textContent || "",
+          ),
         renderHTML: (attributes) => ({
           "data-label": attributes.label,
         }),
@@ -92,14 +104,16 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
   parseHTML() {
     return [
       {
-        tag: 'a[data-nexus-mention]',
+        tag: "a[data-nexus-mention]",
+        /** Inner `@label` text is display-only — do not parse as sibling plaintext. */
+        getContent: () => "",
       },
     ];
   },
 
   renderHTML({ node, HTMLAttributes }) {
     const mentionType = node.attrs.mentionType as string;
-    const label = node.attrs.label as string;
+    const label = normalizeMentionLabel(String(node.attrs.label ?? ""));
     const pagePathAttr =
       mentionType === "page" && node.attrs.href
         ? { "data-page-path": node.attrs.href as string }
@@ -126,6 +140,7 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
         editor: this.editor,
         char: this.options.suggestionChar,
         pluginKey: nexusMentionPluginKey,
+        shouldShow: () => this.editor.isFocused,
         command: ({ editor, range, props }) => {
           editor
             .chain()
@@ -136,7 +151,7 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
                 attrs: {
                   mentionType: props.mentionType,
                   id: props.id,
-                  label: props.label,
+                  label: normalizeMentionLabel(props.label),
                   href: props.href,
                 },
               },

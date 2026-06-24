@@ -58,6 +58,43 @@ describe("sanitizeNexusEditorHtml", () => {
     const out = sanitizeNexusEditorHtml(wrapped);
     assert.match(out, /data-nexus-mention/);
     assert.match(out, /@Test User/);
+    assert.doesNotMatch(out, /@Test User@/);
+    assert.doesNotMatch(out, /<\/a>@/);
+  });
+
+  it("does not duplicate mention closing tags in inline body copy", () => {
+    const input = serializeMentionAnchor({
+      mentionType: "user",
+      id: "u1",
+      label: "admin",
+      href: "/users/admin",
+    });
+    const wrapped = `<p>Hello ${input} world</p>`;
+    const out = sanitizeNexusEditorHtml(wrapped);
+    assert.equal(
+      out,
+      `<p>Hello <a href="/users/admin" data-nexus-mention="" data-mention-type="user" data-id="u1" data-label="admin" class="nexus-mention nexus-mention--user">@admin</a> world</p>`,
+    );
+  });
+
+  it("repairs orphan @ before mention anchors", () => {
+    const input =
+      '<p>Hello @ <a href="/users/admin" data-nexus-mention="" data-mention-type="user" data-id="u1" data-label="admin" class="nexus-mention nexus-mention--user">@admin</a> world</p>';
+    const out = sanitizeNexusEditorHtml(input);
+    assert.equal(
+      out,
+      `<p>Hello <a href="/users/admin" data-nexus-mention="" data-mention-type="user" data-id="u1" data-label="admin" class="nexus-mention nexus-mention--user">@admin</a> world</p>`,
+    );
+  });
+
+  it("repairs duplicate @label tails after mention anchors", () => {
+    const input =
+      '<p>Hello <a href="/users/admin" data-nexus-mention="" data-mention-type="user" data-id="u1" data-label="admin" class="nexus-mention nexus-mention--user">@admin</a>@admin world</p>';
+    const out = sanitizeNexusEditorHtml(input);
+    assert.equal(
+      out,
+      `<p>Hello <a href="/users/admin" data-nexus-mention="" data-mention-type="user" data-id="u1" data-label="admin" class="nexus-mention nexus-mention--user">@admin</a> world</p>`,
+    );
   });
 
   it("unwraps unsafe mention hrefs", () => {
@@ -71,6 +108,17 @@ describe("sanitizeNexusEditorHtml", () => {
   it("keeps StarterKit bold tags", () => {
     const out = sanitizeNexusEditorHtml("<p><strong>Bold</strong></p>");
     assert.match(out, /<strong>Bold<\/strong>/);
+  });
+
+  it("strips TipTap dir attributes for SSR/client parity", () => {
+    const out = sanitizeNexusEditorHtml(
+      '<p dir="auto">This is a paragraph of body text. You can edit this text inline or in the sidebar.</p>',
+    );
+    assert.equal(
+      out,
+      "<p>This is a paragraph of body text. You can edit this text inline or in the sidebar.</p>",
+    );
+    assert.doesNotMatch(out, /dir=/);
   });
 });
 

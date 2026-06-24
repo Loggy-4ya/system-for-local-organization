@@ -10,10 +10,8 @@
  */
 
 import type { NexusMentionType } from "@shared/lib/nexusMentionTypes";
+import { normalizeMentionLabel } from "@shared/lib/nexusMentionTypes";
 import { isSafeHref } from "@shared/lib/safeHref";
-
-/** DOM node type for elements (`Node.ELEMENT_NODE`). */
-const ELEMENT_NODE = 1;
 
 /** Tags allowed in stored/rendered Nexus rich text (StarterKit + links + mentions). */
 const ALLOWED_TAGS = new Set([
@@ -79,7 +77,9 @@ export function parseMentionAnchorAttributes(el: HTMLAnchorElement): {
   }
 
   const id = (el.getAttribute("data-id") || "").trim();
-  const label = (el.getAttribute("data-label") || el.textContent || "").trim();
+  const label = normalizeMentionLabel(
+    el.getAttribute("data-label") || el.textContent || "",
+  );
   const href = (el.getAttribute("href") || "").trim();
 
   if (!id || !label || !isSafeHref(href)) {
@@ -110,8 +110,13 @@ export function serializeMentionAnchor(attrs: {
     return "";
   }
 
+  const normalizedLabel = normalizeMentionLabel(attrs.label);
+  if (!normalizedLabel) {
+    return "";
+  }
+
   const safeHref = attrs.href.replace(/"/g, "&quot;");
-  const safeLabel = attrs.label.replace(/"/g, "&quot;");
+  const safeLabel = normalizedLabel.replace(/"/g, "&quot;");
   const safeId = attrs.id.replace(/"/g, "&quot;");
   const pagePathAttr =
     attrs.mentionType === "page"
@@ -163,12 +168,18 @@ function sanitizeNexusEditorHtmlServer(html: string): string {
           return "";
         }
 
-        return serializeMentionAnchor({
+        const fullAnchor = serializeMentionAnchor({
           mentionType: mentionType as NexusMentionType,
           id,
           label,
           href,
         });
+        if (!fullAnchor) {
+          return "";
+        }
+
+        // Opening-tag pass only — inner `@label` text and `</a>` are processed separately.
+        return fullAnchor.replace(/>@[^<]*<\/a>$/i, ">");
       }
 
       if (!isSafeHref(href)) {
@@ -197,135 +208,32 @@ function sanitizeNexusEditorHtmlServer(html: string): string {
 }
 
 /**
- * Parse HTML into a body element for sanitization (browser only).
+ * Repair legacy mention HTML corrupted by link/mention parse collisions.
  *
- * @param html - Raw HTML fragment.
- * @returns Document body containing the fragment.
- */
-function parseEditorBody(html: string): HTMLElement {
-  return new DOMParser().parseFromString(html, "text/html").body;
-}
-
-/**
- * Unwrap an element — move children to parent and remove the element.
+ * - Removes orphan `@` characters left immediately before mention anchors.
+ * - Removes duplicate `@label` plaintext tails after mention anchors.
  *
- * @param el - Element to unwrap.
- * @param parent - Parent node.
+ * @param html - Raw or sanitized HTML fragment.
+ * @returns Repaired HTML safe to load into TipTap.
  */
-function unwrapElement(el: HTMLElement, parent: Node): void {
-  while (el.firstChild) {
-    parent.insertBefore(el.firstChild, el);
-  }
-  parent.removeChild(el);
-}
+export function repairLegacyMentionHtml(html: string): string {
+  if (!html) return "";
 
-/**
- * Sanitize a mention anchor in place.
- *
- * @param el - Mention anchor.
- * @param parent - Parent for unwrap fallback.
- */
-function sanitizeMentionAnchor(el: HTMLAnchorElement, parent: Node): void {
-  const parsed = parseMentionAnchorAttributes(el);
-  if (!parsed) {
-    unwrapElement(el, parent);
-    return;
-  }
-
-  const attrs = Array.from(el.attributes);
-  for (const attr of attrs) {
-    el.removeAttribute(attr.name);
-  }
-
-  el.setAttribute("href", parsed.href);
-  el.setAttribute("data-nexus-mention", "");
-  el.setAttribute("data-mention-type", parsed.mentionType);
-  el.setAttribute("data-id", parsed.id);
-  el.setAttribute("data-label", parsed.label);
-  if (parsed.mentionType === "page") {
-    el.setAttribute("data-page-path", parsed.href);
-  }
-  el.setAttribute("class", mentionBadgeClassName(parsed.mentionType));
-  el.textContent = `@${parsed.label}`;
-  sanitizeNode(el);
-}
-
-/**
- * Sanitize a plain hyperlink in place.
- *
- * @param el - Anchor element.
- * @param parent - Parent for unwrap fallback.
- */
-function sanitizePlainAnchor(el: HTMLAnchorElement, parent: Node): void {
-  const href = el.getAttribute("href") || "";
-  if (!isSafeHref(href)) {
-    unwrapElement(el, parent);
-    return;
-  }
-
-  const attrs = Array.from(el.attributes);
-  for (const attr of attrs) {
-    el.removeAttribute(attr.name);
-  }
-
-  el.setAttribute("href", href.trim());
-
-  const isExternal =
-    href.startsWith("http://") ||
-    href.startsWith("https://") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("tel:");
-
-  if (isExternal) {
-    el.setAttribute("target", "_blank");
-    el.setAttribute("rel", "noopener noreferrer");
-  }
-
-  el.setAttribute("class", "nexus-rich-text__link");
-  sanitizeNode(el);
-}
-
-/**
- * Recursively sanitize a DOM node tree.
- *
- * @param node - Node to sanitize in place.
- */
-function sanitizeNode(node: Node): void {
-  const children = Array.from(node.childNodes);
-
-  for (const child of children) {
-    if (child.nodeType === ELEMENT_NODE) {
-      const el = child as HTMLElement;
-      const tag = el.tagName.toLowerCase();
-
-      if (tag === "a") {
-        if (isNexusMentionElement(el)) {
-          sanitizeMentionAnchor(el as HTMLAnchorElement, node);
-        } else {
-          sanitizePlainAnchor(el as HTMLAnchorElement, node);
-        }
-        continue;
-      }
-
-      if (!ALLOWED_TAGS.has(tag)) {
-        unwrapElement(el, node);
-        continue;
-      }
-
-      for (const attr of Array.from(el.attributes)) {
-        const name = attr.name.toLowerCase();
-        if (name.startsWith("on") || name === "style" || name === "class" || name === "id") {
-          el.removeAttribute(attr.name);
-        }
-      }
-
-      sanitizeNode(el);
-    }
-  }
+  let out = html;
+  out = out.replace(/@\s*(<a\b[^>]*\bdata-nexus-mention\b)/gi, "$1");
+  out = out.replace(
+    /(<a\b[^>]*\bdata-nexus-mention\b[^>]*\bdata-label="([^"]*)"[^>]*>@\2<\/a>)@\2/gi,
+    "$1",
+  );
+  return out;
 }
 
 /**
  * Strip disallowed tags and unsafe attributes from Nexus editor HTML.
+ *
+ * Always uses the regex SSR path so read-only renders produce identical markup
+ * during Next.js hydration. A former DOMParser branch kept attrs such as TipTap
+ * `dir="auto"` that the server path removed.
  *
  * @param html - Raw HTML from TipTap or legacy content.
  * @returns Sanitized HTML string.
@@ -336,13 +244,7 @@ export function sanitizeNexusEditorHtml(html: string): string {
   const trimmed = html.trim();
   if (!trimmed) return "";
 
-  if (typeof DOMParser === "undefined") {
-    return sanitizeNexusEditorHtmlServer(trimmed);
-  }
-
-  const body = parseEditorBody(trimmed);
-  sanitizeNode(body);
-  return body.innerHTML.trim();
+  return sanitizeNexusEditorHtmlServer(repairLegacyMentionHtml(trimmed));
 }
 
 /**

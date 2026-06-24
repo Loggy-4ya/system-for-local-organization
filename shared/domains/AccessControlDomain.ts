@@ -45,6 +45,8 @@ import {
 } from "@shared/lib/accessControlLogic";
 import User, { type IUser, type UserRole } from "@shared/models/User";
 import UserBroadcastReceipt from "@shared/models/UserBroadcastReceipt";
+import UserNotification from "@shared/models/UserNotification";
+import FormFieldResponse from "@shared/models/FormFieldResponse";
 import {
   SurveyParticipation,
   UserComment,
@@ -662,8 +664,10 @@ export class AccessControlDomain {
     await Promise.all([
       UserComment.deleteMany({ userId: targetObjectId }),
       SurveyParticipation.deleteMany({ userId: targetObjectId }),
+      FormFieldResponse.deleteMany({ userId: targetObjectId }),
       UserPublishedContent.deleteMany({ authorUserId: targetObjectId }),
       UserBroadcastReceipt.deleteMany({ userId: targetObjectId.toString() }),
+      UserNotification.deleteMany({ userId: targetObjectId.toString() }),
     ]);
 
     await UserDirectoryAuditDomain.recordSuccessfulDelete(actor, target).catch((error) => {

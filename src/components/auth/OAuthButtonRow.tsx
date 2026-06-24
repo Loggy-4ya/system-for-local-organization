@@ -138,6 +138,7 @@ export function OAuthButtonRow({
     mountTelegramLoginWidget(telegramRef.current, {
       botUsername,
       onAuthCallbackName: "onTelegramAuth",
+      size: "large",
     });
 
     return () => {
@@ -153,23 +154,20 @@ export function OAuthButtonRow({
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
       </div>
 
-      <div className="flex flex-wrap items-stretch gap-2">
+      <div className="flex w-full flex-col gap-2">
         {telegramContext === "mini-app" && !linkUserId ? (
           <TelegramWebAppAuthButton
             callbackUrl={callbackUrl}
-            label="Telegram"
+            label="Sign in with Telegram"
             variant="outline"
-            fullWidth={false}
-            showIcon={false}
-            className="min-w-[calc(50%-0.25rem)] flex-1"
+            fullWidth
+            showIcon
+            className="h-12"
           />
         ) : null}
 
         {botUsername && telegramContext === "browser" ? (
-          <div
-            ref={telegramRef}
-            className="flex min-w-[calc(50%-0.25rem)] flex-1 items-center justify-center"
-          />
+          <div ref={telegramRef} className="nexus-telegram-login-widget" />
         ) : null}
       </div>
 

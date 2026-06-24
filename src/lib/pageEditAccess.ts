@@ -98,6 +98,23 @@ export function sessionHasGlobalPageEdit(session: Session | null): boolean {
 }
 
 /**
+ * Whether the session user may preview an unpublished Puck page on the viewer route.
+ *
+ * Editors with page access and institution administrators may open draft URLs.
+ *
+ * @param session - Auth.js session.
+ * @param canEdit - Pre-resolved edit permission for this page.
+ * @returns True when draft preview is allowed.
+ */
+export function canViewUnpublishedPage(
+  session: Session | null,
+  canEdit: boolean,
+): boolean {
+  if (canEdit) return true;
+  return sessionHasGlobalPageEdit(session);
+}
+
+/**
  * Whether the published Puck viewer should show the edit FAB.
  *
  * @param canEdit - Pre-resolved edit permission for this page.
@@ -131,4 +148,14 @@ export function resolvePageEditHref(
   if (pathname === "/edit" || pathname.endsWith("/edit")) return null;
   if (!isPuckManagedPagePath(pathname)) return null;
   return `${pathname}/edit`;
+}
+
+/**
+ * Viewer pathname for guests or users without edit access on a `/<path>/edit` route.
+ *
+ * @param path - Normalised Puck page path without the `/edit` suffix (e.g. `/news`).
+ * @returns Public viewer URL — same path, never an editor URL.
+ */
+export function resolveUnauthorizedEditorRedirectPath(path: string): string {
+  return path || "/";
 }

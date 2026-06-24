@@ -140,7 +140,8 @@ Requires `TELEGRAM_BOT_TOKEN`. Users must have started a chat with the bot (stan
 | `shared/models/SystemBroadcast.ts` | Broadcast persistence |
 | `shared/models/UserBroadcastReceipt.ts` | Per-user receipts |
 | `shared/validation/broadcastSchemas.ts` | API validation |
-| `shared/domains/BroadcastDomain.ts` | Send, list, dismiss |
+| `shared/domains/BroadcastDomain.ts` | Send, list, dismiss; upserts inbox rows via `NotificationDomain` |
+| `shared/domains/NotificationDomain.ts` | Personal inbox — see [notification_center.md](./notification_center.md) |
 | `shared/domains/TelegramBotDomain.ts` | `sendDirectMessage()` |
 | `src/app/api/admin/broadcasts/route.ts` | Admin send API |
 | `src/app/api/notifications/broadcasts/` | User toast read/dismiss |

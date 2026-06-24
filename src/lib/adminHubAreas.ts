@@ -17,6 +17,7 @@ export type AdminHubIconKey =
   | "shield"
   | "shield-alert"
   | "megaphone"
+  | "message-circle"
   | "graduation-cap"
   | "users"
   | "book-open"
@@ -79,6 +80,15 @@ export const ADMIN_HUB_AREAS: AdminHubArea[] = [
     description:
       "Blocked words, weak-password denylist, user-facing validation messages, and Telegram bot copy.",
     icon: "book-open",
+    status: "active",
+  },
+  {
+    id: "telegram-bot",
+    href: "/admin/telegram-bot",
+    title: "Telegram Bot Messages",
+    description:
+      "Default /start, broadcast, page go-live, and registration prompts sent by the Nexus bot.",
+    icon: "message-circle",
     status: "active",
   },
   {
@@ -174,6 +184,8 @@ export async function resolveAdminHubAreasForUser(user: IUser): Promise<AdminHub
       case "user-access":
         return isLegacyAdmin || canManageAccess;
       case "general-rules":
+        return isLegacyAdmin;
+      case "telegram-bot":
         return isLegacyAdmin;
       case "institutional-calendar":
         return isLegacyAdmin;

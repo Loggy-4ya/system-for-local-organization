@@ -43,8 +43,8 @@ describe("scanPuckDataContentPolicy", () => {
     const violations = scanPuckDataContentPolicy({
       content: [
         {
-          type: "NexusButton",
-          props: { href: "https://example.com/fuck", label: "Visit" },
+          type: "NexusNewsCard",
+          props: { href: "https://example.com/fuck", title: "Visit" },
         },
       ],
     });

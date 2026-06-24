@@ -35,12 +35,14 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 | **List pagination** | [features/list_pagination.md](./features/list_pagination.md) |
 | Admin hub | [features/admin_hub.md](./features/admin_hub.md) |
 | System broadcasts | [features/system_broadcasts.md](./features/system_broadcasts.md) |
+| **Personal notification center** | [features/notification_center.md](./features/notification_center.md) |
 | **Content security (XSS)** | [features/content_security.md](./features/content_security.md) |
 | **Content policy (blocked words)** | [features/content_policy.md](./features/content_policy.md) |
 | **General rules (admin)** | [features/general_rules.md](./features/general_rules.md) |
 | Media storage | [features/media_storage.md](./features/media_storage.md) |
 | **Image crop editor** | [features/image_crop_editor.md](./features/image_crop_editor.md) |
 | Puck editor | [features/puck_editor.md](./features/puck_editor.md) |
+| **Form fields / surveys / quizzes** | [features/form_fields_and_surveys.md](./features/form_fields_and_surveys.md) |
 | **Page categories (tags)** | [features/page_categories.md](./features/page_categories.md) |
 | **Page categories hub / news catalog** | [features/page_categories_hub.md](./features/page_categories_hub.md) |
 | **Page access & path links** | [features/page_access_and_paths.md](./features/page_access_and_paths.md) |

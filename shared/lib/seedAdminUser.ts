@@ -15,9 +15,42 @@
 import bcrypt from "bcryptjs";
 import connectDB from "@shared/lib/db";
 import User from "@shared/models/User";
-import { clearTelegramLinkage } from "@shared/lib/seedAdminUserHelpers";
+import { applySeedAdminEnvSync } from "@shared/lib/seedAdminUserHelpers";
+import type { SeedAdminEnvSyncTarget } from "@shared/lib/seedAdminUserHelpers";
 
 const BCRYPT_ROUNDS = 12;
+
+/**
+ * Persist env credential sync when any maintenance field changed.
+ *
+ * @param user - Seed admin document with pending mutations.
+ * @param normalizedLogin - Target login from env.
+ * @param sync - Flags from {@link applySeedAdminEnvSync}.
+ * @returns Resolves after save when needed.
+ */
+async function saveSeedAdminEnvSyncIfNeeded(
+  user: SeedAdminEnvSyncTarget & { save: () => Promise<unknown> },
+  normalizedLogin: string,
+  sync: Awaited<ReturnType<typeof applySeedAdminEnvSync>>,
+): Promise<void> {
+  const { clearedTelegram, syncedLogin, syncedPassword } = sync;
+
+  if (!clearedTelegram && !syncedLogin && !syncedPassword) {
+    return;
+  }
+
+  await user.save();
+
+  if (clearedTelegram) {
+    console.log(`[Nexus Seed] Cleared Telegram linkage from admin "${normalizedLogin}".`);
+  }
+  if (syncedLogin) {
+    console.log(`[Nexus Seed] Synced admin login from env for "${normalizedLogin}".`);
+  }
+  if (syncedPassword) {
+    console.log(`[Nexus Seed] Synced admin password from env for "${normalizedLogin}".`);
+  }
+}
 
 /**
  * Seed or upgrade the Admin user in MongoDB.
@@ -47,11 +80,11 @@ export async function seedAdminUser(): Promise<void> {
     const existingByLogin = await User.findOne({ login: normalizedLogin }).select("+passwordHash");
 
     if (existingByLogin) {
-      const clearedTelegram = clearTelegramLinkage(existingByLogin);
-      if (clearedTelegram) {
-        await existingByLogin.save();
-        console.log(`[Nexus Seed] Cleared Telegram linkage from admin "${normalizedLogin}".`);
-      }
+      await saveSeedAdminEnvSyncIfNeeded(
+        existingByLogin,
+        normalizedLogin,
+        await applySeedAdminEnvSync(existingByLogin, normalizedLogin, password, passwordHash),
+      );
       return;
     }
 
@@ -61,15 +94,35 @@ export async function seedAdminUser(): Promise<void> {
         : null;
 
     if (legacyByEmail) {
-      legacyByEmail.login = normalizedLogin;
       legacyByEmail.role = "Admin";
       legacyByEmail.accessLevelIndex = 0;
-      legacyByEmail.passwordHash = passwordHash;
-      clearTelegramLinkage(legacyByEmail);
-      await legacyByEmail.save();
+      await saveSeedAdminEnvSyncIfNeeded(
+        legacyByEmail,
+        normalizedLogin,
+        await applySeedAdminEnvSync(legacyByEmail, normalizedLogin, password, passwordHash),
+      );
 
       console.log(
         `[Nexus Seed] Legacy admin upgraded with login "${normalizedLogin}" (legacy email lookup only).`,
+      );
+      return;
+    }
+
+    const singletonSeedAdmins = await User.find({
+      role: "Admin",
+      accessLevelIndex: 0,
+      login: { $ne: normalizedLogin },
+    })
+      .select("+passwordHash")
+      .sort({ createdAt: 1 })
+      .limit(2);
+
+    if (singletonSeedAdmins.length === 1) {
+      const existingSeedAdmin = singletonSeedAdmins[0]!;
+      await saveSeedAdminEnvSyncIfNeeded(
+        existingSeedAdmin,
+        normalizedLogin,
+        await applySeedAdminEnvSync(existingSeedAdmin, normalizedLogin, password, passwordHash),
       );
       return;
     }

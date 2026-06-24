@@ -13,7 +13,7 @@ import { ProfileHero } from "@/components/profile/ProfileHero";
 import { ProfileStatsRow } from "@/components/profile/ProfileStatsRow";
 import { ProfileTasksPanel } from "@/components/profile/ProfileTasksPanel";
 import { ProfileActivityColumn } from "@/components/profile/ProfileActivityColumn";
-import { ProfileAboutSection } from "@/components/profile/ProfileAboutSection";
+import { ProfileIdentityBoard } from "@/components/profile/ProfileIdentityBoard";
 import { ProfileMembershipReadiness } from "@/components/profile/ProfileMembershipReadiness";
 import { ProfileSociumSection } from "@/components/profile/ProfileSociumSection";
 import { ProfilePublishedSection } from "@/components/profile/ProfilePublishedSection";
@@ -46,7 +46,19 @@ export default async function ProfilePage() {
       <div className="glass-panel flex w-full flex-col gap-5 rounded-[var(--radius-lg)] p-6">
         <ProfileHero user={publicUser} showSettingsLink isSelf />
         <ProfileMembershipReadiness user={publicUser} />
-        <ProfileAboutSection about={publicUser.about} socialLinks={publicUser.socialLinks} />
+        <ProfileIdentityBoard
+          about={publicUser.about}
+          socialLinks={publicUser.socialLinks}
+          isSelf
+          personalInfo={{
+            login: publicUser.login,
+            email: publicUser.email,
+            phone: publicUser.phone,
+            username: publicUser.username,
+            linkedGoogle: Boolean(publicUser.googleId),
+            linkedApple: Boolean(publicUser.appleId),
+          }}
+        />
         <ProfileSociumSection user={publicUser} />
         {publishedItems.length > 0 && <ProfilePublishedSection items={publishedItems} />}
         <ProfileStatsRow

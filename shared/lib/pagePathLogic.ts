@@ -196,11 +196,103 @@ export function splitPageAddress(
 }
 
 /**
+ * Count slash-separated segments in a normalised absolute page path.
+ *
+ * @param pagePath - Absolute path such as `/news/spring-fair`.
+ * @returns Number of non-empty segments (`/news` → 1).
+ */
+export function countPagePathSegments(pagePath: string): number {
+  return normalizePagePath(pagePath).split("/").filter(Boolean).length;
+}
+
+/**
+ * Compute the flat uncategorized path when a page leaves a path domain.
+ *
+ * Child pages such as `/news/spring-fair` become `/spring-fair`. Domain root pages
+ * such as `/news` become flat `/news` once the domain label is removed from settings.
+ *
+ * @param pagePath - Current absolute page path.
+ * @param sourceDomain - Domain segment being deleted from the catalog.
+ * @param knownDomains - Domain segments used for address parsing.
+ * @returns Destination absolute path, or empty string when the page is outside the domain.
+ */
+export function computePagePathForUncategorizedMove(
+  pagePath: string,
+  sourceDomain: string,
+  knownDomains: readonly string[],
+): string {
+  const normalizedSource = normalizePageDomainSegment(sourceDomain);
+  if (!normalizedSource) return "";
+
+  const normalizedPath = normalizePagePath(pagePath);
+  if (!pagePathBelongsToDomain(normalizedPath, normalizedSource, knownDomains)) {
+    return "";
+  }
+
+  const domainRoot = formatPageDomainLabel(normalizedSource);
+  if (normalizedPath === domainRoot) {
+    return normalizePagePath(composePageAddress("", normalizedSource));
+  }
+
+  const address = splitPageAddress(pagePathToSlug(normalizedPath), knownDomains);
+  if (address.domain !== normalizedSource) {
+    return "";
+  }
+
+  const slug = address.pageSlug || normalizedSource;
+  return normalizePagePath(composePageAddress("", slug));
+}
+
+/**
+ * Compose a combined slug for the new-page form (`domain/page` or flat `page`).
+ *
+ * @param domain - Path domain segment, or empty / uncategorized for flat URLs.
+ * @param pageSlug - Normalised page slug segment.
+ * @returns Combined slug without a leading slash.
+ */
+export function composeNewPageAddressSlug(domain: string, pageSlug: string): string {
+  const normalizedDomain = normalizePageDomainSegment(domain);
+  const normalizedSlug = normalizePageSlugSegment(pageSlug);
+  if (!normalizedSlug) return "";
+  if (!normalizedDomain) return normalizedSlug;
+  return composePageAddress(normalizedDomain, normalizedSlug);
+}
+
+/**
  * Merge default and discovered domain segments into a sorted unique list.
  *
  * @param discovered - Domain segments from existing page paths.
  * @returns Sorted domain labels without duplicates.
  */
+/**
+ * Discover path-domain segments from stored page paths.
+ *
+ * Only multi-segment paths contribute (`/news/fair` → `news`). Single-segment
+ * paths such as `/the-page` are legacy flat slugs and must not become domains.
+ *
+ * @param paths - Absolute page paths from MongoDB.
+ * @returns Unique domain segments found under nested paths.
+ */
+export function discoverPagePathDomainsFromPaths(paths: readonly string[]): string[] {
+  const discovered: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of paths) {
+    const normalized = normalizePagePath(raw.replace(/^\//, "") || "/");
+    if (normalized === "/") continue;
+
+    const segments = normalized.replace(/^\//, "").split("/").filter(Boolean);
+    if (segments.length < 2) continue;
+
+    const first = normalizePageDomainSegment(segments[0] ?? "");
+    if (!first || seen.has(first)) continue;
+    seen.add(first);
+    discovered.push(first);
+  }
+
+  return discovered;
+}
+
 export function mergePagePathDomains(discovered: readonly string[]): string[] {
   const seen = new Set<string>();
   const merged: string[] = [];

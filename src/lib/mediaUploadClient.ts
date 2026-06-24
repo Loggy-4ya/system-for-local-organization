@@ -8,7 +8,7 @@
  */
 
 import type { MediaPurpose } from "@shared/constants/mediaStorage";
-import { cropImageFile } from "@/lib/imageCropClient";
+import { cropImageFile, shouldOpenImageCropForFile } from "@/lib/imageCropClient";
 
 /** Accepted MIME prefixes for client-side pre-validation. */
 export type MediaAccept = "image" | "video" | "both";
@@ -110,6 +110,86 @@ export async function uploadMediaFileWithCrop(
   }
 
   return uploadMediaFile(payload, options);
+}
+
+/**
+ * Whether an uploaded media URL points at a raster image that supports the crop editor.
+ *
+ * Excludes videos, GIF animations, and empty values.
+ *
+ * @param value - Public media path or absolute URL.
+ * @returns True when click-to-recrop may be offered.
+ */
+export function isRecroppableUploadedImageUrl(value: string | undefined | null): boolean {
+  if (!value?.trim()) return false;
+  const trimmed = value.trim();
+  if (trimmed.match(/\.(mp4|webm|ogg|mov)(\?|$)/i) || trimmed.includes("video")) return false;
+  if (trimmed.match(/\.gif(\?|$)/i)) return false;
+  return true;
+}
+
+/**
+ * Load an existing image URL into a browser {@link File} for the crop dialog.
+ *
+ * @param url - Same-origin `/uploads/…` path or absolute image URL.
+ * @returns File reconstructed from the fetched bytes.
+ * @throws When the fetch fails or the response is not an image.
+ */
+async function fetchImageFileFromMediaUrl(url: string): Promise<File> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error("Could not load the image for cropping.");
+  }
+
+  const blob = await res.blob();
+  if (!blob.type.startsWith("image/")) {
+    throw new Error("Only images can be recropped.");
+  }
+
+  let filename = "image.png";
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const segment = parsed.pathname.split("/").filter(Boolean).pop();
+    if (segment) {
+      filename = segment;
+    }
+  } catch {
+    // Keep default filename when URL parsing fails.
+  }
+
+  return new File([blob], filename, { type: blob.type });
+}
+
+/**
+ * Re-open the crop editor for an already-uploaded image and persist a new upload.
+ *
+ * @param url - Current field value (local `/uploads/…` path or fetchable image URL).
+ * @param options - Upload purpose and optional owner key.
+ * @returns Replacement public URL, or `null` when the user cancels the crop dialog.
+ * @throws When the image cannot be loaded or the server rejects the upload.
+ */
+export async function recropUploadedMediaImage(
+  url: string,
+  options: Omit<UploadMediaFileOptions, "accept" | "skipCrop"> = {},
+): Promise<string | null> {
+  if (!isRecroppableUploadedImageUrl(url)) {
+    return null;
+  }
+
+  const file = await fetchImageFileFromMediaUrl(url);
+  if (!shouldOpenImageCropForFile(file)) {
+    return null;
+  }
+
+  const cropped = await cropImageFile(file, {
+    purpose: options.purpose,
+    title: "Edit photo",
+  });
+  if (!cropped) {
+    return null;
+  }
+
+  return uploadMediaFile(cropped, { ...options, accept: "image" });
 }
 
 /**

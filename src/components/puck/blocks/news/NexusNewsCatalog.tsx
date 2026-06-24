@@ -31,7 +31,6 @@ export const NexusNewsCatalog = {
     emptyStateMessage?: string;
   }) {
     const [payload, setPayload] = useState<NewsCatalogHubPayload>({ sections: [] });
-    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -44,7 +43,6 @@ export const NexusNewsCatalog = {
           const data = (await res.json()) as NewsCatalogHubPayload;
           if (!cancelled) {
             setPayload(data);
-            setActiveSectionId(data.sections[0]?.id ?? null);
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -69,8 +67,6 @@ export const NexusNewsCatalog = {
     return (
       <NexusNewsCatalogRender
         sections={sections}
-        activeSectionId={activeSectionId}
-        onActiveSectionChange={setActiveSectionId}
         emptyMessage={emptyStateMessage}
       />
     );

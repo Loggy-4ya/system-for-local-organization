@@ -43,7 +43,7 @@ export function PageCategoriesCatalogShell({
         sections={payload.sections}
         activeSectionId={activeSectionId}
         onActiveSectionChange={setActiveSectionId}
-        settingsHref={showEditLink ? "/pages/categories/edit" : null}
+        settingsHref={showEditLink ? "/pages/edit" : null}
       />
     </StaticPageShell>
   );

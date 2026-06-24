@@ -6,10 +6,14 @@
  * @module src/components/editor/MentionSuggestionList
  */
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { FileText, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { NexusMentionItem } from "@shared/lib/nexusMentionTypes";
+import {
+  dedupeNexusMentionItems,
+  mentionItemDedupeKey,
+  type NexusMentionItem,
+} from "@shared/lib/nexusMentionTypes";
 
 /** Row with optional pre-computed section for grouped headings. */
 type MentionRow = NexusMentionItem & { section?: "users" | "pages" };
@@ -56,28 +60,34 @@ export const MentionSuggestionList = forwardRef<
   MentionSuggestionListProps
 >(function MentionSuggestionList({ items, command, selectedIndex }, ref) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const visibleItems = useMemo(() => dedupeNexusMentionItems(items), [items]);
 
   useEffect(() => {
     setActiveIndex(selectedIndex);
   }, [selectedIndex]);
 
+  useEffect(() => {
+    if (activeIndex < visibleItems.length) return;
+    setActiveIndex(0);
+  }, [activeIndex, visibleItems.length]);
+
   useImperativeHandle(ref, () => ({
     onKeyDown: (event: KeyboardEvent) => {
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setActiveIndex((index) => (index + items.length - 1) % items.length);
+        setActiveIndex((index) => (index + visibleItems.length - 1) % visibleItems.length);
         return true;
       }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setActiveIndex((index) => (index + 1) % items.length);
+        setActiveIndex((index) => (index + 1) % visibleItems.length);
         return true;
       }
 
       if (event.key === "Enter") {
         event.preventDefault();
-        const item = items[activeIndex];
+        const item = visibleItems[activeIndex];
         if (item) command(item);
         return true;
       }
@@ -86,7 +96,7 @@ export const MentionSuggestionList = forwardRef<
     },
   }));
 
-  if (!items.length) {
+  if (!visibleItems.length) {
     return (
       <div className="nexus-mention-suggestion" role="listbox" aria-label="Mention suggestions">
         <p className="nexus-mention-suggestion__empty">No matches</p>
@@ -98,14 +108,15 @@ export const MentionSuggestionList = forwardRef<
 
   return (
     <div className="nexus-mention-suggestion" role="listbox" aria-label="Mention suggestions">
-      {items.map((item, index) => {
+      {visibleItems.map((item, index) => {
         const section = resolveMentionSection(item);
         const showHeading = section !== lastSection;
         lastSection = section;
         const isActive = index === activeIndex;
+        const rowKey = mentionItemDedupeKey(item);
 
         return (
-          <div key={`${section}-${item.id}`}>
+          <div key={`${section}-${rowKey}`}>
             {showHeading ? (
               <div className="nexus-mention-suggestion__heading">
                 {SECTION_LABELS[section]}

@@ -9,6 +9,7 @@ import { HeaderSessionBridge } from "@/components/ui/HeaderSessionBridge";
 import { FooterSessionBridge } from "@/components/ui/FooterSessionBridge";
 import { SessionProvider } from "@/components/auth/SessionProvider";
 import { SiteProfileProvider } from "@/components/auth/SiteProfileProvider";
+import { DomEventRejectionGuardHost } from "@/components/navigation/DomEventRejectionGuardHost";
 import { RouteNavigationRecoveryHost } from "@/components/navigation/RouteNavigationRecoveryHost";
 import { toBasicSiteProfile } from "@shared/lib/siteProfileBasic";
 import { SiteNotificationToastStack } from "@/components/notifications/SiteNotificationToastStack";
@@ -17,12 +18,14 @@ import { NexusImageCropHost } from "@/components/media/NexusImageCropHost";
 import { ProfileOnboardingRedirect } from "@/components/profile/ProfileOnboardingRedirect";
 import { ProfileMemberTelegramBanner } from "@/components/profile/ProfileMemberTelegramBanner";
 import { TelegramWebAppViewportHost } from "@/components/telegram/TelegramWebAppViewportHost";
+import { NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT } from "@/lib/domEventRejectionGuardScript";
 import { SITE_ICONS } from "@/lib/assets";
 import { CSP_NONCE_HEADER } from "@/lib/contentSecurityPolicy";
 import { NEXUS_THEME_OPTIONS, resolveStoredThemeIsDark } from "@/lib/resolveStoredThemeIsDark";
 import { auth } from "@/auth";
 import { seedAdminUser } from "@shared/lib/seedAdminUser";
 import "./globals.css";
+import "./page-catalog.css";
 
 /** Shared theme configuration — kept in sync between layout script and provider. */
 const THEME_CONFIG = {
@@ -111,16 +114,31 @@ export default async function RootLayout({
         {cspNonce ? <meta name="csp-nonce" content={cspNonce} /> : null}
       </head>
       <body className="flex min-h-dvh flex-col touch-manipulation" suppressHydrationWarning>
-        <Script id="nexus-wallet-shim" strategy="beforeInteractive" nonce={cspNonce}>
-          {walletProviderShim}
-        </Script>
+        <Script
+          id="nexus-dom-event-rejection-guard"
+          strategy="beforeInteractive"
+          nonce={cspNonce}
+          dangerouslySetInnerHTML={{
+            __html: NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT,
+          }}
+        />
+        <Script
+          id="nexus-wallet-shim"
+          strategy="beforeInteractive"
+          nonce={cspNonce}
+          dangerouslySetInnerHTML={{ __html: walletProviderShim }}
+        />
         {/*
           beforeInteractive: Next.js injects this before hydration (React 19 rejects
-          raw <script> in component trees). Pair with ThemeProvider noScript below.
+          raw <script> children in component trees — use dangerouslySetInnerHTML).
+          Pair with ThemeProvider noScript below.
         */}
-        <Script id="nexus-theme-init" strategy="beforeInteractive" nonce={cspNonce}>
-          {themeScript}
-        </Script>
+        <Script
+          id="nexus-theme-init"
+          strategy="beforeInteractive"
+          nonce={cspNonce}
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <ThemeProvider
           {...THEME_CONFIG}
           initialTheme={initialTheme ?? undefined}
@@ -129,6 +147,7 @@ export default async function RootLayout({
         >
           <SessionProvider session={session}>
             <SiteProfileProvider initialProfile={initialSiteProfile}>
+              <DomEventRejectionGuardHost />
               <RouteNavigationRecoveryHost />
               <ProfileOnboardingRedirect />
               <TelegramWebAppViewportHost />

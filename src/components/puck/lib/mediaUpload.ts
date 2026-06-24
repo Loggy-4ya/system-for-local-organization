@@ -9,6 +9,8 @@
 export {
   importMediaImageFromUrl,
   isImportableRemoteMediaUrl,
+  isRecroppableUploadedImageUrl,
+  recropUploadedMediaImage,
   uploadMediaFile,
   uploadMediaFileWithCrop,
   type MediaAccept,

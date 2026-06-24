@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import type { GeneralRulesPublicConfig } from "@shared/domains/GeneralRulesDomain";
-import { TELEGRAM_MESSAGE_TEMPLATE_DEFS } from "@shared/constants/generalRules";
+import { TelegramMessageTemplatesEditor } from "@/components/admin/TelegramMessageTemplatesEditor";
 import { DEFAULT_ACCESS_LEVELS } from "@shared/constants/accessControl";
 import {
   parseBlockedWordsTextarea,
@@ -475,30 +475,25 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
 
       {tab === "telegram" ? (
         <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
-          {TELEGRAM_MESSAGE_TEMPLATE_DEFS.map((def) => (
-            <FormField
-              key={def.key}
-              label={def.label}
-              htmlFor={`telegram-template-${def.key}`}
-              hint={def.description}
-            >
-              <textarea
-                id={`telegram-template-${def.key}`}
-                rows={def.key === "startOpenButtonLabel" ? 2 : 4}
-                value={config.telegramMessages[def.key] ?? def.defaultText}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    telegramMessages: {
-                      ...prev.telegramMessages,
-                      [def.key]: e.target.value,
-                    },
-                  }))
-                }
-                className="w-full rounded-[var(--radius-md)] border border-(--color-border-default) bg-(--color-bg-elevated) px-3 py-2 text-sm text-(--color-text-primary)"
-              />
-            </FormField>
-          ))}
+          <p className="text-sm text-(--color-text-secondary)">
+            For a focused bot-only workspace, open{" "}
+            <Link href="/admin/telegram-bot" className="text-(--color-text-primary) underline">
+              Telegram Bot Messages
+            </Link>
+            .
+          </p>
+          <TelegramMessageTemplatesEditor
+            templates={config.telegramMessages}
+            onChange={(key, value) =>
+              setConfig((prev) => ({
+                ...prev,
+                telegramMessages: {
+                  ...prev.telegramMessages,
+                  [key]: value,
+                },
+              }))
+            }
+          />
         </section>
       ) : null}
 

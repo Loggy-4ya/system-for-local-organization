@@ -29,7 +29,7 @@ Typing in the header URL path editor resets Puck canvas state.
 | Field | File | Purpose |
 |-------|------|---------|
 | `NexusColorPresetField` | `src/components/puck/fields/NexusColorPresetField.tsx` | Design-system color presets (text, island fill, island border) |
-| `MediaUploadField` | `src/components/puck/fields/MediaUploadField.tsx` | Drag-and-drop image/video upload + URL input |
+| `MediaUploadField` | `src/components/puck/fields/MediaUploadField.tsx` | Compact drag-and-drop / click-to-select image/video upload |
 | `AccentPresetField` | `src/components/puck/fields/AccentPresetField.tsx` | Page solid background — accent families + surface panel |
 | Token catalog | `src/components/puck/lib/nexusColorTokens.ts` | Maps token ids → CSS vars from `globals.css` |
 | Upload helper | `src/components/puck/lib/mediaUpload.ts` | Shared POST to `/api/upload` |
@@ -271,7 +271,7 @@ Wired into: `PageRoot` (Page Content Width), `NexusSection`, island shell, `glob
 
 Legacy values `contained` → `lg`, `narrow` → `sm` at read time.
 
-Per-block hardcoded `maxWidth` caps removed from NewsCard, StatCard, UserBadge, Video, Image placeholder.
+Per-block hardcoded `maxWidth` caps removed from NewsCard, Video, Image placeholder.
 
 ### Sidebar control standards
 
@@ -365,10 +365,6 @@ CSS: `[data-puck-dropzone]` selectors in `puck-editor.css` with `min-height`, pa
 | Model | [`shared/models/EditorSettings.ts`](../../shared/models/EditorSettings.ts) | Singleton `_id: "puck-editor"` with `islandDefaultComponents: string[]` |
 | API | [`src/app/api/editor-settings/route.ts`](../../src/app/api/editor-settings/route.ts) | `GET` upserts seed; `POST` saves list (bearer guard matches `/api/puck`) |
 
-### Page Manager — Editor Defaults tab
-
-[`PageManagerShell.tsx`](../../src/app/pages/PageManagerShell.tsx) adds **Pages** / **Editor Defaults** tabs on `/pages`. [`EditorDefaultsPanel.tsx`](../../src/app/pages/EditorDefaultsPanel.tsx) renders a category-grouped checklist of all Puck component keys from `config.tsx` and persists via `POST /api/editor-settings`.
-
 ### Island-on-insert (resolveData)
 
 | Piece | Role |
@@ -407,11 +403,10 @@ Drag-insert island is handled **inside Puck's data pipeline** via `resolveData` 
 
 | Block | Shadcn primitive | Notes |
 |-------|------------------|-------|
-| `NexusButton` | `Button` | Custom `success` / `danger` variants in `button.tsx` |
 | `NexusAccordion` | `Accordion` | Base UI `multiple` prop |
 | `NexusCarouselRender` | `Carousel` | Strip edit mode; slot-only slides; Embla in interactive/published |
 | `NexusVideoRender` / `NexusImage` | `AspectRatio`, [`mediaAspectRatio.ts`](../../src/components/puck/lib/mediaAspectRatio.ts) | Shared preset + custom aspect ratios (16:9, 4:3, 1:1, 21:9, 9:16, 3:2, 2:3, 5:4, 4:5, custom `W/H`) for video frames, image auto-height frames, and carousel fill sizing |
-| `NexusNewsCard` / `NexusStatCard` | `Card` | Glass styling retained via utility classes |
+| `NexusNewsCard` | `Card` | Glass styling retained via utility classes |
 
 ### App chrome and fields
 
@@ -509,13 +504,13 @@ Drag-insert island is handled **inside Puck's data pipeline** via `resolveData` 
 
 **Auto-switch fields** (via radio override): `showLine`, `allowMultiple`, `fullWidth`, `required`, `hoverEffect`, carousel `autoplay` / `showArrows` / `showDots`, video `autoplay` / `controls`.
 
-**Stay segmented radio:** alignment, heading level, button size, list type, item spacing, tabs size, avatar size/shape, borders (none/thin), icon position, layout horizontal/vertical.
+**Stay segmented radio:** alignment, heading level, button size, list type, item spacing, tabs size, borders (none/thin), icon position, layout horizontal/vertical.
 
 **Island enable:** explicit `PuckSwitchField` labeled **Island mode** (replaces Off/On segmented control).
 
 ### Settings inventory (reference)
 
-All 18 shell-wrapped blocks share **Spacing** + **Island** chapters. **PageRoot** adds **Page Settings**, **Layout**, **Background**. Per-block flat fields are documented in [puck_editor.md](./puck_editor.md) §2 registry; use that file when adding new blocks or grouping fields in a future phase.
+All 15 shell-wrapped blocks share **Spacing** + **Island** chapters. **PageRoot** adds **Page Settings**, **Layout**, **Background**. Per-block flat fields are documented in [puck_editor.md](./puck_editor.md) §2 registry; use that file when adding new blocks or grouping fields in a future phase.
 
 ---
 

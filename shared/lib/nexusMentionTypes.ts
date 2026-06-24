@@ -1,8 +1,13 @@
 /**
  * @fileoverview Shared mention and internal-link types for the Nexus rich text editor.
  *
+ * Tests: `npm run test:nexus-mention-types`
+ * Registry: `.ai/docs/testing.md`
+ *
  * @module shared/lib/nexusMentionTypes
  */
+
+import { buildUserProfileHref } from "@shared/lib/userProfilePathLogic";
 
 /** Discriminant for inline mention nodes stored in TipTap HTML. */
 export type NexusMentionType = "user" | "page";
@@ -40,13 +45,82 @@ export interface NexusMentionSuggestionRow extends NexusMentionItem {
 }
 
 /**
+ * Strip leading `@` characters from mention labels.
+ *
+ * Stored HTML and legacy anchors may include `@` in `data-label` or text content;
+ * badge renderers add their own `@` prefix.
+ *
+ * @param label - Raw mention label.
+ * @returns Normalised label without leading `@`.
+ */
+export function normalizeMentionLabel(label: string): string {
+  return label.trim().replace(/^@+/, "");
+}
+
+/**
+ * Build a stable dedupe key for a mention row.
+ *
+ * Prefers Mongo id, then profile/page href, so legacy duplicates with different
+ * ids but the same login handle collapse to one picker row.
+ *
+ * @param item - Mention suggestion row.
+ * @returns Stable dedupe key.
+ */
+export function mentionItemDedupeKey(
+  item: Pick<NexusMentionItem, "mentionType" | "id" | "href">,
+): string {
+  const id = item.id?.trim();
+  if (id) {
+    return `${item.mentionType}:id:${id}`;
+  }
+
+  const href = item.href?.trim();
+  if (href) {
+    return `${item.mentionType}:href:${href.toLowerCase()}`;
+  }
+
+  return `${item.mentionType}:unknown`;
+}
+
+/**
+ * Remove duplicate mention rows while preserving first-seen order.
+ *
+ * @param items - Raw mention rows from search providers.
+ * @returns Deduped rows safe for the `@` popup.
+ */
+export function dedupeNexusMentionItems<T extends NexusMentionItem>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const rows: T[] = [];
+
+  for (const item of items) {
+    const primaryKey = mentionItemDedupeKey(item);
+    if (seen.has(primaryKey)) continue;
+
+    if (item.mentionType === "user") {
+      const profileMatch = /^\/users\/([^/?#]+)/i.exec(item.href?.trim() ?? "");
+      const loginKey = profileMatch?.[1]?.toLowerCase();
+      if (loginKey && seen.has(`user:login:${loginKey}`)) continue;
+      if (loginKey) seen.add(`user:login:${loginKey}`);
+    }
+
+    seen.add(primaryKey);
+    rows.push(item);
+  }
+
+  return rows;
+}
+
+/**
  * Build the canonical profile path for a mentioned user.
  *
+ * Prefers `/users/{login}` when a login handle is supplied.
+ *
  * @param userId - MongoDB user id string.
- * @returns Internal profile URL (public user profile route planned).
+ * @param login - Optional institution login handle.
+ * @returns Internal profile URL.
  */
-export function buildUserMentionHref(userId: string): string {
-  return `/users/${userId}`;
+export function buildUserMentionHref(userId: string, login?: string | null): string {
+  return buildUserProfileHref({ id: userId, login });
 }
 
 /**
@@ -64,14 +138,17 @@ export function buildPageMentionHref(pagePath: string): string {
 /**
  * Flatten grouped search results into suggestion rows (users first, then pages).
  *
+ * Deduplicates by `mentionType` + `id` so repeated API rows or merged sources
+ * cannot render duplicate picker entries.
+ *
  * @param result - Domain search payload.
  * @returns Ordered rows for the `@` popup.
  */
 export function flattenMentionSearchResult(
   result: NexusMentionSearchResult,
 ): NexusMentionSuggestionRow[] {
-  return [
+  return dedupeNexusMentionItems([
     ...result.users.map((item) => ({ ...item, section: "users" as const })),
     ...result.pages.map((item) => ({ ...item, section: "pages" as const })),
-  ];
+  ]);
 }

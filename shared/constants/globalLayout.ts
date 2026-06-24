@@ -161,12 +161,125 @@ export const DEFAULT_HEADER_USER_MENU: HeaderNavItem[] = [
 ];
 
 /**
- * Default header categories — empty on fresh seed.
+ * Default header categories — grouped for desktop dropdowns and mobile accordions.
  *
- * Admins configure navigation in `/admin/global-layout`. Factory-seeded Explore/Manage
- * dropdowns were removed because preset hrefs were misleading on real deployments.
+ * Three premade categories cover the main institutional routes. Admins may override
+ * everything in `/admin/global-layout`.
  */
-export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [];
+export const DEFAULT_HEADER_CATEGORIES: HeaderCategory[] = [
+  {
+    id: "explore",
+    label: "Explore",
+    icon: "Globe",
+    items: [
+      { id: "home", href: "/", label: "Home", icon: "Home" },
+      { id: "pages-catalog", href: "/pages", label: "Browse Pages", icon: "FileText" },
+      { id: "news", href: "/news", label: "News", icon: "Newspaper" },
+    ],
+  },
+  {
+    id: "workspace",
+    label: "Workspace",
+    icon: "Briefcase",
+    items: [
+      { id: "tasks", href: "/tasks", label: "Tasks", icon: "Briefcase" },
+      { id: "task-groups", href: "/task-groups", label: "Task Groups", icon: "Users" },
+      {
+        id: "membership",
+        href: "/profile/membership",
+        label: "Membership",
+        icon: "Award",
+      },
+      {
+        id: "notifications",
+        href: "/profile/notifications",
+        label: "Notifications",
+        icon: "Bell",
+      },
+    ],
+  },
+  {
+    id: "administration",
+    label: "Administration",
+    icon: "Shield",
+    align: "end",
+    adminOnly: true,
+    items: [
+      { id: "admin-hub", href: "/admin", label: "Admin Hub", icon: "Shield", adminOnly: true },
+      { id: "page-manager", href: "/pages/edit", label: "Page Manager", icon: "Plus" },
+      {
+        id: "user-directory",
+        href: "/admin/users",
+        label: "User Directory",
+        icon: "Users",
+        adminOnly: true,
+      },
+      {
+        id: "global-layout",
+        href: "/admin/global-layout",
+        label: "Global Layout",
+        icon: "Settings",
+        adminOnly: true,
+      },
+      {
+        id: "user-access",
+        href: "/admin/user-access",
+        label: "User Access",
+        icon: "Shield",
+        adminOnly: true,
+      },
+      {
+        id: "general-rules",
+        href: "/admin/general-rules",
+        label: "General Rules",
+        icon: "BookOpen",
+        adminOnly: true,
+      },
+      {
+        id: "telegram-bot",
+        href: "/admin/telegram-bot",
+        label: "Telegram Bot",
+        icon: "Send",
+        adminOnly: true,
+      },
+      {
+        id: "institutional-calendar",
+        href: "/admin/institutional-calendar",
+        label: "Institutional Calendar",
+        icon: "Calendar",
+        adminOnly: true,
+      },
+      {
+        id: "system-logs",
+        href: "/admin/logs",
+        label: "System Logs",
+        icon: "Shield",
+        adminOnly: true,
+      },
+      {
+        id: "telegram-workspaces",
+        href: "/admin/telegram-workspaces",
+        label: "Telegram Workspaces",
+        icon: "Globe",
+        adminOnly: true,
+      },
+      {
+        id: "hosting",
+        href: "/admin/hosting",
+        label: "Hosting",
+        icon: "ExternalLink",
+        adminOnly: true,
+      },
+      {
+        id: "membership-applications",
+        href: "/admin/membership-applications",
+        label: "Membership Applications",
+        icon: "Award",
+        adminOnly: true,
+      },
+    ],
+  },
+];
 
 /** Default footer grid layout. */
 export const DEFAULT_FOOTER_LAYOUT: FooterLayout = {
@@ -181,7 +294,7 @@ export const DEFAULT_FOOTER_CONFIG: FooterConfig = {
       id: "resources",
       title: "Resources",
       links: [
-        { id: "pages-catalog", href: "/pages/categories", label: "Browse Pages" },
+        { id: "pages-catalog", href: "/pages", label: "Browse Pages" },
         { id: "pages-list", href: "/pages", label: "Page Manager" },
         { id: "news-feed", href: "/news", label: "News Feed" },
       ],

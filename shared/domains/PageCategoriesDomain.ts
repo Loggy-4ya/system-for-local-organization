@@ -11,6 +11,7 @@ import connectDB from "@shared/lib/db";
 import {
   PAGE_CATEGORIES_SETTINGS_ID,
   type NewsCatalogHubPayload,
+  type ManagerCatalogPayload,
   type PageCategoriesHubConfig,
   type PageCategoryHubSection,
   type PagePathDomainCatalogEntry,
@@ -18,16 +19,32 @@ import {
 import {
   buildDefaultHubSectionsForDomains,
   buildNewsCatalogPageCard,
+  ensureHubSectionsCoverDomains,
+  normalizeNewsCatalogImagesPerCard,
+  normalizeNewsCatalogPageCardVariant,
   normalizePageCategoryHubSections,
   resolveEffectiveHubSectionPagePaths,
   resolveHubSectionDisplayLabel,
+  resolvePageCatalogSectionLabel,
   type PageCategoryHubPageSource,
   type PageCategoryHubSectionInput,
 } from "@shared/lib/pageCategoriesHubLogic";
+import {
+  buildManagerCatalogSections,
+  buildUncategorizedHubSection,
+  resolveManagerEditorHubSections,
+} from "@shared/lib/pageManagerCatalogLogic";
+import { canViewerSeePageCatalogDomainSection } from "@shared/lib/pageCatalogDomainVisibilityLogic";
+import type { AccessLevelIndex } from "@shared/constants/accessControl";
+import {
+  PAGE_CATALOG_UNCATEGORIZED_DOMAIN,
+  PAGE_CATALOG_UNCATEGORIZED_LABEL,
+} from "@shared/constants/pageCategoriesHub";
 import { isPagePubliclyVisible } from "@shared/lib/pagePublicationLogic";
 import {
   formatPageDomainLabel,
   normalizePageDomainSegment,
+  normalizePagePath,
   pagePathBelongsToDomain,
 } from "@shared/lib/pagePathLogic";
 import Page from "@shared/models/Page";
@@ -95,8 +112,6 @@ export class PageCategoriesDomain {
           id: section.id,
           domain: normalizePageDomainSegment(section.domain || legacyLabel || ""),
           pagePaths: [...(section.pagePaths ?? [])],
-          cardLayout: section.cardLayout,
-          imagesPerCard: section.imagesPerCard,
         };
       }),
     };
@@ -158,53 +173,33 @@ export class PageCategoriesDomain {
   }
 
   /**
-   * Resolve the public news catalog payload for `/pages/categories`, the hub API, and Puck.
+   * Load all Puck pages (except homepage) for catalog hydration.
    *
-   * Curated `pagePaths` win when present; otherwise all published child pages under each
-   * domain are listed automatically (newest first).
-   *
-   * @returns Sections with hydrated page cards.
+   * @returns Page source rows and author display names.
    */
-  public static async resolveHubPayload(): Promise<NewsCatalogHubPayload> {
-    await connectDB();
-
-    const doc = await PageCategoriesDomain.loadOrSeed();
-    const availableDomains = await PageDomain.listPagePathDomains();
-    let sections = normalizePageCategoryHubSections(doc.sections, availableDomains);
-
-    if (sections.length === 0) {
-      sections = buildDefaultHubSectionsForDomains(availableDomains);
-    }
-
-    if (sections.length === 0) {
-      return { sections: [] };
-    }
-
-    const domainPaths = sections.map((section) => formatPageDomainLabel(section.domain));
-    const domainRegexes = sections.map((section) => {
-      const escaped = section.domain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`^/${escaped}(/|$)`);
-    });
-
+  private static async loadCatalogPageSources(): Promise<{
+    pageSources: PageCategoryHubPageSource[];
+    domainRootTitleByDomain: Map<string, string>;
+  }> {
     const pageDocs = await Page.find(
-      {
-        $or: [
-          { path: { $in: domainPaths } },
-          ...domainRegexes.map((pattern) => ({ path: { $regex: pattern } })),
-        ],
-      },
+      { path: { $ne: "/" } },
       {
         path: 1,
         title: 1,
         description: 1,
         coverImage: 1,
         galleryImages: 1,
+        catalogImagesPerCard: 1,
+        catalogCardVariant: 1,
         categories: 1,
         authorUserId: 1,
         publishAt: 1,
         published: 1,
+        updatedAt: 1,
       },
-    ).lean();
+    )
+      .sort({ updatedAt: -1 })
+      .lean();
 
     const authorIds = [
       ...new Set(
@@ -226,18 +221,18 @@ export class PageCategoriesDomain {
       description: docRow.description,
       coverImage: docRow.coverImage,
       galleryImages: docRow.galleryImages ?? [],
+      catalogImagesPerCard: normalizeNewsCatalogImagesPerCard(docRow.catalogImagesPerCard),
+      catalogCardVariant: normalizeNewsCatalogPageCardVariant(docRow.catalogCardVariant),
       categories: docRow.categories ?? [],
       authorDisplayName: docRow.authorUserId
         ? authorNameById.get(String(docRow.authorUserId)) ?? null
         : null,
       publishAt: docRow.publishAt,
       published: docRow.published,
+      updatedAt: docRow.updatedAt,
     }));
 
-    const pageByPath = new Map(pageSources.map((row) => [row.path, row]));
-    const knownPaths = new Set(pageSources.map((row) => row.path));
     const domainRootTitleByDomain = new Map<string, string>();
-
     for (const docRow of pageDocs) {
       const domain = normalizePageDomainSegment(docRow.path.replace(/^\//, "").split("/")[0] ?? "");
       const isDomainRoot =
@@ -247,11 +242,99 @@ export class PageCategoriesDomain {
       }
     }
 
-    const resolvedSections = sections.map((section) => {
-      const domainPages = pageSources.filter((row) =>
-        pagePathBelongsToDomain(row.path, section.domain, availableDomains),
+    return { pageSources, domainRootTitleByDomain };
+  }
+
+  /**
+   * Resolve hub section rows for catalog rendering (all domains + uncategorized when needed).
+   *
+   * @param doc - Hub settings document.
+   * @param availableDomains - Visible path domains.
+   * @param pageSources - All loaded pages.
+   * @returns Section config rows for hydration.
+   */
+  private static resolveCatalogHubSections(
+    sections: PageCategoryHubSection[],
+    availableDomains: readonly string[],
+    pageSources: readonly PageCategoryHubPageSource[],
+  ): PageCategoryHubSection[] {
+    let resolved = ensureHubSectionsCoverDomains(sections, availableDomains);
+    if (resolved.length === 0) {
+      resolved = buildDefaultHubSectionsForDomains(availableDomains);
+    }
+
+    const hasUncategorized = pageSources.some((row) => {
+      const path = normalizePagePath(row.path);
+      if (!path || path === "/") return false;
+      return !availableDomains.some((domain) =>
+        pagePathBelongsToDomain(path, domain, availableDomains),
       );
-      const pagePaths = resolveEffectiveHubSectionPagePaths(section, domainPages, knownPaths);
+    });
+
+    if (
+      hasUncategorized &&
+      !resolved.some((section) => section.domain === PAGE_CATALOG_UNCATEGORIZED_DOMAIN)
+    ) {
+      resolved = [...resolved, buildUncategorizedHubSection()];
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Resolve the public news catalog payload for `/pages`, the hub API, and Puck.
+   *
+   * Curated `pagePaths` win when present; otherwise all published child pages under each
+   * domain are listed automatically (newest first).
+   *
+   * @param options - Optional viewer access level for catalog visibility filtering.
+   * @returns Sections with hydrated page cards.
+   */
+  public static async resolveHubPayload(options?: {
+    viewerAccessLevelIndex?: AccessLevelIndex | null;
+  }): Promise<NewsCatalogHubPayload> {
+    await connectDB();
+
+    const doc = await PageCategoriesDomain.loadOrSeed();
+    const allDomains = await PageDomain.listAllMergedPagePathDomains();
+    const normalized = normalizePageCategoryHubSections(doc.sections, allDomains);
+    const { pageSources, domainRootTitleByDomain } =
+      await PageCategoriesDomain.loadCatalogPageSources();
+
+    const sections = resolveManagerEditorHubSections(
+      normalized,
+      allDomains,
+      pageSources,
+    ).filter((section) =>
+      canViewerSeePageCatalogDomainSection(section, options?.viewerAccessLevelIndex ?? null),
+    );
+
+    if (sections.length === 0) {
+      return { sections: [] };
+    }
+
+    const pageByPath = new Map(pageSources.map((row) => [normalizePagePath(row.path), row]));
+    const knownPaths = new Set(pageSources.map((row) => normalizePagePath(row.path)));
+
+    const resolvedSections = sections.map((section) => {
+      const domainPages =
+        section.domain === PAGE_CATALOG_UNCATEGORIZED_DOMAIN
+          ? pageSources.filter((row) => {
+              const path = normalizePagePath(row.path);
+              if (!path || path === "/") return false;
+              return !allDomains.some((domain) =>
+                pagePathBelongsToDomain(path, domain, allDomains),
+              );
+            })
+          : pageSources.filter((row) =>
+              pagePathBelongsToDomain(row.path, section.domain, allDomains),
+            );
+      const pagePaths = resolveEffectiveHubSectionPagePaths(
+        section,
+        domainPages,
+        knownPaths,
+        allDomains,
+      );
       const pages = pagePaths
         .map((pagePath) => {
           const source = pageByPath.get(pagePath);
@@ -264,24 +347,138 @@ export class PageCategoriesDomain {
           ) {
             return null;
           }
-          return buildNewsCatalogPageCard(source, section.imagesPerCard);
+          return buildNewsCatalogPageCard(source);
         })
         .filter((card): card is NonNullable<typeof card> => card != null);
+
+      const sectionLabel = resolvePageCatalogSectionLabel(section, domainRootTitleByDomain);
 
       return {
         id: section.id,
         domain: section.domain,
-        sectionLabel: resolveHubSectionDisplayLabel(
-          section.domain,
-          domainRootTitleByDomain.get(section.domain),
-        ),
-        cardLayout: section.cardLayout,
-        imagesPerCard: section.imagesPerCard,
+        sectionLabel,
         pages,
+        catalogVisibility: section.catalogVisibility,
+        catalogVisibleThroughLevel: section.catalogVisibleThroughLevel,
       };
     });
 
     return { sections: resolvedSections.filter((section) => section.pages.length > 0) };
+  }
+
+  /**
+   * Resolve the Page Manager catalog payload for `/pages` (includes drafts).
+   *
+   * @returns Sections with hydrated manager cards for publishers.
+   */
+  public static async resolveManagerPayload(): Promise<ManagerCatalogPayload> {
+    await connectDB();
+
+    const doc = await PageCategoriesDomain.loadOrSeed();
+    const allDomains = await PageDomain.listAllMergedPagePathDomains();
+    const normalized = normalizePageCategoryHubSections(doc.sections, allDomains);
+    const { pageSources, domainRootTitleByDomain } =
+      await PageCategoriesDomain.loadCatalogPageSources();
+
+    const sections = resolveManagerEditorHubSections(
+      normalized,
+      allDomains,
+      pageSources,
+    );
+
+    if (sections.length === 0) {
+      return { sections: [] };
+    }
+
+    const labelByDomain = new Map<string, string>();
+    for (const section of sections) {
+      if (section.domain === PAGE_CATALOG_UNCATEGORIZED_DOMAIN) continue;
+      labelByDomain.set(
+        section.domain,
+        resolveHubSectionDisplayLabel(
+          section.domain,
+          domainRootTitleByDomain.get(section.domain),
+        ),
+      );
+    }
+
+    return {
+      sections: buildManagerCatalogSections(
+        sections,
+        pageSources,
+        labelByDomain,
+        allDomains,
+        { includeEmptySections: true },
+      ),
+    };
+  }
+
+  /**
+   * List every path domain for the catalog editor (includes institution-hidden labels).
+   *
+   * @returns Sorted domain segments.
+   */
+  public static async listAllCatalogDomains(): Promise<string[]> {
+    return PageDomain.listAllMergedPagePathDomains();
+  }
+
+  /**
+   * Remove a catalog path domain: relocate pages to uncategorized paths, hide the
+   * domain label, and drop its hub section from MongoDB.
+   *
+   * @param domain - Path domain segment to delete (not `uncategorized`).
+   * @param actorUserId - Admin user performing the removal.
+   * @returns Updated visible domains, moved page count, and hub config snapshot.
+   */
+  public static async removeCatalogDomain(
+    domain: string,
+    actorUserId: string,
+  ): Promise<{
+    domains: string[];
+    movedCount: number;
+    config: PageCategoriesHubConfig;
+  }> {
+    await connectDB();
+
+    const normalized = normalizePageDomainSegment(domain);
+    if (!normalized || normalized === PAGE_CATALOG_UNCATEGORIZED_DOMAIN) {
+      throw new Error("Invalid catalog domain.");
+    }
+
+    const { movedPages, domains } = await PageDomain.removeCatalogPagePathDomain(
+      normalized,
+      actorUserId,
+    );
+
+    const pathMap = new Map(
+      movedPages.map((entry) => [
+        normalizePagePath(entry.fromPath),
+        normalizePagePath(entry.toPath),
+      ]),
+    );
+
+    const doc = await PageCategoriesDomain.loadOrSeed();
+    const nextSectionsRaw = (doc.sections ?? [])
+      .filter((section) => normalizePageDomainSegment(String(section.domain ?? "")) !== normalized)
+      .map((section) => ({
+        ...section,
+        pagePaths: (section.pagePaths ?? []).map((entry) => {
+          const key = normalizePagePath(String(entry));
+          return pathMap.get(key) ?? String(entry);
+        }),
+      }));
+
+    const availableDomains = await PageDomain.listPagePathDomains();
+    const nextSections = normalizePageCategoryHubSections(nextSectionsRaw, availableDomains);
+    const updatedDoc = await PageCategoriesDomain.update({ sections: nextSections });
+
+    const movedCount = movedPages.filter((entry) => entry.fromPath !== entry.toPath).length;
+
+    return {
+      domains,
+      movedCount,
+      config: PageCategoriesDomain.toPublicConfig(updatedDoc),
+    };
   }
 }
 

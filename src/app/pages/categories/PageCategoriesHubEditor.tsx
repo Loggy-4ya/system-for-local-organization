@@ -6,12 +6,11 @@
  * @module src/app/pages/categories/PageCategoriesHubEditor
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, FolderOpen, LayoutGrid, Layers, Plus, Trash2 } from "lucide-react";
+import "@/app/global-layout-editor.css";
 import {
-  NEWS_CATALOG_CARD_LAYOUTS,
-  NEWS_CATALOG_IMAGES_PER_CARD_OPTIONS,
   type PageCategoriesHubConfig,
   type PageCategoryHubSection,
   type PagePathDomainCatalogEntry,
@@ -61,6 +60,58 @@ function resolveDomainSectionTitle(
 }
 
 /**
+ * Label for the hub domain picker trigger and dropdown rows.
+ *
+ * @param domain - Path domain segment.
+ * @param catalog - Available domain rows from the server.
+ * @returns Combined path + title label.
+ */
+function formatDomainPickerLabel(
+  domain: string,
+  catalog: readonly PagePathDomainCatalogEntry[],
+): string {
+  const pathLabel = formatPageDomainLabel(domain);
+  const title = resolveDomainSectionTitle(domain, catalog);
+  return `${pathLabel} — ${title}`;
+}
+
+/** Shared island link styling — solid elevated surface, no transparent washes. */
+const editorNavIslandClass =
+  "global-layout-editor__btn-text inline-flex w-fit items-center gap-1.5 border border-(--color-border-default) bg-(--color-bg-elevated) text-xs text-(--color-text-secondary) no-underline transition-colors hover:border-(--color-border-default) hover:bg-(--color-bg-panel) hover:text-(--color-text-primary)";
+
+/** Props for {@link CatalogHubEmptyState}. */
+interface CatalogHubEmptyStateProps {
+  icon: typeof LayoutGrid;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}
+
+/**
+ * Centered dashed empty-state panel for the catalog hub editor.
+ *
+ * @param props - Icon, copy, and optional primary action.
+ * @returns Empty-state markup.
+ */
+function CatalogHubEmptyState({ icon: Icon, title, description, action }: CatalogHubEmptyStateProps) {
+  return (
+    <div className="glass-elevated flex flex-col items-center gap-3 rounded-lg border border-dashed border-(--color-border-default) px-6 py-10 text-center">
+      <div
+        className="glass-panel flex size-12 items-center justify-center rounded-lg text-primary"
+        aria-hidden="true"
+      >
+        <Icon size={20} strokeWidth={1.75} />
+      </div>
+      <div className="flex max-w-sm flex-col gap-1.5">
+        <h3 className="text-sm font-semibold text-(--color-text-primary)">{title}</h3>
+        <p className="text-xs leading-relaxed text-(--color-text-secondary)">{description}</p>
+      </div>
+      {action ? <div className="mt-1">{action}</div> : null}
+    </div>
+  );
+}
+
+/**
  * Page Manager editor for news catalog path-domain sections.
  *
  * @param props - Server-hydrated config and domain catalog.
@@ -93,6 +144,28 @@ export function PageCategoriesHubEditor({
     const timer = window.setTimeout(() => setStatus(null), 4500);
     return () => window.clearTimeout(timer);
   }, [status]);
+
+  /** Refresh domain catalog after navigation from Page Manager (SSR snapshot may be stale). */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/page-categories/settings");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { availableDomains?: PagePathDomainCatalogEntry[] };
+        if (!cancelled && Array.isArray(data.availableDomains)) {
+          setAvailableDomains(data.availableDomains);
+        }
+      } catch {
+        /* keep SSR-hydrated catalog */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const unusedDomains = useMemo(
     () => listUnusedPagePathDomains(domainSegments, config.sections),
@@ -130,8 +203,6 @@ export function PageCategoriesHubEditor({
           id: `section-${Date.now()}`,
           domain: nextDomain,
           pagePaths: [],
-          cardLayout: "featured-grid",
-          imagesPerCard: 1,
         },
       ],
     }));
@@ -175,76 +246,116 @@ export function PageCategoriesHubEditor({
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH["/pages"]}
-      className="gap-8 pb-24 py-12 lg:pb-12"
+      className="global-layout-editor page-categories-hub-editor py-8 md:py-12"
+      innerClassName="global-layout-editor__stack"
     >
-      <div className="flex flex-col gap-2">
-        <Link
-          href="/pages/categories"
-          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground no-underline"
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
-          Back to catalog
-        </Link>
-        <Link
-          href="/pages"
-          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground no-underline"
-        >
-          Page Manager
-        </Link>
-      </div>
+      <div className="glass-panel w-full p-4 md:p-6">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div className="flex min-w-0 flex-col gap-4">
+            <nav className="flex flex-wrap items-center gap-2" aria-label="Editor navigation">
+              <Link href="/pages/categories" className={editorNavIslandClass}>
+                <ArrowLeft size={12} aria-hidden="true" />
+                <span>Back to catalog</span>
+              </Link>
+              <ChevronRight
+                size={12}
+                strokeWidth={2.25}
+                className="text-(--color-text-secondary)"
+                aria-hidden="true"
+              />
+              <Link href="/pages" className={editorNavIslandClass}>
+                <span>Page Manager</span>
+              </Link>
+            </nav>
 
-        <div className="glass-panel w-full rounded-lg p-6 shadow-md border border-zinc-700/20 dark:border-zinc-300/10">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <FolderOpen size={20} aria-hidden="true" />
-            </div>
-            <div>
-              <h1
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-primary)",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                News Catalog Categories
-              </h1>
-              <p style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", marginTop: 4 }}>
-                Choose which path-domain pages (such as `/news`, `/surveys`) appear as tabs on your
-                news catalog and which child pages show in each section. Changes apply to every News
-                Catalog block on the site.
-              </p>
+            <div className="flex items-start gap-3">
+              <div className="glass-elevated rounded-lg p-2.5 text-primary" aria-hidden="true">
+                <FolderOpen size={18} strokeWidth={1.75} />
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-semibold tracking-wide text-primary uppercase">
+                  Page Manager
+                </span>
+                <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
+                  News Catalog Categories
+                </h1>
+                <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
+                  Choose which path-domain pages (such as `/news`, `/surveys`) appear as tabs on your
+                  news catalog and in what order. Preview card images, size, and descriptions are
+                  configured per page in Publication settings.
+                </p>
+              </div>
             </div>
           </div>
+
+          <div className="hidden shrink-0 lg:block">
+            <AdminEditorActionToolbar
+              onReset={handleReset}
+              onSave={handleSave}
+              resetDisabled={!isDirty}
+              saveDisabled={!isDirty}
+              isSaving={isSaving}
+              useEditorButtonStyle
+            />
+          </div>
         </div>
+      </div>
 
       <GlobalLayoutEditorStatusBanner status={status} />
 
-      <div className="glass-panel rounded-lg p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-medium text-foreground">Domain sections</h2>
-            <p className="text-sm text-muted-foreground">
+      <div className="glass-panel w-full p-4 md:p-6 lg:p-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-default) pb-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="text-lg font-semibold text-(--color-text-primary)">Domain sections</h2>
+            <p className="text-sm text-(--color-text-secondary)">
               Only path domains with existing Puck pages can be added.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={addSection} disabled={unusedDomains.length === 0}>
-            <Plus size={14} aria-hidden="true" />
-            Add domain
-          </Button>
+          {config.sections.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="global-layout-editor__btn-text shrink-0"
+              onClick={addSection}
+              disabled={unusedDomains.length === 0}
+            >
+              <Plus size={14} aria-hidden="true" />
+              Add domain
+            </Button>
+          ) : null}
         </div>
 
         {availableDomains.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No path domains exist yet. Create Puck pages under domains such as `/news` or `/surveys`
-            in Page Manager, then return here.
-          </p>
+          <CatalogHubEmptyState
+            icon={LayoutGrid}
+            title="No path domains yet"
+            description="Create Puck pages under domains such as /news or /surveys in Page Manager, then return here to curate catalog tabs."
+            action={
+              <Link href="/pages" className={editorNavIslandClass}>
+                <span>Open Page Manager</span>
+              </Link>
+            }
+          />
         ) : config.sections.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No catalog sections yet. Add a domain to curate pages for the news hub layout.
-          </p>
+          <CatalogHubEmptyState
+            icon={Layers}
+            title="No catalog sections yet"
+            description="Add a path domain to choose which pages appear as tabs on the news catalog and how each section is laid out."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                className="global-layout-editor__btn-text"
+                onClick={addSection}
+                disabled={unusedDomains.length === 0}
+              >
+                <Plus size={14} aria-hidden="true" />
+                Add domain
+              </Button>
+            }
+          />
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="page-categories-hub-editor__section-stack">
             {config.sections.map((section) => {
               const sectionDomainOptions = [section.domain, ...unusedDomains].filter(
                 (domain, index, list) => list.indexOf(domain) === index,
@@ -252,10 +363,7 @@ export function PageCategoriesHubEditor({
               const sectionTitle = resolveDomainSectionTitle(section.domain, availableDomains);
 
               return (
-                <div
-                  key={section.id}
-                  className="rounded-md border border-(--color-border-default) bg-(--color-bg-elevated) p-4"
-                >
+                <div key={section.id} className="glass-elevated p-4 md:p-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-base font-medium text-foreground">{sectionTitle}</h3>
@@ -274,92 +382,47 @@ export function PageCategoriesHubEditor({
                     </Button>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      label="Path domain"
-                      hint="Must match an existing domain page such as /news."
+                  <FormField
+                    label="Path domain"
+                    hint="Must match an existing domain page such as /news."
+                  >
+                    <Select
+                      value={section.domain}
+                      onValueChange={(domain) => {
+                        const nextDomain = domain ?? "";
+                        updateSection(section.id, {
+                          domain: nextDomain,
+                          pagePaths: section.pagePaths.filter((path) =>
+                            pagePathBelongsToDomain(path, nextDomain, domainSegments),
+                          ),
+                        });
+                      }}
                     >
-                      <Select
-                        value={section.domain}
-                        onValueChange={(domain) => {
-                          const nextDomain = domain ?? "";
-                          updateSection(section.id, {
-                            domain: nextDomain,
-                            pagePaths: section.pagePaths.filter((path) =>
-                              pagePathBelongsToDomain(path, nextDomain, domainSegments),
-                            ),
-                          });
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select domain" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sectionDomainOptions.map((domain) => (
-                            <SelectItem key={domain} value={domain}>
-                              {formatPageDomainLabel(domain)} —{" "}
-                              {resolveDomainSectionTitle(domain, availableDomains)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormField>
-
-                    <FormField label="Images per card" hint="Publication images shown on each preview.">
-                      <Select
-                        value={String(section.imagesPerCard)}
-                        onValueChange={(value) =>
-                          updateSection(section.id, {
-                            imagesPerCard: Number(value) as PageCategoryHubSection["imagesPerCard"],
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NEWS_CATALOG_IMAGES_PER_CARD_OPTIONS.map((count) => (
-                            <SelectItem key={count} value={String(count)}>
-                              {count} image{count === 1 ? "" : "s"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormField>
-                  </div>
-
-                  <div className="mt-4">
-                    <FormField
-                      label="Card layout"
-                      hint="Featured + grid matches the news hub mockup (large lead card + tile grid)."
-                    >
-                      <Select
-                        value={section.cardLayout}
-                        onValueChange={(cardLayout) =>
-                          updateSection(section.id, {
-                            cardLayout: (cardLayout ??
-                              "featured-grid") as PageCategoryHubSection["cardLayout"],
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NEWS_CATALOG_CARD_LAYOUTS.map((layout) => (
-                            <SelectItem key={layout} value={layout}>
-                              {layout === "featured-grid" ? "Featured + grid" : "Uniform grid"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormField>
-                  </div>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select domain">
+                          {section.domain
+                            ? formatDomainPickerLabel(section.domain, availableDomains)
+                            : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectionDomainOptions.map((domain) => (
+                          <SelectItem
+                            key={domain}
+                            value={domain}
+                            label={formatDomainPickerLabel(domain, availableDomains)}
+                          >
+                            {formatDomainPickerLabel(domain, availableDomains)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
 
                   <div className="mt-4">
                     <FormField
                       label="Pages in this domain"
-                      hint="Search and add published pages under this domain. Order matches the catalog display."
+                      hint="Search and add published pages under this domain. Order matches the catalog display. Card preview settings live in each page's Publication chapter."
                     >
                       <PagePathMultiPicker
                         value={section.pagePaths}
@@ -377,16 +440,21 @@ export function PageCategoriesHubEditor({
         )}
       </div>
 
-      <AdminEditorActionToolbar
-        isDirty={isDirty}
-        isSaving={isSaving}
-        onReset={handleReset}
-        onSave={() => {
-          void handleSave();
-        }}
-        saveLabel="Save categories"
-        className="admin-mobile-toolbar"
-      />
+      {isDirty ? <div className="h-16 lg:hidden" aria-hidden="true" /> : null}
+
+      {isDirty ? (
+        <div className="admin-mobile-toolbar lg:hidden">
+          <AdminEditorActionToolbar
+            onReset={handleReset}
+            onSave={handleSave}
+            resetDisabled={!isDirty}
+            saveDisabled={!isDirty}
+            isSaving={isSaving}
+            useEditorButtonStyle
+            className="w-full justify-end"
+          />
+        </div>
+      ) : null}
     </StaticPageShell>
   );
 }

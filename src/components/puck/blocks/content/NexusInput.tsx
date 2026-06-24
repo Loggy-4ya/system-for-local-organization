@@ -1,27 +1,64 @@
 "use client";
 
 /**
- * @fileoverview Puck block for styled Input Fields.
+ * @fileoverview Puck block for survey, quiz, and open-text form fields.
  *
- * Maps to Figma Input/Default components with required toggle and helper text.
+ * Maps to Figma Input/Default with question + answer modes (text or choice).
  *
  * @module src/components/puck/blocks/content/NexusInput
  */
 
-import React from "react";
+import {
+  DEFAULT_FORM_FIELD_PLACEHOLDER,
+  DEFAULT_FORM_FIELD_QUESTION,
+} from "@shared/constants/formField";
+import {
+  defaultFormFieldDistribution,
+  coerceFormFieldOptionsForGrading,
+  ensureFormFieldOptions,
+  normalizeNexusInputProps,
+  resolveFormFieldQuestion,
+  syncFormFieldAnswerModeProps,
+  type NexusInputFieldProps,
+} from "@shared/lib/formFieldLogic";
+import { FormFieldAnswerModeField } from "../../fields/FormFieldAnswerModeField";
+import { FormFieldDistributionField } from "../../fields/FormFieldDistributionField";
+import { FormFieldOptionsField } from "../../fields/FormFieldOptionsField";
+import { FormFieldStatsPanelField } from "../../fields/FormFieldStatsPanelField";
+import { NexusInputRender } from "./NexusInputRender";
 
+/**
+ * Puck form field — question with text answer or choice / quiz options.
+ */
 export const NexusInput = {
   label: "Form Input",
   fields: {
-    label: {
+    question: {
       type: "text" as const,
-      label: "Field Label",
+      label: "Question",
+    },
+    mode: {
+      type: "radio" as const,
+      label: "Answer Type",
+      options: [
+        { label: "Open text", value: "text" },
+        { label: "Choice (survey / quiz)", value: "choice" },
+      ],
+    },
+    options: {
+      type: "custom" as const,
+      label: "Answer Options",
+      render: FormFieldOptionsField as never,
     },
     placeholder: {
       type: "text" as const,
       label: "Placeholder Text",
     },
-    type: {
+    helperText: {
+      type: "text" as const,
+      label: "Helper / Description Text",
+    },
+    inputType: {
       type: "select" as const,
       label: "Input Type",
       options: [
@@ -39,85 +76,86 @@ export const NexusInput = {
         { label: "Yes", value: "yes" },
       ],
     },
-    helperText: {
-      type: "text" as const,
-      label: "Helper / Description Text",
+    answerMode: {
+      type: "custom" as const,
+      label: "Answer Mode",
+      render: FormFieldAnswerModeField as never,
+    },
+    distribution: {
+      type: "custom" as const,
+      label: "Distribution",
+      render: FormFieldDistributionField as never,
+    },
+    statsPanel: {
+      type: "custom" as const,
+      label: "Response Statistics",
+      render: FormFieldStatsPanelField as never,
     },
   },
   defaultProps: {
-    label: "Full Name",
-    placeholder: "Enter your name...",
-    type: "text" as const,
-    required: "no" as const,
+    question: DEFAULT_FORM_FIELD_QUESTION,
+    mode: "text" as const,
+    options: [
+      { id: "opt-1", label: "Option A", isCorrect: "no" as const },
+      { id: "opt-2", label: "Option B", isCorrect: "no" as const },
+    ],
+    placeholder: DEFAULT_FORM_FIELD_PLACEHOLDER,
     helperText: "",
+    inputType: "text" as const,
+    required: "no" as const,
+    answerMode: "survey-single" as const,
+    gradingMode: "none" as const,
+    choiceSelection: "single" as const,
+    distribution: defaultFormFieldDistribution(),
+    statsPanel: "",
+  },
+  resolveData: ({ props }: { props: NexusInputFieldProps & { statsPanel?: string } }) => {
+    const synced = syncFormFieldAnswerModeProps(props);
+    const question = resolveFormFieldQuestion(synced);
+    const options = coerceFormFieldOptionsForGrading(
+      ensureFormFieldOptions(synced.options),
+      synced.gradingMode,
+    );
+
+    return {
+      props: {
+        ...synced,
+        question,
+        options,
+        distribution: {
+          ...defaultFormFieldDistribution(),
+          ...synced.distribution,
+          web: "yes" as const,
+        },
+      },
+    };
   },
   render({
-    label,
-    placeholder,
-    type,
-    required,
-    helperText,
-  }: {
-    label: string;
-    placeholder: string;
-    type: "text" | "email" | "password" | "number";
-    required: "no" | "yes";
-    helperText?: string;
+    id,
+    puck,
+    ...rawProps
+  }: NexusInputFieldProps & {
+    id: string;
+    puck?: { isEditing?: boolean };
+    statsPanel?: string;
   }) {
+    const props = normalizeNexusInputProps(rawProps);
+
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          width: "100%",
-          textAlign: "left",
-        }}
-      >
-        {label && (
-          <label
-            style={{
-              fontSize: "12px",
-              fontWeight: 500,
-              color: "var(--color-text-secondary)",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            <span>{label}</span>
-            {required === "yes" && <span style={{ color: "var(--color-danger)" }}>*</span>}
-          </label>
-        )}
-        <input
-          type={type || "text"}
-          placeholder={placeholder}
-          disabled
-          style={{
-            padding: "10px 12px",
-            background: "var(--color-bg-cell)",
-            border: "1px solid var(--color-border-default)",
-            color: "var(--color-text-primary)",
-            borderRadius: "var(--radius-md)",
-            fontSize: "13px",
-            outline: "none",
-            width: "100%",
-            cursor: "not-allowed",
-            boxSizing: "border-box",
-          }}
-        />
-        {helperText && (
-          <span
-            style={{
-              fontSize: "11px",
-              color: "var(--color-text-secondary)",
-              marginTop: "2px",
-            }}
-          >
-            {helperText}
-          </span>
-        )}
-      </div>
+      <NexusInputRender
+        id={id}
+        isEditing={puck?.isEditing}
+        question={props.question}
+        placeholder={props.placeholder}
+        helperText={props.helperText}
+        mode={props.mode}
+        inputType={props.inputType}
+        required={props.required}
+        gradingMode={props.gradingMode}
+        choiceSelection={props.choiceSelection}
+        options={props.options}
+        distribution={props.distribution}
+      />
     );
   },
 };

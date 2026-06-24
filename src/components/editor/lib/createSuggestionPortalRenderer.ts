@@ -3,12 +3,26 @@
 /**
  * @fileoverview Shared TipTap suggestion popup portal (positioning + ReactRenderer lifecycle).
  *
+ * Uses `position: fixed` viewport coordinates, hides popups until a valid caret
+ * rect is measured, and clears stale body portals before each new session so
+ * orphaned menus do not stick in the top-left corner.
+ *
+ * Tests: `npm run test:suggestion-portal-logic`
+ * Registry: `.ai/docs/testing.md`
+ *
  * @module src/components/editor/lib/createSuggestionPortalRenderer
  */
 
 import { ReactRenderer } from "@tiptap/react";
 import type { ComponentType, RefAttributes } from "react";
 import type { SuggestionOptions } from "@tiptap/suggestion";
+import {
+  applySuggestionPortalPosition,
+  hideSuggestionPortalUntilPositioned,
+  removeStaleSuggestionPortals,
+  resolveSuggestionPortalRect,
+  type SuggestionClientRect,
+} from "./suggestionPortalLogic";
 
 /** Base props every suggestion list component must accept. */
 export interface SuggestionListBaseProps<TItem> {
@@ -44,6 +58,42 @@ export interface CreateSuggestionPortalRendererOptions<
 }
 
 /**
+ * Position the active portal using TipTap's `clientRect` callback.
+ *
+ * @param popup - Body portal wrapper.
+ * @param clientRect - TipTap caret rect provider.
+ * @param lastValidRect - Cached rect from the current suggestion session.
+ * @returns Updated cache when placement succeeded.
+ */
+function updatePortalPosition(
+  popup: HTMLElement,
+  clientRect: (() => SuggestionClientRect | null) | null | undefined,
+  lastValidRect: SuggestionClientRect | null,
+): SuggestionClientRect | null {
+  const { rect, positioned } = resolveSuggestionPortalRect(clientRect, lastValidRect);
+  if (!positioned || !rect) {
+    hideSuggestionPortalUntilPositioned(popup);
+    return lastValidRect;
+  }
+  applySuggestionPortalPosition(popup, rect);
+  return rect;
+}
+
+/**
+ * Tear down the portal DOM node and ReactRenderer instance.
+ *
+ * @param popup - Active portal wrapper, if any.
+ * @param component - Active ReactRenderer, if any.
+ */
+function destroySuggestionPortal(
+  popup: HTMLDivElement | null,
+  component: ReactRenderer | null,
+): void {
+  component?.destroy();
+  popup?.remove();
+}
+
+/**
  * Build a TipTap `render` factory that mounts a React suggestion list in a body portal.
  *
  * @param options - Portal class, list component, and prop mapper.
@@ -58,13 +108,13 @@ export function createSuggestionPortalRenderer<
   return () => {
     let component: ReactRenderer<SuggestionListHandle, TListProps> | null = null;
     let popup: HTMLDivElement | null = null;
+    let lastValidRect: SuggestionClientRect | null = null;
 
-    const updatePosition = (clientRect?: (() => DOMRect | null) | null) => {
-      if (!popup || !clientRect) return;
-      const rect = clientRect();
-      if (!rect) return;
-      popup.style.left = `${rect.left + window.scrollX}px`;
-      popup.style.top = `${rect.bottom + window.scrollY + 6}px`;
+    const cleanup = () => {
+      destroySuggestionPortal(popup, component);
+      popup = null;
+      component = null;
+      lastValidRect = null;
     };
 
     return {
@@ -74,6 +124,9 @@ export function createSuggestionPortalRenderer<
         command: (item: TItem) => void;
         editor: unknown;
       }) => {
+        cleanup();
+        removeStaleSuggestionPortals(options.portalClassName);
+
         component = new ReactRenderer(options.ListComponent, {
           props: options.mapProps({
             items: props.items,
@@ -85,9 +138,11 @@ export function createSuggestionPortalRenderer<
 
         popup = document.createElement("div");
         popup.className = options.portalClassName;
+        hideSuggestionPortalUntilPositioned(popup);
         popup.appendChild(component.element);
         document.body.appendChild(popup);
-        updatePosition(props.clientRect);
+
+        lastValidRect = updatePortalPosition(popup, props.clientRect, lastValidRect);
       },
       onUpdate: (props: {
         clientRect?: (() => DOMRect | null) | null;
@@ -101,7 +156,9 @@ export function createSuggestionPortalRenderer<
             selectedIndex: 0,
           }),
         );
-        updatePosition(props.clientRect);
+        if (popup) {
+          lastValidRect = updatePortalPosition(popup, props.clientRect, lastValidRect);
+        }
       },
       onKeyDown: (props: { event: KeyboardEvent }) => {
         if (props.event.key === "Escape") {
@@ -110,10 +167,7 @@ export function createSuggestionPortalRenderer<
         return component?.ref?.onKeyDown(props.event) ?? false;
       },
       onExit: () => {
-        popup?.remove();
-        popup = null;
-        component?.destroy();
-        component = null;
+        cleanup();
       },
     };
   };

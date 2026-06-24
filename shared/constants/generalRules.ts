@@ -26,7 +26,10 @@ export type TelegramMessageTemplateKey =
   | "contactShareButtonLabel"
   | "contactPhoneSaved"
   | "contactPhoneRejected"
-  | "broadcastAnnouncementPrefix";
+  | "broadcastAnnouncementPrefix"
+  | "pagePublishedAnnouncement"
+  | "botRegisterPrompt"
+  | "botFinishRegistrationPrompt";
 
 /** Metadata for one Telegram template field in the admin UI. */
 export interface TelegramMessageTemplateDefinition {
@@ -86,6 +89,29 @@ export const TELEGRAM_MESSAGE_TEMPLATE_DEFS: readonly TelegramMessageTemplateDef
     description:
       "Prepended to institution broadcast DMs. Use {title} and {body} placeholders when both are present.",
     defaultText: "📢 {title}\n\n{body}",
+  },
+  {
+    key: "pagePublishedAnnouncement",
+    label: "New page published",
+    description:
+      "Sent when a Puck page goes live for the first time. Use {title}, {body}, and {url} placeholders.",
+    defaultText: "📰 {title}\n\n{body}\n\nOpen: {url}",
+  },
+  {
+    key: "botRegisterPrompt",
+    label: "Unregistered Telegram user",
+    description:
+      "Sent when a Telegram user without a Nexus account runs bot task commands. Opens the Mini App to register.",
+    defaultText:
+      "You don't have a Nexus account linked to this Telegram profile yet. Open Nexus to register and continue.",
+  },
+  {
+    key: "botFinishRegistrationPrompt",
+    label: "Incomplete Nexus profile",
+    description:
+      "Sent when a Nexus account exists but required profile fields are missing. Use {missingFields} for the checklist.",
+    defaultText:
+      "Finish your Nexus profile before using bot commands. Still needed: {missingFields}. Open Nexus to continue.",
   },
 ] as const;
 

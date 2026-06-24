@@ -224,6 +224,32 @@ export function buildDefaultTelegramAutomationPublicConfig() {
     groupWelcomeTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.groupWelcomeTemplate,
     dismantleNoticeTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.dismantleNoticeTemplate,
     linkCommandHelpTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.linkCommandHelpTemplate,
+    reportFlowSteps: [...DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.reportFlowSteps],
+    botCompletedCommandEnabled: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.botCompletedCommandEnabled,
+    tasksHeaderTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksHeaderTemplate,
+    tasksLineTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksLineTemplate,
+    tasksFooterTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksFooterTemplate,
+    tasksEmptyTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksEmptyTemplate,
+    tasksDmHeaderTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmHeaderTemplate,
+    tasksDmLineTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmLineTemplate,
+    tasksDmFooterTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmFooterTemplate,
+    tasksDmEmptyTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmEmptyTemplate,
+    tasksUnlinkedGroupTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksUnlinkedGroupTemplate,
+    taskReportPickTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportPickTemplate,
+    taskReportDescriptionPromptTemplate:
+      DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportDescriptionPromptTemplate,
+    taskReportMediaPromptTemplate:
+      DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportMediaPromptTemplate,
+    taskReportSuccessTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportSuccessTemplate,
+    taskReportCancelledTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportCancelledTemplate,
+    taskReportSessionInterruptedTemplate:
+      DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportSessionInterruptedTemplate,
+    taskCompletedSuccessTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskCompletedSuccessTemplate,
+    taskCompletedForbiddenTemplate:
+      DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskCompletedForbiddenTemplate,
+    seeReportHeaderTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportHeaderTemplate,
+    seeReportBodyTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportBodyTemplate,
+    seeReportEmptyTemplate: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportEmptyTemplate,
     operatorSessionConfigured: isTelegramOperatorSessionConfigured(),
   };
 }

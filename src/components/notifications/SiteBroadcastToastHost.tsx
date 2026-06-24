@@ -8,8 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { SiteToastCard } from "@/components/notifications/SiteToastCard";
 
 /** Active toast payload from GET /api/notifications/broadcasts. */
 interface BroadcastToast {
@@ -19,13 +18,6 @@ interface BroadcastToast {
   variant: "info" | "success" | "warning" | "error";
   createdAt: string;
 }
-
-const VARIANT_CLASS: Record<BroadcastToast["variant"], string> = {
-  info: "site-broadcast-toast--info",
-  success: "site-broadcast-toast--success",
-  warning: "site-broadcast-toast--warning",
-  error: "site-broadcast-toast--error",
-};
 
 /**
  * Fixed toast stack for institution-wide broadcast messages.
@@ -62,11 +54,11 @@ export function SiteBroadcastToastHost() {
   }, [loadToasts, status]);
 
   /**
-   * Dismiss a toast locally and persist dismissal server-side.
+   * Remove a toast locally after its exit animation and persist dismissal server-side.
    *
    * @param id - Broadcast document id.
    */
-  async function dismissToast(id: string) {
+  const finalizeDismiss = useCallback(async (id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
     try {
       await fetch(`/api/notifications/broadcasts/${encodeURIComponent(id)}/dismiss`, {
@@ -75,7 +67,7 @@ export function SiteBroadcastToastHost() {
     } catch {
       // Optimistic UI already removed the toast.
     }
-  }
+  }, []);
 
   if (status !== "authenticated" || toasts.length === 0) {
     return null;
@@ -89,23 +81,15 @@ export function SiteBroadcastToastHost() {
       aria-live="polite"
     >
       {toasts.map((toast) => (
-        <div
+        <SiteToastCard
           key={toast.id}
-          className={cn("site-broadcast-toast glass-panel", VARIANT_CLASS[toast.variant])}
+          variant={toast.variant}
+          dismissLabel="Dismiss announcement"
+          onDismissComplete={() => void finalizeDismiss(toast.id)}
         >
-          <div className="site-broadcast-toast__content">
-            {toast.title && <p className="site-broadcast-toast__title">{toast.title}</p>}
-            <p className="site-broadcast-toast__body">{toast.body}</p>
-          </div>
-          <button
-            type="button"
-            className="site-broadcast-toast__dismiss"
-            onClick={() => void dismissToast(toast.id)}
-            aria-label="Dismiss announcement"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
+          {toast.title ? <p className="site-broadcast-toast__title">{toast.title}</p> : null}
+          <p className="site-broadcast-toast__body">{toast.body}</p>
+        </SiteToastCard>
       ))}
     </div>
   );

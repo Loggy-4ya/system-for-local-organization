@@ -105,6 +105,7 @@ export function TelegramConnectField({
     mountTelegramLoginWidget(telegramRef.current, {
       botUsername,
       onAuthCallbackName: "onNexusTelegramConnect",
+      size: "large",
     });
 
     return () => {
@@ -159,7 +160,10 @@ export function TelegramConnectField({
 
       <div
         ref={telegramRef}
-        className={cn("flex justify-center", disabled && "pointer-events-none opacity-60")}
+        className={cn(
+          "nexus-telegram-login-widget",
+          disabled && "pointer-events-none opacity-60",
+        )}
       />
 
       {value ? (

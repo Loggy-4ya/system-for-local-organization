@@ -177,12 +177,25 @@ export const telegramWidgetPayloadSchema = z.object({
 function refineSignupSelfGovernmentIntent(
   data: {
     applyForSelfGovernment: boolean;
+    signupSociumRole: z.infer<typeof signupSociumRoleSchema>;
     phone: string | null;
     avatar?: string | null;
+    surname?: string | null;
   },
   ctx: z.RefinementCtx,
 ): void {
-  if (!data.applyForSelfGovernment) return;
+  const requiresApplicationFields =
+    data.applyForSelfGovernment || data.signupSociumRole === "Teacher";
+
+  if (!requiresApplicationFields) return;
+
+  if (data.signupSociumRole === "Teacher" && !data.surname?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["surname"],
+      message: "Surname is required for teacher registration.",
+    });
+  }
 
   const phoneResult = requiredPhoneSchema.safeParse(data.phone ?? null);
   if (!phoneResult.success) {

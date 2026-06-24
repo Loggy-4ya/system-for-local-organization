@@ -64,6 +64,11 @@ import {
   normalizeUserNotificationChannels,
   userAcceptsNotificationChannel,
 } from "@shared/lib/userNotificationSettingsLogic";
+import {
+  buildInboxDeliveryKey,
+} from "@shared/lib/notificationInboxLogic";
+import type { NotificationInboxChannel } from "@shared/constants/notificationInbox";
+import { NotificationDomain } from "@shared/domains/NotificationDomain";
 import Task, {
   type ITask,
   type ITaskMediaRef,
@@ -128,6 +133,8 @@ export interface TaskDetailDto extends TaskListRow {
   /** Base score (B) — visible only to the task author. */
   baseScore: number | null;
   assignmentNotifyTargets: TaskAssignmentNotifyTarget[];
+  /** When true, completion reports may include proof media (web + Telegram bot). */
+  reportMediaAllowed: boolean;
   performers: Array<{
     userId: string;
     displayName: string;
@@ -249,6 +256,7 @@ function toTaskDetail(
     completedAtHistory: doc.completedAtHistory ?? [],
     baseScore: doc.baseScore ?? null,
     assignmentNotifyTargets: (doc.assignmentNotifyTargets ?? []) as TaskAssignmentNotifyTarget[],
+    reportMediaAllowed: Boolean(doc.reportMediaAllowed),
     performers: (doc.performers ?? []).map((performer) => ({
       userId: String(performer.userId),
       displayName: performer.displayName,
@@ -427,9 +435,6 @@ async function dispatchTaskAssignmentNotifications(task: ITask): Promise<void> {
   const targets = (task.assignmentNotifyTargets ?? []) as TaskAssignmentNotifyTarget[];
   if (targets.length === 0 || task.status !== "dispatched") return;
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  if (!botToken) return;
-
   const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
   const taskPath = `/tasks/${String(task._id)}`;
   const taskUrl = baseUrl ? `${baseUrl}${taskPath}` : taskPath;
@@ -439,6 +444,25 @@ async function dispatchTaskAssignmentNotifications(task: ITask): Promise<void> {
   const users = await User.find({ _id: { $in: performerIds } })
     .select("telegramId displayName name")
     .lean();
+
+  for (const user of users) {
+    await NotificationDomain.recordNotification({
+      userId: String(user._id),
+      kind: "task_assignment",
+      deliveryKey: buildInboxDeliveryKey("task_assignment", String(task._id), String(user._id)),
+      title: "New task assigned",
+      body: task.title,
+      variant: "info",
+      actionHref: taskPath,
+      sourceId: String(task._id),
+      channels: targets.includes("telegram_dm")
+        ? (["web", "telegram"] as NotificationInboxChannel[])
+        : (["web"] as NotificationInboxChannel[]),
+    }).catch(() => undefined);
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  if (!botToken) return;
 
   if (targets.includes("telegram_dm")) {
     for (const user of users) {
@@ -516,6 +540,24 @@ async function dispatchTaskReminderDeliveries(task: ITask, firedAt: Date): Promi
         telegramDeliveredAt: null,
         telegramError: null,
       });
+    }
+
+    const inboxChannels: NotificationInboxChannel[] = [
+      ...(deliverWeb ? (["web"] as const) : []),
+      ...(deliverTelegram ? (["telegram"] as const) : []),
+    ];
+    if (inboxChannels.length > 0) {
+      await NotificationDomain.recordNotification({
+        userId,
+        kind: "task_reminder",
+        deliveryKey: buildInboxDeliveryKey("task_reminder", deliveryKey),
+        title: copy.title,
+        body: copy.body,
+        variant: copy.variant,
+        actionHref: taskPath,
+        sourceId: String(notification._id),
+        channels: [...inboxChannels],
+      }).catch(() => undefined);
     }
 
     if (!deliverTelegram) continue;
@@ -690,6 +732,7 @@ export class TaskDomain {
       categoryId: categoryFields.categoryId,
       categoryLabel: categoryFields.categoryLabel,
       assignmentNotifyTargets: input.assignmentNotifyTargets ?? ["telegram_dm"],
+      reportMediaAllowed: input.reportMediaAllowed ?? false,
       dueAt: input.dueAt ?? null,
       completedAtHistory: [],
       authorUserId: author._id,
@@ -760,6 +803,9 @@ export class TaskDomain {
     }
     if (input.assignmentNotifyTargets != null) {
       doc.assignmentNotifyTargets = input.assignmentNotifyTargets;
+    }
+    if (input.reportMediaAllowed != null) {
+      doc.reportMediaAllowed = input.reportMediaAllowed;
     }
 
     if (input.performers != null) {
@@ -1307,5 +1353,10 @@ export class TaskDomain {
     if (!updated) {
       throw new Error("NOTIFICATION_NOT_FOUND");
     }
+
+    await NotificationDomain.markReadByDeliveryKey(
+      userId,
+      buildInboxDeliveryKey("task_reminder", updated.deliveryKey),
+    ).catch(() => undefined);
   }
 }

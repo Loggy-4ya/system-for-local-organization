@@ -30,20 +30,14 @@ For structural composition and nested drag-and-drop grids:
 For standard typography, actions, and form inputs:
 - **`NexusHeading`** — Styled headings (H1, H2, H3) with alignment controls.
 - **`NexusText`** — Paragraph body copy with Tiptap rich text (bold, headings, lists, blockquote) plus alignment and color presets.
-- **`NexusButton`** — Action button mapping to Figma variants (Primary, Secondary, Ghost) with optional link URL and whitelisted Lucide icon insertion via {@link LucideIconPickerField} (Icon sidebar chapter).
 - **`NexusTabs`** — Interactive tab group; each tab has a drag-and-drop slot for arbitrary block content.
 - **`NexusCarousel`** — Image carousel with slides, captions, optional links, arrows, dots, autoplay, and a runtime pause/play toggle when autoplay is enabled.
-- **`NexusInput`** — Form input mapping to Figma `Input/Default` for page-level forms.
+- **`NexusInput`** — Form field: **question** + open-text or **choice** answer (survey or quiz with correct options). Live submission on published pages; optional **Statistics** and **Distribution** sidebar chapters. See [form_fields_and_surveys.md](./features/form_fields_and_surveys.md).
+- **`NexusComments`** — Comments block (`MessageSquareText` drawer icon). **Content:** launcher label, view mode. **Behavior:** **Enable comments** switch (defaults on; toggles live discussion only — Form Input blocks unaffected). **Layout:** full / medium / narrow band with left / center / right alignment. Supports post, reply, like/dislike, author badge, and creator heart. Page-level `commentsEnabled` in MongoDB is derived from this block on save.
 
 ### C. News & Cards Category
 For rich content display:
 - **`NexusNewsCard`** — Replaces the legacy `NexusCard` and `NexusNewsTile`. Supports custom image upload, title, description, category, read time, and optional link.
-
-### D. User & Data Category
-For profile representation and statistics:
-- **`NexusUserBadge`** — Maps to the Figma profile hero layout. Integrates name, subtitle, avatar, group badge, and role badge into a single cohesive component.
-- **`NexusStatCard`** — KPI card showing numeric values and labels (e.g. Stars, Warnings).
-- **`NexusAvatar`** — Standalone small avatar (SM, MD, LG) with fallback initials.
 
 ---
 
@@ -156,7 +150,7 @@ The global `GlobalHeader` (and its theme toggle) is hidden on `/edit` routes. Th
 | `src/components/puck/EditorModeToggle.tsx` | Edit vs Interactive preview toggle in Puck `headerActions` |
 | `src/components/puck/NexusEditorCanvasContext.tsx` | Marks Puck editor canvas so `PageRoot` keeps grid + header in interactive preview |
 | `src/components/puck/PuckIframeTheme.tsx` | Puck `iframe` override — sets `data-theme` and injects Nexus CSS variables into the preview iframe |
-| `src/components/puck/PuckAutoFrameStylesheetRejectionGuard.tsx` | Swallows benign DOM `Event` rejections when Puck `AutoFrame` fails to clone a host `<link rel="stylesheet">` (console may still log `AutoFrame couldn't load a stylesheet`; tokens come from `PuckIframeTheme`). Installed synchronously via `src/lib/puckAutoFrameStylesheetRejectionInstall.ts` before Puck loads — not in `useEffect`. |
+| `src/components/puck/PuckAutoFrameStylesheetRejectionGuard.tsx` | Swallows benign DOM `Event` rejections when Puck `AutoFrame` fails to clone a host `<link rel="stylesheet">` (console may still log `AutoFrame couldn't load a stylesheet`; tokens come from `PuckIframeTheme`). Root `beforeInteractive` script in `layout.tsx` registers the guard before hydration; Puck bundles also import `src/lib/puckAutoFrameStylesheetRejectionInstall.ts`; `puckEditorOverrides` injects the iframe copy synchronously when the preview `document` is available (before `CopyHostStyles` runs). |
 | `src/app/puck-editor.css` | Remaps Puck's internal `--puck-color-*` palette when `[data-theme="dark"]` so sidebars/fields stay readable |
 
 **Data flow:** `ThemeProvider` (`layout.tsx`) → `useTheme()` → `ThemeToggle` updates `<html data-theme>` → `PuckIframeTheme` mirrors the attribute inside the preview iframe so block text (`var(--color-text-primary)`) contrasts correctly on light or dark backgrounds.
@@ -243,8 +237,7 @@ src/components/puck/
 └── blocks/
     ├── layout/             # Section, Grid, Spacer & Divider (NexusSpacer)
     ├── content/            # Heading, Text, Button, Tabs, Input
-    ├── news/               # NewsCard
-    └── user/               # UserBadge, StatCard, Avatar
+    ├── news/               # NewsCard, NewsCatalog
 ```
 
 ---
@@ -257,7 +250,8 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 - **Hydration:** The database `Page.title` is loaded on the server and merged into `root.props.pageSettings.title` during initialization (`buildEditorData` in `PuckClient`).
 - **Header label:** `PageHeaderLabel` portals into the Puck header title slot and reads `editorPageMetadataStore` via `useSyncExternalStore` — updates live while typing in the sidebar without Puck document mutations.
 - **Deferred commit:** `PageSettingsFieldGroup` commits title and slug to Puck on blur only (`useDeferredFieldCommit`, `textDebounceMs: 0`).
-- **Persistence:** When the user clicks **Publish**, metadata is extracted via `resolvePageMetadata()` in `PuckEditorShell` and saved to MongoDB.
+- **Persistence:** **Save draft** writes layout + metadata without publishing. **Publish** sets `published: true` (or schedules via `publishAt`). Metadata is extracted via `resolvePageMetadata()` in `PuckEditorShell`.
+- **Background autosave:** `usePuckBackgroundDraftSave` in `PuckEditorShell` POSTs draft saves every **12s** when the document is dirty and the editor has been idle for **2.5s** (`PUCK_DRAFT_AUTOSAVE_*` in `shared/constants/editorSettings.ts`). Autosave is silent (no `router.refresh()`, no toast). Manual **Save draft** / **Publish** show a success toast via `siteClientToast.ts` and still refresh server props / surface validation errors on failure.
 
 ### A2. Page categories (Obsidian-style tags)
 - **Sidebar:** `PageCategoryTagsField` inside `PageSettingsFieldGroup` — searchable multi-select with creatable labels.
@@ -268,7 +262,7 @@ To provide a seamless visual editing experience, page metadata (URL path and Tit
 ### B. Page URL Path Renaming
 - **Sidebar editor:** `PageSettingsFieldGroup` in the Puck right sidebar — title + slug with live preview. Publish reads metadata via `resolvePageMetadata()` in `PuckEditorShell`.
 - **Legacy:** `PagePathHeaderChip` / `PageTitleEditor` are not mounted in the current shell.
-- **Safety Guards:** The homepage at `/` is **not** Puck-managed (see `src/app/page.tsx` in code). Visiting `/edit` redirects to Page Manager. Puck pages use `/<slug>/edit`. Slugs `edit`, `pages`, and `api` are reserved. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
+- **Safety Guards:** The homepage at `/` is **not** Puck-managed (see `src/app/page.tsx` in code). Visiting `/edit` redirects to Page Manager. Puck pages use `/<slug>/edit`. Guests and signed-in users **without edit access** who open `/<slug>/edit` are redirected to the public viewer at `/<slug>` (`resolveUnauthorizedEditorRedirectPath` in `pageEditAccess.ts`); unpublished pages may still 404 on the viewer when the user lacks draft preview rights. Slugs `edit`, `pages`, and `api` are reserved. Slugs are normalized to lowercase alphanumeric characters, hyphens, and slashes.
 - **Page edit FAB:** Published Puck CMS routes (any MongoDB page except the code-only homepage) show a fixed bottom-right **Edit** button for `Admin` and `StudentCouncil` sessions (`PageEditFab`, `pageEditAccess.ts`). Links to `/<path>/edit`; hidden in editor mode.
 - **Rename Flow:** Renaming a page on Publish performs a safe rename in MongoDB. If the target path is already taken, the API returns a `409 Conflict` error, which is displayed directly in the editor header. On successful rename, the editor redirects to the new URL (`/new-path/edit`).
 
@@ -298,7 +292,7 @@ Full specification: [puck_editor_enhancements.md](./puck_editor_enhancements.md)
 | Media upload (image/video) | `MediaUploadField.tsx` + `lib/mediaUpload.ts`; `/api/upload` accepts video up to 50MB |
 | Accent background presets | `AccentPresetField.tsx` — 6 hue families for solid page backgrounds |
 | Header chrome preview | Removed from canvas — editor toolbar lives in `NexusPuckHeaderShell` (`overrides.header`). Published pages use `GlobalHeader` from `layout.tsx`. |
-| Editor header toolbar | `NexusPuckHeaderShell.tsx` + `.nexus-editor-header-btn` — All Pages, Interactive, theme, Publish/undo/redo inside one glass panel; shares `--site-header-action-size`, chip padding/gap, and icon tiers with `GlobalHeader` |
+| Editor header toolbar | `NexusPuckHeaderShell.tsx` + `.nexus-editor-header-btn` — All Pages, Interactive, **Save draft**, theme, Publish/undo/redo inside one glass panel; shares `--site-header-action-size`, chip padding/gap, and icon tiers with `GlobalHeader` |
 | Live header metadata | `PageHeaderLabel.tsx` + `editorPageMetadataStore.ts` — title + slug in Puck header center |
 | Animated theme toggle | `ThemeToggle.tsx` pill switch + `globals.css` `.nexus-theme-toggle` |
 | Block spacing & islands | `SpacingFieldGroup` + `IslandFieldGroup` custom fields in `spacingFields.tsx` |
@@ -365,5 +359,4 @@ src/components/puck/
     ├── layout/
     ├── content/
     ├── news/
-    └── user/
 ```

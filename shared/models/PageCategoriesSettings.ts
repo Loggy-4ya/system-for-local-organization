@@ -29,8 +29,18 @@ const PageCategoryHubSectionSchema = new Schema<PageCategoryHubSection>(
     /** @deprecated Legacy Obsidian tag key — read for migration only. */
     categoryLabel: { type: String, trim: true },
     pagePaths: { type: [String], default: () => [] },
-    cardLayout: { type: String, default: "uniform-grid", trim: true },
-    imagesPerCard: { type: Number, default: 1, min: 1, max: 4 },
+    sectionLabel: { type: String, trim: true, default: "" },
+    catalogVisibility: {
+      type: String,
+      enum: ["public", "hidden", "level"],
+      default: "public",
+    },
+    catalogVisibleThroughLevel: {
+      type: Number,
+      min: 0,
+      max: 6,
+      default: 6,
+    },
   },
   { _id: false },
 );

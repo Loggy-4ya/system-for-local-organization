@@ -4,7 +4,7 @@
  * @module src/components/admin/AdminHubShell
  */
 
-import { Columns, GraduationCap, Layout, Megaphone, Server, Shield, ShieldAlert, Users, BookOpen, CalendarDays, UserCheck } from "lucide-react";
+import { Columns, GraduationCap, Layout, Megaphone, MessageCircle, Server, Shield, ShieldAlert, Users, BookOpen, CalendarDays, UserCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { NexusSurfaceCard } from "@/components/ui/NexusSurfaceCard";
@@ -17,6 +17,7 @@ const ADMIN_HUB_ICON_MAP: Record<AdminHubIconKey, LucideIcon> = {
   shield: Shield,
   "shield-alert": ShieldAlert,
   megaphone: Megaphone,
+  "message-circle": MessageCircle,
   "graduation-cap": GraduationCap,
   users: Users,
   "book-open": BookOpen,

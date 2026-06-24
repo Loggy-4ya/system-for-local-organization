@@ -25,11 +25,14 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | `/login` | Page | Login/password sign-in + OAuth row |
 | `/signup` | Page | Student registration — login, optional linked email, profile photo, socium role (Figma `57:17`) |
 | `/profile` | Page | Read-only profile dashboard (Figma `59:47`) |
+| `/profile/notifications` | Page | Personal notification inbox — see [notification_center.md](./notification_center.md) |
 | `/profile/settings` | Page | Editable user info; `?onboarding=1` for OAuth/Telegram profile completion gate; `#notifications` for delivery channel prefs |
 | `/telegram` | Page | Telegram Mini App entry (auto-login / onboarding) |
 | `/api/auth/[...nextauth]` | API | Auth.js handler |
 | `/api/auth/register` | API | POST credentials signup (JSON API) |
 | `/api/auth/signup-options` | API | GET approved specialty/group labels for signup dropdowns |
+
+**Auth form UX:** Password fields on `/login` and `/signup` use {@link module:src/components/ui/PasswordInput} (show/hide toggle). The Telegram Login Widget on those pages uses `size: large` inside `.nexus-telegram-login-widget` (full width, 48px height) via {@link OAuthButtonRow}.
 | `/api/auth/login` | API | POST form login fallback (redirect) — primary UI uses client `signIn` |
 | `/api/auth/signup` | API | POST form register fallback — primary UI uses `/api/auth/register` + client `signIn` |
 | `/api/auth/telegram` | API | POST Telegram widget verification |
@@ -41,12 +44,16 @@ Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Logi
 | `/api/profile/completeness` | API | GET membership profile readiness gaps |
 | `/api/profile/telegram` | API | POST link Telegram (session); DELETE unlink |
 | `/api/notifications/web-prompt` | API | GET/POST browser notification permission prompt state |
+| `/api/notifications/inbox` | API | GET paginated personal notification inbox |
+| `/api/notifications/inbox/unread-count` | API | GET unread badge count |
+| `/api/notifications/inbox/read-all` | API | POST mark all inbox rows read |
+| `/api/notifications/inbox/[notificationId]/read` | API | POST mark one inbox row read |
 
 ---
 
 ## Notification preferences
 
-After sign-in or registration, signed-in users see a one-time dialog asking for **browser notification permission**. Copy explains that delivery can be configured in **Profile settings → Notifications** as **Web**, **Telegram**, or **both**.
+After sign-in or registration, signed-in users see a **one-time** dialog asking for **browser notification permission** (only while `webNotificationPromptAt` is unset). The dialog is **not** shown again on later logins after the user enables or dismisses it. If the browser already granted notification permission (site setting), the dialog is skipped and the server records the outcome automatically. Copy explains that delivery can be configured in **Profile settings → Notifications** as **Web**, **Telegram**, or **both**. Durable message history lives in the **notification center** (`/profile/notifications`) — see [notification_center.md](./notification_center.md).
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -129,7 +136,7 @@ ADMIN_SEED_PASSWORD=
 
 **Phone / LAN testing:** If you open the app as `http://192.168.x.x:8080` on your phone, `NEXTAUTH_URL` must use that same LAN IP — **not** `http://localhost:8080`. On a phone, `localhost` is the phone itself, so auth redirects and session cookies target the wrong host and sign-in appears to fail.
 
-**Default admin (dev):** Set `ADMIN_SEED_LOGIN` + `ADMIN_SEED_PASSWORD` in `.env.local`. Sign in on `/login` with the **login handle** (e.g. `admin`), not email. The seed user is **minimal** — login, password, `Admin` role, and system hierarchy index only. No Telegram, no seeded email, and **no** specialty, group, student title, or socium profile fields (configure those in `/profile/settings` or admin tools). Email is populated when Google OAuth is linked from **Connected accounts**. On first load, `seedAdminUser()` creates the admin, **clears Telegram** on an existing seed login match, or **backfills `login`** on a legacy email-only seed document.
+**Default admin (dev):** Set `ADMIN_SEED_LOGIN` + `ADMIN_SEED_PASSWORD` in `.env.local`. Sign in on `/login` with the **login handle** (e.g. `admin`), not email. The seed user is **minimal** — login, password, `Admin` role, and system hierarchy index only. No Telegram, no seeded email, and **no** specialty, group, student title, or socium profile fields (configure those in `/profile/settings` or admin tools). Email is populated when Google OAuth is linked from **Connected accounts**. On first load, `seedAdminUser()` creates the admin, **clears Telegram** on an existing seed login match, **syncs login and password** from env when `ADMIN_SEED_LOGIN` / `ADMIN_SEED_PASSWORD` (or legacy `ADMIN_*` aliases) change — **restart the app after updating env** — or **backfills `login`** on a legacy email-only seed document. When the login env changes and there is exactly one tier-0 (`accessLevelIndex: 0`) admin with a different login, that document is renamed instead of creating a duplicate. The seed admin does not see the self-government membership readiness banner on `/profile`.
 
 ---
 

@@ -79,6 +79,7 @@ export const NexusSlashCommandExtension = Extension.create<NexusSlashCommandExte
         editor: this.editor,
         char: this.options.suggestionChar,
         pluginKey: nexusSlashCommandPluginKey,
+        shouldShow: () => this.editor.isFocused,
         command: ({ editor, range, props }) => {
           applySlashCommand(editor, range, props.id);
         },

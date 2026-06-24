@@ -11,7 +11,7 @@ Reduce stored and reflected XSS risk across Puck pages, rich text, and media upl
 | Layer | Path | When it runs |
 |-------|------|--------------|
 | Rich text allowlist | `shared/lib/nexusRichTextSanitize.ts` | TipTap output, read view, Puck `text`/`content` props |
-| Safe hyperlinks | `shared/lib/safeHref.ts` | Rich text `<a href>`, `NexusButton`, `NexusNewsCard` |
+| Safe hyperlinks | `shared/lib/safeHref.ts` | Rich text `<a href>`, `NexusNewsCard` |
 | Safe media URLs | `shared/lib/safeMediaUrl.ts` | `<img src>`, `<video src>`, Puck `image` props |
 | Puck persistence | `shared/lib/puckContentSanitize.ts` → `POST /api/puck` | Before MongoDB upsert |
 | Sanitization audit | `shared/lib/securitySanitizeAuditLog.ts` | When save sanitization mutates fields |

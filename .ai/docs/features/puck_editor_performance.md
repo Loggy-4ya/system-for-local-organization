@@ -199,6 +199,23 @@ Sidebar title/slug inputs must update the Puck header label live without calling
 
 ---
 
+## 6b. Background draft autosave
+
+**Files:** [`usePuckBackgroundDraftSave.ts`](../../src/components/puck/lib/usePuckBackgroundDraftSave.ts), [`puckDraftAutosaveLogic.ts`](../../shared/lib/puckDraftAutosaveLogic.ts), [`PuckEditorShell.tsx`](../../src/app/[...puckPath]/PuckEditorShell.tsx)
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `PUCK_DRAFT_AUTOSAVE_QUIET_MS` | 2500 | Idle time after last Puck `onChange` before autosave may POST |
+| `PUCK_DRAFT_AUTOSAVE_INTERVAL_MS` | 12000 | Timer cadence for autosave evaluation |
+| `PUCK_RESERVED_PATHS_CACHE_MS` | 60000 | TTL for `GET /api/pages/paths` during background saves only |
+
+- **Dirty tracking:** `onChange` sets a ref flag only — no parent React state lift (same ref-only pattern as §5).
+- **Fingerprint:** `JSON.stringify` of the live document compared to the last successful save; skips redundant POSTs.
+- **Silent saves:** Background POST uses `persistPage({ silent: true })` — no header error on invalid slug, no `router.refresh()` (manual **Save draft** still refreshes).
+- **Slug rename:** Successful background save with a new slug calls `router.replace('/new-path/edit')` only when the path changes.
+
+---
+
 ## 7. Tight `resolveData` (block authors)
 
 **Reference:** [`NexusCarousel.tsx`](../../src/components/puck/blocks/content/NexusCarousel.tsx)

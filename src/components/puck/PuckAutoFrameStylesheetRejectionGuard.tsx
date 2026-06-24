@@ -12,7 +12,14 @@
  * @module src/components/puck/PuckAutoFrameStylesheetRejectionGuard
  */
 
+import {
+  installDomEventRejectionGuard,
+  NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT,
+} from "@/lib/domEventRejectionGuardScript";
+import { isDomEventRejectionReason } from "@shared/lib/domEventRejectionLogic";
+
 let guardInstalled = false;
+const iframeGuardsInstalled = new WeakSet<Window>();
 
 /**
  * Whether a promise rejection reason is a DOM event object rather than an Error.
@@ -21,45 +28,67 @@ let guardInstalled = false;
  * @returns True when the rejection is a non-Error DOM event.
  */
 export function isDomEventRejection(reason: unknown): reason is Event {
-  if (reason instanceof Event) {
-    return true;
-  }
-
-  if (typeof reason === "object" && reason !== null) {
-    if (Object.prototype.toString.call(reason) === "[object Event]") {
-      return true;
-    }
-
-    if ("type" in reason) {
-      const eventType = (reason as Event).type;
-      return eventType === "error" || eventType === "abort";
-    }
-  }
-
-  return false;
+  return isDomEventRejectionReason(reason);
 }
 
 /**
  * Register a capture-phase listener that swallows AutoFrame stylesheet `Event` rejections.
  *
- * Idempotent — safe to call from both the install module and legacy mount sites.
+ * @param targetWindow - Window to guard (defaults to the current global).
  */
-export function installPuckAutoFrameStylesheetRejectionGuard(): void {
-  if (guardInstalled || typeof window === "undefined") {
+export function installPuckAutoFrameStylesheetRejectionGuard(
+  targetWindow: Window | null = typeof window === "undefined" ? null : window,
+): void {
+  if (!targetWindow) {
     return;
   }
 
-  guardInstalled = true;
-
-  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-    if (!isDomEventRejection(event.reason)) {
+  if (targetWindow === window) {
+    if (guardInstalled) {
       return;
     }
+    guardInstalled = true;
+    installDomEventRejectionGuard(targetWindow);
+    return;
+  }
 
-    event.preventDefault();
-  };
+  if (iframeGuardsInstalled.has(targetWindow)) {
+    return;
+  }
 
-  window.addEventListener("unhandledrejection", onUnhandledRejection, true);
+  iframeGuardsInstalled.add(targetWindow);
+  installDomEventRejectionGuard(targetWindow);
+}
+
+/** DOM id for the inline iframe guard script. */
+const IFRAME_REJECTION_GUARD_SCRIPT_ID = "nexus-puck-iframe-rejection-guard";
+
+/**
+ * Inline `unhandledrejection` guard — mirrors {@link isDomEventRejectionReason} for early injection
+ * (root `beforeInteractive` script and preview iframe documents before AutoFrame clones CSS).
+ *
+ * @see {@link NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT} in `@/lib/domEventRejectionGuardScript`
+ */
+export { NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT } from "@/lib/domEventRejectionGuardScript";
+
+/**
+ * Inject the iframe rejection guard before Puck AutoFrame clones stylesheets.
+ *
+ * @param doc - Preview iframe document.
+ */
+export function injectPuckAutoFrameStylesheetRejectionGuardScript(doc: Document): void {
+  if (!doc.head || doc.getElementById(IFRAME_REJECTION_GUARD_SCRIPT_ID)) {
+    return;
+  }
+
+  const script = doc.createElement("script");
+  script.id = IFRAME_REJECTION_GUARD_SCRIPT_ID;
+  script.textContent = NEXUS_DOM_EVENT_REJECTION_GUARD_INLINE_SCRIPT;
+  doc.head.prepend(script);
+
+  if (doc.defaultView) {
+    installPuckAutoFrameStylesheetRejectionGuard(doc.defaultView);
+  }
 }
 
 /**

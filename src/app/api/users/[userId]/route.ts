@@ -1,7 +1,7 @@
 /**
  * @fileoverview REST API for redacted public user profiles.
  *
- * GET /api/users/[userId] — member-to-member profile snapshot.
+ * GET /api/users/[userId] — member-to-member profile snapshot (id or login).
  *
  * @module src/app/api/users/[userId]/route
  */
@@ -11,7 +11,7 @@ import { AuthDomain } from "@shared/domains/AuthDomain";
 import { authGuardErrorStatus, requireAuthenticatedActor } from "@/lib/authGuards";
 
 /**
- * GET /api/users/[userId] — redacted profile for authenticated members.
+ * GET /api/users/[userId] — redacted profile for authenticated members (id or login).
  */
 export async function GET(
   _req: NextRequest,

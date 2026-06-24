@@ -58,7 +58,7 @@ flowchart LR
 
 | Purpose | Masks shown | Default aspect lock |
 |---------|-------------|---------------------|
-| `avatar` | Profile, Directory, Badge (all circles) | 1:1 |
+| `avatar` | Profile, Directory (all circles) | 1:1 |
 | `page-cover` | Cover 16:9, Cover 21:9, Block 16:9 | 16:9 |
 | `puck-block` | Block 16:9, 1:1, 9:16 | 16:9 |
 | `task-report` | Block 16:9, 1:1 | 16:9 |
@@ -105,6 +105,7 @@ await uploadMediaFile(file, { purpose: "puck-block", skipCrop: true });
 - [x] Contextual preview masks per upload purpose
 - [x] Cropped raster uploaded through existing `MediaDomain` pipeline
 - [x] Profile settings and Puck `MediaUploadField` use `uploadMediaFileWithCrop`
+- [x] Puck sidebar preview: click uploaded raster image to re-open crop and replace upload
 - [x] Dialog offers **Use original** (skip crop) or **Use cropped** after editing
 - [x] Unit tests for pure crop geometry (`npm run test:image-crop`)
 

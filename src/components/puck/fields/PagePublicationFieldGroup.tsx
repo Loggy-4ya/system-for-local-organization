@@ -4,13 +4,14 @@
  * @fileoverview Publication metadata fields for Puck PageRoot sidebar.
  *
  * Covers news-page essentials: description, cover image, scheduled publish,
- * comments toggle, publisher roster, and read-only engagement fields.
+ * publisher roster, and read-only engagement fields. Comment availability is
+ * controlled on the **Comments** Puck block, not here.
  *
  * @module src/components/puck/fields/PagePublicationFieldGroup
  */
 
-import { useRef } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Trash2 } from "lucide-react";
 import {
   MAX_PAGE_ACCESS_EDITORS,
   type PageAccessEditorEntry,
@@ -22,11 +23,19 @@ import { PageAccessEditorsField } from "./PageAccessEditorsField";
 import { PagePublisherInviteShare } from "./PagePublisherInviteShare";
 import { PageMetaBadge } from "./PageMetaBadge";
 import { PageMetaReadonlyRow } from "./PageMetaReadonlyRow";
-import { PuckSwitchField } from "./PuckSwitchField";
+import { PuckSelectField } from "./PuckSelectField";
+import { SegmentedControl } from "./SegmentedControl";
 import { usePageEditorMeta } from "../lib/pageEditorMetaContext";
 import { NexusDateTimePicker } from "@/components/ui/NexusDateTimePicker";
 import { Button } from "@/components/ui/button";
-import { MAX_PAGE_GALLERY_IMAGES } from "@shared/constants/pageCategoriesHub";
+import {
+  MAX_PAGE_GALLERY_IMAGES,
+  NEWS_CATALOG_IMAGES_PER_CARD_OPTIONS,
+  type NewsCatalogImagesPerCard,
+  type NewsCatalogPageCardVariant,
+} from "@shared/constants/pageCategoriesHub";
+import { collectPublicationImageUrls } from "@shared/lib/pageCategoriesHubLogic";
+import { PagePublicationTelegramFields } from "./PagePublicationTelegramFields";
 
 /** Editable publication props stored under root `pagePublication`. */
 export interface PagePublicationValue {
@@ -38,10 +47,22 @@ export interface PagePublicationValue {
   galleryImages?: string[];
   /** ISO publish schedule — null means immediate on publish. */
   publishAt?: string | null;
-  /** Whether comments are enabled on the public page. */
+  /**
+   * @deprecated Derived on save from {@link NEXUS_COMMENTS_BLOCK_TYPE} block props — not edited in Page Publication.
+   */
   commentsEnabled?: boolean;
   /** Optional extra editors granted on this page. */
   delegatedEditors?: PageAccessEditorEntry[];
+  /** Images shown on news catalog preview cards (capped by available publication images). */
+  catalogImagesPerCard?: NewsCatalogImagesPerCard;
+  /** Catalog preview card size — `featured` may use the section hero slot when eligible. */
+  catalogCardVariant?: NewsCatalogPageCardVariant;
+  /** Notify members via inbox and/or Telegram on first go-live. */
+  notifyOnPublish?: boolean;
+  /** Web inbox fan-out when {@link notifyOnPublish} is enabled. */
+  notifyWebOnPublish?: boolean;
+  /** Telegram DM fan-out when {@link notifyOnPublish} is enabled. */
+  notifyTelegramOnPublish?: boolean;
   /**
    * @deprecated Legacy storage — read {@link resolvePageSettingsCategories} instead.
    */
@@ -53,6 +74,9 @@ interface PagePublicationFieldGroupProps {
   value: PagePublicationValue;
   onChange: (value: PagePublicationValue) => void;
 }
+
+/** Uppercase labels for publication gallery slots (`image2`–`image4`). */
+const PUBLICATION_GALLERY_SLOT_LABELS = ["Visual II", "Visual III", "Visual IV"] as const;
 
 /**
  * Format an ISO timestamp for read-only badge display.
@@ -86,15 +110,43 @@ export function PagePublicationFieldGroup({
     coverImage: value?.coverImage ?? meta.coverImage ?? "",
     galleryImages: value?.galleryImages ?? meta.galleryImages ?? [],
     publishAt: value?.publishAt ?? meta.publishAt ?? null,
-    commentsEnabled: value?.commentsEnabled ?? meta.commentsEnabled ?? true,
     delegatedEditors: value?.delegatedEditors ?? meta.delegatedEditors ?? [],
+    catalogImagesPerCard:
+      value?.catalogImagesPerCard ?? meta.catalogImagesPerCard ?? 1,
+    catalogCardVariant: value?.catalogCardVariant ?? meta.catalogCardVariant ?? "tile",
+    notifyOnPublish: value?.notifyOnPublish ?? meta.notifyOnPublish ?? true,
+    notifyWebOnPublish: value?.notifyWebOnPublish ?? meta.notifyWebOnPublish ?? true,
+    notifyTelegramOnPublish:
+      value?.notifyTelegramOnPublish ?? meta.notifyTelegramOnPublish ?? true,
   };
   const publicationRef = useRef(publication);
   publicationRef.current = publication;
 
+  const availablePublicationImages = collectPublicationImageUrls(
+    publication.coverImage,
+    publication.galleryImages,
+  );
+  const maxCatalogImages = Math.max(
+    1,
+    Math.min(availablePublicationImages.length, NEWS_CATALOG_IMAGES_PER_CARD_OPTIONS.at(-1) ?? 4),
+  );
+  const catalogImageOptions = NEWS_CATALOG_IMAGES_PER_CARD_OPTIONS.filter(
+    (count) => count <= maxCatalogImages,
+  );
+
+  useEffect(() => {
+    const current = publication.catalogImagesPerCard ?? 1;
+    if (current <= maxCatalogImages) return;
+    set({
+      catalogImagesPerCard: maxCatalogImages as NewsCatalogImagesPerCard,
+    });
+  }, [maxCatalogImages, publication.catalogImagesPerCard]);
+
   const set = (patch: Partial<PagePublicationValue>) => {
     onChangeRef.current({ ...publicationRef.current, ...patch });
   };
+
+  const galleryImages = (publication.galleryImages ?? []).filter((url) => url?.trim());
 
   return (
     <FieldChapter title="Publication" icon={<SettingsIcon />}>
@@ -123,70 +175,112 @@ export function PagePublicationFieldGroup({
           onChange={(coverImage) => set({ coverImage })}
           hideFieldLabel
           showReadablePreview
+          showDropZone={false}
+          emptyPickerLabel="Select cover image"
         />
       </div>
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="Gallery Images"
+          label="Publication gallery"
           hint={
-            "Optional extra images for news catalog cards and ${{ image2 }}–${{ image4 }} page variables " +
-            `(max ${MAX_PAGE_GALLERY_IMAGES}).`
+            "Optional supplemental visuals for catalog cards and ${{ image2 }}–${{ image4 }} page variables " +
+            `(up to ${MAX_PAGE_GALLERY_IMAGES}).`
           }
         />
-        <div className="flex flex-col gap-3">
-          {(publication.galleryImages ?? []).map((galleryUrl, index) => (
-            <div key={`gallery-${index}`} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Gallery image {index + 2}
-                </span>
+        <div className="nexus-publication-gallery">
+          {galleryImages.map((galleryUrl, index) => (
+            <div key={`gallery-${galleryUrl}-${index}`} className="nexus-publication-gallery__item">
+              <div className="nexus-publication-gallery__item-head">
+                <FieldLabelRow
+                  label={PUBLICATION_GALLERY_SLOT_LABELS[index] ?? `Visual ${index + 2}`}
+                />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2"
+                  className="nexus-publication-gallery__remove"
                   onClick={() => {
-                    const next = [...(publication.galleryImages ?? [])];
+                    const next = [...galleryImages];
                     next.splice(index, 1);
                     set({ galleryImages: next });
                   }}
-                  aria-label={`Remove gallery image ${index + 2}`}
+                  aria-label={`Remove ${PUBLICATION_GALLERY_SLOT_LABELS[index] ?? `gallery image ${index + 2}`}`}
                 >
                   <Trash2 size={12} aria-hidden="true" />
                 </Button>
               </div>
               <MediaUploadField
                 field={{
-                  label: `Gallery image ${index + 2}`,
+                  label: PUBLICATION_GALLERY_SLOT_LABELS[index] ?? `Visual ${index + 2}`,
                   accept: "image",
                   purpose: "page-cover",
                 }}
                 value={galleryUrl}
                 onChange={(nextUrl) => {
-                  const next = [...(publication.galleryImages ?? [])];
+                  const next = [...galleryImages];
                   next[index] = nextUrl;
                   set({ galleryImages: next });
                 }}
                 hideFieldLabel
                 showReadablePreview
+                showDropZone={false}
               />
             </div>
           ))}
-          {(publication.galleryImages?.length ?? 0) < MAX_PAGE_GALLERY_IMAGES ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() =>
-                set({ galleryImages: [...(publication.galleryImages ?? []), ""] })
-              }
-            >
-              <Plus size={14} aria-hidden="true" />
-              Add gallery image
-            </Button>
+          {galleryImages.length < MAX_PAGE_GALLERY_IMAGES ? (
+            <MediaUploadField
+              field={{ label: "Add to publication gallery", accept: "image", purpose: "page-cover" }}
+              value=""
+              onChange={(nextUrl) => {
+                if (!nextUrl?.trim()) return;
+                set({ galleryImages: [...galleryImages, nextUrl] });
+              }}
+              hideFieldLabel
+              showReadablePreview={false}
+              dropZoneLabel="Drop or click to add to gallery"
+            />
           ) : null}
         </div>
+      </div>
+
+      <div className="nexus-field-category">
+        <FieldLabelRow
+          label="Catalog preview images"
+          hint={
+            availablePublicationImages.length > 0
+              ? `How many publication images appear on this page's news catalog card (max ${maxCatalogImages} available).`
+              : "Add a cover or gallery image first — catalog cards need at least one publication image."
+          }
+        />
+        <PuckSelectField
+          value={String(
+            Math.min(publication.catalogImagesPerCard ?? 1, maxCatalogImages) as NewsCatalogImagesPerCard,
+          )}
+          onChange={(next) =>
+            set({ catalogImagesPerCard: Number(next) as NewsCatalogImagesPerCard })
+          }
+          options={catalogImageOptions.map((count) => ({
+            label: `${count} image${count === 1 ? "" : "s"}`,
+            value: String(count),
+          }))}
+        />
+      </div>
+
+      <div className="nexus-field-category">
+        <FieldLabelRow
+          label="Catalog card size"
+          hint="Featured cards may occupy the large hero slot in a catalog section when three or more pages are listed."
+        />
+        <SegmentedControl
+          ariaLabel="Catalog card size"
+          value={publication.catalogCardVariant ?? "tile"}
+          onChange={(next) => set({ catalogCardVariant: next as NewsCatalogPageCardVariant })}
+          options={[
+            { label: "Standard", value: "tile" },
+            { label: "Featured", value: "featured" },
+          ]}
+        />
       </div>
 
       <div className="nexus-field-category">
@@ -200,18 +294,15 @@ export function PagePublicationFieldGroup({
         />
       </div>
 
-      <div className="nexus-field-category">
-        <FieldLabelRow label="Comments" hint="Allow community comments on this page." />
-        <div className="nexus-sidebar-field">
-          <PuckSwitchField
-            label="Enable comments"
-            value={(publication.commentsEnabled ?? true) ? "on" : "off"}
-            trueValue="on"
-            falseValue="off"
-            onChange={(next) => set({ commentsEnabled: next === "on" })}
-          />
-        </div>
-      </div>
+      <PagePublicationTelegramFields
+        value={{
+          notifyOnPublish: publication.notifyOnPublish,
+          notifyWebOnPublish: publication.notifyWebOnPublish,
+          notifyTelegramOnPublish: publication.notifyTelegramOnPublish,
+          description: publication.description,
+        }}
+        onChange={(patch) => set(patch)}
+      />
 
       <div className="nexus-field-category">
         <FieldLabelRow
@@ -250,6 +341,9 @@ export function PagePublicationFieldGroup({
           </PageMetaReadonlyRow>
           <PageMetaReadonlyRow label="Likes">
             <PageMetaBadge>{meta.likeCount ?? 0}</PageMetaBadge>
+          </PageMetaReadonlyRow>
+          <PageMetaReadonlyRow label="Dislikes">
+            <PageMetaBadge>{meta.dislikeCount ?? 0}</PageMetaBadge>
           </PageMetaReadonlyRow>
         </div>
       </div>

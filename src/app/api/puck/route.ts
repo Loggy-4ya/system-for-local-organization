@@ -22,6 +22,7 @@ import { readMediaStorageEnvConfig } from "@shared/lib/mediaStorage/resolveMedia
 import { mediaReferenceContextFromConfig } from "@shared/lib/mediaStorage/uploadReferenceUtils";
 import { recordPuckSanitizeAudit } from "@shared/lib/securitySanitizeAuditLog";
 import { normalizePagePath } from "@shared/lib/pagePathLogic";
+import { resolvePageCommentsEnabledFromPuckData } from "@shared/lib/pageCommentsBlockLogic";
 import type { PagePublicationValue } from "@/components/puck/fields/PagePublicationFieldGroup";
 import { isReservedSlugPath } from "@/components/puck/lib/pageSlugValidation";
 import { getOptionalSession, isApiAuthorised } from "@/lib/authGuards";
@@ -260,12 +261,17 @@ export async function POST(req: NextRequest) {
         coverImage: pub.coverImage,
         galleryImages: pub.galleryImages,
         publishAt: pub.publishAt,
-        commentsEnabled: pub.commentsEnabled,
+        commentsEnabled: resolvePageCommentsEnabledFromPuckData(sanitizedPuckData as PuckData),
+        catalogImagesPerCard: resolvedFromSanitized.catalogImagesPerCard,
+        catalogCardVariant: resolvedFromSanitized.catalogCardVariant,
+        notifyOnPublish: resolvedFromSanitized.notifyOnPublish,
+        notifyWebOnPublish: resolvedFromSanitized.notifyWebOnPublish,
+        notifyTelegramOnPublish: resolvedFromSanitized.notifyTelegramOnPublish,
       },
       delegatedEditors: saveDelegatedEditors,
       actorUserId,
       actorPermissions,
-      requestPublish: published !== false,
+      requestPublish: published === true,
     });
 
     return NextResponse.json({ ok: true, path: normalizedPath });

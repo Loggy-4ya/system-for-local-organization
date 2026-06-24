@@ -6,15 +6,19 @@
 
 import type { PublicUser } from "@shared/domains/AuthDomain";
 import type { PublicProfileUser } from "@shared/lib/publicProfileRedaction";
-import { DEFAULT_ACCESS_LEVELS } from "@shared/constants/accessControl";
-import type { AccessLevelIndex } from "@shared/constants/accessControl";
 import { formatAcademicGroupSpecialtyLabel } from "@shared/lib/academicCatalogLogic";
+import { isTeacherUser } from "@shared/lib/userSociumHelpers";
+import {
+  resolveProfileAccessLevelLabel,
+  resolveProfileSystemRoleLabel,
+} from "@shared/lib/profileBadgeLogic";
 import { resolveProfileContactOptions } from "@shared/lib/profileContactLogic";
 import { UserAvatarImage } from "@/components/media/UserAvatarImage";
-import { Badge } from "@/components/ui/badge";
+import { ProfileBadge } from "@/components/profile/ProfileBadge";
 import { ProfileHeroActions } from "@/components/profile/ProfileHeroActions";
 import type { UserRole } from "@shared/models/User";
 import type { StudentTitle } from "@shared/models/User";
+import { buildUserProfileHref } from "@shared/lib/userProfilePathLogic";
 
 /** Props for {@link ProfileHero}. */
 export interface ProfileHeroProps {
@@ -24,6 +28,8 @@ export interface ProfileHeroProps {
   showSettingsLink?: boolean;
   /** Explicit self flag for public profile route (falls back to DTO `isSelf`). */
   isSelf?: boolean;
+  /** Canonical `/users/{login|id}` path — defaults to id-only when omitted. */
+  publicProfilePath?: string;
 }
 
 /**
@@ -72,16 +78,6 @@ function resolveSociumRoleLabels(user: PublicUser | PublicProfileUser): string[]
 }
 
 /**
- * Resolve hierarchy access level label for badge display.
- *
- * @param index - Access level index on the profile user.
- * @returns Human-readable tier label.
- */
-function resolveAccessLevelLabel(index: AccessLevelIndex): string {
-  return DEFAULT_ACCESS_LEVELS.find((level) => level.index === index)?.label ?? "Member";
-}
-
-/**
  * Format last Telegram sync relative label.
  *
  * @param date - Last sync timestamp.
@@ -98,26 +94,22 @@ function formatSync(date: Date | null): string {
 }
 
 /**
- * Map legacy RBAC role to badge variant styling.
- *
- * @param role - User RBAC role.
- * @returns Shadcn badge variant name.
- */
-function roleBadgeVariant(role: UserRole): "default" | "secondary" | "outline" {
-  if (role === "Admin") return "default";
-  if (role === "StudentCouncil") return "secondary";
-  return "outline";
-}
-
-/**
  * Profile hero block with identity, badges, and contact actions.
  *
  * @param props - See {@link ProfileHeroProps}.
  * @returns Profile hero JSX.
  */
-export function ProfileHero({ user, showSettingsLink = false, isSelf }: ProfileHeroProps) {
+export function ProfileHero({
+  user,
+  showSettingsLink = false,
+  isSelf,
+  publicProfilePath,
+}: ProfileHeroProps) {
   const academicLabel = formatAcademicGroupSpecialtyLabel(user.specialty, user.group);
-  const subtitle = academicLabel ?? "No specialty / group assigned";
+  const isTeacher = "sociumRoles" in user ? isTeacherUser(user.sociumRoles) : false;
+  const subtitle = isTeacher
+    ? academicLabel ?? "Teacher"
+    : academicLabel ?? "No specialty / group assigned";
   const identityLine =
     "sociumRoles" in user ? formatPublicUserIdentities(user) : formatPublicProfileIdentities(user);
   const sociumRoleLabels = resolveSociumRoleLabels(user);
@@ -132,7 +124,14 @@ export function ProfileHero({ user, showSettingsLink = false, isSelf }: ProfileH
     email: user.email,
     socialLinks: user.socialLinks ?? [],
   });
-  const publicProfilePath = `/users/${user.id}`;
+  const resolvedPublicProfilePath =
+    publicProfilePath ??
+    buildUserProfileHref({
+      id: user.id,
+      login: user.login,
+    });
+  const accessLevelLabel = resolveProfileAccessLevelLabel(accessLevelIndex);
+  const systemRoleLabel = resolveProfileSystemRoleLabel(role);
 
   return (
     <section className="glass-panel rounded-[var(--radius-md)] p-4">
@@ -144,11 +143,7 @@ export function ProfileHero({ user, showSettingsLink = false, isSelf }: ProfileH
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[28px] font-semibold text-[var(--color-text-primary)]">{user.fullName}</h1>
-                {viewerIsSelf && (
-                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
-                    You
-                  </Badge>
-                )}
+                {viewerIsSelf && <ProfileBadge kind="self">You</ProfileBadge>}
               </div>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{identityLine}</p>
@@ -157,28 +152,36 @@ export function ProfileHero({ user, showSettingsLink = false, isSelf }: ProfileH
             {(showSettingsLink || !viewerIsSelf) && (
               <ProfileHeroActions
                 isSelf={viewerIsSelf}
-                publicProfilePath={publicProfilePath}
+                publicProfilePath={resolvedPublicProfilePath}
                 contact={contact}
               />
             )}
           </div>
 
+          <div className="mt-4 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-3">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
+              Role in the system
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <ProfileBadge kind="access_level">{accessLevelLabel}</ProfileBadge>
+              <ProfileBadge kind="system_role">{systemRoleLabel}</ProfileBadge>
+            </div>
+          </div>
+
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant={roleBadgeVariant(role)}>{role}</Badge>
-            <Badge variant="outline">{resolveAccessLevelLabel(accessLevelIndex)}</Badge>
             {studentTitle && studentTitle !== "Neither" && (
-              <Badge variant="secondary">{studentTitle}</Badge>
+              <ProfileBadge kind="student_title">{studentTitle}</ProfileBadge>
             )}
-            {academicLabel && <Badge variant="outline">{academicLabel}</Badge>}
+            {academicLabel && <ProfileBadge kind="academic">{academicLabel}</ProfileBadge>}
             {sociumRoleLabels.map((label) => (
-              <span key={label} className="badge badge-group">
+              <ProfileBadge key={label} kind="socium_role">
                 {label}
-              </span>
+              </ProfileBadge>
             ))}
             {user.warnings > 0 && (
-              <span className="badge badge-warning">
+              <ProfileBadge kind="warning">
                 {user.warnings} warning{user.warnings === 1 ? "" : "s"}
-              </span>
+              </ProfileBadge>
             )}
           </div>
         </div>

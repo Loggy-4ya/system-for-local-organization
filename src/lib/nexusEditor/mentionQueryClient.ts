@@ -5,6 +5,7 @@
  */
 
 import {
+  dedupeNexusMentionItems,
   flattenMentionSearchResult,
   type NexusMentionItem,
   type NexusMentionSearchResult,
@@ -39,8 +40,8 @@ export async function fetchMentionSearch(
 
   const payload = (await response.json()) as NexusMentionSearchResult;
   return {
-    users: payload.users ?? [],
-    pages: payload.pages ?? [],
+    users: dedupeNexusMentionItems(payload.users ?? []),
+    pages: dedupeNexusMentionItems(payload.pages ?? []),
   };
 }
 

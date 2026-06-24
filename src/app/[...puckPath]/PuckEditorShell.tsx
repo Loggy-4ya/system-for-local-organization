@@ -16,6 +16,10 @@ import type { PageAccessEditorEntry } from "@shared/lib/pageAccessLogic";
 import { normalizePagePath } from "@/components/puck/PagePathEditor";
 import { resolvePagePublicationProps, resolvePageSettingsCategories } from "@/components/puck/lib/pageRootFieldProps";
 import {
+  showPuckDraftSavedToast,
+  showPuckPublishedToast,
+} from "@/components/puck/lib/puckEditorActionToasts";
+import {
   fetchReservedPagePaths,
   validatePageSlug,
 } from "@/components/puck/lib/pageSlugValidation";
@@ -29,6 +33,17 @@ import { PUCK_EDITOR_OVERRIDES } from "@/components/puck/puckEditorOverrides";
 import { handleNexusGridItemPlacementAction } from "@/components/puck/NexusGridItemPlacementGuard";
 import type { Data } from "@puckeditor/core";
 import { useCallback, useState } from "react";
+import {
+  usePuckBackgroundDraftSave,
+  PUCK_RESERVED_PATHS_CACHE_MS,
+} from "@/components/puck/lib/usePuckBackgroundDraftSave";
+import { setPuckDraftSaveStatus } from "@/components/puck/lib/puckDraftSaveStatusStore";
+import { resolvePuckDraftSaveStatus } from "@shared/lib/puckDraftAutosaveLogic";
+
+/** Result of a draft persist attempt from {@link PuckEditorShell}. */
+export type PuckDraftPersistResult =
+  | { ok: true; path: string }
+  | { ok: false; error?: string };
 
 /** Props for the client-only Puck editor shell. */
 export interface PuckEditorShellProps {
@@ -46,6 +61,10 @@ export interface PuckEditorShellProps {
   onEditorDataChange: (data: Data) => void;
   /** Called after a successful publish (path may have changed). */
   onPublished: (nextPath: string) => void;
+  /** Called after a successful draft save (path may have changed). */
+  onSaved?: (nextPath: string) => void;
+  /** Called after a successful background autosave (no full route refresh). */
+  onAutoSaved?: (nextPath: string) => void;
 }
 
 /**
@@ -106,13 +125,23 @@ export function PuckEditorShell({
   getLatestData,
   onEditorDataChange,
   onPublished,
+  onSaved,
+  onAutoSaved,
 }: PuckEditorShellProps) {
   const [error, setError] = useState<string | null>(null);
   const isCompactEditor = usePuckMobileEditorChrome();
+  const autosaveDisabled = path === "/";
 
-  const handlePublish = useCallback(
-    async (nextData: Data) => {
-      setError(null);
+  const persistPage = useCallback(
+    async (
+      nextData: Data,
+      requestPublish: boolean,
+      options?: { silent?: boolean; cacheReservedPaths?: boolean },
+    ): Promise<PuckDraftPersistResult> => {
+      const silent = options?.silent === true;
+      if (!silent) {
+        setError(null);
+      }
       const secret = process.env.NEXT_PUBLIC_PUCK_SECRET;
       const publishData = nextData ?? getLatestData();
       const { title, cleanPath, categories, publication, delegatedEditors } = resolvePageMetadata(
@@ -125,16 +154,22 @@ export function PuckEditorShell({
       const slugLocked = pageSettings?.slugLocked ?? path === "/";
 
       if (!cleanPath || !cleanPath.startsWith("/")) {
-        setError("Path must start with a slash (/)");
-        return;
+        const message = "Path must start with a slash (/)";
+        if (!silent) setError(message);
+        return { ok: false, error: message };
       }
 
       if (cleanPath === "/" || path === "/") {
-        setError("The homepage cannot be saved from the editor. Edit src/app/page.tsx in code.");
-        return;
+        const message = "The homepage cannot be saved from the editor. Edit src/app/page.tsx in code.";
+        if (!silent) setError(message);
+        return { ok: false, error: message };
       }
 
-      const reservedPaths = await fetchReservedPagePaths();
+      const reservedPaths = await fetchReservedPagePaths(
+        options?.cacheReservedPaths
+          ? { maxAgeMs: PUCK_RESERVED_PATHS_CACHE_MS }
+          : undefined,
+      );
       const slugCheck = validatePageSlug(pageSettings?.slug ?? path.replace(/^\//, ""), {
         slugLocked,
         currentPath: path,
@@ -142,8 +177,14 @@ export function PuckEditorShell({
       });
 
       if (!slugCheck.valid) {
-        setError(slugCheck.error ?? "Invalid page URL slug.");
-        return;
+        if (!silent) {
+          setError(slugCheck.error ?? "Invalid page URL slug.");
+        }
+        return { ok: false, error: slugCheck.error ?? "Invalid page URL slug." };
+      }
+
+      if (!silent) {
+        setPuckDraftSaveStatus("saving");
       }
 
       const res = await fetch("/api/puck", {
@@ -160,27 +201,91 @@ export function PuckEditorShell({
           categories,
           publication,
           delegatedEditors,
-          published: true,
+          published: requestPublish,
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        let errMsg = "Failed to save page.";
+        let errMsg = requestPublish ? "Failed to publish page." : "Failed to save draft.";
         try {
           const parsed = JSON.parse(errText);
           errMsg = parsed.error || errMsg;
         } catch {
           /* use default */
         }
-        setError(errMsg);
-        console.error("[PuckEditorShell] Failed to save page:", errText);
-        return;
+        if (!silent) {
+          setError(errMsg);
+        }
+        console.error("[PuckEditorShell] Failed to persist page:", errText);
+        return { ok: false, error: errMsg };
       }
 
-      onPublished(cleanPath);
+      if (requestPublish) {
+        onPublished(cleanPath);
+      } else if (silent) {
+        onAutoSaved?.(cleanPath);
+      } else {
+        onSaved?.(cleanPath);
+        if (!onSaved) {
+          onPublished(cleanPath);
+        }
+      }
+
+      return { ok: true, path: cleanPath };
     },
-    [getLatestData, onPublished, pageTitle, path],
+    [getLatestData, onAutoSaved, onPublished, onSaved, pageTitle, path],
+  );
+
+  const saveDraftBackground = useCallback(
+    async (data: Data) => persistPage(data, false, { silent: true, cacheReservedPaths: true }),
+    [persistPage],
+  );
+
+  const { notifyDocumentEdited, markDocumentSaved } = usePuckBackgroundDraftSave({
+    disabled: autosaveDisabled,
+    getLatestData,
+    saveDraft: saveDraftBackground,
+    onAutoSaved,
+    initialData: initialEditorData,
+  });
+
+  const handleSave = useCallback(
+    async (nextData: Data) => {
+      const result = await persistPage(nextData, false);
+      if (result.ok) {
+        markDocumentSaved(nextData);
+        showPuckDraftSavedToast({ previousPath: path, savedPath: result.path });
+        return;
+      }
+      setPuckDraftSaveStatus(
+        resolvePuckDraftSaveStatus({ dirty: true, saveInFlight: false }),
+      );
+    },
+    [markDocumentSaved, path, persistPage],
+  );
+
+  const handlePublish = useCallback(
+    async (nextData: Data) => {
+      const result = await persistPage(nextData, true);
+      if (result.ok) {
+        markDocumentSaved(nextData);
+        const rootProps = (nextData.root as { props?: Record<string, unknown> })?.props ?? {};
+        const publication = resolvePagePublicationProps(
+          rootProps as Parameters<typeof resolvePagePublicationProps>[0],
+        );
+        showPuckPublishedToast(publication);
+      }
+    },
+    [markDocumentSaved, persistPage],
+  );
+
+  const handleEditorDataChange = useCallback(
+    (data: Data) => {
+      onEditorDataChange(data);
+      notifyDocumentEdited();
+    },
+    [notifyDocumentEdited, onEditorDataChange],
   );
 
   const handlePuckAction = useCallback(
@@ -195,13 +300,13 @@ export function PuckEditorShell({
   );
 
   return (
-    <PuckEditorErrorProvider error={error} onPublish={handlePublish}>
+    <PuckEditorErrorProvider error={error} onPublish={handlePublish} onSave={handleSave}>
       <NexusEditorCanvasProvider>
         <Puck
           key={`${path}-${puckMountKey}-${isCompactEditor ? "compact" : "desktop"}`}
           config={puckConfig}
           data={initialEditorData}
-          onChange={onEditorDataChange}
+          onChange={handleEditorDataChange}
           onPublish={handlePublish}
           onAction={handlePuckAction}
           overrides={PUCK_EDITOR_OVERRIDES}

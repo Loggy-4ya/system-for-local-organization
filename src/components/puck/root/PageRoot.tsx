@@ -178,6 +178,9 @@ export const PageRoot = {
       publishAt: null,
       commentsEnabled: true,
       delegatedEditors: [],
+      notifyOnPublish: true,
+      notifyWebOnPublish: true,
+      notifyTelegramOnPublish: true,
     },
     pageLayout: {
       contentWidth: DEFAULT_CONTENT_WIDTH,

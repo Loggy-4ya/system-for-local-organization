@@ -21,13 +21,21 @@ import {
   isPagePubliclyVisible,
   normalizePublishAt,
   publishPageIdempotencyKey,
-  shouldPublishImmediately,
+  resolvePublicationStateOnSave,
 } from "@shared/lib/pagePublicationLogic";
 import {
   filterPageCategorySuggestions,
   normalizePageCategoryList,
 } from "@shared/lib/pageCategoryLogic";
-import { normalizePageGalleryImages } from "@shared/lib/pageCategoriesHubLogic";
+import {
+  normalizeNewsCatalogImagesPerCard,
+  normalizeNewsCatalogPageCardVariant,
+  normalizePageGalleryImages,
+} from "@shared/lib/pageCategoriesHubLogic";
+import type {
+  NewsCatalogImagesPerCard,
+  NewsCatalogPageCardVariant,
+} from "@shared/constants/pageCategoriesHub";
 import {
   type PageAccessEditorCandidate,
   type PageAccessEditorEntry,
@@ -57,12 +65,16 @@ import { resolveUserDisplayLabel } from "@shared/lib/userSociumHelpers";
 import type { PermissionKey } from "@shared/constants/accessControl";
 import Page, { type IPage, type PuckData } from "@shared/models/Page";
 import PageLike from "@shared/models/PageLike";
+import PageDislike from "@shared/models/PageDislike";
 import PagePathSettings, {
   PAGE_PATH_SETTINGS_ID,
   type IPagePathSettings,
 } from "@shared/models/PagePathSettings";
 import User from "@shared/models/User";
 import {
+  computePagePathForUncategorizedMove,
+  countPagePathSegments,
+  discoverPagePathDomainsFromPaths,
   filterPagePathCatalog,
   type PagePathCatalogEntry,
   mergePagePathDomains,
@@ -70,6 +82,31 @@ import {
   normalizePageDomainSegment,
   toPagePathCatalogEntries,
 } from "@shared/lib/pagePathLogic";
+import { shouldIncrementPageView } from "@shared/lib/pageViewDedupeLogic";
+import {
+  buildPagePublishActionHref,
+  buildPagePublishNotificationCopy,
+  resolvePageNotifyOnPublish,
+  resolvePageNotifyTelegramOnPublish,
+  resolvePageNotifyWebOnPublish,
+  shouldDispatchPageGoLiveNotifications,
+  shouldReceivePageGoLiveNotification,
+  type PageGoLiveNotificationSnapshot,
+} from "@shared/lib/pagePublishNotificationLogic";
+import {
+  buildPageMentionNotificationCopy,
+  buildPageMentionTelegramMessage,
+  collectUserMentionIdsFromPuckData,
+  resolvePageMentionNotificationRecipients,
+  shouldDispatchPageMentionNotifications,
+} from "@shared/lib/pageMentionNotificationLogic";
+import { formatTelegramPagePublishedMessage } from "@shared/lib/telegramPagePublishFormat";
+import { buildInboxDeliveryKey } from "@shared/lib/notificationInboxLogic";
+import { userAcceptsNotificationChannel } from "@shared/lib/userNotificationSettingsLogic";
+import type { NotificationInboxChannel } from "@shared/constants/notificationInbox";
+import { NotificationDomain } from "@shared/domains/NotificationDomain";
+import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
+import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { Types } from "mongoose";
 import { SchedulerDomain } from "@shared/domains/SchedulerDomain";
 import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
@@ -81,6 +118,11 @@ export interface PagePublicationInput {
   galleryImages?: string[];
   publishAt?: Date | string | null;
   commentsEnabled?: boolean;
+  notifyOnPublish?: boolean;
+  notifyWebOnPublish?: boolean;
+  notifyTelegramOnPublish?: boolean;
+  catalogImagesPerCard?: NewsCatalogImagesPerCard;
+  catalogCardVariant?: NewsCatalogPageCardVariant;
 }
 
 /** Serializable page metadata returned to the editor and viewer. */
@@ -92,12 +134,24 @@ export interface PageMetadataDto {
   description: string;
   coverImage: string;
   galleryImages: string[];
+  catalogImagesPerCard: NewsCatalogImagesPerCard;
+  catalogCardVariant: NewsCatalogPageCardVariant;
   authorUserId: string | null;
   authorDisplayName: string | null;
   publishAt: string | null;
   commentsEnabled: boolean;
+  notifyOnPublish: boolean;
+  notifyWebOnPublish: boolean;
+  notifyTelegramOnPublish: boolean;
+  /** Effective institutional Telegram template for page-publish preview (edit mode). */
+  telegramPagePublishedTemplate?: string;
+  /** When true, editor may open admin Telegram template settings. */
+  canManageTelegramTemplates?: boolean;
+  /** Top-level comment count when hydrated server-side for the launcher badge. */
+  commentCount: number | null;
   viewCount: number;
   likeCount: number;
+  dislikeCount: number;
   createdAt: string;
   updatedAt: string;
   delegatedEditorUserIds: string[];
@@ -105,6 +159,8 @@ export interface PageMetadataDto {
   delegatedEditors: PageAccessEditorEntry[];
   /** True when the signed-in editor may manage delegated access grants. */
   canManagePageAccess: boolean;
+  /** True when the editor may add or hide institutional path-domain labels. */
+  canManagePagePathDomains: boolean;
   /** True when this editor route maps to a MongoDB Page document. */
   isPersisted: boolean;
 }
@@ -233,8 +289,10 @@ export class PageDomain {
   /**
    * List domain segments for `/domain/page_slug` addressing in the editor.
    *
-   * Merges {@link DEFAULT_PAGE_PATH_DOMAINS} with first segments from stored paths,
-   * then removes institution-hidden domains unless they are explicitly included.
+   * Merges {@link DEFAULT_PAGE_PATH_DOMAINS} with domains inferred from nested
+   * page paths (`/news/fair` → `news`), custom labels, then removes institution-hidden
+   * domains unless they are explicitly included. Flat single-segment slugs such as
+   * `/the-page` do not register as domains.
    *
    * @param options - Optional domains that must remain visible for the active page.
    * @returns Sorted unique visible domain labels without leading slashes.
@@ -244,14 +302,9 @@ export class PageDomain {
   }): Promise<string[]> {
     await connectDB();
     const docs = await Page.find({}, { path: 1 }).lean();
-    const discovered: string[] = [];
-
-    for (const doc of docs) {
-      const normalized = normalizePagePath(doc.path.replace(/^\//, "") || "/");
-      if (normalized === "/") continue;
-      const first = normalizePageDomainSegment(normalized.replace(/^\//, "").split("/")[0] ?? "");
-      if (first) discovered.push(first);
-    }
+    const discovered = discoverPagePathDomainsFromPaths(
+      docs.map((doc) => doc.path).filter(Boolean),
+    );
 
     const settings = await PageDomain.loadPagePathSettings();
     const merged = mergePagePathDomains([
@@ -263,6 +316,24 @@ export class PageDomain {
       settings.hiddenDomains,
       options?.alwaysInclude ?? [],
     );
+  }
+
+  /**
+   * List every merged domain segment for admin catalog management (includes hidden labels).
+   *
+   * @returns Sorted unique domain labels without leading slashes.
+   */
+  public static async listAllMergedPagePathDomains(): Promise<string[]> {
+    await connectDB();
+    const docs = await Page.find({}, { path: 1 }).lean();
+    const discovered = discoverPagePathDomainsFromPaths(
+      docs.map((doc) => doc.path).filter(Boolean),
+    );
+    const settings = await PageDomain.loadPagePathSettings();
+    return mergePagePathDomains([
+      ...discovered,
+      ...normalizeCustomPagePathDomains(settings.customDomains ?? []),
+    ]);
   }
 
   /**
@@ -298,6 +369,77 @@ export class PageDomain {
     return Page.countDocuments({
       path: { $regex: new RegExp(`^/${escaped}(/|$)`) },
     });
+  }
+
+  /**
+   * List every persisted page path under a domain segment.
+   *
+   * @param domain - Domain segment such as `news`.
+   * @returns Absolute paths at `/domain` or `/domain/*`, deepest paths first.
+   */
+  public static async listPagePathsUnderDomain(domain: string): Promise<string[]> {
+    const normalized = normalizePageDomainSegment(domain);
+    if (!normalized) return [];
+
+    await connectDB();
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const docs = await Page.find(
+      { path: { $regex: new RegExp(`^/${escaped}(/|$)`) } },
+      { path: 1 },
+    ).lean();
+
+    return docs
+      .map((row) => normalizePagePath(String(row.path ?? "")))
+      .filter(Boolean)
+      .sort((left, right) => countPagePathSegments(right) - countPagePathSegments(left));
+  }
+
+  /**
+   * Move every page under a domain to uncategorized flat paths, then hide the domain label.
+   *
+   * Used when an administrator removes a catalog domain on `/pages/edit`.
+   *
+   * @param domain - Domain segment to remove.
+   * @param actorUserId - Authenticated user performing the change.
+   * @returns Updated visible domains and the rename map applied to child pages.
+   * @throws {@link PageDomainError} When the domain is invalid or a destination path collides.
+   */
+  public static async removeCatalogPagePathDomain(
+    domain: string,
+    actorUserId: string,
+  ): Promise<{
+    domains: string[];
+    movedPages: Array<{ fromPath: string; toPath: string }>;
+  }> {
+    const normalized = normalizePageDomainSegment(domain);
+    if (!normalized) {
+      throw new PageDomainError("Enter a valid domain label.", 400);
+    }
+
+    const canCreate = await PageDomain.canUserCreatePage(actorUserId);
+    if (!canCreate) {
+      throw new PageDomainError("You do not have permission to manage page domains.", 403);
+    }
+
+    const knownDomains = await PageDomain.listAllMergedPagePathDomains();
+    const pagePaths = await PageDomain.listPagePathsUnderDomain(normalized);
+    const movedPages: Array<{ fromPath: string; toPath: string }> = [];
+
+    for (const fromPath of pagePaths) {
+      const toPath = computePagePathForUncategorizedMove(fromPath, normalized, knownDomains);
+      if (!toPath) continue;
+
+      if (fromPath === toPath) {
+        movedPages.push({ fromPath, toPath });
+        continue;
+      }
+
+      const renamed = await PageDomain.renamePagePath({ fromPath, toPath });
+      movedPages.push({ fromPath, toPath: renamed });
+    }
+
+    const domains = await PageDomain.hidePagePathDomain(normalized, actorUserId);
+    return { domains, movedPages };
   }
 
   /**
@@ -495,11 +637,17 @@ export class PageDomain {
       | "description"
       | "coverImage"
       | "galleryImages"
+      | "catalogImagesPerCard"
+      | "catalogCardVariant"
       | "authorUserId"
       | "publishAt"
       | "commentsEnabled"
+      | "notifyOnPublish"
+      | "notifyWebOnPublish"
+      | "notifyTelegramOnPublish"
       | "viewCount"
       | "likeCount"
+      | "dislikeCount"
       | "createdAt"
       | "updatedAt"
       | "delegatedEditorUserIds"
@@ -508,7 +656,10 @@ export class PageDomain {
     options: {
       delegatedEditors?: PageAccessEditorEntry[];
       canManagePageAccess?: boolean;
+      canManagePagePathDomains?: boolean;
       isPersisted?: boolean;
+      telegramPagePublishedTemplate?: string;
+      canManageTelegramTemplates?: boolean;
     } = {},
   ): PageMetadataDto {
     return {
@@ -519,18 +670,28 @@ export class PageDomain {
       description: doc.description ?? "",
       coverImage: doc.coverImage ?? "",
       galleryImages: doc.galleryImages ?? [],
+      catalogImagesPerCard: normalizeNewsCatalogImagesPerCard(doc.catalogImagesPerCard),
+      catalogCardVariant: normalizeNewsCatalogPageCardVariant(doc.catalogCardVariant),
       authorUserId: doc.authorUserId ? String(doc.authorUserId) : null,
       authorDisplayName,
       publishAt: doc.publishAt ? new Date(doc.publishAt).toISOString() : null,
       commentsEnabled: doc.commentsEnabled ?? true,
+      notifyOnPublish: doc.notifyOnPublish ?? true,
+      notifyWebOnPublish: doc.notifyWebOnPublish ?? doc.notifyOnPublish ?? true,
+      notifyTelegramOnPublish: doc.notifyTelegramOnPublish ?? doc.notifyOnPublish ?? true,
+      commentCount: null,
       viewCount: doc.viewCount ?? 0,
       likeCount: doc.likeCount ?? 0,
+      dislikeCount: doc.dislikeCount ?? 0,
       createdAt: new Date(doc.createdAt).toISOString(),
       updatedAt: new Date(doc.updatedAt).toISOString(),
       delegatedEditorUserIds: (doc.delegatedEditorUserIds ?? []).map(String),
       delegatedEditors: options.delegatedEditors ?? [],
       canManagePageAccess: options.canManagePageAccess ?? false,
+      canManagePagePathDomains: options.canManagePagePathDomains ?? false,
       isPersisted: options.isPersisted ?? true,
+      telegramPagePublishedTemplate: options.telegramPagePublishedTemplate,
+      canManageTelegramTemplates: options.canManageTelegramTemplates ?? false,
     };
   }
 
@@ -700,13 +861,32 @@ export class PageDomain {
     const normalizedPath = input.path.trim();
     const previousPath = input.previousPath.trim();
     const publication = input.publication ?? {};
-    const publishAt = normalizePublishAt(publication.publishAt);
-    const publishNow =
-      input.requestPublish && shouldPublishImmediately(publishAt, now);
-    const scheduledFuture =
-      input.requestPublish && publishAt != null && publishAt.getTime() > now.getTime();
-
     const existing = await Page.findOne({ path: previousPath }).exec();
+    const priorPublication = {
+      published: existing?.published ?? false,
+      publishAt: existing?.publishAt ?? null,
+    };
+    const notifyOnPublish = resolvePageNotifyOnPublish(
+      publication.notifyOnPublish,
+      existing?.notifyOnPublish,
+    );
+    const notifyWebOnPublish = resolvePageNotifyWebOnPublish(
+      publication.notifyWebOnPublish,
+      existing?.notifyWebOnPublish,
+      notifyOnPublish,
+    );
+    const notifyTelegramOnPublish = resolvePageNotifyTelegramOnPublish(
+      publication.notifyTelegramOnPublish,
+      existing?.notifyTelegramOnPublish,
+      notifyOnPublish,
+    );
+    const publicationState = resolvePublicationStateOnSave({
+      requestPublish: input.requestPublish,
+      publishAt: publication.publishAt,
+      existingPublished: existing?.published,
+      existingPublishAt: existing?.publishAt,
+      now,
+    });
 
     await PageDomain.assertUserCanEdit(input.actorUserId, existing);
 
@@ -738,9 +918,20 @@ export class PageDomain {
         publication.galleryImages !== undefined
           ? normalizePageGalleryImages(publication.galleryImages)
           : existing?.galleryImages ?? [],
+      catalogImagesPerCard:
+        publication.catalogImagesPerCard !== undefined
+          ? normalizeNewsCatalogImagesPerCard(publication.catalogImagesPerCard)
+          : normalizeNewsCatalogImagesPerCard(existing?.catalogImagesPerCard),
+      catalogCardVariant:
+        publication.catalogCardVariant !== undefined
+          ? normalizeNewsCatalogPageCardVariant(publication.catalogCardVariant)
+          : normalizeNewsCatalogPageCardVariant(existing?.catalogCardVariant),
       commentsEnabled: publication.commentsEnabled ?? existing?.commentsEnabled ?? true,
-      publishAt: scheduledFuture ? publishAt : publishNow ? publishAt : null,
-      published: publishNow,
+      notifyOnPublish,
+      notifyWebOnPublish,
+      notifyTelegramOnPublish,
+      publishAt: publicationState.publishAt,
+      published: publicationState.published,
     };
 
     if (mayManageAccess && input.delegatedEditors !== undefined) {
@@ -774,15 +965,59 @@ export class PageDomain {
     }
 
     const idempotencyKey = publishPageIdempotencyKey(normalizedPath);
-    if (scheduledFuture && publishAt) {
-      await SchedulerDomain.scheduleEvent({
-        eventType: SCHEDULED_EVENT_TYPES.publish_page,
-        dueAt: publishAt,
-        payload: { path: normalizedPath },
-        idempotencyKey,
-      });
-    } else {
-      await SchedulerDomain.cancelEvent(idempotencyKey);
+    if (input.requestPublish) {
+      if (publicationState.scheduledFuture && publicationState.publishAt) {
+        await SchedulerDomain.scheduleEvent({
+          eventType: SCHEDULED_EVENT_TYPES.publish_page,
+          dueAt: publicationState.publishAt,
+          payload: { path: normalizedPath },
+          idempotencyKey,
+        });
+      } else {
+        await SchedulerDomain.cancelEvent(idempotencyKey);
+      }
+    }
+
+    const pageTitle =
+      input.title?.trim() || existing?.title?.trim() || normalizedPath.split("/").pop() || "New page";
+    const pageDescription = (publication.description ?? existing?.description ?? "").trim();
+
+    if (
+      publicationState.published &&
+      !publicationState.scheduledFuture &&
+      shouldDispatchPageGoLiveNotifications({
+        notifyOnPublish,
+        priorPublication,
+      })
+    ) {
+      const authorUserId = existing?.authorUserId
+        ? String(existing.authorUserId)
+        : input.actorUserId;
+      await dispatchPageGoLiveNotifications({
+        path: normalizedPath,
+        title: pageTitle,
+        description: pageDescription,
+        notifyOnPublish,
+        notifyWebOnPublish,
+        notifyTelegramOnPublish,
+        authorUserId,
+      }).catch(() => undefined);
+    }
+
+    if (
+      publicationState.published &&
+      !publicationState.scheduledFuture &&
+      shouldDispatchPageMentionNotifications(priorPublication)
+    ) {
+      const authorUserId = existing?.authorUserId
+        ? String(existing.authorUserId)
+        : input.actorUserId;
+      await dispatchPageMentionNotifications({
+        path: normalizedPath,
+        title: pageTitle,
+        puckData: input.puckData,
+        authorUserId,
+      }).catch(() => undefined);
     }
 
     return normalizedPath;
@@ -799,9 +1034,44 @@ export class PageDomain {
     if (!doc) {
       throw new Error(`Page not found at "${path}".`);
     }
+
+    const priorPublication = {
+      published: doc.published,
+      publishAt: doc.publishAt,
+    };
+    const notifyOnPublish = doc.notifyOnPublish ?? true;
+    const notifyWebOnPublish = doc.notifyWebOnPublish ?? notifyOnPublish;
+    const notifyTelegramOnPublish = doc.notifyTelegramOnPublish ?? notifyOnPublish;
+
     doc.published = true;
     doc.publishAt = null;
     await doc.save();
+
+    if (
+      shouldDispatchPageGoLiveNotifications({
+        notifyOnPublish,
+        priorPublication,
+      })
+    ) {
+      await dispatchPageGoLiveNotifications({
+        path: doc.path,
+        title: doc.title,
+        description: doc.description ?? "",
+        notifyOnPublish,
+        notifyWebOnPublish,
+        notifyTelegramOnPublish,
+        authorUserId: doc.authorUserId ? String(doc.authorUserId) : null,
+      }).catch(() => undefined);
+    }
+
+    if (shouldDispatchPageMentionNotifications(priorPublication)) {
+      await dispatchPageMentionNotifications({
+        path: doc.path,
+        title: doc.title,
+        puckData: doc.puckData,
+        authorUserId: doc.authorUserId ? String(doc.authorUserId) : null,
+      }).catch(() => undefined);
+    }
   }
 
   /**
@@ -838,42 +1108,139 @@ export class PageDomain {
   /**
    * Toggle the current user's like on a page.
    *
+   * Adding a like clears an existing dislike so both cannot be active together.
+   *
    * @param path - Page path.
    * @param userId - Authenticated user id.
-   * @returns Updated like state and count.
+   * @returns Updated like/dislike flags and counts.
    */
   public static async toggleLike(
     path: string,
     userId: string,
-  ): Promise<{ liked: boolean; likeCount: number }> {
+  ): Promise<{
+    liked: boolean;
+    likeCount: number;
+    disliked: boolean;
+    dislikeCount: number;
+  }> {
     await connectDB();
     const doc = await Page.findOne({ path }).lean();
     if (!doc || !PageDomain.isPubliclyVisible(doc)) {
       throw new PageDomainError("Page not found.", 404);
     }
 
-    const existing = await PageLike.findOne({ pagePath: path, userId }).lean();
-    if (existing) {
-      await PageLike.deleteOne({ _id: existing._id });
-      const updated = await Page.findOneAndUpdate(
-        { path },
-        { $inc: { likeCount: -1 } },
-        { returnDocument: "after" },
-      ).lean();
-      const likeCount = Math.max(0, updated?.likeCount ?? 0);
-      if (likeCount !== updated?.likeCount) {
-        await Page.updateOne({ path }, { $set: { likeCount } });
-      }
-      return { liked: false, likeCount };
+    const existingLike = await PageLike.findOne({ pagePath: path, userId }).lean();
+    if (existingLike) {
+      await PageLike.deleteOne({ _id: existingLike._id });
+      await Page.updateOne({ path }, { $inc: { likeCount: -1 } });
+      return PageDomain.readPageEngagementState(path, userId);
+    }
+
+    const existingDislike = await PageDislike.findOne({ pagePath: path, userId }).lean();
+    if (existingDislike) {
+      await PageDislike.deleteOne({ _id: existingDislike._id });
+      await Page.updateOne({ path }, { $inc: { dislikeCount: -1 } });
     }
 
     await PageLike.create({ pagePath: path, userId });
-    const updated = await Page.findOneAndUpdate(
-      { path },
-      { $inc: { likeCount: 1 } },
-      { returnDocument: "after" },
-    ).lean();
-    return { liked: true, likeCount: updated?.likeCount ?? 1 };
+    await Page.updateOne({ path }, { $inc: { likeCount: 1 } });
+    return PageDomain.readPageEngagementState(path, userId);
+  }
+
+  /**
+   * Toggle the current user's dislike on a page.
+   *
+   * Adding a dislike clears an existing like so both cannot be active together.
+   *
+   * @param path - Page path.
+   * @param userId - Authenticated user id.
+   * @returns Updated like/dislike flags and counts.
+   */
+  public static async toggleDislike(
+    path: string,
+    userId: string,
+  ): Promise<{
+    liked: boolean;
+    likeCount: number;
+    disliked: boolean;
+    dislikeCount: number;
+  }> {
+    await connectDB();
+    const doc = await Page.findOne({ path }).lean();
+    if (!doc || !PageDomain.isPubliclyVisible(doc)) {
+      throw new PageDomainError("Page not found.", 404);
+    }
+
+    const existingDislike = await PageDislike.findOne({ pagePath: path, userId }).lean();
+    if (existingDislike) {
+      await PageDislike.deleteOne({ _id: existingDislike._id });
+      await Page.updateOne({ path }, { $inc: { dislikeCount: -1 } });
+      return PageDomain.readPageEngagementState(path, userId);
+    }
+
+    const existingLike = await PageLike.findOne({ pagePath: path, userId }).lean();
+    if (existingLike) {
+      await PageLike.deleteOne({ _id: existingLike._id });
+      await Page.updateOne({ path }, { $inc: { likeCount: -1 } });
+    }
+
+    await PageDislike.create({ pagePath: path, userId });
+    await Page.updateOne({ path }, { $inc: { dislikeCount: 1 } });
+    return PageDomain.readPageEngagementState(path, userId);
+  }
+
+  /**
+   * Read the current user's page engagement flags and denormalized counters.
+   *
+   * @param path - Page path.
+   * @param userId - Authenticated user id.
+   * @returns Synchronised engagement snapshot.
+   */
+  public static async readPageEngagementState(
+    path: string,
+    userId: string,
+  ): Promise<{
+    liked: boolean;
+    likeCount: number;
+    disliked: boolean;
+    dislikeCount: number;
+  }> {
+    const [page, liked, disliked] = await Promise.all([
+      Page.findOne({ path }).lean(),
+      PageLike.exists({ pagePath: path, userId }),
+      PageDislike.exists({ pagePath: path, userId }),
+    ]);
+
+    const likeCount = Math.max(0, page?.likeCount ?? 0);
+    const dislikeCount = Math.max(0, page?.dislikeCount ?? 0);
+
+    if (
+      page &&
+      (page.likeCount !== likeCount || page.dislikeCount !== dislikeCount)
+    ) {
+      await Page.updateOne({ path }, { $set: { likeCount, dislikeCount } });
+    }
+
+    return {
+      liked: Boolean(liked),
+      likeCount,
+      disliked: Boolean(disliked),
+      dislikeCount,
+    };
+  }
+
+  /**
+   * Check whether a user has disliked a page.
+   *
+   * @param path - Page path.
+   * @param userId - User id or null.
+   * @returns True when a dislike row exists.
+   */
+  public static async hasUserDisliked(path: string, userId: string | null): Promise<boolean> {
+    if (!userId) return false;
+    await connectDB();
+    const row = await PageDislike.findOne({ pagePath: path, userId }).lean();
+    return Boolean(row);
   }
 
   /**
@@ -903,7 +1270,7 @@ export class PageDomain {
     actorUserId: string,
   ): Promise<{ token: string; expiresAt: Date; pagePath: string }> {
     await connectDB();
-    const normalizedPath = PageDomain.normalizePath(pagePath);
+    const normalizedPath = normalizePagePath(pagePath);
     const doc = await Page.findOne({ path: normalizedPath }).exec();
     if (!doc) {
       throw new PageDomainError(`No page found at "${normalizedPath}".`, 404);
@@ -993,5 +1360,197 @@ export class PageDomain {
     await doc.save();
 
     return { pagePath: doc.path, alreadyMember: false };
+  }
+
+  /**
+   * Rename a persisted page path (used when moving a page across path domains).
+   *
+   * @param input - Source and destination absolute paths.
+   * @returns The normalized destination path.
+   */
+  public static async renamePagePath(input: {
+    fromPath: string;
+    toPath: string;
+  }): Promise<string> {
+    await connectDB();
+
+    const fromPath = normalizePagePath(input.fromPath);
+    const toPath = normalizePagePath(input.toPath);
+
+    if (!fromPath || fromPath === "/" || !toPath || toPath === "/") {
+      throw new PageDomainError("Invalid page path.", 400);
+    }
+
+    if (fromPath === toPath) {
+      return toPath;
+    }
+
+    const existing = await Page.findOne({ path: fromPath }).exec();
+    if (!existing) {
+      throw new PageDomainError("Page not found.", 404);
+    }
+
+    const conflict = await Page.findOne({ path: toPath }).lean();
+    if (conflict) {
+      throw new PageDomainError(`The path "${toPath}" is already taken.`, 409);
+    }
+
+    await Page.findOneAndUpdate({ path: fromPath }, { $set: { path: toPath } });
+    await PageLike.updateMany({ pagePath: fromPath }, { $set: { pagePath: toPath } });
+    await PageDislike.updateMany({ pagePath: fromPath }, { $set: { pagePath: toPath } });
+    await SchedulerDomain.cancelEvent(publishPageIdempotencyKey(fromPath));
+
+    if (existing.published && existing.publishAt) {
+      const publishAt = existing.publishAt instanceof Date
+        ? existing.publishAt
+        : new Date(String(existing.publishAt));
+      if (!Number.isNaN(publishAt.getTime()) && publishAt.getTime() > Date.now()) {
+        await SchedulerDomain.scheduleEvent({
+          eventType: SCHEDULED_EVENT_TYPES.publish_page,
+          dueAt: publishAt,
+          payload: { path: toPath },
+          idempotencyKey: publishPageIdempotencyKey(toPath),
+        });
+      }
+    }
+
+    return toPath;
+  }
+}
+
+/**
+ * Notify users @mentioned in page content when a page becomes public for the first time.
+ *
+ * The page author is excluded even when they mention themselves. Delivery respects each
+ * recipient's notification channel preferences. Failures are swallowed so publishing
+ * never rolls back.
+ *
+ * @param input - Go-live page snapshot with Puck content and author id.
+ */
+async function dispatchPageMentionNotifications(input: {
+  path: string;
+  title: string;
+  puckData: unknown;
+  authorUserId: string | null;
+}): Promise<void> {
+  const recipientIds = resolvePageMentionNotificationRecipients(
+    collectUserMentionIdsFromPuckData(input.puckData),
+    input.authorUserId,
+  );
+  if (recipientIds.length === 0) return;
+
+  await connectDB();
+
+  const authorName = input.authorUserId
+    ? await PageDomain.resolveAuthorDisplayName(input.authorUserId)
+    : null;
+  const { title, body } = buildPageMentionNotificationCopy(input.title, authorName);
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
+  const actionHref = buildPagePublishActionHref(baseUrl, input.path);
+  const telegramText = buildPageMentionTelegramMessage(title, body, actionHref);
+  const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
+
+  const users = await User.find({ _id: { $in: recipientIds } })
+    .select("_id telegramId notificationChannels")
+    .lean();
+
+  for (const user of users) {
+    const userId = String(user._id);
+    const wantsWeb = userAcceptsNotificationChannel(user.notificationChannels, "web");
+    const wantsTelegram = userAcceptsNotificationChannel(user.notificationChannels, "telegram");
+    const channels: NotificationInboxChannel[] = [];
+
+    if (wantsWeb) channels.push("web");
+    if (wantsTelegram) channels.push("telegram");
+    if (channels.length === 0) continue;
+
+    await NotificationDomain.recordNotification({
+      userId,
+      kind: "page_mention",
+      deliveryKey: buildInboxDeliveryKey("page_mention", input.path, userId),
+      title,
+      body,
+      variant: "info",
+      actionHref: input.path,
+      sourceId: input.path,
+      channels,
+    }).catch(() => undefined);
+
+    if (
+      wantsTelegram &&
+      botToken &&
+      typeof user.telegramId === "number" &&
+      user.telegramId > 0
+    ) {
+      await TelegramBotDomain.sendDirectMessage(botToken, user.telegramId, telegramText).catch(
+        () => undefined,
+      );
+    }
+  }
+}
+
+/**
+ * Notify institution members when a page becomes public for the first time.
+ *
+ * Writes inbox rows for web-enabled users and sends Telegram DMs when configured.
+ * Failures on individual recipients are swallowed so publishing never rolls back.
+ *
+ * @param snapshot - Go-live page copy and path.
+ */
+async function dispatchPageGoLiveNotifications(
+  snapshot: PageGoLiveNotificationSnapshot,
+): Promise<void> {
+  if (!snapshot.notifyOnPublish) return;
+
+  await connectDB();
+  await GeneralRulesDomain.ensureLoaded();
+
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
+  const actionHref = buildPagePublishActionHref(baseUrl, snapshot.path);
+  const { title, body } = buildPagePublishNotificationCopy(snapshot.title, snapshot.description);
+  const telegramText = formatTelegramPagePublishedMessage(title, body, actionHref);
+  const deliveryKey = buildInboxDeliveryKey("page_published", snapshot.path);
+  const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
+
+  const users = await User.find({}).select("_id telegramId notificationChannels").lean();
+
+  for (const user of users) {
+    const userId = String(user._id);
+    if (!shouldReceivePageGoLiveNotification(userId, snapshot.authorUserId)) continue;
+
+    const wantsWeb =
+      snapshot.notifyWebOnPublish &&
+      userAcceptsNotificationChannel(user.notificationChannels, "web");
+    const wantsTelegram =
+      snapshot.notifyTelegramOnPublish &&
+      userAcceptsNotificationChannel(user.notificationChannels, "telegram");
+    const channels: NotificationInboxChannel[] = [];
+
+    if (wantsWeb) channels.push("web");
+    if (wantsTelegram) channels.push("telegram");
+    if (channels.length === 0) continue;
+
+    await NotificationDomain.recordNotification({
+      userId,
+      kind: "page_published",
+      deliveryKey,
+      title,
+      body,
+      variant: "info",
+      actionHref: snapshot.path,
+      sourceId: snapshot.path,
+      channels,
+    }).catch(() => undefined);
+
+    if (
+      wantsTelegram &&
+      botToken &&
+      typeof user.telegramId === "number" &&
+      user.telegramId > 0
+    ) {
+      await TelegramBotDomain.sendDirectMessage(botToken, user.telegramId, telegramText).catch(
+        () => undefined,
+      );
+    }
   }
 }

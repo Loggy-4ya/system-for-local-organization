@@ -10,6 +10,7 @@
  */
 
 import { CircleHelp } from "lucide-react";
+import type { ReactNode } from "react";
 import { useId, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,8 +18,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 /** Props for {@link NexusFieldHint}. */
 export interface NexusFieldHintProps {
-  /** Hint body shown in tooltip/popover and exposed to assistive tech. */
+  /** Hint body for screen readers (`aria-describedby`) and plain tooltip fallback. */
   text: string;
+  /** Optional rich tooltip/popover body — defaults to `text`. */
+  content?: ReactNode;
   /** Accessible name for the info trigger (defaults to "Field help"). */
   label?: string;
   /** Optional stable id for the sr-only hint node (auto-generated when omitted). */
@@ -72,6 +75,7 @@ function getServerSnapshot(): boolean {
  */
 export function NexusFieldHint({
   text,
+  content,
   label = "Field help",
   hintId: hintIdProp,
   size = "md",
@@ -97,6 +101,9 @@ export function NexusFieldHint({
     className,
   );
 
+  const body = content ?? text;
+  const richContent = content !== undefined;
+
   return (
     <>
       <span id={hintId} className="sr-only">
@@ -117,7 +124,9 @@ export function NexusFieldHint({
             >
               <CircleHelp size={iconSize} strokeWidth={1.75} aria-hidden="true" />
             </TooltipTrigger>
-            <TooltipContent side="top">{text}</TooltipContent>
+            <TooltipContent side="top" className={richContent ? "max-w-sm" : undefined}>
+              {body}
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : (
@@ -125,7 +134,9 @@ export function NexusFieldHint({
           <PopoverTrigger type="button" className={triggerClassName} aria-label={label}>
             <CircleHelp size={iconSize} strokeWidth={1.75} aria-hidden="true" />
           </PopoverTrigger>
-          <PopoverContent side="top">{text}</PopoverContent>
+          <PopoverContent side="top" className={richContent ? "max-w-sm" : undefined}>
+            {body}
+          </PopoverContent>
         </Popover>
       )}
     </>

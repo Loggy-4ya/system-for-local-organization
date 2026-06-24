@@ -20,7 +20,9 @@ import {
   telegramIsRequiredAtSignup,
   userHasExternalAuthIdentity,
   userNeedsProfileOnboarding,
+  userNeedsTeacherAccessGate,
   PROFILE_PHONE_REQUIRED,
+  shouldShowMembershipReadinessBanner,
 } from "@shared/lib/userProfileCompleteness";
 
 const completeProfile = {
@@ -121,9 +123,50 @@ describe("avatarIsRequiredForUser", () => {
 });
 
 describe("avatarIsRequiredAtSignup", () => {
-  it("requires avatar only when applying for self-government", () => {
+  it("requires avatar when applying for self-government or registering as a teacher", () => {
     assert.equal(avatarIsRequiredAtSignup(true), true);
     assert.equal(avatarIsRequiredAtSignup(false), false);
+    assert.equal(avatarIsRequiredAtSignup(false, true), true);
+  });
+});
+
+describe("teacher application profile gaps", () => {
+  const teacherProfile = {
+    ...completeProfile,
+    specialty: null,
+    group: null,
+    sociumRoles: [
+      {
+        roleKey: "teacher",
+        roleLabel: "Teacher",
+        kind: "teacher" as const,
+        source: "self" as const,
+        assignedAt: new Date(),
+      },
+    ],
+    teacherAccessApproved: false,
+  };
+
+  it("does not require specialty or group for teachers", () => {
+    assert.deepEqual(getMembershipProfileGaps(teacherProfile), []);
+  });
+
+  it("still requires surname, phone, and avatar for teachers", () => {
+    const gaps = getMembershipProfileGaps({
+      ...teacherProfile,
+      surname: null,
+      phone: null,
+      avatar: null,
+    });
+    assert.deepEqual(gaps, ["surname", "phone", "avatar"]);
+  });
+
+  it("gates unapproved teachers until access is granted", () => {
+    assert.equal(userNeedsTeacherAccessGate(teacherProfile), true);
+    assert.equal(
+      userNeedsTeacherAccessGate({ ...teacherProfile, teacherAccessApproved: true }),
+      false,
+    );
   });
 });
 
@@ -279,5 +322,15 @@ describe("assertDirectoryMemberProfileRequirements", () => {
         }),
       { message: PROFILE_PHONE_REQUIRED },
     );
+  });
+});
+
+describe("shouldShowMembershipReadinessBanner", () => {
+  it("hides the banner for system administrators", () => {
+    assert.equal(shouldShowMembershipReadinessBanner(0), false);
+  });
+
+  it("shows the banner for other hierarchy tiers", () => {
+    assert.equal(shouldShowMembershipReadinessBanner(6), true);
   });
 });

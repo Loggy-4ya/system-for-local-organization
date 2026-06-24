@@ -9,10 +9,12 @@ import type { PublicUser } from "@shared/domains/AuthDomain";
 import {
   buildProfileCompletenessSummary,
   PROFILE_FIELD_LABELS,
-  SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT,
+  resolveMembershipApplicationRequirementsHint,
+  resolveSelfGovernmentMemberProfileHint,
+  shouldShowMembershipReadinessBanner,
   SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY,
-  SELF_GOVERNMENT_MEMBER_PROFILE_HINT,
 } from "@shared/lib/userProfileCompleteness";
+import { isTeacherUser } from "@shared/lib/userSociumHelpers";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +30,11 @@ export interface ProfileMembershipReadinessProps {
  * @returns Readiness panel JSX or null when complete and already a member.
  */
 export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessProps) {
-  const summary = buildProfileCompletenessSummary({
+  if (!shouldShowMembershipReadinessBanner(user.accessLevelIndex)) {
+    return null;
+  }
+
+  const profileSlice = {
     name: user.name,
     surname: user.surname,
     phone: user.phone,
@@ -38,7 +44,16 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     sociumRoles: user.sociumRoles,
     selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
     telegramId: user.telegramId,
-  });
+    teacherAccessApproved: user.teacherAccessApproved,
+  };
+
+  const summary = buildProfileCompletenessSummary(profileSlice);
+  const isTeacher = isTeacherUser(user.sociumRoles);
+  const requirementsHint = resolveMembershipApplicationRequirementsHint(profileSlice);
+
+  if (isTeacher && summary.teacherAccessApproved) {
+    return null;
+  }
 
   if (summary.isSelfGovernmentMember && summary.readyForMembershipApplication) {
     return null;
@@ -51,7 +66,7 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
           Complete your member profile
         </h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          {SELF_GOVERNMENT_MEMBER_PROFILE_HINT}
+          {resolveSelfGovernmentMemberProfileHint(profileSlice)}
         </p>
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
           Still missing: {summary.missingFieldLabels.join(", ")}.
@@ -70,10 +85,14 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     return (
       <section className="glass-panel rounded-[var(--radius-md)] p-4 text-sm text-[var(--color-text-secondary)]">
         <p>
-          Your profile includes all fields required for a self-government membership application.
+          {isTeacher
+            ? "Your teacher profile is ready for submission."
+            : "Your profile includes all fields required for a self-government membership application."}
           {user.selfGovernmentApplicationIntent
             ? " Your application is pending reviewer approval."
-            : " Submit your application when you are ready."}
+            : isTeacher
+              ? " Submit your access application when you are ready."
+              : " Submit your application when you are ready."}
         </p>
         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
           {SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}
@@ -82,7 +101,7 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
           href="/profile/membership"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3 inline-flex")}
         >
-          {user.selfGovernmentApplicationIntent ? "View application" : "Apply for membership"}
+          {user.selfGovernmentApplicationIntent ? "View application" : isTeacher ? "Apply for access" : "Apply for membership"}
         </Link>
       </section>
     );
@@ -91,11 +110,9 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
   return (
     <section className="glass-panel rounded-[var(--radius-md)] p-4">
       <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-        Before applying for self-government membership
+        {isTeacher ? "Before applying for teacher access" : "Before applying for self-government membership"}
       </h2>
-      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-        {SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT}
-      </p>
+      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{requirementsHint}</p>
       <ul className="mt-2 list-disc pl-5 text-sm text-[var(--color-text-secondary)]">
         {summary.missingFields.map((field) => (
           <li key={field}>{PROFILE_FIELD_LABELS[field]}</li>

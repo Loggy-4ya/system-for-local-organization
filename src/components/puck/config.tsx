@@ -27,17 +27,13 @@ import { NexusQuote } from "./blocks/content/NexusQuote";
 import { NexusVideo } from "./blocks/content/NexusVideo";
 import { NexusAccordion } from "./blocks/content/NexusAccordion";
 import { NexusList } from "./blocks/content/NexusList";
-import { NexusButton } from "./blocks/content/NexusButton";
 import { NexusTabs } from "./blocks/content/NexusTabs";
 import { NexusCarousel } from "./blocks/content/NexusCarousel";
 import { NexusInput } from "./blocks/content/NexusInput";
+import { NexusComments } from "./blocks/content/NexusComments";
 
 import { NexusNewsCard } from "./blocks/news/NexusNewsCard";
 import { NexusNewsCatalog } from "./blocks/news/NexusNewsCatalog";
-
-import { NexusUserBadge } from "./blocks/user/NexusUserBadge";
-import { NexusStatCard } from "./blocks/user/NexusStatCard";
-import { NexusAvatar } from "./blocks/user/NexusAvatar";
 
 /** Default vertical margins for shell-wrapped blocks on the root canvas. */
 const ROOT_SHELL_SPACING: Partial<SpacingProps> = {
@@ -129,25 +125,21 @@ export const puckConfig = {
     NexusVideo: shellBlock("NexusVideo", NexusVideo as any),
     NexusAccordion: shellBlock("NexusAccordion", NexusAccordion as any),
     NexusList: shellBlock("NexusList", NexusList as any),
-    NexusButton: shellBlock("NexusButton", NexusButton as any),
     NexusTabs: shellBlock("NexusTabs", NexusTabs as any),
     NexusCarousel: shellBlock("NexusCarousel", NexusCarousel as any),
     NexusInput: shellBlock("NexusInput", NexusInput as any),
+    NexusComments: shellBlock("NexusComments", NexusComments as any),
 
     NexusNewsCard: shellBlock("NexusNewsCard", NexusNewsCard as any),
     NexusNewsCatalog: shellBlock("NexusNewsCatalog", NexusNewsCatalog as any),
-
-    NexusUserBadge: shellBlock("NexusUserBadge", NexusUserBadge as any),
-    NexusStatCard: shellBlock("NexusStatCard", NexusStatCard as any),
-    NexusAvatar: shellBlock("NexusAvatar", NexusAvatar as any),
   },
   categories: {
     layout: {
       title: "Layout",
       defaultExpanded: false,
       components: [
-        "NexusSection",
         "NexusGrid",
+        "NexusSection",
         "NexusSpacer",
       ],
     },
@@ -155,28 +147,23 @@ export const puckConfig = {
       title: "Content",
       defaultExpanded: false,
       components: [
-        "NexusHeading",
-        "NexusText",
-        "NexusImage",
-        "NexusQuote",
-        "NexusVideo",
         "NexusAccordion",
-        "NexusList",
-        "NexusButton",
-        "NexusTabs",
+        "NexusQuote",
+        "NexusText",
         "NexusCarousel",
+        "NexusComments",
         "NexusInput",
+        "NexusHeading",
+        "NexusImage",
+        "NexusList",
+        "NexusTabs",
+        "NexusVideo",
       ],
     },
     news: {
       title: "News & Cards",
       defaultExpanded: false,
       components: ["NexusNewsCard", "NexusNewsCatalog"],
-    },
-    user: {
-      title: "User & Data",
-      defaultExpanded: false,
-      components: ["NexusUserBadge", "NexusStatCard", "NexusAvatar"],
     },
   },
 } satisfies Config;

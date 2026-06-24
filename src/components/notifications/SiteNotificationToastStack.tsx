@@ -7,6 +7,7 @@
 "use client";
 
 import { SiteBroadcastToastHost } from "@/components/notifications/SiteBroadcastToastHost";
+import { SiteClientToastHost } from "@/components/notifications/SiteClientToastHost";
 import { TaskReminderToastHost } from "@/components/notifications/TaskReminderToastHost";
 
 /**
@@ -17,6 +18,7 @@ import { TaskReminderToastHost } from "@/components/notifications/TaskReminderTo
 export function SiteNotificationToastStack() {
   return (
     <div className="site-notification-toast-stack" aria-live="polite">
+      <SiteClientToastHost />
       <TaskReminderToastHost />
       <SiteBroadcastToastHost />
     </div>

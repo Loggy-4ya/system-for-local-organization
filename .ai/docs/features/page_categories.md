@@ -45,12 +45,13 @@ Domain: `PageDomain.listDistinctCategories()`, `PageDomain.normalizeCategoriesFo
 | Piece | File |
 |-------|------|
 | Tag field (search + create) | `src/components/puck/fields/PageCategoryTagsField.tsx` |
+| Catalog badge chip | `src/components/pages/PageCategoryBadge.tsx` |
 | Page Settings chapter | `src/components/puck/fields/PageSettingsFieldGroup.tsx` |
 | Autocomplete client | `src/components/puck/lib/pageCategoryClient.ts` |
 
 **UX:**
 
-- Selected tags render as accent badge chips (`nexus-page-category-badge`)
+- Selected tags render as accent badge chips (`nexus-page-category-badge`) with **deterministic hue** per label — same category string always maps to the same slot in the 10-color Nexus accent palette (`shared/constants/pageCategoryAccent.ts`, `pageCategoryBadgeClassName()` in `pageCategoryLogic.ts`). Many categories may share a hue; colors stay at medium/soft accent tiers for visual cohesion.
 - Inline `nexus-puck-input` — type to filter; **one** catalog fetch per editor session (`getPageCategoryCatalog`), no repeat requests on focus or keystroke
 - “Add «label»” row when the query is a valid new tag; new tags append to session cache locally
 - Publish syncs normalized list to MongoDB top-level `categories`
@@ -59,9 +60,9 @@ Domain: `PageDomain.listDistinctCategories()`, `PageDomain.normalizeCategoriesFo
 
 ## 5. Deferred — Page Manager category badges
 
-**Status:** `[ ] Planned`
+**Status:** `[~] In Progress` — catalog cards on `/pages` render colored category chips via `PageCategoryBadge`; optional manager list filter/grouping remains planned.
 
-When implementing Page Manager visual polish:
+When implementing remaining Page Manager visual polish:
 
 1. Extend `PageManagerRow` with `categories: string[]` (server query already returns the field when wired).
 2. In `PageManagerShell.tsx`, render outline `Badge` chips under each page title (Obsidian-style or compact card footer).
@@ -86,4 +87,5 @@ When implementing Page Manager visual polish:
 - [x] Autocomplete from distinct MongoDB category values
 - [x] Creatable new tags (Obsidian model)
 - [x] Persist on publish to `Page.categories` and `pageSettings.categories`
-- [ ] Page Manager badge display (deferred — §5)
+- [ ] Page Manager badge display (deferred — §5 filter/group)
+- [x] Catalog card category badges with deterministic accent colors

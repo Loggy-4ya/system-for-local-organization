@@ -107,13 +107,6 @@ export const SHADOW_DEPTH_OPTIONS = [
   { label: "Custom", value: "custom" },
 ] as const;
 
-/** Button size presets. */
-export const BUTTON_SIZE_OPTIONS = [
-  { label: "Small (32px height)", value: "sm" },
-  { label: "Medium (36px height)", value: "md" },
-  { label: "Large (40px height)", value: "lg" },
-] as const;
-
 /** Tab strip size presets. */
 export const TAB_SIZE_OPTIONS = [
   { label: "Small (11px text)", value: "sm" },

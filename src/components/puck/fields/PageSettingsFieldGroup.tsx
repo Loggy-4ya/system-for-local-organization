@@ -85,6 +85,8 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   const [deleting, setDeleting] = useState(false);
   const onChangeRef = useRef(onChange);
   const settingsRef = useRef(settings);
+  const titleFieldFocusedRef = useRef(false);
+  const slugFieldFocusedRef = useRef(false);
   onChangeRef.current = onChange;
   settingsRef.current = settings;
 
@@ -97,6 +99,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     value: settings.title,
     onChange: (next) => {
       mergePageSettingsCommit({ title: next });
+      setPageMetadataDraft({ title: next.trim() || "Untitled Page" });
     },
     textDebounceMs: 0,
   });
@@ -110,6 +113,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     value: settings.slug,
     onChange: (next) => {
       mergePageSettingsCommit({ slug: next });
+      setPageMetadataDraft({ slug: next });
     },
     textDebounceMs: 0,
   });
@@ -150,8 +154,9 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
   };
 
   useEffect(() => {
+    if (titleFieldFocusedRef.current || slugFieldFocusedRef.current) return;
     setPageMetadataDraft({
-      title: settings.title,
+      title: settings.title.trim() || "Untitled Page",
       slug: settings.slug,
       slugLocked: isHomepageSlug,
     });
@@ -223,8 +228,14 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
               syncSlugFromTitle(next, slugDraft);
             }
           }}
-          onFocus={onTitleFocus}
-          onBlur={onTitleBlur}
+          onFocus={() => {
+            titleFieldFocusedRef.current = true;
+            onTitleFocus();
+          }}
+          onBlur={() => {
+            titleFieldFocusedRef.current = false;
+            onTitleBlur();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -287,8 +298,12 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
             pasteError={pasteError}
             onClearPasteError={() => setPasteError(null)}
             onPasteError={setPasteError}
-            onSlugFocus={onSlugFocus}
+            onSlugFocus={() => {
+              slugFieldFocusedRef.current = true;
+              onSlugFocus();
+            }}
             onSlugBlur={() => {
+              slugFieldFocusedRef.current = false;
               onSlugBlur();
             }}
             onSlugChange={(next) => {

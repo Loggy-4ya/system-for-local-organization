@@ -52,6 +52,7 @@ import {
   toPublicProfileUser,
   type PublicProfileUser,
 } from "@shared/lib/publicProfileRedaction";
+import { looksLikeMongoObjectId } from "@shared/lib/userProfilePathLogic";
 import {
   applyProfilePatchToUser,
   type ProfileUpdateInput,
@@ -145,6 +146,7 @@ export interface PublicUser {
   telegramId: number | null;
   phone: string | null;
   selfGovernmentApplicationIntent: boolean;
+  teacherAccessApproved: boolean;
   personalDataConsentAt: Date | null;
   notificationChannels: TaskReminderChannel[];
   webNotificationPromptAt: Date | null;
@@ -271,6 +273,8 @@ export const AuthDomain = {
           ? accessLevelForTeacherRegistration(null)
           : defaultStudentAccessLevel();
 
+    const isTeacherSignup = parsed.signupSociumRole === "Teacher";
+
     const user = await createUserDocument({
       login,
       email,
@@ -279,22 +283,25 @@ export const AuthDomain = {
       surname: parsed.surname,
       phone,
       avatar: parsed.avatar ?? null,
-      specialty: parsed.specialty,
-      group: parsed.group,
+      specialty: isTeacherSignup ? null : parsed.specialty,
+      group: isTeacherSignup ? null : parsed.group,
       studentTitle,
       sociumRoles,
       qualityScores,
       accessLevelIndex,
       delegatedPermissions: [],
-      selfGovernmentApplicationIntent: parsed.applyForSelfGovernment,
+      selfGovernmentApplicationIntent: isTeacherSignup ? true : parsed.applyForSelfGovernment,
+      teacherAccessApproved: isTeacherSignup ? false : true,
       personalDataConsentAt: new Date(),
     });
 
-    await queuePendingAcademicCatalogEntries({
-      specialty: parsed.specialty,
-      group: parsed.group,
-      submittedByUserId: String(user._id),
-    });
+    if (!isTeacherSignup) {
+      await queuePendingAcademicCatalogEntries({
+        specialty: parsed.specialty,
+        group: parsed.group,
+        submittedByUserId: String(user._id),
+      });
+    }
 
     if (parsed.telegramAuth) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -562,6 +569,8 @@ export const AuthDomain = {
           ? accessLevelForTeacherRegistration(null)
           : defaultStudentAccessLevel();
 
+    const isTeacherSignup = parsed.signupSociumRole === "Teacher";
+
     const user = await createUserDocument({
       login,
       email,
@@ -569,14 +578,15 @@ export const AuthDomain = {
       name,
       surname: parsed.surname,
       phone: parsed.phone ?? null,
-      specialty: parsed.specialty,
-      group: parsed.group,
+      specialty: isTeacherSignup ? null : parsed.specialty,
+      group: isTeacherSignup ? null : parsed.group,
       studentTitle,
       sociumRoles,
       qualityScores,
       accessLevelIndex,
       delegatedPermissions: [],
-      selfGovernmentApplicationIntent: parsed.applyForSelfGovernment,
+      selfGovernmentApplicationIntent: isTeacherSignup ? true : parsed.applyForSelfGovernment,
+      teacherAccessApproved: isTeacherSignup ? false : true,
       personalDataConsentAt: new Date(),
       telegramId: verified.user.id,
       username: verified.user.username ?? null,
@@ -584,11 +594,13 @@ export const AuthDomain = {
       lastTelegramSyncAt: syncAt,
     });
 
-    await queuePendingAcademicCatalogEntries({
-      specialty: parsed.specialty,
-      group: parsed.group,
-      submittedByUserId: String(user._id),
-    });
+    if (!isTeacherSignup) {
+      await queuePendingAcademicCatalogEntries({
+        specialty: parsed.specialty,
+        group: parsed.group,
+        submittedByUserId: String(user._id),
+      });
+    }
 
     await AuthDomain.mergeHarvestedPhoneIntoUser(user);
     const normalizedTelegramId = normalizeTelegramUserId(verified.user.id);
@@ -867,6 +879,38 @@ export const AuthDomain = {
   },
 
   /**
+   * Resolve a user from a public profile route segment (`/users/{ref}`).
+   *
+   * Accepts a MongoDB id or a credentials login handle (case-insensitive).
+   * Tries ObjectId lookup first, then login — single `login` binding only.
+   *
+   * @param ref - Dynamic route param from `/users/[ref]`.
+   * @returns Matching user document or null.
+   */
+  async resolveUserByProfileRef(ref: string): Promise<IUser | null> {
+    await connectDB();
+    const trimmed = ref.trim();
+    if (!trimmed) return null;
+
+    let decoded = trimmed;
+    try {
+      decoded = decodeURIComponent(trimmed);
+    } catch {
+      decoded = trimmed;
+    }
+
+    if (looksLikeMongoObjectId(decoded)) {
+      const byId = await User.findById(decoded);
+      if (byId) return byId;
+    }
+
+    const login = decoded.trim().toLowerCase();
+    if (!login) return null;
+
+    return User.findOne({ login });
+  },
+
+  /**
    * Update editable profile fields for the settings page.
    *
    * @param userId - Target user id.
@@ -980,6 +1024,7 @@ export const AuthDomain = {
       telegramId: plain.telegramId ?? null,
       phone: plain.phone ?? null,
       selfGovernmentApplicationIntent: plain.selfGovernmentApplicationIntent ?? false,
+      teacherAccessApproved: plain.teacherAccessApproved ?? true,
       personalDataConsentAt: plain.personalDataConsentAt ?? null,
       notificationChannels: normalizeUserNotificationChannels(plain.notificationChannels),
       webNotificationPromptAt: plain.webNotificationPromptAt ?? null,
@@ -990,19 +1035,19 @@ export const AuthDomain = {
   },
 
   /**
-   * Resolve a redacted public profile for member-to-member viewing at `/users/[userId]`.
+   * Resolve a redacted public profile for member-to-member viewing at `/users/[ref]`.
    *
    * @param viewer - Authenticated viewer document, or null when unauthenticated.
-   * @param targetUserId - Profile owner MongoDB id.
+   * @param targetUserRef - Profile owner MongoDB id or login handle.
    * @returns Redacted {@link PublicProfileUser} DTO.
    * @throws Error `USER_NOT_FOUND` when the target does not exist.
    */
   async getPublicProfileForViewer(
     viewer: IUser | null,
-    targetUserId: string,
+    targetUserRef: string,
   ): Promise<PublicProfileUser> {
     await connectDB();
-    const target = await User.findById(targetUserId);
+    const target = await AuthDomain.resolveUserByProfileRef(targetUserRef);
     if (!target) throw new Error("USER_NOT_FOUND");
 
     const viewerSlice = viewer

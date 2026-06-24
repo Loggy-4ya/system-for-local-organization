@@ -12,8 +12,10 @@ import type { Session } from "next-auth";
 
 import {
   canUserEditPageDoc,
+  canViewUnpublishedPage,
   isPuckManagedPagePath,
   resolvePageEditHref,
+  resolveUnauthorizedEditorRedirectPath,
   shouldShowPageEditFab,
 } from "@/lib/pageEditAccess";
 import { isPuckEditorRoutePath } from "@/components/puck/lib/pageSlugValidation";
@@ -61,6 +63,15 @@ describe("canUserEditPageDoc", () => {
   });
 });
 
+describe("canViewUnpublishedPage", () => {
+  it("allows editors and global admins to preview drafts", () => {
+    const admin = sessionWithRole("Admin");
+    assert.equal(canViewUnpublishedPage(admin, false), true);
+    assert.equal(canViewUnpublishedPage(null, true), true);
+    assert.equal(canViewUnpublishedPage(null, false), false);
+  });
+});
+
 describe("shouldShowPageEditFab", () => {
   it("shows when canEdit and hides in edit mode", () => {
     assert.equal(shouldShowPageEditFab(true, "/news", false), true);
@@ -75,9 +86,17 @@ describe("resolvePageEditHref", () => {
   });
 });
 
+describe("resolveUnauthorizedEditorRedirectPath", () => {
+  it("returns the viewer path without the edit suffix", () => {
+    assert.equal(resolveUnauthorizedEditorRedirectPath("/news"), "/news");
+    assert.equal(resolveUnauthorizedEditorRedirectPath("/about/team"), "/about/team");
+  });
+});
+
 describe("isPuckEditorRoutePath", () => {
   it("hides chrome only on Puck CMS editor routes", () => {
     assert.equal(isPuckEditorRoutePath("/news/edit"), true);
+    assert.equal(isPuckEditorRoutePath("/pages/edit"), false);
     assert.equal(isPuckEditorRoutePath("/pages/categories/edit"), false);
     assert.equal(isPuckEditorRoutePath("/pages/categories"), false);
   });

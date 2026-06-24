@@ -96,6 +96,28 @@ function toPublicAutomationConfig(
     groupWelcomeTemplate: doc.groupWelcomeTemplate,
     dismantleNoticeTemplate: doc.dismantleNoticeTemplate,
     linkCommandHelpTemplate: doc.linkCommandHelpTemplate,
+    reportFlowSteps: [...doc.reportFlowSteps],
+    botCompletedCommandEnabled: doc.botCompletedCommandEnabled,
+    tasksHeaderTemplate: doc.tasksHeaderTemplate,
+    tasksLineTemplate: doc.tasksLineTemplate,
+    tasksFooterTemplate: doc.tasksFooterTemplate,
+    tasksEmptyTemplate: doc.tasksEmptyTemplate,
+    tasksDmHeaderTemplate: doc.tasksDmHeaderTemplate,
+    tasksDmLineTemplate: doc.tasksDmLineTemplate,
+    tasksDmFooterTemplate: doc.tasksDmFooterTemplate,
+    tasksDmEmptyTemplate: doc.tasksDmEmptyTemplate,
+    tasksUnlinkedGroupTemplate: doc.tasksUnlinkedGroupTemplate,
+    taskReportPickTemplate: doc.taskReportPickTemplate,
+    taskReportDescriptionPromptTemplate: doc.taskReportDescriptionPromptTemplate,
+    taskReportMediaPromptTemplate: doc.taskReportMediaPromptTemplate,
+    taskReportSuccessTemplate: doc.taskReportSuccessTemplate,
+    taskReportCancelledTemplate: doc.taskReportCancelledTemplate,
+    taskReportSessionInterruptedTemplate: doc.taskReportSessionInterruptedTemplate,
+    taskCompletedSuccessTemplate: doc.taskCompletedSuccessTemplate,
+    taskCompletedForbiddenTemplate: doc.taskCompletedForbiddenTemplate,
+    seeReportHeaderTemplate: doc.seeReportHeaderTemplate,
+    seeReportBodyTemplate: doc.seeReportBodyTemplate,
+    seeReportEmptyTemplate: doc.seeReportEmptyTemplate,
     operatorSessionConfigured: isTelegramOperatorSessionConfigured(),
     workerEnvReady: canAutoCreateTelegramGroups(),
   };
@@ -198,6 +220,28 @@ export const TelegramWorkspaceDomain = {
         | "groupWelcomeTemplate"
         | "dismantleNoticeTemplate"
         | "linkCommandHelpTemplate"
+        | "reportFlowSteps"
+        | "botCompletedCommandEnabled"
+        | "tasksHeaderTemplate"
+        | "tasksLineTemplate"
+        | "tasksFooterTemplate"
+        | "tasksEmptyTemplate"
+        | "tasksDmHeaderTemplate"
+        | "tasksDmLineTemplate"
+        | "tasksDmFooterTemplate"
+        | "tasksDmEmptyTemplate"
+        | "tasksUnlinkedGroupTemplate"
+        | "taskReportPickTemplate"
+        | "taskReportDescriptionPromptTemplate"
+        | "taskReportMediaPromptTemplate"
+        | "taskReportSuccessTemplate"
+        | "taskReportCancelledTemplate"
+        | "taskReportSessionInterruptedTemplate"
+        | "taskCompletedSuccessTemplate"
+        | "taskCompletedForbiddenTemplate"
+        | "seeReportHeaderTemplate"
+        | "seeReportBodyTemplate"
+        | "seeReportEmptyTemplate"
       >
     >,
   ): Promise<TelegramAutomationPublicConfig> {

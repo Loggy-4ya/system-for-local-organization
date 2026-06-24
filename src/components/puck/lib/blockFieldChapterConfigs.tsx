@@ -16,7 +16,6 @@ import {
   Rows3,
   Settings2,
   SlidersHorizontal,
-  Sparkles,
   Type,
 } from "lucide-react";
 import { puckIcon } from "./puckIcons";
@@ -32,7 +31,6 @@ const PlaybackIcon = () => puckIcon(Play);
 const BehaviorIcon = () => puckIcon(Settings2);
 const StyleIcon = () => puckIcon(SlidersHorizontal);
 const LinkIcon = () => puckIcon(Link2);
-const IconChapterIcon = () => puckIcon(Sparkles);
 const SizeIcon = () => puckIcon(Rows3);
 const DividerIcon = () => puckIcon(Rows3);
 const ValidationIcon = () => puckIcon(MousePointerClick);
@@ -240,35 +238,6 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     ],
   },
 
-  NexusButton: {
-    chapters: [
-      {
-        id: "buttonContent",
-        title: "Content",
-        icon: <ContentIcon />,
-        fieldKeys: ["label"],
-      },
-      {
-        id: "buttonIcon",
-        title: "Icon",
-        icon: <IconChapterIcon />,
-        fieldKeys: ["icon", "iconPosition"],
-      },
-      {
-        id: "buttonStyle",
-        title: "Style",
-        icon: <StyleIcon />,
-        fieldKeys: ["variant", "size", "fullWidth", "borderRadius"],
-      },
-      {
-        id: "buttonLink",
-        title: "Link",
-        icon: <LinkIcon />,
-        fieldKeys: ["href"],
-      },
-    ],
-  },
-
   NexusTabs: {
     topLevelFieldKeys: ["tabs", "editorActiveIndex"],
     chapters: [
@@ -312,13 +281,70 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
         id: "inputContent",
         title: "Content",
         icon: <ContentIcon />,
-        fieldKeys: ["label", "placeholder", "helperText"],
+        fieldKeys: ["question", "mode", "helperText"],
+      },
+      {
+        id: "inputOptions",
+        title: "Options",
+        icon: <ContentIcon />,
+        fieldKeys: ["options"],
+        visibleWhenFlat: (props) => props.mode === "choice",
+      },
+      {
+        id: "inputTextSettings",
+        title: "Text Answer",
+        icon: <ContentIcon />,
+        fieldKeys: ["placeholder", "inputType"],
+        visibleWhenFlat: (props) => props.mode !== "choice",
       },
       {
         id: "inputValidation",
         title: "Validation",
         icon: <ValidationIcon />,
-        fieldKeys: ["type", "required"],
+        fieldKeys: ["required"],
+      },
+      {
+        id: "inputQuizGrading",
+        title: "Quiz Grading",
+        icon: <ValidationIcon />,
+        fieldKeys: ["answerMode"],
+        visibleWhenFlat: (props) => props.mode === "choice",
+      },
+      {
+        id: "inputDistribution",
+        title: "Distribution",
+        icon: <LinkIcon />,
+        fieldKeys: ["distribution"],
+      },
+      {
+        id: "inputStatistics",
+        title: "Statistics",
+        icon: <BehaviorIcon />,
+        fieldKeys: ["statsPanel"],
+        defaultOpen: false,
+      },
+    ],
+  },
+
+  NexusComments: {
+    chapters: [
+      {
+        id: "commentsContent",
+        title: "Content",
+        icon: <ContentIcon />,
+        fieldKeys: ["launcherLabel", "viewMode"],
+      },
+      {
+        id: "commentsBehavior",
+        title: "Behavior",
+        icon: <BehaviorIcon />,
+        fieldKeys: ["commentsEnabled"],
+      },
+      {
+        id: "commentsLayout",
+        title: "Layout",
+        icon: <LayoutIcon />,
+        fieldKeys: ["layoutWidth", "layoutAlign", "previewIntervalSeconds"],
       },
     ],
   },

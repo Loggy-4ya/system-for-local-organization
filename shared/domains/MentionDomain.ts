@@ -19,6 +19,7 @@ import {
 import {
   buildPageMentionHref,
   buildUserMentionHref,
+  dedupeNexusMentionItems,
   type NexusMentionItem,
   type NexusMentionSearchResult,
 } from "@shared/lib/nexusMentionTypes";
@@ -61,7 +62,7 @@ export class MentionDomain {
         mentionType: "user" as const,
         id: row.userId,
         label: row.displayName,
-        href: buildUserMentionHref(row.userId),
+        href: buildUserMentionHref(row.userId, row.login),
         subtitle: row.subtitle,
         avatar: row.avatar,
       }));
@@ -96,7 +97,7 @@ export class MentionDomain {
       };
     });
 
-    return { users, pages };
+    return { users: dedupeNexusMentionItems(users), pages: dedupeNexusMentionItems(pages) };
   }
 
   /**
@@ -115,16 +116,18 @@ export class MentionDomain {
       .select("name surname login username email group specialty avatar role accessLevelIndex delegatedPermissions sociumRoles studentTitle")
       .lean();
 
-    return userDocs.map((doc) => {
-      const candidate = toUserSearchCandidate(doc as IUser, null);
-      return {
-        mentionType: "user" as const,
-        id: candidate.userId,
-        label: candidate.displayName,
-        href: buildUserMentionHref(candidate.userId),
-        subtitle: candidate.subtitle,
-        avatar: candidate.avatar,
-      };
-    });
+    return dedupeNexusMentionItems(
+      userDocs.map((doc) => {
+        const candidate = toUserSearchCandidate(doc as IUser, null);
+        return {
+          mentionType: "user" as const,
+          id: candidate.userId,
+          label: candidate.displayName,
+          href: buildUserMentionHref(candidate.userId, candidate.login),
+          subtitle: candidate.subtitle,
+          avatar: candidate.avatar,
+        };
+      }),
+    );
   }
 }

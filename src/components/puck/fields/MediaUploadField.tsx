@@ -10,12 +10,7 @@ import { FieldLabel } from "@puckeditor/core";
 import { useCallback, useRef, useState } from "react";
 import { SettingsMediaPreview } from "@/components/media/SettingsMediaPreview";
 import { cn } from "@/lib/utils";
-import {
-  uploadMediaFileWithCrop,
-  importMediaImageFromUrl,
-  isImportableRemoteMediaUrl,
-  type MediaAccept,
-} from "../lib/mediaUpload";
+import { uploadMediaFileWithCrop, isRecroppableUploadedImageUrl, recropUploadedMediaImage, type MediaAccept } from "../lib/mediaUpload";
 import type { MediaPurpose } from "@shared/constants/mediaStorage";
 
 /** Props for the media upload field renderer. */
@@ -36,13 +31,19 @@ interface MediaUploadFieldProps {
   onAltTextChange?: (value: string) => void;
   /** Skip Puck {@link FieldLabel} when the parent chapter already shows a label. */
   hideFieldLabel?: boolean;
+  /** When false, omit the drop zone (preview/recrop only). Defaults to true. */
+  showDropZone?: boolean;
+  /** Clickable empty frame label when {@link showDropZone} is false and no media is set. */
+  emptyPickerLabel?: string;
+  /** Override copy on the empty-state drop strip. */
+  dropZoneLabel?: string;
 }
 
 /**
- * Drag-and-drop media upload field with URL fallback and preview.
+ * Drag-and-drop media upload field with optional preview.
  *
  * @param props - Puck custom field props.
- * @returns Upload zone, URL input, and optional preview.
+ * @returns Preview (when set), optional alt text, and a single drop zone at the bottom.
  */
 export function MediaUploadField({
   field,
@@ -52,6 +53,9 @@ export function MediaUploadField({
   altText,
   onAltTextChange,
   hideFieldLabel = false,
+  showDropZone = true,
+  emptyPickerLabel = "Select image",
+  dropZoneLabel = "Drop or click to select media",
 }: MediaUploadFieldProps) {
   const accept = field.accept ?? "both";
   const purpose = field.purpose ?? "puck-block";
@@ -59,13 +63,15 @@ export function MediaUploadField({
     accept === "image" ? "image/*" : accept === "video" ? "video/*" : "image/*,video/*";
 
   const [uploading, setUploading] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isVideo =
     value?.match(/\.(mp4|webm|ogg|mov)(\?|$)/i) || value?.includes("video");
+
+  const canRecropImage =
+    (accept === "image" || accept === "both") && isRecroppableUploadedImageUrl(value);
 
   /**
    * Process a selected or dropped file through the upload API.
@@ -93,107 +99,91 @@ export function MediaUploadField({
     [accept, purpose, onChange],
   );
 
-  const canImportRemoteImage = accept === "image" || accept === "both";
-  const showImportLink =
-    canImportRemoteImage && isImportableRemoteMediaUrl(value) && !uploading && !importing;
-
   /**
-   * Download a remote image URL and replace the field value with a local path.
+   * Re-open the crop editor for the current uploaded image and replace the field value.
    */
-  const handleImportFromUrl = useCallback(async () => {
-    if (!value?.trim() || !canImportRemoteImage) return;
+  const handleRecrop = useCallback(async () => {
+    if (!value || uploading || !canRecropImage) return;
 
-    setImporting(true);
+    setUploading(true);
     setError(null);
     try {
-      const localUrl = await importMediaImageFromUrl(value, { purpose });
-      onChange(localUrl);
+      const nextUrl = await recropUploadedMediaImage(value, { purpose });
+      if (!nextUrl) return;
+      onChange(nextUrl);
     } catch (err: unknown) {
-      console.error("[MediaUploadField import]", err);
-      setError((err as Error)?.message || "Image import failed.");
+      console.error("[MediaUploadField recrop]", err);
+      setError((err as Error)?.message || "Recrop failed.");
     } finally {
-      setImporting(false);
+      setUploading(false);
     }
-  }, [canImportRemoteImage, onChange, purpose, value]);
+  }, [canRecropImage, onChange, purpose, uploading, value]);
 
-  const busy = uploading || importing;
+  const showEmptyPicker = !value?.trim() && !showDropZone;
+  const showDropStrip = showDropZone && !value?.trim();
+  const needsFileInput = showEmptyPicker || showDropStrip;
+
+  const openFilePicker = useCallback(() => {
+    if (!uploading) {
+      fileInputRef.current?.click();
+    }
+  }, [uploading]);
 
   const body = (
     <div className="nexus-media-upload-field">
-      <input
-        type="text"
-        className="nexus-puck-input nexus-media-upload-field__url"
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Media URL (e.g. /uploads/file.png)"
-      />
-
-      {showImportLink ? (
-        <button
-          type="button"
-          className="nexus-media-upload-field__import"
-          disabled={busy}
-          onClick={() => void handleImportFromUrl()}
+      {showEmptyPicker ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className={cn(
+            "nexus-media-upload-field__empty-picker",
+            uploading && "nexus-media-upload-field__empty-picker--busy",
+          )}
+          title={emptyPickerLabel}
+          aria-label={emptyPickerLabel}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openFilePicker();
+            }
+          }}
+          onClick={openFilePicker}
         >
-          {importing ? "Importing…" : "Import image from link"}
-        </button>
+          {uploading ? "Uploading…" : emptyPickerLabel}
+        </div>
       ) : null}
 
-      <div
-        role="button"
-        tabIndex={0}
-        className={cn(
-          "nexus-media-upload-field__dropzone",
-          dragOver && "nexus-media-upload-field__dropzone--active",
-          busy && "nexus-media-upload-field__dropzone--busy",
-        )}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const file = e.dataTransfer.files?.[0];
-          if (file) void handleFile(file);
-        }}
-        onClick={() => !busy && fileInputRef.current?.click()}
-      >
-        {uploading ? "Uploading…" : importing ? "Importing…" : "Drop file here or click to upload"}
-      </div>
-
-      <button
-        type="button"
-        className="nexus-media-upload-field__choose"
-        disabled={busy}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        {uploading ? "Uploading…" : "Choose file"}
-      </button>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept={acceptAttr}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
-        }}
-        className="nexus-media-upload-field__file-input"
-      />
-
-      {error ? <p className="nexus-media-upload-field__error">{error}</p> : null}
-
       {value && showReadablePreview ? (
-        <SettingsMediaPreview src={value} alt={altText || field.label || "Preview"} />
+        <SettingsMediaPreview
+          src={value}
+          alt={altText || field.label || "Preview"}
+          onRecropClick={canRecropImage ? () => void handleRecrop() : undefined}
+          recropDisabled={uploading}
+        />
       ) : null}
 
       {value && !showReadablePreview ? (
-        <div className="nexus-media-upload-field__preview-compact">
+        <div
+          className={cn(
+            "nexus-media-upload-field__preview-compact",
+            canRecropImage && "nexus-media-upload-field__preview-compact--recrop",
+          )}
+          {...(canRecropImage
+            ? {
+                role: "button",
+                tabIndex: uploading ? -1 : 0,
+                title: "Click to recrop",
+                "aria-label": "Preview — click to recrop",
+                onClick: () => !uploading && void handleRecrop(),
+                onKeyDown: (event) => {
+                  if ((event.key === "Enter" || event.key === " ") && !uploading) {
+                    event.preventDefault();
+                    void handleRecrop();
+                  }
+                },
+              }
+            : {})}
+        >
           {isVideo ? (
             <video src={value} className="nexus-media-upload-field__preview-media" controls muted />
           ) : (
@@ -218,6 +208,50 @@ export function MediaUploadField({
             placeholder="Describe the image for accessibility"
           />
         </div>
+      ) : null}
+
+      {error ? <p className="nexus-media-upload-field__error">{error}</p> : null}
+
+      {showDropStrip ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className={cn(
+            "nexus-media-upload-field__dropzone",
+            dragOver && "nexus-media-upload-field__dropzone--active",
+            uploading && "nexus-media-upload-field__dropzone--busy",
+          )}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") openFilePicker();
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          onClick={openFilePicker}
+        >
+          {uploading ? "Uploading…" : dropZoneLabel}
+        </div>
+      ) : null}
+
+      {needsFileInput ? (
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept={acceptAttr}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          className="nexus-media-upload-field__file-input"
+        />
       ) : null}
     </div>
   );

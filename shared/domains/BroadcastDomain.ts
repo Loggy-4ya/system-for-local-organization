@@ -24,6 +24,8 @@ import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { formatTelegramBroadcastMessage } from "@shared/lib/telegramBroadcastFormat";
 import { userAcceptsNotificationChannel } from "@shared/lib/userNotificationSettingsLogic";
+import { buildInboxDeliveryKey } from "@shared/lib/notificationInboxLogic";
+import { NotificationDomain } from "@shared/domains/NotificationDomain";
 
 /** Input for creating and dispatching a broadcast. */
 export interface SendBroadcastRequest extends SendBroadcastInput {}
@@ -127,6 +129,15 @@ export const BroadcastDomain = {
     broadcast.deliveryStats = deliveryStats;
     await broadcast.save();
 
+    if (channels.includes(BROADCAST_CHANNELS.web_toast)) {
+      await NotificationDomain.recordBroadcastInboxRows(
+        String(broadcast._id),
+        parsed.title,
+        parsed.body,
+        parsed.variant,
+      ).catch(() => undefined);
+    }
+
     return {
       broadcastId: String(broadcast._id),
       deliveryStats,
@@ -195,6 +206,11 @@ export const BroadcastDomain = {
       { $set: { webDismissedAt: new Date() } },
       { upsert: true },
     );
+
+    await NotificationDomain.markReadByDeliveryKey(
+      userId,
+      buildInboxDeliveryKey("broadcast", broadcastId),
+    ).catch(() => undefined);
   },
 };
 

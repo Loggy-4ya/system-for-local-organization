@@ -41,6 +41,7 @@ import {
   ensureQualityScoresInitialized,
   formatUserFullName,
   isSelfGovernmentMember,
+  isTeacherUser,
 } from "@shared/lib/userSociumHelpers";
 import {
   BUILTIN_SOCIUM_ROLE_KEYS,
@@ -75,6 +76,8 @@ export interface MembershipApplicationRowDto {
   canApprove: boolean;
   /** Whether the actor may reject this applicant. */
   canReject: boolean;
+  /** Applicant category for admin queue display. */
+  applicantType: "teacher" | "student";
 }
 
 /** Paginated admin queue result. */
@@ -150,6 +153,7 @@ function toApplicationRow(
     sociumRoles: target.sociumRoles ?? [],
     selfGovernmentApplicationIntent: target.selfGovernmentApplicationIntent,
     telegramId: target.telegramId,
+    teacherAccessApproved: target.teacherAccessApproved,
   });
 
   return {
@@ -164,6 +168,7 @@ function toApplicationRow(
     missingFieldLabels: summary.missingFieldLabels,
     canApprove: canReview,
     canReject: canReview,
+    applicantType: isTeacherUser(target.sociumRoles ?? []) ? "teacher" : "student",
   };
 }
 
@@ -186,6 +191,7 @@ export const MembershipApplicationDomain = {
       sociumRoles: user.sociumRoles ?? [],
       selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
       telegramId: user.telegramId,
+      teacherAccessApproved: user.teacherAccessApproved,
     });
   },
 
@@ -207,6 +213,7 @@ export const MembershipApplicationDomain = {
       sociumRoles: user.sociumRoles ?? [],
       selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
       telegramId: user.telegramId,
+      teacherAccessApproved: user.teacherAccessApproved,
     };
 
     if (!canSubmitMembershipApplication(slice)) {
@@ -321,10 +328,27 @@ export const MembershipApplicationDomain = {
       sociumRoles: target.sociumRoles ?? [],
       selfGovernmentApplicationIntent: target.selfGovernmentApplicationIntent,
       telegramId: target.telegramId,
+      teacherAccessApproved: target.teacherAccessApproved,
     };
 
     if (!isProfileReadyForMembershipApplication(profileSlice)) {
       throw new Error("PROFILE_INCOMPLETE");
+    }
+
+    if (isTeacherUser(target.sociumRoles ?? [])) {
+      target.teacherAccessApproved = true;
+      target.selfGovernmentApplicationIntent = false;
+      await target.save();
+
+      await UserDirectoryAuditDomain.recordSuccessfulUpdate(actor, target, {
+        teacherAccessApproved: true,
+        selfGovernmentApplicationIntent: false,
+        membershipApplicationAction: "approve_teacher",
+      }).catch((error) => {
+        console.error("[MembershipApplication] Failed to record teacher approve audit:", error);
+      });
+
+      return toApplicationRow(actorSlice, target, settings);
     }
 
     const sociumRoles = ensureBaselineStudentRole(target.sociumRoles ?? []);

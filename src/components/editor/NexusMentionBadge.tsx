@@ -8,10 +8,13 @@
 
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import Link from "next/link";
-import { AtSign, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { NexusMentionType } from "@shared/lib/nexusMentionTypes";
+import {
+  normalizeMentionLabel,
+  type NexusMentionType,
+} from "@shared/lib/nexusMentionTypes";
 
 /**
  * Read mention attrs from a TipTap node view.
@@ -42,7 +45,7 @@ function readMentionAttrs(props: NodeViewProps): {
  */
 export function NexusMentionBadge(props: NodeViewProps) {
   const { mentionType, label, href } = readMentionAttrs(props);
-  const Icon = mentionType === "page" ? FileText : AtSign;
+  const displayLabel = normalizeMentionLabel(label);
 
   return (
     <NodeViewWrapper as="span" className="nexus-mention-node" contentEditable={false}>
@@ -60,14 +63,16 @@ export function NexusMentionBadge(props: NodeViewProps) {
             data-nexus-mention=""
             data-mention-type={mentionType}
             data-id={props.node.attrs.id}
-            data-label={label}
+            data-label={displayLabel}
             {...(mentionType === "page" ? { "data-page-path": href } : {})}
             onClick={(event) => event.preventDefault()}
           />
         }
       >
-        <Icon data-icon="inline-start" aria-hidden />
-        @{label}
+        {mentionType === "page" ? (
+          <FileText data-icon="inline-start" aria-hidden />
+        ) : null}
+        @{displayLabel}
       </Badge>
     </NodeViewWrapper>
   );

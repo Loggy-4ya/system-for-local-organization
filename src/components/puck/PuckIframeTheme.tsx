@@ -14,6 +14,9 @@
 import { useTheme } from "@teispace/next-themes";
 import { useEffect, useLayoutEffect } from "react";
 import {
+  injectPuckAutoFrameStylesheetRejectionGuardScript,
+} from "@/components/puck/PuckAutoFrameStylesheetRejectionGuard";
+import {
   injectSafePointerCaptureScript,
   installSafePointerCapture,
 } from "@/lib/safePointerCapture";
@@ -337,6 +340,7 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
   useLayoutEffect(() => {
     if (!iframeDoc?.documentElement) return;
 
+    injectPuckAutoFrameStylesheetRejectionGuardScript(iframeDoc);
     injectSafePointerCaptureScript(iframeDoc);
     installSafePointerCapture(iframeDoc.defaultView);
 

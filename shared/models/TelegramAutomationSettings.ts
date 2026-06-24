@@ -45,6 +45,50 @@ export interface ITelegramAutomationSettings extends Omit<Document, "_id"> {
   dismantleNoticeTemplate: string;
   /** DM/help copy explaining manual /link flow. */
   linkCommandHelpTemplate: string;
+  /** Ordered `/task_report` wizard steps (`description`, `media`). */
+  reportFlowSteps: ("description" | "media")[];
+  /** When true, dispatch admins may use `/completed` in bot chat. */
+  botCompletedCommandEnabled: boolean;
+  /** Header line for `/tasks` in a linked project group. */
+  tasksHeaderTemplate: string;
+  /** One line per open part in group `/tasks`. */
+  tasksLineTemplate: string;
+  /** Footer hints after group `/tasks`. */
+  tasksFooterTemplate: string;
+  /** Message when a linked group has no open parts. */
+  tasksEmptyTemplate: string;
+  /** Header for `/tasks` in private bot DM. */
+  tasksDmHeaderTemplate: string;
+  /** One line per assignment in DM `/tasks`. */
+  tasksDmLineTemplate: string;
+  /** Footer hints after DM `/tasks`. */
+  tasksDmFooterTemplate: string;
+  /** Message when DM user has no open assignments. */
+  tasksDmEmptyTemplate: string;
+  /** Reply when a group chat is not linked to Nexus. */
+  tasksUnlinkedGroupTemplate: string;
+  /** Picker when `/task_report` needs a task index. */
+  taskReportPickTemplate: string;
+  /** Prompt before collecting report description text. */
+  taskReportDescriptionPromptTemplate: string;
+  /** Prompt before collecting proof media. */
+  taskReportMediaPromptTemplate: string;
+  /** Sent after successful `/task_report` submission. */
+  taskReportSuccessTemplate: string;
+  /** Sent when the user runs `/cancel` during a report wizard. */
+  taskReportCancelledTemplate: string;
+  /** Sent when a new bot command discards an in-progress report draft. */
+  taskReportSessionInterruptedTemplate: string;
+  /** Sent after `/completed` succeeds. */
+  taskCompletedSuccessTemplate: string;
+  /** Sent when `/completed` is denied. */
+  taskCompletedForbiddenTemplate: string;
+  /** Header for `/see_report` output. */
+  seeReportHeaderTemplate: string;
+  /** Body lines for `/see_report` output. */
+  seeReportBodyTemplate: string;
+  /** When no performer report exists yet. */
+  seeReportEmptyTemplate: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,6 +151,115 @@ const TelegramAutomationSettingsSchema = new Schema<ITelegramAutomationSettings>
     linkCommandHelpTemplate: {
       type: String,
       default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.linkCommandHelpTemplate,
+      trim: true,
+    },
+    reportFlowSteps: {
+      type: [String],
+      enum: ["description", "media"],
+      default: () => [...DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.reportFlowSteps],
+    },
+    botCompletedCommandEnabled: {
+      type: Boolean,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.botCompletedCommandEnabled,
+    },
+    tasksHeaderTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksHeaderTemplate,
+      trim: true,
+    },
+    tasksLineTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksLineTemplate,
+      trim: true,
+    },
+    tasksFooterTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksFooterTemplate,
+      trim: true,
+    },
+    tasksEmptyTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksEmptyTemplate,
+      trim: true,
+    },
+    tasksDmHeaderTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmHeaderTemplate,
+      trim: true,
+    },
+    tasksDmLineTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmLineTemplate,
+      trim: true,
+    },
+    tasksDmFooterTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmFooterTemplate,
+      trim: true,
+    },
+    tasksDmEmptyTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksDmEmptyTemplate,
+      trim: true,
+    },
+    tasksUnlinkedGroupTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.tasksUnlinkedGroupTemplate,
+      trim: true,
+    },
+    taskReportPickTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportPickTemplate,
+      trim: true,
+    },
+    taskReportDescriptionPromptTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportDescriptionPromptTemplate,
+      trim: true,
+    },
+    taskReportMediaPromptTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportMediaPromptTemplate,
+      trim: true,
+    },
+    taskReportSuccessTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportSuccessTemplate,
+      trim: true,
+    },
+    taskReportCancelledTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportCancelledTemplate,
+      trim: true,
+    },
+    taskReportSessionInterruptedTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskReportSessionInterruptedTemplate,
+      trim: true,
+    },
+    taskCompletedSuccessTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskCompletedSuccessTemplate,
+      trim: true,
+    },
+    taskCompletedForbiddenTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.taskCompletedForbiddenTemplate,
+      trim: true,
+    },
+    seeReportHeaderTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportHeaderTemplate,
+      trim: true,
+    },
+    seeReportBodyTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportBodyTemplate,
+      trim: true,
+    },
+    seeReportEmptyTemplate: {
+      type: String,
+      default: DEFAULT_TELEGRAM_AUTOMATION_SETTINGS.seeReportEmptyTemplate,
       trim: true,
     },
   },

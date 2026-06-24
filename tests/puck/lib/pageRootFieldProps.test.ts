@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  resolveEditorPageSettingsTitle,
   resolvePageBackgroundGridIsStatic,
   resolvePageBackgroundProps,
 } from "@/components/puck/lib/pageRootFieldProps";
@@ -18,6 +19,29 @@ import {
   resetPageBackgroundGrid,
   setPageBackgroundGridFromRootProps,
 } from "@/components/background/pageBackgroundGridStore";
+
+describe("resolveEditorPageSettingsTitle", () => {
+  it("prefers a custom puck title over the database title", () => {
+    assert.equal(
+      resolveEditorPageSettingsTitle({ title: "Custom Puck Title" }, undefined, "Database Title"),
+      "Custom Puck Title",
+    );
+  });
+
+  it("falls back to the database title when puck still has the default placeholder", () => {
+    assert.equal(
+      resolveEditorPageSettingsTitle({ title: "Untitled Page" }, undefined, "Council News"),
+      "Council News",
+    );
+  });
+
+  it("returns the default placeholder when no custom title exists", () => {
+    assert.equal(
+      resolveEditorPageSettingsTitle({ title: "Untitled Page" }, undefined, ""),
+      "Untitled Page",
+    );
+  });
+});
 
 describe("resolvePageBackgroundGridIsStatic", () => {
   it("returns false for dynamic site-default backgrounds", () => {

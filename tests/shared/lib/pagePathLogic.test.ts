@@ -10,10 +10,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   composePageAddress,
+  composeNewPageAddressSlug,
+  computePagePathForUncategorizedMove,
   derivePageSlugFromTitle,
   filterPagePathCatalog,
   formatPageDomainLabel,
   formatPagePathLabel,
+  discoverPagePathDomainsFromPaths,
   mergePagePathDomains,
   normalizePagePath,
   pagePathBelongsToDomain,
@@ -97,6 +100,14 @@ describe("page address parts", () => {
   it("merges default and discovered domains", () => {
     assert.deepEqual(mergePagePathDomains(["events", "news"]), ["events", "news", "surveys"]);
   });
+
+  it("discovers domains only from multi-segment paths", () => {
+    assert.deepEqual(
+      discoverPagePathDomainsFromPaths(["/news", "/news/spring-fair", "/the-page", "/surveys/q1"]),
+      ["news", "surveys"],
+    );
+    assert.deepEqual(discoverPagePathDomainsFromPaths(["/the-page", "/about"]), []);
+  });
 });
 
 describe("page path domain visibility", () => {
@@ -121,9 +132,13 @@ describe("page path domain visibility", () => {
   });
 
   it("rejects reserved domain segments", () => {
-    const result = validatePagePathDomainSegment("admin");
-    assert.equal(result.valid, false);
-    assert.match(result.error ?? "", /reserved/i);
+    const adminResult = validatePagePathDomainSegment("admin");
+    assert.equal(adminResult.valid, false);
+    assert.match(adminResult.error ?? "", /reserved/i);
+
+    const usersResult = validatePagePathDomainSegment("users");
+    assert.equal(usersResult.valid, false);
+    assert.match(usersResult.error ?? "", /reserved/i);
   });
 });
 
@@ -132,6 +147,28 @@ describe("pagePathBelongsToDomain", () => {
     assert.equal(pagePathBelongsToDomain("/news", "news"), true);
     assert.equal(pagePathBelongsToDomain("/news/spring-fair", "news"), true);
     assert.equal(pagePathBelongsToDomain("/surveys/poll", "news"), false);
+  });
+});
+
+describe("composeNewPageAddressSlug", () => {
+  it("builds domain child paths and flat slugs", () => {
+    assert.equal(composeNewPageAddressSlug("news", "spring-fair"), "news/spring-fair");
+    assert.equal(composeNewPageAddressSlug("", "spring-fair"), "spring-fair");
+  });
+});
+
+describe("computePagePathForUncategorizedMove", () => {
+  it("flattens child pages and keeps domain root slug", () => {
+    const domains = ["news", "surveys"];
+    assert.equal(
+      computePagePathForUncategorizedMove("/news/spring-fair", "news", domains),
+      "/spring-fair",
+    );
+    assert.equal(computePagePathForUncategorizedMove("/news", "news", domains), "/news");
+    assert.equal(
+      computePagePathForUncategorizedMove("/surveys/poll", "news", domains),
+      "",
+    );
   });
 });
 

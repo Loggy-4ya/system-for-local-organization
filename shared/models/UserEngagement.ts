@@ -30,8 +30,16 @@ export interface IUserComment extends Document {
   targetType: UserCommentTargetType;
   /** Target document id (news slug, proposal id, etc.). */
   targetId: string;
+  /** Parent comment id when this row is a reply; omitted for top-level comments. */
+  parentCommentId?: Types.ObjectId | null;
   /** Comment body (sanitized rich text or plain text). */
   body: string;
+  /** Denormalized like count from {@link CommentVote}. */
+  likeCount: number;
+  /** Denormalized dislike count from {@link CommentVote}. */
+  dislikeCount: number;
+  /** When true, the page author has hearted this comment (YouTube-style creator love). */
+  authorHearted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,12 +49,24 @@ const UserCommentSchema = new Schema<IUserComment>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     targetType: { type: String, enum: ["news", "proposal"], required: true },
     targetId: { type: String, required: true, trim: true, index: true },
+    parentCommentId: {
+      type: Schema.Types.ObjectId,
+      ref: "UserComment",
+      default: null,
+      index: true,
+    },
     body: { type: String, required: true, trim: true, maxlength: 5000 },
+    likeCount: { type: Number, default: 0, min: 0 },
+    dislikeCount: { type: Number, default: 0, min: 0 },
+    authorHearted: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, collection: "user_comments" },
 );
 
 UserCommentSchema.index({ targetType: 1, targetId: 1, createdAt: -1 });
+UserCommentSchema.index({ targetType: 1, targetId: 1, parentCommentId: 1, createdAt: -1 });
+UserCommentSchema.index({ targetType: 1, targetId: 1, parentCommentId: 1, likeCount: -1, createdAt: -1 });
+UserCommentSchema.index({ parentCommentId: 1, createdAt: 1 });
 
 // ── Survey participation ──────────────────────────────────────────────────────
 

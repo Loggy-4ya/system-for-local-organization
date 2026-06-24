@@ -9,6 +9,11 @@
  * @module shared/lib/pageCategoryLogic
  */
 
+import {
+  PAGE_CATEGORY_ACCENT_COUNT,
+  pageCategoryAccentModifierClass,
+} from "@shared/constants/pageCategoryAccent";
+
 /** Maximum categories assignable to a single page. */
 export const MAX_PAGE_CATEGORIES = 12;
 
@@ -136,4 +141,56 @@ export function shouldOfferCreatePageCategory(
   const existsInSelected = selected.some((entry) => pageCategoryKey(entry) === key);
 
   return !existsInCatalog && !existsInSelected;
+}
+
+/**
+ * Stable 32-bit hash for a normalised category key (djb2 xor variant).
+ *
+ * @param key - Output of {@link pageCategoryKey}.
+ * @returns Unsigned hash integer.
+ */
+export function hashPageCategoryKey(key: string): number {
+  let hash = 5381;
+
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 33) ^ key.charCodeAt(index);
+  }
+
+  return hash >>> 0;
+}
+
+/**
+ * Resolve the palette index for a category label.
+ *
+ * Same label (case-insensitive) always maps to the same accent slot.
+ *
+ * @param label - Human-readable category label.
+ * @returns Zero-based index into {@link PAGE_CATEGORY_ACCENT_COUNT}.
+ */
+export function resolvePageCategoryAccentIndex(label: string): number {
+  const key = pageCategoryKey(label);
+  if (!key) return 0;
+  return hashPageCategoryKey(key) % PAGE_CATEGORY_ACCENT_COUNT;
+}
+
+/**
+ * Compose CSS classes for a page category badge with deterministic accent color.
+ *
+ * @param label - Human-readable category label.
+ * @returns Space-separated class string for badge markup.
+ */
+export function pageCategoryBadgeClassName(label: string): string {
+  const index = resolvePageCategoryAccentIndex(label);
+  return `badge badge-page-category ${pageCategoryAccentModifierClass(index)}`;
+}
+
+/**
+ * Compose Puck editor chip classes for a page category badge.
+ *
+ * @param label - Human-readable category label.
+ * @returns Space-separated class string for editor tag chips.
+ */
+export function pageCategoryEditorBadgeClassName(label: string): string {
+  const index = resolvePageCategoryAccentIndex(label);
+  return `nexus-page-category-badge ${pageCategoryAccentModifierClass(index)}`;
 }

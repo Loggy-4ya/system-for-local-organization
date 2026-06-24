@@ -11,7 +11,6 @@ import {
   AlignLeft,
   Box,
   ChevronDown,
-  CircleUser,
   FileText,
   Film,
   Grid3x3,
@@ -20,9 +19,11 @@ import {
   Images,
   LayoutGrid,
   LayoutTemplate,
+  Library,
   Link2,
   List,
   MessageSquareQuote,
+  MessageSquareText,
   MousePointerClick,
   Newspaper,
   PanelTop,
@@ -34,7 +35,6 @@ import {
   Square,
   TextCursorInput,
   Type,
-  User,
   Video,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -65,14 +65,12 @@ export const COMPONENT_ICONS: Record<string, LucideIcon> = {
   NexusVideo: Video,
   NexusAccordion: ChevronDown,
   NexusList: List,
-  NexusButton: MousePointerClick,
   NexusTabs: PanelTop,
   NexusCarousel: Images,
   NexusInput: TextCursorInput,
+  NexusComments: MessageSquareText,
   NexusNewsCard: Newspaper,
-  NexusUserBadge: User,
-  NexusStatCard: Sparkles,
-  NexusAvatar: CircleUser,
+  NexusNewsCatalog: Library,
 };
 
 /** Icons for Puck sidebar category titles. */
@@ -80,7 +78,6 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   layout: Rows3,
   content: Type,
   news: Newspaper,
-  user: CircleUser,
 };
 
 /** Icons for common field labels (normalized lowercase keys). */

@@ -11,6 +11,7 @@ import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { userNeedsProfileOnboarding } from "@shared/lib/userProfileCompleteness";
+import { isTeacherUser } from "@shared/lib/userSociumHelpers";
 import { profileUpdateSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 
@@ -29,9 +30,13 @@ export async function PATCH(req: NextRequest) {
   try {
     await GeneralRulesDomain.ensureLoaded();
     const body = await req.json();
+    const existingUser = await AuthDomain.getUserById(session.user.id);
 
     // Server-side Zod validation
-    const parsed = profileUpdateSchema.safeParse(body);
+    const parsed = profileUpdateSchema.safeParse({
+      ...body,
+      profileIsTeacher: isTeacherUser(existingUser?.sociumRoles ?? []),
+    });
     if (!parsed.success) {
       const formatted = formatZodErrors(parsed.error);
       return NextResponse.json(

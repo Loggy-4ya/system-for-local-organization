@@ -17,7 +17,9 @@ import {
   OAUTH_ONBOARDING_EXTRA_LABELS,
   PROFILE_FIELD_LABELS,
   SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT,
+  TEACHER_APPLICATION_REQUIREMENTS_HINT,
   userNeedsProfileOnboarding,
+  userNeedsTeacherAccessGate,
 } from "@shared/lib/userProfileCompleteness";
 import { ProfileSettingsForm } from "@/components/profile/ProfileSettingsForm";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
@@ -46,8 +48,10 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
   const memberTelegramOnboardingMode = memberNeedsTelegramLinkage(user);
   const forcedMemberTelegramFlow =
     params.onboarding === "member-telegram" && memberNeedsTelegramLinkage(user);
+  const teacherOnboardingMode =
+    params.onboarding === "teacher" && userNeedsTeacherAccessGate(publicUser);
   const onboardingMode =
-    params.onboarding === "1" || userNeedsProfileOnboarding(user);
+    params.onboarding === "1" || userNeedsProfileOnboarding(user) || teacherOnboardingMode;
 
   const onboardingGaps = onboardingMode ? getOAuthOnboardingGaps(publicUser) : [];
 
@@ -69,9 +73,11 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 {forcedMemberTelegramFlow && !publicUser.telegramId
                   ? SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT
-                  : onboardingMode
-                    ? "Finish the required details below to use Nexus after signing in with Google, Apple, or Telegram."
-                    : "Update your personal information and preferences."}
+                  : teacherOnboardingMode
+                    ? TEACHER_APPLICATION_REQUIREMENTS_HINT
+                    : onboardingMode
+                      ? "Finish the required details below to use Nexus after signing in with Google, Apple, or Telegram."
+                      : "Update your personal information and preferences."}
               </p>
             </div>
             {!onboardingMode && !forcedMemberTelegramFlow && (
@@ -104,6 +110,7 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
           <ProfileSettingsForm
             user={publicUser}
             onboardingMode={onboardingMode}
+            teacherOnboardingMode={teacherOnboardingMode}
             memberTelegramOnboardingMode={memberTelegramOnboardingMode}
           />
         </div>

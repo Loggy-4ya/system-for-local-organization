@@ -14,8 +14,11 @@ import {
   MAX_PAGE_CATEGORIES,
   normalizePageCategoryLabel,
   normalizePageCategoryList,
+  pageCategoryBadgeClassName,
+  resolvePageCategoryAccentIndex,
   shouldOfferCreatePageCategory,
 } from "@shared/lib/pageCategoryLogic";
+import { PAGE_CATEGORY_ACCENT_COUNT } from "@shared/constants/pageCategoryAccent";
 
 describe("normalizePageCategoryLabel", () => {
   it("trims and collapses whitespace", () => {
@@ -63,5 +66,19 @@ describe("canAddPageCategory", () => {
     assert.equal(canAddPageCategory(["News"], "news"), false);
     assert.equal(canAddPageCategory(Array(MAX_PAGE_CATEGORIES).fill("A"), "B"), false);
     assert.equal(canAddPageCategory(["News"], "Sport"), true);
+  });
+});
+
+describe("resolvePageCategoryAccentIndex", () => {
+  it("maps the same label to a stable palette index", () => {
+    const first = resolvePageCategoryAccentIndex("Events");
+    const second = resolvePageCategoryAccentIndex("events");
+    assert.equal(first, second);
+    assert.ok(first >= 0 && first < PAGE_CATEGORY_ACCENT_COUNT);
+  });
+
+  it("includes the palette modifier in badge class names", () => {
+    const classes = pageCategoryBadgeClassName("Sport");
+    assert.match(classes, /^badge badge-page-category badge-page-category--\d+$/);
   });
 });

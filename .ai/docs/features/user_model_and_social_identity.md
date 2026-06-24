@@ -168,6 +168,7 @@ Telegram bot contact harvest stores phones shared via `request_contact` on the l
 - [x] User schema includes login, password hash, name, surname, system role, socium roles array, social group activities, organizations, social links, about, quality scores.
 - [x] Catalog models for admin-configurable roles, activities, and organizations.
 - [x] Engagement stub models for comments, survey participation, published content.
+- [x] Survey/quiz UI writes `SurveyParticipation` records via Puck `NexusInput` — see [form_fields_and_surveys.md](./features/form_fields_and_surveys.md).
 - [x] Registration and profile settings capture name + surname; settings capture about + social links.
 - [x] Profile settings capture phone; membership readiness banner on `/profile`
 - [x] Membership application flow blocks submit until `isProfileReadyForMembershipApplication()` — enforced on `POST /api/membership-application` and `/profile/membership`.
@@ -175,4 +176,3 @@ Telegram bot contact harvest stores phones shared via `request_contact` on the l
 - [ ] Admin panel: review `academic_catalog` pending entries — see [signin_identity_matrix.md](./signin_identity_matrix.md).
 - [x] Membership application submit/review — see [membership_applications.md](./membership_applications.md).
 - [ ] News Hub wires `UserComment` and `UserPublishedContent` to live content.
-- [ ] Survey/quiz UI writes `SurveyParticipation` records.

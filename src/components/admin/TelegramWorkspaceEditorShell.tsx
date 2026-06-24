@@ -285,6 +285,100 @@ export function TelegramWorkspaceEditorShell({
               }
             />
           </FormField>
+
+          <div className="border-t border-[var(--color-border-default)] pt-6">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+              Bot task commands
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              `/tasks`, `/task_report`, `/see_report`, and optional `/completed` in DM and linked
+              project groups. Placeholders:{" "}
+              {TELEGRAM_WORKSPACE_TEMPLATE_PLACEHOLDERS.join(", ")}, {"{{index}}"}, {"{{statusLabel}}"}
+              , {"{{dueAtShort}}"}, {"{{description}}"}, {"{{mediaCount}}"}.
+            </p>
+          </div>
+
+          <TaskFormCheckbox
+            label="Enable /completed for dispatch admins"
+            description="When off, the bot rejects /completed even for institution admins."
+            checked={config.botCompletedCommandEnabled}
+            onChange={(botCompletedCommandEnabled) =>
+              setConfig((prev) => ({ ...prev, botCompletedCommandEnabled }))
+            }
+          />
+
+          <FormField
+            label="Report wizard step order"
+            hint="Comma-separated: description, media — media is skipped when a task disallows proof attachments."
+          >
+            <Input
+              value={config.reportFlowSteps.join(", ")}
+              onChange={(e) => {
+                const steps = e.target.value
+                  .split(",")
+                  .map((part) => part.trim())
+                  .filter((part) => part === "description" || part === "media");
+                setConfig((prev) => ({
+                  ...prev,
+                  reportFlowSteps: steps.length > 0 ? steps : ["description"],
+                }));
+              }}
+            />
+          </FormField>
+
+          <FormField label="Group /tasks line template">
+            <Input
+              value={config.tasksLineTemplate}
+              onChange={(e) =>
+                setConfig((prev) => ({ ...prev, tasksLineTemplate: e.target.value }))
+              }
+            />
+          </FormField>
+
+          <FormField label="DM /tasks line template">
+            <Input
+              value={config.tasksDmLineTemplate}
+              onChange={(e) =>
+                setConfig((prev) => ({ ...prev, tasksDmLineTemplate: e.target.value }))
+              }
+            />
+          </FormField>
+
+          <FormField label="Unlinked group message">
+            <textarea
+              className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              value={config.tasksUnlinkedGroupTemplate}
+              onChange={(e) =>
+                setConfig((prev) => ({ ...prev, tasksUnlinkedGroupTemplate: e.target.value }))
+              }
+            />
+          </FormField>
+
+          <FormField label="Report description prompt">
+            <textarea
+              className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              value={config.taskReportDescriptionPromptTemplate}
+              onChange={(e) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  taskReportDescriptionPromptTemplate: e.target.value,
+                }))
+              }
+            />
+          </FormField>
+
+          <FormField label="Report media prompt">
+            <textarea
+              className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              value={config.taskReportMediaPromptTemplate}
+              onChange={(e) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  taskReportMediaPromptTemplate: e.target.value,
+                }))
+              }
+            />
+          </FormField>
         </div>
 
         {error ? (

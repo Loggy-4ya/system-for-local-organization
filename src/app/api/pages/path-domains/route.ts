@@ -9,6 +9,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { AuthDomain } from "@shared/domains/AuthDomain";
+import { PageCategoriesDomain } from "@shared/domains/PageCategoriesDomain";
 import { PageDomain, PageDomainError } from "@shared/domains/PageDomain";
 import { normalizePageDomainSegment } from "@shared/lib/pagePathLogic";
 
@@ -67,6 +69,25 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const scope = req.nextUrl.searchParams.get("scope")?.trim() ?? "";
+
+    if (scope === "catalog") {
+      const user = await AuthDomain.getUserById(session.user.id);
+      if (!user || user.role !== "Admin") {
+        return NextResponse.json(
+          { error: "Only administrators may remove catalog domains." },
+          { status: 403 },
+        );
+      }
+
+      const result = await PageCategoriesDomain.removeCatalogDomain(normalized, session.user.id);
+      return NextResponse.json({
+        domains: result.domains,
+        movedCount: result.movedCount,
+        config: result.config,
+      });
+    }
+
     const pageCount = await PageDomain.countPagesUnderDomain(normalized);
     const domains = await PageDomain.hidePagePathDomain(normalized, session.user.id);
     return NextResponse.json({ domains, pageCount });

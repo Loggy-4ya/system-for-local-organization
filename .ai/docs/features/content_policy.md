@@ -66,6 +66,7 @@ Client-side: `useContentPolicyFields()` + `getContentPolicyFieldError()` in `src
 | Surface | Enforcement |
 |---------|-------------|
 | `NexusRichTextEditor` | Client: `editor.getText()` scan; reverts on blur when dirty |
+| `PageCommentComposer` / `POST /api/pages/comments` | Client: `getPageCommentValidationError` + `/api/general-rules/effective`; server: `CommentDomain.createPageComment` after `GeneralRulesDomain.ensureLoaded` |
 | `POST /api/puck` | Server: `puckContentPolicy` + title/category scan |
 | `PATCH /api/profile` | Zod: `profileUpdateSchema` |
 | Signup / register | Zod: `signupSchema`, `registerSchema` |

@@ -74,6 +74,32 @@ export function isSelfGovernmentMember(sociumRoles: IUserSociumRole[]): boolean 
 }
 
 /**
+ * Whether the user registered or was assigned the built-in teacher socium role.
+ *
+ * @param sociumRoles - User socium role assignments.
+ * @returns True when a `teacher` kind role is present.
+ */
+export function isTeacherUser(sociumRoles: IUserSociumRole[]): boolean {
+  return sociumRoles.some((role) => role.kind === "teacher");
+}
+
+/**
+ * Whether a teacher account may use institution features after reviewer approval.
+ *
+ * @param user - User slice with socium roles and approval flag.
+ * @returns True for non-teachers or approved teachers.
+ */
+export function isTeacherAccessApproved(user: {
+  sociumRoles: IUserSociumRole[];
+  teacherAccessApproved?: boolean | null;
+}): boolean {
+  if (!isTeacherUser(user.sociumRoles)) {
+    return true;
+  }
+  return user.teacherAccessApproved === true;
+}
+
+/**
  * Whether the user may publish news or social interactivity shown on profile.
  *
  * @param user - Profile slice with system role and socium roles.

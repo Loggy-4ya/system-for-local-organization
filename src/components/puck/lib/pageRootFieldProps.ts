@@ -21,6 +21,38 @@ import {
   DEFAULT_CONTENT_WIDTH,
 } from "@/components/puck/lib/contentWidthTokens";
 
+/** Puck default placeholder when a page has no custom title yet. */
+export const DEFAULT_PAGE_TITLE = "Untitled Page";
+
+/**
+ * Resolve the editor sidebar title from puck root props and MongoDB fallback.
+ *
+ * Legacy puck documents often keep the default placeholder in `pageSettings.title`
+ * while `Page.title` already holds the real name — prefer the database title in
+ * that case so blur commits do not revert to "Untitled Page".
+ *
+ * @param existingPageSettings - Grouped page settings from puck root props.
+ * @param legacyRootTitle - Deprecated flat `root.props.title` value.
+ * @param dbTitle - MongoDB `Page.title` from the server.
+ * @returns Title seeded into `pageSettings` for the editor.
+ */
+export function resolveEditorPageSettingsTitle(
+  existingPageSettings?: Pick<PageSettingsValue, "title">,
+  legacyRootTitle?: string,
+  dbTitle?: string,
+): string {
+  const puckTitle = (existingPageSettings?.title ?? legacyRootTitle ?? "").trim();
+  const mongoTitle = (dbTitle ?? "").trim();
+
+  if (puckTitle && puckTitle !== DEFAULT_PAGE_TITLE) {
+    return puckTitle;
+  }
+  if (mongoTitle) {
+    return mongoTitle;
+  }
+  return puckTitle || DEFAULT_PAGE_TITLE;
+}
+
 /** Raw PageRoot props as stored in Puck data (grouped + legacy flat keys). */
 export interface PageRootStoredProps {
   pageSettings?: PageSettingsValue;
@@ -130,14 +162,24 @@ export function resolvePagePublicationProps(
     coverImage: props.pagePublication?.coverImage ?? metaDefaults?.coverImage ?? "",
     galleryImages: props.pagePublication?.galleryImages ?? metaDefaults?.galleryImages ?? [],
     publishAt: props.pagePublication?.publishAt ?? metaDefaults?.publishAt ?? null,
-    commentsEnabled:
-      props.pagePublication?.commentsEnabled ?? metaDefaults?.commentsEnabled ?? true,
     delegatedEditors:
       props.pagePublication?.delegatedEditors?.length
         ? props.pagePublication.delegatedEditors
         : legacyEditors?.length
           ? legacyEditors
           : metaDefaults?.delegatedEditors ?? [],
+    catalogImagesPerCard:
+      props.pagePublication?.catalogImagesPerCard ?? metaDefaults?.catalogImagesPerCard ?? 1,
+    catalogCardVariant:
+      props.pagePublication?.catalogCardVariant ?? metaDefaults?.catalogCardVariant ?? "tile",
+    notifyOnPublish:
+      props.pagePublication?.notifyOnPublish ?? metaDefaults?.notifyOnPublish ?? true,
+    notifyWebOnPublish:
+      props.pagePublication?.notifyWebOnPublish ?? metaDefaults?.notifyWebOnPublish ?? true,
+    notifyTelegramOnPublish:
+      props.pagePublication?.notifyTelegramOnPublish ??
+      metaDefaults?.notifyTelegramOnPublish ??
+      true,
   };
 }
 

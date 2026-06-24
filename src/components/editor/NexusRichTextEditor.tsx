@@ -38,11 +38,16 @@ import type { NexusSlashCommandDefinition } from "@/lib/nexusEditor/slashCommand
 import { MentionSuggestionList } from "./MentionSuggestionList";
 import { SlashCommandList } from "./SlashCommandList";
 import { createSuggestionPortalRenderer } from "./lib/createSuggestionPortalRenderer";
+import { isNexusSuggestionActive } from "./lib/nexusSuggestionState";
+import { removeStaleSuggestionPortals } from "./lib/suggestionPortalLogic";
 import {
   createNexusEditorExtensions,
   type NexusEditorVariant,
 } from "./extensions/createNexusEditorExtensions";
-import type { NexusMentionItem } from "@shared/lib/nexusMentionTypes";
+import { dedupeNexusMentionItems, type NexusMentionItem } from "@shared/lib/nexusMentionTypes";
+
+/** Stable empty slash-command list — avoids new-array identity on every render. */
+const EMPTY_SLASH_COMMANDS: NexusSlashCommandDefinition[] = [];
 
 /** Debounce interval for editor HTML commits (ms). */
 const HTML_COMMIT_DEBOUNCE_MS = 400;
@@ -141,7 +146,7 @@ export function NexusRichTextEditor({
   disabled = false,
   minHeight = 140,
   searchMentions = defaultSearchMentions,
-  slashCommands = [],
+  slashCommands = EMPTY_SLASH_COMMANDS,
   onContentPolicyViolation,
 }: NexusRichTextEditorProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +155,7 @@ export function NexusRichTextEditor({
   const onPolicyViolationRef = useRef(onContentPolicyViolation);
   onPolicyViolationRef.current = onContentPolicyViolation;
   const lastGoodHtmlRef = useRef(value || "");
+  const pendingCommitHtmlRef = useRef<string | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
 
   const reportPolicyViolation = useCallback((message: string | null) => {
@@ -181,14 +187,16 @@ export function NexusRichTextEditor({
   const searchMentionsFlat = useCallback(
     async (query: string): Promise<NexusMentionItem[]> => {
       const rows = await searchMentions(query);
-      return rows.map((row) => ({
-        mentionType: row.mentionType,
-        id: row.id,
-        label: row.label,
-        href: row.href,
-        subtitle: row.subtitle,
-        avatar: row.avatar,
-      }));
+      return dedupeNexusMentionItems(
+        rows.map((row) => ({
+          mentionType: row.mentionType,
+          id: row.id,
+          label: row.label,
+          href: row.href,
+          subtitle: row.subtitle,
+          avatar: row.avatar,
+        })),
+      );
     },
     [searchMentions],
   );
@@ -240,7 +248,7 @@ export function NexusRichTextEditor({
     immediatelyRender: false,
     editable: !disabled,
     extensions,
-    content: value || "",
+    content: sanitizeNexusEditorHtml(value || ""),
     editorProps: {
       attributes: {
         class: "nexus-rich-text-editor__content",
@@ -250,6 +258,11 @@ export function NexusRichTextEditor({
     },
     onUpdate: ({ editor: nextEditor }) => {
       const html = sanitizeNexusEditorHtml(nextEditor.getHTML());
+      if (isNexusSuggestionActive(nextEditor)) {
+        pendingCommitHtmlRef.current = html;
+        return;
+      }
+      pendingCommitHtmlRef.current = null;
       scheduleCommit(nextEditor, html);
     },
     onBlur: ({ editor: nextEditor }) => {
@@ -260,8 +273,27 @@ export function NexusRichTextEditor({
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      removeStaleSuggestionPortals("nexus-mention-suggestion-portal");
+      removeStaleSuggestionPortals("nexus-slash-suggestion-portal");
     };
   }, []);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const flushPendingCommit = () => {
+      if (isNexusSuggestionActive(editor)) return;
+      const pending = pendingCommitHtmlRef.current;
+      if (pending === null) return;
+      pendingCommitHtmlRef.current = null;
+      scheduleCommit(editor, pending);
+    };
+
+    editor.on("transaction", flushPendingCommit);
+    return () => {
+      editor.off("transaction", flushPendingCommit);
+    };
+  }, [editor, scheduleCommit]);
 
   useEffect(() => {
     if (!editor) return;
@@ -270,7 +302,7 @@ export function NexusRichTextEditor({
 
   useEffect(() => {
     if (!editor) return;
-    if (editor.isFocused) return;
+    if (editor.isFocused || isNexusSuggestionActive(editor)) return;
     const incoming = sanitizeNexusEditorHtml(value || "");
     const current = sanitizeNexusEditorHtml(editor.getHTML());
     if (incoming !== current) {

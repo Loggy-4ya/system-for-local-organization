@@ -11,7 +11,7 @@ import {
   isProfileReadyForMembershipApplication,
   type ProfileCompletenessSlice,
 } from "@shared/lib/userProfileCompleteness";
-import { isSelfGovernmentMember } from "@shared/lib/userSociumHelpers";
+import { isSelfGovernmentMember, isTeacherAccessApproved, isTeacherUser } from "@shared/lib/userSociumHelpers";
 
 /** Serializable application status for the authenticated applicant. */
 export interface MembershipApplicationStatusDto {
@@ -23,6 +23,10 @@ export interface MembershipApplicationStatusDto {
   readyForSubmission: boolean;
   /** Missing field labels when not ready. */
   missingFieldLabels: string[];
+  /** Whether the applicant registered as a teacher. */
+  isTeacherApplicant: boolean;
+  /** Whether teacher access has been approved (always true for non-teachers). */
+  teacherAccessApproved: boolean;
 }
 
 /**
@@ -42,6 +46,8 @@ export function buildMembershipApplicationStatus(
       Boolean(user.selfGovernmentApplicationIntent) && !summary.isSelfGovernmentMember,
     readyForSubmission: summary.readyForMembershipApplication,
     missingFieldLabels: summary.missingFieldLabels,
+    isTeacherApplicant: summary.isTeacherApplicant,
+    teacherAccessApproved: summary.teacherAccessApproved,
   };
 }
 

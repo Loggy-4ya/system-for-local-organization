@@ -7,7 +7,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { FormField } from "@/components/ui/form-field";
 import { assessPasswordStrength } from "@shared/lib/passwordStrength";
 import { cn } from "@/lib/utils";
@@ -63,10 +63,9 @@ export function PasswordStrengthField({
   return (
     <FormField label={label} htmlFor={id} error={error}>
       <div className="flex flex-col">
-        <Input
+        <PasswordInput
           id={id}
           name={id}
-          type="password"
           autoComplete={autoComplete}
           value={value}
           onChange={(e) => onChange(e.target.value)}

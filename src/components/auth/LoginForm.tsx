@@ -13,11 +13,11 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { OAuthButtonRow } from "@/components/auth/OAuthButtonRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Spinner } from "@/components/ui/spinner";
 import { submitCredentialsLogin } from "@/lib/credentialsAuthClient";
-import { markAuthSessionForNotificationPrompt } from "@/lib/webNotificationPermission";
 import { loginSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
@@ -81,7 +81,6 @@ export function LoginForm() {
         return;
       }
 
-      markAuthSessionForNotificationPrompt();
       router.push(callbackUrl);
       router.refresh();
     } catch {
@@ -123,10 +122,9 @@ export function LoginForm() {
           htmlFor="login-password"
           error={fieldErrors.password}
         >
-          <Input
+          <PasswordInput
             id="login-password"
             name="password"
-            type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

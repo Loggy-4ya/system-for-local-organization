@@ -18,6 +18,7 @@ import {
   normalizePageGalleryImages,
   resolveEffectiveHubSectionPagePaths,
   resolveHubSectionDisplayLabel,
+  resolvePageCatalogSectionLabel,
 } from "@shared/lib/pageCategoriesHubLogic";
 
 describe("collectPublicationImageUrls", () => {
@@ -37,8 +38,6 @@ describe("normalizePageCategoryHubSections", () => {
           id: "a",
           domain: "news",
           pagePaths: ["/news/fair", "/surveys/poll"],
-          cardLayout: "featured-grid",
-          imagesPerCard: 2,
         },
         {
           id: "b",
@@ -52,8 +51,6 @@ describe("normalizePageCategoryHubSections", () => {
     assert.equal(sections.length, 1);
     assert.equal(sections[0]?.domain, "news");
     assert.deepEqual(sections[0]?.pagePaths, ["/news/fair"]);
-    assert.equal(sections[0]?.cardLayout, "featured-grid");
-    assert.equal(sections[0]?.imagesPerCard, 2);
   });
 
   it("migrates legacy categoryLabel rows when they match a domain segment", () => {
@@ -80,8 +77,6 @@ describe("listUnusedPagePathDomains", () => {
         id: "a",
         domain: "news",
         pagePaths: [],
-        cardLayout: "uniform-grid",
-        imagesPerCard: 1,
       },
     ]);
 
@@ -96,6 +91,18 @@ describe("resolveHubSectionDisplayLabel", () => {
 
   it("capitalises the domain when no root title exists", () => {
     assert.equal(resolveHubSectionDisplayLabel("surveys", null), "Surveys");
+  });
+});
+
+describe("resolvePageCatalogSectionLabel", () => {
+  it("prefers a persisted section label override", () => {
+    assert.equal(
+      resolvePageCatalogSectionLabel(
+        { domain: "news", sectionLabel: "Campus News" },
+        new Map([["news", "Institutional News"]]),
+      ),
+      "Campus News",
+    );
   });
 });
 
@@ -176,22 +183,36 @@ describe("buildDefaultHubSectionsForDomains", () => {
 });
 
 describe("buildNewsCatalogPageCard", () => {
-  it("limits images to imagesPerCard", () => {
-    const card = buildNewsCatalogPageCard(
-      {
-        path: "/news/fair",
-        title: "Spring Fair",
-        description: "Details",
-        coverImage: "/1.jpg",
-        galleryImages: ["/2.jpg", "/3.jpg"],
-        categories: ["News"],
-        publishAt: "2026-06-20T12:00:00.000Z",
-      },
-      2,
-    );
+  it("limits images to per-page catalogImagesPerCard", () => {
+    const card = buildNewsCatalogPageCard({
+      path: "/news/fair",
+      title: "Spring Fair",
+      description: "Details",
+      coverImage: "/1.jpg",
+      galleryImages: ["/2.jpg", "/3.jpg"],
+      categories: ["News"],
+      publishAt: "2026-06-20T12:00:00.000Z",
+      catalogImagesPerCard: 2,
+      catalogCardVariant: "featured",
+    });
 
     assert.ok(card);
     assert.deepEqual(card?.images, ["/1.jpg", "/2.jpg"]);
+    assert.equal(card?.cardVariant, "featured");
+    assert.equal(card?.description, "Details");
+  });
+
+  it("never exceeds available publication images even when catalogImagesPerCard is higher", () => {
+    const card = buildNewsCatalogPageCard({
+      path: "/news/fair",
+      title: "Spring Fair",
+      coverImage: "/1.jpg",
+      galleryImages: [],
+      catalogImagesPerCard: 4,
+    });
+
+    assert.ok(card);
+    assert.deepEqual(card?.images, ["/1.jpg"]);
   });
 });
 

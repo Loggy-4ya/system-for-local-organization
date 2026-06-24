@@ -4,6 +4,9 @@
  * Authenticated users with linked external identities and missing required
  * profile fields are sent to `/profile/settings?onboarding=1` until complete.
  *
+ * Teachers without institutional approval are redirected to profile settings or
+ * the membership application page until their access is granted.
+ *
  * Self-government members without Telegram may browse the site but are redirected
  * from member-functional routes (`/tasks`, `/task-groups`) until Telegram is linked.
  *
@@ -13,8 +16,10 @@
 import { redirect } from "next/navigation";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import {
+  resolveTeacherAccessGatePath,
   userNeedsMemberTelegramOnboarding,
   userNeedsProfileOnboarding,
+  userNeedsTeacherAccessGate,
 } from "@shared/lib/userProfileCompleteness";
 
 /** Settings route used for first-time OAuth profile completion. */
@@ -37,6 +42,8 @@ export function isProfileOnboardingExemptPath(pathname: string): boolean {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/profile/settings") ||
+    pathname.startsWith("/profile/membership") ||
+    pathname.startsWith("/profile") ||
     pathname.startsWith("/telegram")
   ) {
     return true;
@@ -75,6 +82,43 @@ export async function enforceProfileOnboarding(userId: string, pathname: string)
 
   if (userNeedsProfileOnboarding(user)) {
     redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
+  }
+}
+
+/**
+ * Redirect unapproved teachers away from institution features until reviewed.
+ *
+ * @param userId - Authenticated MongoDB user id.
+ * @param pathname - Current request pathname.
+ */
+export async function enforceTeacherAccessApproval(
+  userId: string,
+  pathname: string,
+): Promise<void> {
+  if (isProfileOnboardingExemptPath(pathname)) {
+    return;
+  }
+
+  const user = await AuthDomain.getUserById(userId);
+  if (!user) {
+    return;
+  }
+
+  const slice = {
+    name: user.name,
+    surname: user.surname,
+    phone: user.phone,
+    specialty: user.specialty,
+    group: user.group,
+    avatar: user.avatar,
+    sociumRoles: user.sociumRoles ?? [],
+    selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
+    telegramId: user.telegramId,
+    teacherAccessApproved: user.teacherAccessApproved,
+  };
+
+  if (userNeedsTeacherAccessGate(slice)) {
+    redirect(resolveTeacherAccessGatePath(slice));
   }
 }
 

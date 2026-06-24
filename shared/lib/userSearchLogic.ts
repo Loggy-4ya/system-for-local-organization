@@ -26,6 +26,8 @@ export interface UserSearchCandidate {
   subtitle: string | null;
   /** Avatar URL when available. */
   avatar: string | null;
+  /** Institution login handle when set — used for `/users/{login}` profile links. */
+  login: string | null;
 }
 
 /** Options when building a MongoDB user search filter. */
@@ -138,6 +140,7 @@ export function toUserSearchCandidate(
       }) ?? formatUserFullName(doc.name, doc.surname),
     subtitle: formatUserSearchSubtitle(doc, showEmail || showPii),
     avatar: doc.avatar ?? null,
+    login: doc.login ?? null,
   };
 }
 
@@ -153,5 +156,36 @@ export function filterUserSearchCandidates(
   excludedUserIds: readonly string[],
 ): UserSearchCandidate[] {
   const excluded = new Set(excludedUserIds);
-  return candidates.filter((row) => !excluded.has(row.userId));
+  return dedupeUserSearchCandidates(
+    candidates.filter((row) => !excluded.has(row.userId)),
+  );
+}
+
+/**
+ * Remove duplicate user search rows while preserving order.
+ *
+ * Collapses repeated Mongo ids and rows that share the same institution login.
+ *
+ * @param candidates - Raw search results.
+ * @returns Deduped candidates.
+ */
+export function dedupeUserSearchCandidates(
+  candidates: readonly UserSearchCandidate[],
+): UserSearchCandidate[] {
+  const seen = new Set<string>();
+  const rows: UserSearchCandidate[] = [];
+
+  for (const row of candidates) {
+    const idKey = row.userId?.trim();
+    if (idKey && seen.has(`id:${idKey}`)) continue;
+
+    const loginKey = row.login?.trim().toLowerCase();
+    if (loginKey && seen.has(`login:${loginKey}`)) continue;
+
+    if (idKey) seen.add(`id:${idKey}`);
+    if (loginKey) seen.add(`login:${loginKey}`);
+    rows.push(row);
+  }
+
+  return rows;
 }

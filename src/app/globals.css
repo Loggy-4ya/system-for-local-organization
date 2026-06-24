@@ -346,6 +346,126 @@ html[data-telegram-webapp] #nexus-bg {
   font-weight: 600;
 }
 
+/* ── Profile identity badges (typed accent colors) ───────────────────────── */
+.badge-profile {
+  --badge-accent: var(--color-accent-user);
+  background-color: color-mix(in srgb, var(--badge-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 45%, transparent);
+  color: var(--badge-accent);
+}
+
+.badge-profile--system-role {
+  --badge-accent: var(--accent-purple-medium);
+}
+
+.badge-profile--access-level {
+  --badge-accent: var(--accent-blue-strong);
+}
+
+.badge-profile--socium-role {
+  --badge-accent: var(--accent-yellow-medium);
+}
+
+.badge-profile--activity {
+  --badge-accent: var(--accent-green-medium);
+}
+
+.badge-profile--organization {
+  --badge-accent: var(--accent-red-medium);
+}
+
+.badge-profile--academic {
+  --badge-accent: var(--accent-blue-soft);
+}
+
+.badge-profile--student-title {
+  --badge-accent: var(--accent-purple-soft);
+}
+
+.badge-profile--warning {
+  --badge-accent: var(--color-warning);
+  font-weight: 600;
+}
+
+.badge-profile--self {
+  --badge-accent: var(--accent-blue-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.625rem;
+}
+
+/* ── Page category tags (deterministic hue from label hash) ───────────────── */
+.badge-page-category {
+  --badge-accent: var(--color-accent-user);
+  background-color: color-mix(in srgb, var(--badge-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 45%, transparent);
+  color: var(--badge-accent);
+  font-weight: 600;
+}
+
+.badge-page-category--0 { --badge-accent: var(--accent-blue-medium); }
+.badge-page-category--1 { --badge-accent: var(--accent-green-medium); }
+.badge-page-category--2 { --badge-accent: var(--accent-purple-medium); }
+.badge-page-category--3 { --badge-accent: var(--accent-yellow-medium); }
+.badge-page-category--4 { --badge-accent: var(--accent-red-medium); }
+.badge-page-category--5 { --badge-accent: var(--accent-blue-soft); }
+.badge-page-category--6 { --badge-accent: var(--accent-green-soft); }
+.badge-page-category--7 { --badge-accent: var(--accent-purple-soft); }
+.badge-page-category--8 { --badge-accent: var(--accent-yellow-soft); }
+.badge-page-category--9 { --badge-accent: var(--accent-red-soft); }
+
+.page-catalog-card__category.badge-page-category {
+  font-size: 0.625rem;
+  line-height: 1.2;
+}
+
+/* ── Profile social link cards ───────────────────────────────────────────── */
+.profile-social-link {
+  --social-accent: var(--color-accent-user);
+  border-color: color-mix(in srgb, var(--social-accent) 40%, transparent);
+}
+
+.profile-social-link__icon {
+  background-color: color-mix(in srgb, var(--social-accent) 14%, transparent);
+  color: var(--social-accent);
+}
+
+.profile-social-link--telegram {
+  --social-accent: #38bdf8;
+}
+
+.profile-social-link--instagram {
+  --social-accent: #f472b6;
+}
+
+.profile-social-link--linkedin {
+  --social-accent: #60a5fa;
+}
+
+.profile-social-link--facebook {
+  --social-accent: #818cf8;
+}
+
+.profile-social-link--github {
+  --social-accent: #cbd5e1;
+}
+
+.profile-social-link--youtube {
+  --social-accent: #f87171;
+}
+
+.profile-social-link--tiktok {
+  --social-accent: #f472b6;
+}
+
+.profile-social-link--x {
+  --social-accent: #94a3b8;
+}
+
+.profile-social-link--custom {
+  --social-accent: var(--accent-blue-soft);
+}
+
 /* ── Form Alerts ─────────────────────────────────────────────────────────── */
 .form-alert {
   display: flex;
@@ -396,6 +516,24 @@ html[data-telegram-webapp] #nexus-bg {
   animation: auth-alert-in 220ms ease-out;
 }
 
+/* Telegram Login Widget — full-width, matches primary auth button height (48px). */
+.nexus-telegram-login-widget {
+  align-items: stretch;
+  display: flex;
+  justify-content: center;
+  min-height: 3rem;
+  width: 100%;
+}
+
+.nexus-telegram-login-widget iframe {
+  border: 0;
+  border-radius: var(--radius-md);
+  display: block;
+  height: 3rem !important;
+  max-width: 100%;
+  width: 100% !important;
+}
+
 @keyframes auth-alert-in {
   from {
     opacity: 0;
@@ -409,6 +547,50 @@ html[data-telegram-webapp] #nexus-bg {
 }
 
 /* ── Site broadcast toasts (institution-wide announcements) ─────────────── */
+@keyframes site-toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(100% + 0.75rem)) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes site-toast-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(calc(100% + 0.75rem)) scale(0.97);
+  }
+}
+
+@keyframes site-toast-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes site-toast-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 .site-notification-toast-stack {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right));
@@ -445,7 +627,25 @@ html[data-telegram-webapp] #nexus-bg {
   border: 1px solid transparent;
   background-color: var(--color-bg-panel);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  animation: auth-alert-in 220ms ease-out;
+  transform-origin: center right;
+  will-change: transform, opacity;
+  animation: site-toast-slide-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.site-broadcast-toast--exiting {
+  animation: site-toast-slide-out 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-broadcast-toast {
+    animation: site-toast-fade-in 160ms ease-out both;
+    will-change: opacity;
+  }
+
+  .site-broadcast-toast--exiting {
+    animation: site-toast-fade-out 140ms ease-in both;
+  }
 }
 
 .site-broadcast-toast__content {
@@ -515,6 +715,39 @@ html[data-telegram-webapp] #nexus-bg {
   border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
+/* Personal notification center — header bell + inbox rows */
+.notification-bell-button__badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.notification-inbox-row--info {
+  border-left: 3px solid var(--color-accent-user);
+}
+
+.notification-inbox-row--success {
+  border-left: 3px solid var(--color-success);
+}
+
+.notification-inbox-row--warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.notification-inbox-row--error {
+  border-left: 3px solid var(--color-danger);
+}
+
 /* ── Contained page shell — gutter outside, content matches header/footer inner width */
 .page-shell {
   box-sizing: border-box;
@@ -580,7 +813,139 @@ html[data-telegram-webapp] #nexus-bg {
   flex-shrink: 0;
 }
 
-/* ── Puck page like FAB — bottom-left on published viewer ─────────────────── */
+/* ── Puck page engagement FAB — bottom-right on published viewer ─────────── */
+.nexus-page-engagement-fab {
+  align-items: flex-end;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  left: auto;
+  position: fixed;
+  right: calc(1.25rem + env(safe-area-inset-right, 0px));
+  z-index: 100;
+}
+
+.nexus-page-engagement-fab--stacked {
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 767px) {
+  .nexus-page-engagement-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    left: auto;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
+  }
+
+  .nexus-page-engagement-fab--stacked {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.nexus-page-engagement-fab__launcher {
+  border-radius: var(--radius-lg);
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.nexus-page-engagement-fab__launcher--liked {
+  background-color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 70%, black);
+  color: #fff;
+}
+
+.nexus-page-engagement-fab__launcher--disliked {
+  background-color: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+.nexus-page-engagement-fab__toolbar {
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 9.5rem;
+  padding: 0.65rem 0.75rem 0.75rem;
+}
+
+.nexus-page-engagement-fab__toolbar-header {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+  justify-content: space-between;
+}
+
+.nexus-page-engagement-fab__toolbar-title {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.nexus-page-engagement-fab__close {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  margin-right: -0.25rem;
+}
+
+.nexus-page-engagement-fab__toolbar-actions {
+  align-items: flex-start;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  justify-content: center;
+  width: 100%;
+}
+
+.nexus-page-engagement-fab__group {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.nexus-page-engagement-fab__btn {
+  border-radius: var(--radius-lg);
+  min-height: 48px;
+  min-width: 48px;
+}
+
+.nexus-page-engagement-fab__btn--liked {
+  background-color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 70%, black);
+  color: #fff;
+}
+
+.nexus-page-engagement-fab__btn--disliked {
+  background-color: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+.nexus-page-engagement-fab__btn--muted {
+  opacity: 0.55;
+}
+
+.nexus-page-engagement-fab__count {
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+
+/* Legacy alias — keep until all references migrate */
 .nexus-page-like-fab {
   align-items: center;
   bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
@@ -618,6 +983,519 @@ html[data-telegram-webapp] #nexus-bg {
   text-align: center;
 }
 
+/* ── Page comments launcher + drawer ─────────────────────────────────────── */
+.nexus-page-comments-shell {
+  --nexus-page-comments-pad-x: clamp(1rem, 2.5vw, 1.25rem);
+  --nexus-page-comments-pad-y: 0.875rem;
+  width: 100%;
+}
+
+.nexus-page-comments-band {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.nexus-page-comments-launcher {
+  align-items: center;
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: var(--nexus-page-comments-pad-y) var(--nexus-page-comments-pad-x);
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-page-comments-launcher__action {
+  color: var(--color-text-secondary);
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 0;
+  padding-left: calc(1rem + 0.5rem);
+}
+
+.nexus-page-comments-launcher__chevron {
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.nexus-page-comments-launcher--disabled {
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.nexus-page-comments-launcher--preview {
+  cursor: default;
+  flex-wrap: wrap;
+}
+
+.nexus-page-comments-launcher__hint {
+  color: var(--color-text-secondary);
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0.15rem 0 0;
+}
+
+.nexus-page-comments-launcher__count {
+  background-color: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 1.5rem;
+  padding: 0.15rem 0.4rem;
+  text-align: center;
+}
+
+.nexus-page-comments-top-liked {
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 100%;
+  padding: var(--nexus-page-comments-pad-y) var(--nexus-page-comments-pad-x);
+  text-align: left;
+  width: 100%;
+}
+
+.nexus-page-comments-top-liked__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.nexus-page-comments-top-liked__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.nexus-page-comments-top-liked__count {
+  background-color: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 1.5rem;
+  padding: 0.15rem 0.4rem;
+  text-align: center;
+}
+
+.nexus-page-comments-top-liked__chevron {
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.nexus-page-comments-top-liked__viewport {
+  min-height: 4.5rem;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  width: 100%;
+}
+
+.nexus-page-comments-top-liked__slide-layer {
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 0.45s ease;
+  width: 100%;
+}
+
+.nexus-page-comments-top-liked__slide-layer--active {
+  opacity: 1;
+  z-index: 1;
+}
+
+.nexus-page-comments-top-liked__slide {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.nexus-page-comments-top-liked__slide-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.nexus-page-comments-top-liked__slide-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.nexus-page-comments-top-liked__author {
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.nexus-page-comments-top-liked__author--page-author {
+  color: var(--color-accent-user);
+}
+
+.nexus-page-comments-top-liked__author-badge {
+  background-color: color-mix(in srgb, var(--color-accent-user) 12%, var(--color-bg-panel));
+  border-radius: var(--radius-sm);
+  color: var(--color-accent-user);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  text-transform: uppercase;
+}
+
+.nexus-page-comments-top-liked__likes {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.nexus-page-comments-top-liked__text {
+  -webkit-box-orient: vertical;
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  font-size: 0.875rem;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+  margin: 0;
+  overflow: hidden;
+}
+
+.nexus-page-comments-top-liked__text p {
+  display: inline;
+  margin: 0;
+}
+
+.nexus-page-comments-top-liked__empty {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.nexus-page-comments-top-liked__action {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding-left: calc(1rem + 0.5rem);
+}
+
+.nexus-page-comments-drawer__header {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-default);
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  justify-content: space-between;
+  padding: 1rem var(--page-content-gutter, 1rem) 0.75rem;
+  text-align: left;
+}
+
+.nexus-page-comments-drawer__header-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.nexus-page-comments-drawer {
+  display: flex;
+  flex-direction: column;
+  height: min(88vh, 900px);
+  left: 0;
+  max-height: 88vh !important;
+  max-width: min(100%, var(--nexus-page-comments-max-width, 100%));
+  right: 0;
+}
+
+.nexus-page-comments-drawer--expanded {
+  height: min(96vh, 980px);
+  max-height: 96vh !important;
+}
+
+.nexus-page-comments-drawer__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nexus-page-comments-drawer__composer-wrap {
+  flex-shrink: 0;
+  padding: 0 var(--page-content-gutter, 1rem) 0.75rem;
+}
+
+.nexus-page-comments-drawer__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem var(--page-content-gutter, 1rem) calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.nexus-page-comments-drawer__message {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0 var(--page-content-gutter, 1rem) 0.75rem;
+}
+
+.nexus-page-comments-drawer__message--danger {
+  color: var(--color-danger);
+}
+
+.nexus-page-comments-drawer__message--empty {
+  padding-block: 1.5rem;
+}
+
+.nexus-page-comments-drawer__list .nexus-page-comments-drawer__message {
+  padding-inline: 0;
+}
+
+.nexus-page-comments-drawer__load-more {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  min-height: 2rem;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
+.nexus-page-comment-composer {
+  background-color: var(--color-bg-panel);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.nexus-page-comment-composer .nexus-rich-text-editor--page-comment {
+  background-color: var(--color-bg-cell);
+  border: 1px solid var(--color-border-default);
+  box-shadow: none;
+}
+
+.nexus-page-comment-composer .nexus-rich-text-editor--page-comment .nexus-rich-text-editor__toolbar {
+  border-bottom: 1px solid var(--color-border-default);
+  padding-block: 0.25rem;
+}
+
+.nexus-page-comment-composer .nexus-rich-text-editor--page-comment .nexus-rich-text-editor__surface {
+  padding-block: 0.35rem;
+}
+
+.nexus-page-comment-composer__input {
+  background: var(--color-bg-cell);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  resize: vertical;
+  width: 100%;
+}
+
+.nexus-page-comment-composer__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.nexus-page-comment-composer__error {
+  color: var(--color-danger);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.nexus-page-comment-composer__policy-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.nexus-page-comment-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-inline: 0.15rem;
+}
+
+.nexus-page-comment-row--reply {
+  margin-left: 2.75rem;
+  padding-inline: 0;
+}
+
+.nexus-page-comment-row__main {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.nexus-page-comment-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.nexus-page-comment-row__meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+}
+
+.nexus-page-comment-row__author {
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.nexus-page-comment-row__author--page-author {
+  color: var(--color-accent-user);
+}
+
+.nexus-page-comment-row__author-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  text-transform: uppercase;
+}
+
+.nexus-page-comment-row--author-hearted {
+  background-color: color-mix(in srgb, #e91e63 6%, var(--color-bg-panel));
+  border-radius: var(--radius-md);
+  margin-inline: 0;
+  padding: 0.5rem 0.65rem;
+}
+
+.nexus-page-comment-row__author-hearted-label {
+  align-items: center;
+  color: #e91e63;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0;
+}
+
+.nexus-page-comment-row__author-heart-btn {
+  color: var(--color-text-secondary);
+  height: auto;
+  min-height: 1.75rem;
+  padding-inline: 0.45rem;
+}
+
+.nexus-page-comment-row__author-heart-btn--active {
+  color: #e91e63;
+}
+
+.nexus-page-comment-row__time {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.nexus-page-comment-row__text {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0.25rem 0 0;
+  word-break: break-word;
+}
+
+.nexus-page-comment-row__text p {
+  margin: 0;
+}
+
+.nexus-page-comment-row__text p + p {
+  margin-top: 0.35rem;
+}
+
+.nexus-page-comment-row__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  margin-top: 0.25rem;
+}
+
+.nexus-page-comment-row__thread-controls {
+  margin-top: 0.15rem;
+}
+
+.nexus-page-comment-row__thread-toggle {
+  color: var(--color-accent-user);
+  gap: 0.35rem;
+  height: auto;
+  min-height: 0;
+  padding: 0.15rem 0.35rem;
+}
+
+.nexus-page-comment-row__thread-error,
+.nexus-page-comment-row__thread-loading {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
+}
+
+.nexus-page-comment-row__vote {
+  color: var(--color-text-secondary);
+  gap: 0.25rem;
+  height: auto;
+  min-height: 0;
+  padding: 0.15rem 0.35rem;
+}
+
+.nexus-page-comment-row__vote--active {
+  color: var(--color-text-primary);
+}
+
+.nexus-page-comment-row__vote--inactive {
+  opacity: 0.55;
+}
+
+.nexus-page-comment-row__replies {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 /* ── Settings media preview — readable contain in Puck sidebar ───────────── */
 .nexus-settings-media-preview {
   align-items: center;
@@ -638,6 +1516,20 @@ html[data-telegram-webapp] #nexus-bg {
   max-width: 100%;
   object-fit: contain;
   width: auto;
+}
+
+.nexus-settings-media-preview--recrop {
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.nexus-settings-media-preview--recrop:hover,
+.nexus-settings-media-preview--recrop:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent-user) 55%, var(--color-border-default));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-user) 18%, transparent);
+  outline: none;
 }
 
 /* ── Rich body text (NexusText published output) ──────────────────────────── */
@@ -3850,59 +4742,7 @@ html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [dat
   }
 }
 
-/* ── Page Manager tabs (/pages) ─────────────────────────────────────────── */
-.page-manager-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.page-manager-tabs__tab {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  padding: 8px 14px;
-}
-
-.page-manager-tabs__tab--active {
-  background: color-mix(in srgb, var(--color-accent-user) 12%, var(--color-bg-elevated));
-  border-color: color-mix(in srgb, var(--color-accent-user) 35%, var(--color-border-default));
-  color: var(--color-text-primary);
-}
-
-.editor-defaults-category__title {
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  margin: 0 0 8px;
-  text-transform: uppercase;
-}
-
-.editor-defaults-category__list {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.editor-defaults-check {
-  align-items: center;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  display: flex;
-  font-size: 0.8125rem;
-  gap: 8px;
-}
-
-.editor-defaults-check input {
-  accent-color: var(--color-accent-user);
-}
+/* Page catalog styles live in ./page-catalog.css (Safari-safe split). */
 
 /* ── Ultra-narrow site header (down to ~200px) ───────────────────────────── */
 @media (max-width: 360px) {
@@ -4250,6 +5090,28 @@ html[data-puck-dragging] .nexus-carousel:not(.nexus-carousel--fixed-height) [dat
 .nexus-news-catalog__tile-date {
   font-size: 0.6875rem;
   color: var(--color-text-secondary);
+}
+
+.nexus-news-catalog__card-body {
+  border-top: 1px solid var(--color-border-default);
+  background-color: var(--color-bg-panel);
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+}
+
+.nexus-news-catalog__card-description {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nexus-news-catalog__featured .nexus-news-catalog__card-description {
+  font-size: 0.875rem;
+  -webkit-line-clamp: 4;
 }
 
 .nexus-news-catalog__empty-section {

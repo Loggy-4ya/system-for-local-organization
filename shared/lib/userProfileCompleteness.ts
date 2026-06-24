@@ -6,12 +6,14 @@
  *
  * Tests: `tests/shared/lib/userProfileCompleteness.test.ts` — `npm run test:profile-completeness`
  *
- * Also powers the OAuth onboarding gate (`userNeedsProfileOnboarding`).
- *
  * @module shared/lib/userProfileCompleteness
  */
 
-import { isSelfGovernmentMember } from "@shared/lib/userSociumHelpers";
+import {
+  isSelfGovernmentMember,
+  isTeacherAccessApproved,
+  isTeacherUser,
+} from "@shared/lib/userSociumHelpers";
 import type { IUserSociumRole } from "@shared/models/userTypes";
 import { normalizePhoneInput } from "@shared/validation/phoneSchema";
 
@@ -51,6 +53,43 @@ export const MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS: Exclude<
   "telegram"
 >[] = ["surname", "phone", "specialty", "group", "avatar"];
 
+/** Profile fields required for teacher access applications (no academic group/specialty). */
+export const TEACHER_APPLICATION_REQUIRED_PROFILE_FIELDS: Exclude<
+  ProfileCompletenessField,
+  "telegram" | "specialty" | "group"
+>[] = ["surname", "phone", "avatar"];
+
+/**
+ * Resolve required stored profile fields for an applicant based on socium role.
+ *
+ * @param user - Profile completeness slice.
+ * @returns Field keys that must be filled before application submission.
+ */
+export function getMembershipApplicationRequiredFields(
+  user: ProfileCompletenessSlice,
+): Exclude<ProfileCompletenessField, "telegram">[] {
+  if (isTeacherUser(user.sociumRoles)) {
+    return [...TEACHER_APPLICATION_REQUIRED_PROFILE_FIELDS];
+  }
+  return [...MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS];
+}
+
+/**
+ * Human-readable list of membership-application field labels for UI copy.
+ *
+ * @param user - Optional profile slice — teachers omit specialty and group labels.
+ * @returns Comma-separated labels with a final "and" (Oxford-style for two+ items).
+ */
+export function listMembershipApplicationFieldLabels(user?: ProfileCompletenessSlice): string {
+  const fields = user
+    ? getMembershipApplicationRequiredFields(user)
+    : MEMBERSHIP_APPLICATION_REQUIRED_FIELDS;
+  const labels = fields.map((key) => PROFILE_FIELD_LABELS[key]);
+  if (labels.length <= 1) return labels[0] ?? "";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
 /**
  * Temporary: when `false`, login and account creation must not require or prompt
  * for Telegram as part of self-government membership application.
@@ -58,30 +97,38 @@ export const MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS: Exclude<
  */
 export const TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION = false;
 
-/** Profile fields required to submit a self-government membership application (Telegram excluded). */
+/** Profile fields required to submit a student self-government membership application. */
 export const MEMBERSHIP_APPLICATION_REQUIRED_FIELDS: ProfileCompletenessField[] = [
   ...MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS,
 ];
 
-/**
- * Human-readable list of membership-application field labels for UI copy.
- *
- * @returns Comma-separated labels with a final "and" (Oxford-style for two+ items).
- */
-export function listMembershipApplicationFieldLabels(): string {
-  const labels = MEMBERSHIP_APPLICATION_REQUIRED_FIELDS.map((key) => PROFILE_FIELD_LABELS[key]);
-  if (labels.length <= 1) return labels[0] ?? "";
-  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
-  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
-}
-
-/** @deprecated Use {@link listMembershipApplicationFieldLabels}. */
+/** @deprecated Use {@link listMembershipApplicationFieldLabels} with a profile slice. */
 export function listMembershipRequiredFieldLabels(): string {
   return listMembershipApplicationFieldLabels();
 }
 
 /** Signup / profile banner — fields required when applying for self-government. */
-export const SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT = `All of the following are required to apply for self-government membership: ${listMembershipApplicationFieldLabels()}.`;
+export const SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT =
+  "All of the following are required to apply for self-government membership: surname, phone number, specialty, group, and profile photo.";
+
+/** Teacher application requirements (no specialty or group). */
+export const TEACHER_APPLICATION_REQUIREMENTS_HINT =
+  "Teachers must complete surname, phone number, and profile photo before submitting an access application. Specialty and group are not required.";
+
+/**
+ * Resolve application requirements copy for the current user.
+ *
+ * @param user - Profile completeness slice.
+ * @returns Human-readable requirements sentence.
+ */
+export function resolveMembershipApplicationRequirementsHint(
+  user: ProfileCompletenessSlice,
+): string {
+  if (isTeacherUser(user.sociumRoles)) {
+    return TEACHER_APPLICATION_REQUIREMENTS_HINT;
+  }
+  return `All of the following are required to apply for self-government membership: ${listMembershipApplicationFieldLabels(user)}.`;
+}
 
 /** Advisory for applicants — Telegram is enforced after approval, not at application time. */
 export const SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY =
@@ -92,16 +139,41 @@ export const SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT =
   "Link your Telegram account to unlock self-government member tools. Connect below — you cannot use tasks until Telegram is linked.";
 
 /** Profile settings — members must keep application fields plus Telegram on file. */
-export const SELF_GOVERNMENT_MEMBER_PROFILE_HINT = `Self-government members must keep a complete profile: ${listMembershipApplicationFieldLabels()}, and ${PROFILE_FIELD_LABELS.telegram}.`;
+export const SELF_GOVERNMENT_MEMBER_PROFILE_HINT =
+  "Self-government members must keep a complete profile including phone, profile photo, and Telegram.";
+
+/**
+ * Resolve member profile maintenance hint for settings UI.
+ *
+ * @param user - Profile completeness slice.
+ * @returns Hint text for required member fields.
+ */
+export function resolveSelfGovernmentMemberProfileHint(user: ProfileCompletenessSlice): string {
+  if (isTeacherUser(user.sociumRoles)) {
+    return "Teachers must keep surname, phone number, and profile photo on file.";
+  }
+  return `Self-government members must keep a complete profile: ${listMembershipApplicationFieldLabels(user)}, and ${PROFILE_FIELD_LABELS.telegram}.`;
+}
+
+/** Error when a single membership field is missing on submit. */
+export function resolveSelfGovernmentApplicationFieldError(user: ProfileCompletenessSlice): string {
+  return `Complete all required fields for your application: ${listMembershipApplicationFieldLabels(user)}.`;
+}
+
+/** @deprecated Use {@link resolveSelfGovernmentApplicationFieldError} with a profile slice. */
+export const SELF_GOVERNMENT_APPLICATION_FIELD_ERROR =
+  "Complete all required fields for self-government application.";
 
 /** Per-field hint when the self-government application checkbox is active. */
 export const SELF_GOVERNMENT_APPLICATION_FIELD_HINT =
   "Required for self-government application — see the requirements notice for the full list.";
 
-/** Error when a single membership field is missing on submit. */
-export const SELF_GOVERNMENT_APPLICATION_FIELD_ERROR = `Complete all required fields for self-government application: ${listMembershipApplicationFieldLabels()}.`;
+/** Per-field hint when registering or applying as a teacher. */
+export const TEACHER_APPLICATION_FIELD_HINT =
+  "Required for teacher access application — specialty and group are not needed.";
 
-/** Directory mutation error code when a self-government member has no phone on file. */
+/** Settings route for teacher access application workflow. */
+export const TEACHER_ACCESS_APPLICATION_PATH = "/profile/membership";
 export const PROFILE_PHONE_REQUIRED_ERROR = "Phone number is required for self-government members.";
 
 /** Directory/API error code when admin save would leave a member without a required phone. */
@@ -133,6 +205,8 @@ export interface ProfileCompletenessSlice {
   selfGovernmentApplicationIntent?: boolean;
   /** Linked Telegram user id — required for self-government members (not applicants). */
   telegramId?: number | null;
+  /** Whether teacher accounts passed institutional access review. */
+  teacherAccessApproved?: boolean | null;
 }
 
 /** User slice for OAuth / Telegram onboarding gate evaluation. */
@@ -162,7 +236,10 @@ export function userIsSelfGovernmentMember(user: ProfileCompletenessSlice): bool
  * @returns True when phone must not be cleared.
  */
 export function phoneIsRequiredForUser(user: ProfileCompletenessSlice): boolean {
-  return userIsSelfGovernmentMember(user);
+  return (
+    userIsSelfGovernmentMember(user) ||
+    (isTeacherUser(user.sociumRoles) && !isTeacherAccessApproved(user))
+  );
 }
 
 /**
@@ -212,7 +289,8 @@ export function assertDirectoryMemberProfileRequirements(user: ProfileCompletene
 export function avatarIsRequiredForUser(user: ProfileCompletenessSlice): boolean {
   return (
     userIsSelfGovernmentMember(user) ||
-    Boolean(user.selfGovernmentApplicationIntent)
+    Boolean(user.selfGovernmentApplicationIntent) ||
+    (isTeacherUser(user.sociumRoles) && !isTeacherAccessApproved(user))
   );
 }
 
@@ -222,8 +300,8 @@ export function avatarIsRequiredForUser(user: ProfileCompletenessSlice): boolean
  * @param applyForSelfGovernment - Self-government application checkbox on signup.
  * @returns True when the signup form should block submit without a photo.
  */
-export function avatarIsRequiredAtSignup(applyForSelfGovernment: boolean): boolean {
-  return applyForSelfGovernment;
+export function avatarIsRequiredAtSignup(applyForSelfGovernment: boolean, isTeacher = false): boolean {
+  return applyForSelfGovernment || isTeacher;
 }
 
 /**
@@ -268,8 +346,9 @@ export function getMembershipProfileGaps(
   user: ProfileCompletenessSlice,
 ): ProfileCompletenessField[] {
   const gaps: ProfileCompletenessField[] = [];
+  const requiredFields = getMembershipApplicationRequiredFields(user);
 
-  for (const field of MEMBERSHIP_APPLICATION_REQUIRED_PROFILE_FIELDS) {
+  for (const field of requiredFields) {
     const value = user[field];
     if (field === "phone") {
       if (!userHasDialablePhone(typeof value === "string" ? value : null)) {
@@ -379,6 +458,46 @@ export function isProfileReadyForMembershipApplication(
 }
 
 /**
+ * Whether the membership readiness banner should appear on `/profile`.
+ *
+ * System administrators (hierarchy index 0), including the env seed admin, are exempt.
+ *
+ * @param accessLevelIndex - User hierarchy index.
+ * @returns False for tier 0; true for all other tiers.
+ */
+export function shouldShowMembershipReadinessBanner(
+  accessLevelIndex: number | null | undefined,
+): boolean {
+  return accessLevelIndex !== 0;
+}
+
+/**
+ * Whether a teacher must complete profile fields or wait for approval before browsing.
+ *
+ * @param user - Profile completeness slice with socium roles and approval flag.
+ * @returns True when the teacher access gate should run.
+ */
+export function userNeedsTeacherAccessGate(user: ProfileCompletenessSlice): boolean {
+  if (!isTeacherUser(user.sociumRoles)) {
+    return false;
+  }
+  return !isTeacherAccessApproved(user);
+}
+
+/**
+ * Resolve redirect target for teachers blocked by the access gate.
+ *
+ * @param user - Profile completeness slice.
+ * @returns Settings path when profile is incomplete, otherwise membership application path.
+ */
+export function resolveTeacherAccessGatePath(user: ProfileCompletenessSlice): string {
+  if (!isProfileReadyForMembershipApplication(user)) {
+    return "/profile/settings?onboarding=teacher";
+  }
+  return TEACHER_ACCESS_APPLICATION_PATH;
+}
+
+/**
  * Build a summary for API and profile UI.
  *
  * @param user - Profile slice.
@@ -402,5 +521,7 @@ export function buildProfileCompletenessSummary(user: ProfileCompletenessSlice):
     readyForMembershipApplication: missingFields.length === 0,
     missingFields,
     missingFieldLabels: missingFields.map((key) => PROFILE_FIELD_LABELS[key]),
+    isTeacherApplicant: isTeacherUser(user.sociumRoles),
+    teacherAccessApproved: isTeacherAccessApproved(user),
   };
 }

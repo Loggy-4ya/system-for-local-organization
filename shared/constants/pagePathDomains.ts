@@ -19,6 +19,7 @@ export const RESERVED_PAGE_PATH_DOMAINS = new Set([
   "signup",
   "profile",
   "admin",
+  "users",
 ]);
 
 /** Default domain segment union type. */

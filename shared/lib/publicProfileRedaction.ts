@@ -1,7 +1,7 @@
 /**
  * @fileoverview Redacted public profile DTO for member-to-member profile viewing.
  *
- * Authenticated institution members may browse `/users/[userId]`. PII (login, email,
+ * Authenticated institution members may browse `/users/[ref]` (`ref` = login or MongoDB id). PII (login, email,
  * phone, linked providers) is shown only when the viewer is the profile owner or
  * strictly outranks the target in the access hierarchy.
  *
@@ -18,7 +18,7 @@ import { formatUserFullName } from "@shared/lib/userSociumHelpers";
 import type { IUser } from "@shared/models/User";
 import type { IUserSocialLink } from "@shared/models/userTypes";
 
-/** Safe profile fields exposed on `/users/[userId]`. */
+/** Safe profile fields exposed on `/users/[ref]`. */
 export interface PublicProfileUser {
   /** MongoDB user id. */
   id: string;

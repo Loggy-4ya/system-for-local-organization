@@ -48,10 +48,10 @@ describe("sanitizePuckDataForStorageWithReport", () => {
     const input = {
       content: [
         {
-          type: "NexusButton",
+          type: "NexusNewsCard",
           props: {
             href: "javascript:alert(1)",
-            label: "Go",
+            title: "Go",
           },
         },
       ],

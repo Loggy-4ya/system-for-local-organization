@@ -13,7 +13,7 @@ import "@/app/puck-editor.css";
 import puckConfig from "@/components/puck/config";
 import type { PageSettingsValue } from "@/components/puck/fields/PageSettingsFieldGroup";
 import { normalizePageCategoryList } from "@shared/lib/pageCategoryLogic";
-import { ensurePageRootChapterProps, resolvePagePublicationProps } from "@/components/puck/lib/pageRootFieldProps";
+import { ensurePageRootChapterProps, resolvePagePublicationProps, resolveEditorPageSettingsTitle } from "@/components/puck/lib/pageRootFieldProps";
 import {
   PageEditorMetaProvider,
   EMPTY_PAGE_EDITOR_META,
@@ -77,8 +77,10 @@ interface PuckClientProps {
   showPageEditFab?: boolean;
   /** Whether the session user already liked this page. */
   initialLiked?: boolean;
-  /** Whether the viewer may toggle likes. */
-  canLike?: boolean;
+  /** Whether the session user already disliked this page. */
+  initialDisliked?: boolean;
+  /** Whether the viewer may toggle likes/dislikes. */
+  canEngage?: boolean;
   /** True when the page is publicly visible (for view counting). */
   isPublicView?: boolean;
 }
@@ -131,11 +133,11 @@ function buildEditorData(
     | undefined;
 
   const pageSettings: PageSettingsValue = {
-    title:
-      existingPageSettings?.title ??
-      (existingProps.title as string | undefined) ??
-      title ??
-      "Untitled Page",
+    title: resolveEditorPageSettingsTitle(
+      existingPageSettings,
+      existingProps.title as string | undefined,
+      title,
+    ),
     slug: existingPageSettings?.slug?.trim()
       ? existingPageSettings.slug
       : pathToSlug(pagePath),
@@ -156,7 +158,6 @@ function buildEditorData(
       coverImage: pageMetadata.coverImage,
       galleryImages: pageMetadata.galleryImages,
       publishAt: pageMetadata.publishAt,
-      commentsEnabled: pageMetadata.commentsEnabled,
       delegatedEditors:
         existingPublication?.delegatedEditors?.length
           ? existingPublication.delegatedEditors
@@ -216,7 +217,8 @@ export function PuckClient({
   isEditing,
   showPageEditFab = false,
   initialLiked = false,
-  canLike = false,
+  initialDisliked = false,
+  canEngage = false,
   isPublicView = false,
 }: PuckClientProps) {
   const router = useRouter();
@@ -319,6 +321,18 @@ export function PuckClient({
     [path, router],
   );
 
+  const handleAutoSaved = useCallback(
+    (nextPath: string) => {
+      setEditorPagePersisted(true);
+      if (nextPath !== path) {
+        router.replace(`${nextPath}/edit`);
+      }
+    },
+    [path, router],
+  );
+
+  const handleSaved = handlePublished;
+
   if (isEditing) {
     return (
       <PageEditorMetaProvider value={pageMetadata}>
@@ -330,6 +344,8 @@ export function PuckClient({
           getLatestData={() => latestDataRef.current}
           onEditorDataChange={handleEditorDataChange}
           onPublished={handlePublished}
+          onSaved={handleSaved}
+          onAutoSaved={handleAutoSaved}
         />
       </PageEditorMetaProvider>
     );
@@ -353,12 +369,17 @@ export function PuckClient({
       <PageEditorMetaProvider value={pageMetadata}>
         <Render config={puckConfig} data={viewData} />
       </PageEditorMetaProvider>
-      <PageLikeButton
-        pagePath={path}
-        initialLikeCount={pageMetadata.likeCount}
-        initialLiked={initialLiked}
-        canLike={canLike}
-      />
+      {canEngage ? (
+        <PageLikeButton
+          pagePath={path}
+          initialLikeCount={pageMetadata.likeCount}
+          initialDislikeCount={pageMetadata.dislikeCount}
+          initialLiked={initialLiked}
+          initialDisliked={initialDisliked}
+          canEngage={canEngage}
+          stackAboveChrome={showPageEditFab}
+        />
+      ) : null}
       <PageEditFab pagePath={path} serverVisible={showPageEditFab} />
     </>
   );

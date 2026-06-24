@@ -12,6 +12,7 @@ import type { PermissionKey } from "@shared/constants/accessControl";
 import {
   buildUserSearchMongoFilter,
   canSearchUsersByEmail,
+  dedupeUserSearchCandidates,
   toUserSearchCandidate,
   type UserSearchCandidate,
 } from "@shared/lib/userSearchLogic";
@@ -67,6 +68,8 @@ export class UserSearchDomain {
       .select("name surname login username email group specialty avatar role accessLevelIndex delegatedPermissions sociumRoles studentTitle")
       .lean();
 
-    return docs.map((doc) => toUserSearchCandidate(doc as IUser, viewerSlice));
+    return dedupeUserSearchCandidates(
+      docs.map((doc) => toUserSearchCandidate(doc as IUser, viewerSlice)),
+    );
   }
 }

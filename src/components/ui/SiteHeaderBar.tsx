@@ -15,6 +15,7 @@ import { LogIn, Menu, X } from "lucide-react";
 import { HeaderUserMenuDropdown } from "@/components/ui/HeaderUserMenuDropdown";
 import { MobileSidebarAccountFooter } from "@/components/ui/MobileSidebarAccountFooter";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationBellButton } from "@/components/notifications/NotificationBellButton";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import {
   DesktopHeaderNavZones,
@@ -227,7 +228,7 @@ export function SiteHeaderBar({
         <div className="flex w-full min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Link
-              href="/pages/categories"
+              href="/"
               aria-label="Nexus home"
               className="site-header-bar__logo inline-flex shrink-0 items-center no-underline"
               onClick={blockPreviewNavigation}
@@ -251,6 +252,9 @@ export function SiteHeaderBar({
               </span>
             ) : null}
             <ThemeToggle className="site-header-bar__theme-toggle hidden lg:inline-flex" />
+            {isAuthenticated ? (
+              <NotificationBellButton isAuthenticated preview={preview} />
+            ) : null}
             {isAuthenticated ? (
               <HeaderUserMenuDropdown
                 userMenuItems={userMenuItems}

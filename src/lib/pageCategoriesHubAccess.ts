@@ -13,13 +13,13 @@ import { inferAccessLevelIndex } from "@shared/lib/accessControlLogic";
 import type { IUser } from "@shared/models/User";
 
 /**
- * Require page-create permission before rendering `/pages/categories/edit`.
+ * Require page-create permission before rendering `/pages/edit`.
  *
  * @param callbackUrl - Login redirect target when unauthenticated.
  * @returns Authenticated user document.
  */
 export async function requirePageCategoriesHubEditor(
-  callbackUrl = "/pages/categories/edit",
+  callbackUrl = "/pages/edit",
 ): Promise<IUser> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -47,6 +47,18 @@ export async function requirePageCategoriesHubEditor(
   }
 
   return user;
+}
+
+/**
+ * Whether the signed-in session may create new Puck pages (FAB on `/pages/edit`).
+ *
+ * @param session - Auth.js session or null.
+ * @returns True when the user may open the new-page editor flow.
+ */
+export async function canSessionCreatePages(
+  session: Awaited<ReturnType<typeof auth>>,
+): Promise<boolean> {
+  return canSessionManagePageCategoriesHub(session);
 }
 
 /**

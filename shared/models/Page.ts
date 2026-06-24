@@ -70,6 +70,18 @@ export interface IPage extends Document {
    */
   galleryImages: string[];
 
+  /**
+   * How many publication images to show on news catalog preview cards (1–4).
+   * Synced from `root.props.pagePublication.catalogImagesPerCard` on Puck publish.
+   */
+  catalogImagesPerCard: number;
+
+  /**
+   * Catalog preview card size — `featured` may occupy the section hero slot when eligible.
+   * Synced from `root.props.pagePublication.catalogCardVariant` on Puck publish.
+   */
+  catalogCardVariant: string;
+
   /** Original author — set on first save; only admins may reassign. */
   authorUserId?: Types.ObjectId;
 
@@ -82,11 +94,32 @@ export interface IPage extends Document {
   /** When true, the public comment section is enabled for this page. */
   commentsEnabled: boolean;
 
+  /**
+   * When true, the first public go-live notifies members via inbox and/or Telegram.
+   * Synced from `root.props.pagePublication.notifyOnPublish` on Puck publish.
+   */
+  notifyOnPublish: boolean;
+
+  /**
+   * When {@link notifyOnPublish} is true, write web inbox rows on first go-live.
+   * Synced from `root.props.pagePublication.notifyWebOnPublish` on Puck publish.
+   */
+  notifyWebOnPublish: boolean;
+
+  /**
+   * When {@link notifyOnPublish} is true, send Telegram DMs on first go-live.
+   * Synced from `root.props.pagePublication.notifyTelegramOnPublish` on Puck publish.
+   */
+  notifyTelegramOnPublish: boolean;
+
   /** Monotonic public view counter (anonymous + authenticated). */
   viewCount: number;
 
   /** Denormalized like count synced from {@link PageLike}. */
   likeCount: number;
+
+  /** Denormalized dislike count synced from {@link PageDislike}. */
+  dislikeCount: number;
 
   /** Users granted edit access to this specific page by an administrator. */
   delegatedEditorUserIds: Types.ObjectId[];
@@ -159,6 +192,18 @@ const PageSchema = new Schema<IPage>(
       type: [String],
       default: () => [],
     },
+    catalogImagesPerCard: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 4,
+    },
+    catalogCardVariant: {
+      type: String,
+      default: "tile",
+      trim: true,
+      enum: ["tile", "featured"],
+    },
     authorUserId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -174,12 +219,29 @@ const PageSchema = new Schema<IPage>(
       type: Boolean,
       default: true,
     },
+    notifyOnPublish: {
+      type: Boolean,
+      default: true,
+    },
+    notifyWebOnPublish: {
+      type: Boolean,
+      default: true,
+    },
+    notifyTelegramOnPublish: {
+      type: Boolean,
+      default: true,
+    },
     viewCount: {
       type: Number,
       default: 0,
       min: 0,
     },
     likeCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    dislikeCount: {
       type: Number,
       default: 0,
       min: 0,

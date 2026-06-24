@@ -121,6 +121,8 @@ const profileUpdateObjectSchema = z.object({
     .min(1, "Select at least one notification channel.")
     .optional(),
   recordWebNotificationPrompt: z.boolean().optional(),
+  /** Server-injected flag — teachers skip specialty/group during OAuth onboarding. */
+  profileIsTeacher: z.boolean().optional(),
 });
 
 /**
@@ -153,7 +155,7 @@ function refineProfileUpdate(data: z.infer<typeof profileUpdateObjectSchema>, ct
       });
     }
 
-    if (!data.specialty?.trim()) {
+    if (!data.specialty?.trim() && !data.profileIsTeacher) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Specialty is required.",
@@ -161,7 +163,7 @@ function refineProfileUpdate(data: z.infer<typeof profileUpdateObjectSchema>, ct
       });
     }
 
-    if (!data.group?.trim()) {
+    if (!data.group?.trim() && !data.profileIsTeacher) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Group is required.",

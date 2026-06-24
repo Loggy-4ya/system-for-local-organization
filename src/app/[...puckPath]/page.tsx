@@ -11,6 +11,9 @@ import type { Data } from "@puckeditor/core";
 import { auth } from "@/auth";
 import {
   canUserEditPageDoc,
+  canViewUnpublishedPage,
+  resolveUnauthorizedEditorRedirectPath,
+  sessionHasGlobalPageEdit,
   shouldShowPageEditFab,
 } from "@/lib/pageEditAccess";
 import { PuckClient } from "./client";
@@ -18,8 +21,12 @@ import { isBuiltinAppRoutePath } from "@/components/puck/lib/pageSlugValidation"
 import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { PageDomain } from "@shared/domains/PageDomain";
+import { CommentDomain } from "@shared/domains/CommentDomain";
+import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { canManagePageAccess } from "@shared/lib/pageAccessLogic";
+import { canUserCreatePages } from "@shared/lib/pageEditAccessLogic";
 import { resolveUserDisplayLabel } from "@shared/lib/userSociumHelpers";
+import { resolvePageCommentsEnabledFromPuckData } from "@shared/lib/pageCommentsBlockLogic";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -49,14 +56,21 @@ interface PageParams {
  * Puck catch-all page — loads page data from MongoDB and delegates rendering
  * to the `PuckClient` Client Component.
  *
- * @param props - Next.js route params.
+ * @param props - Next.js route params and optional new-page query params.
  * @returns The rendered Puck editor or viewer.
  */
-export default async function PuckPage({ params }: { params: Promise<PageParams> }) {
+export default async function PuckPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<PageParams>;
+  searchParams: Promise<{ title?: string }>;
+}) {
   const { puckPath } = await params;
+  const { title: requestedTitle } = await searchParams;
 
   if (puckPath.length === 1 && puckPath[0] === "edit") {
-    redirect("/pages?error=homepage-code-only");
+    redirect("/pages/edit?error=homepage-code-only");
   }
 
   const { path, isEditing } = resolvePath(puckPath);
@@ -66,15 +80,15 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
   }
 
   if (isEditing && path === "/edit") {
-    redirect("/pages?error=reserved-slug");
+    redirect("/pages/edit?error=reserved-slug");
   }
 
   if (isEditing && path === "/") {
-    redirect("/pages?error=homepage-code-only");
+    redirect("/pages/edit?error=homepage-code-only");
   }
 
   let data: Data | null = null;
-  let pageTitle = "Untitled Page";
+  let pageTitle = requestedTitle?.trim() || "Untitled Page";
   let pageCategories: string[] = [];
   let pageMetadata = PageDomain.toMetadataDto({
     path,
@@ -87,8 +101,10 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
     authorUserId: undefined,
     publishAt: null,
     commentsEnabled: true,
+    commentCount: null,
     viewCount: 0,
     likeCount: 0,
+    dislikeCount: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     delegatedEditorUserIds: [],
@@ -112,6 +128,10 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
         ),
         isPersisted: true,
       });
+      pageMetadata = {
+        ...pageMetadata,
+        commentsEnabled: resolvePageCommentsEnabledFromPuckData(doc.puckData as Data),
+      };
     }
   } catch (err) {
     console.error("[PuckPage] DB error:", err);
@@ -144,16 +164,28 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
   }
 
   const ownership = doc ? PageDomain.toOwnershipSlice(doc) : null;
+  const canManagePathDomains = Boolean(actor && canUserCreatePages(actor));
+  let telegramPagePublishedTemplate: string | undefined;
+  if (isEditing) {
+    await GeneralRulesDomain.ensureLoaded();
+    const rules = await GeneralRulesDomain.loadOrSeed();
+    const rulesConfig = GeneralRulesDomain.toPublicConfig(rules);
+    telegramPagePublishedTemplate = rulesConfig.telegramMessages.pagePublishedAnnouncement;
+  }
   pageMetadata = {
     ...pageMetadata,
     path,
     isPersisted: Boolean(doc),
     canManagePageAccess: Boolean(actor && isEditing && canManagePageAccess(actor, ownership)),
+    canManagePagePathDomains: Boolean(isEditing && canManagePathDomains),
+    telegramPagePublishedTemplate,
+    canManageTelegramTemplates: Boolean(isEditing && sessionHasGlobalPageEdit(session)),
   };
   const canEdit = canUserEditPageDoc(session, permissions, ownership);
+  const canViewDraft = canViewUnpublishedPage(session, canEdit);
 
   if (isEditing && !canEdit) {
-    notFound();
+    redirect(resolveUnauthorizedEditorRedirectPath(path));
   }
 
   const isPublic = doc ? PageDomain.isPubliclyVisible(doc) : false;
@@ -162,15 +194,26 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
     notFound();
   }
 
-  if (!isEditing && doc && !isPublic && !canEdit) {
+  if (!isEditing && doc && !isPublic && !canViewDraft) {
     notFound();
   }
 
   const showPageEditFab = shouldShowPageEditFab(canEdit, path, isEditing);
 
+  if (!isEditing && pageMetadata.commentsEnabled && doc) {
+    try {
+      const commentCount = await CommentDomain.countTopLevelComments(path);
+      pageMetadata = { ...pageMetadata, commentCount };
+    } catch (err) {
+      console.error("[PuckPage] comment count:", err);
+    }
+  }
+
   let initialLiked = false;
+  let initialDisliked = false;
   if (session?.user?.id && doc) {
     initialLiked = await PageDomain.hasUserLiked(path, session.user.id);
+    initialDisliked = await PageDomain.hasUserDisliked(path, session.user.id);
   }
 
   return (
@@ -184,7 +227,8 @@ export default async function PuckPage({ params }: { params: Promise<PageParams>
       isEditing={isEditing}
       showPageEditFab={showPageEditFab}
       initialLiked={initialLiked}
-      canLike={Boolean(session?.user?.id)}
+      initialDisliked={initialDisliked}
+      canEngage={Boolean(session?.user?.id)}
       isPublicView={isPublic}
     />
   );

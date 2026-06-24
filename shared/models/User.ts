@@ -181,8 +181,15 @@ export interface IUser extends Document {
   /**
    * Whether the student opted in to apply for self-government membership at signup.
    * Does not grant roles — administrators review applications separately.
+   * Also used for teacher institutional access applications.
    */
   selfGovernmentApplicationIntent: boolean;
+
+  /**
+   * Whether a teacher account has been approved by administration or self-government.
+   * Defaults to true for non-teachers; new teacher signups start as false until review.
+   */
+  teacherAccessApproved: boolean;
 
   /** Timestamp when the user accepted personal data processing (signup consent). */
   personalDataConsentAt: Date | null;
@@ -313,6 +320,7 @@ const UserSchema = new Schema<IUser>(
     stars:     { type: Number, default: 0, min: 0 },
     warnings:  { type: Number, default: 0, min: 0, max: 3 },
     selfGovernmentApplicationIntent: { type: Boolean, default: false },
+    teacherAccessApproved: { type: Boolean, default: true },
     personalDataConsentAt: { type: Date, default: null },
     notificationChannels: {
       type: [String],

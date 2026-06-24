@@ -10,7 +10,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, UserCheck } from "lucide-react";
 import type { MembershipApplicationStatusDto } from "@shared/domains/MembershipApplicationDomain";
-import { SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY } from "@shared/lib/userProfileCompleteness";
+import {
+  resolveMembershipApplicationRequirementsHint,
+  SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY,
+  TEACHER_APPLICATION_REQUIREMENTS_HINT,
+} from "@shared/lib/userProfileCompleteness";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -53,7 +57,11 @@ export function ProfileMembershipApplicationShell() {
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       setStatus(data);
-      setMessage("Your application has been submitted. Reviewers will be notified.");
+      setMessage(
+        status?.isTeacherApplicant
+          ? "Your teacher access application has been submitted."
+          : "Your application has been submitted. Reviewers will be notified.",
+      );
     } else {
       setError(typeof data.error === "string" ? data.error : "Could not submit application.");
     }
@@ -74,6 +82,8 @@ export function ProfileMembershipApplicationShell() {
     }
     setSubmitting(false);
   };
+
+  const isTeacherApplicant = status?.isTeacherApplicant ?? false;
 
   return (
     <StaticPageShell
@@ -96,15 +106,16 @@ export function ProfileMembershipApplicationShell() {
             <div className="flex items-center gap-2 text-primary">
               <UserCheck size={18} strokeWidth={1.75} aria-hidden="true" />
               <span className="text-xs font-semibold tracking-wide uppercase">
-                Self-government
+                {isTeacherApplicant ? "Teacher access" : "Self-government"}
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-              Membership application
+              {isTeacherApplicant ? "Teacher access application" : "Membership application"}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
-              Apply to join the student self-government council. Reviewers with the appropriate
-              permissions will approve your application and assign the member role.
+              {isTeacherApplicant
+                ? "Submit your profile for review. Institution administration or student self-government will approve teacher access to Nexus."
+                : "Apply to join the student self-government council. Reviewers with the appropriate permissions will approve your application and assign the member role."}
             </p>
           </div>
           <Link
@@ -129,11 +140,24 @@ export function ProfileMembershipApplicationShell() {
               Your profile shows council roles and quality scores on the main profile page.
             </p>
           </section>
+        ) : isTeacherApplicant && status.teacherAccessApproved ? (
+          <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
+            <p className="font-medium text-[var(--color-text-primary)]">
+              Your teacher access has been approved.
+            </p>
+            <p className="mt-1">You can now browse Nexus with your teacher account.</p>
+          </section>
         ) : (
           <>
             <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
-              <p>{SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT}</p>
-              <p className="mt-2 text-xs">{SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}</p>
+              <p>
+                {isTeacherApplicant
+                  ? TEACHER_APPLICATION_REQUIREMENTS_HINT
+                  : "All of the following are required to apply for self-government membership: surname, phone number, specialty, group, and profile photo."}
+              </p>
+              {!isTeacherApplicant ? (
+                <p className="mt-2 text-xs">{SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}</p>
+              ) : null}
               {!status?.readyForSubmission && status?.missingFieldLabels.length ? (
                 <p className="mt-2">
                   Still missing:{" "}

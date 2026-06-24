@@ -18,6 +18,7 @@ Numeric/structured inputs (group numbers, phones, logins) are **never** language
 | Route | Guard | Component |
 |-------|-------|-----------|
 | `/admin/general-rules` | Legacy `Admin` | `GeneralRulesEditorShell` |
+| `/admin/telegram-bot` | Legacy `Admin` | `TelegramBotMessagesEditorShell` — focused bot template editor (same MongoDB singleton as General Rules) |
 
 Hub tile: **General Rules** in `src/lib/adminHubAreas.ts`.
 
@@ -64,6 +65,9 @@ Hub tile: **General Rules** in `src/lib/adminHubAreas.ts`.
 | `startWelcome` | `/start` reply body |
 | `startOpenButtonLabel` | Mini App inline button |
 | `broadcastAnnouncementPrefix` | Institution broadcast DMs (`{title}`, `{body}`) |
+| `pagePublishedAnnouncement` | Page first go-live Telegram DM (`{title}`, `{body}`, `{url}`) — per-page channel toggle in Puck Publication |
+| `botRegisterPrompt` | Unregistered Telegram user task commands |
+| `botFinishRegistrationPrompt` | Incomplete profile before bot commands |
 
 ## Tests
 

@@ -1,30 +1,14 @@
 /**
- * @fileoverview Publisher-only news catalog curation — `/pages/categories/edit`.
+ * @fileoverview Legacy redirect — catalog editor lives on `/pages/edit`.
  *
  * @module src/app/pages/categories/edit/page
  */
 
-import { PageCategoriesDomain } from "@shared/domains/PageCategoriesDomain";
-import { requirePageCategoriesHubEditor } from "@/lib/pageCategoriesHubAccess";
-import { PageCategoriesHubEditor } from "../PageCategoriesHubEditor";
+import { redirect } from "next/navigation";
 
 /**
- * News catalog curation editor for page publishers.
- *
- * @returns Server-rendered category hub editor.
+ * Redirect `/pages/categories/edit` → `/pages/edit`.
  */
-export default async function PageCategoriesHubEditPage() {
-  await requirePageCategoriesHubEditor("/pages/categories/edit");
-
-  const [doc, availableDomains] = await Promise.all([
-    PageCategoriesDomain.loadOrSeed(),
-    PageCategoriesDomain.listHubDomainCatalog(),
-  ]);
-
-  return (
-    <PageCategoriesHubEditor
-      initialConfig={PageCategoriesDomain.toPublicConfig(doc)}
-      initialAvailableDomains={availableDomains}
-    />
-  );
+export default function LegacyPageCategoriesEditRedirect() {
+  redirect("/pages/edit");
 }

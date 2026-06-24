@@ -97,6 +97,7 @@ export const taskCreateSchema = z
       .min(1)
       .max(2)
       .default(["telegram_dm"]),
+    reportMediaAllowed: z.boolean().default(false),
     dispatch: z.boolean().default(true),
   })
   .superRefine((payload, ctx) => {
@@ -135,6 +136,7 @@ export const taskUpdateSchema = z
       .min(1)
       .max(2)
       .optional(),
+    reportMediaAllowed: z.boolean().optional(),
     status: z.enum(TASK_STATUSES).optional(),
   })
   .superRefine((payload, ctx) => {

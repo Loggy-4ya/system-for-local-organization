@@ -54,5 +54,28 @@ describe("buildMembershipApplicationStatus", () => {
       selfGovernmentApplicationIntent: true,
     });
     assert.equal(status.hasActiveApplication, true);
+    assert.equal(status.isTeacherApplicant, false);
+  });
+
+  it("reports teacher applicants without specialty or group requirements", () => {
+    const status = buildMembershipApplicationStatus({
+      ...completeProfile,
+      specialty: null,
+      group: null,
+      sociumRoles: [
+        {
+          roleKey: "teacher",
+          roleLabel: "Teacher",
+          kind: "teacher",
+          source: "self",
+          assignedAt: new Date(),
+        },
+      ],
+      teacherAccessApproved: false,
+      selfGovernmentApplicationIntent: true,
+    });
+    assert.equal(status.isTeacherApplicant, true);
+    assert.equal(status.readyForSubmission, true);
+    assert.equal(status.teacherAccessApproved, false);
   });
 });

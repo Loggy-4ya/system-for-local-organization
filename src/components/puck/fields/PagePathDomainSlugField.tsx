@@ -4,7 +4,7 @@
  * @fileoverview Domain picker + page slug editor for `/domain/page_slug` URLs.
  *
  * Domains render inside a collapsible inset list so large catalogs stay scannable.
- * Editors with manage access may add custom domains or hide labels from the picker.
+ * Editors with `pages.create` may add custom domains or hide labels from the picker.
  *
  * @module src/components/puck/fields/PagePathDomainSlugField
  */
@@ -117,7 +117,7 @@ export function PagePathDomainSlugField({
   );
 
   const slugError = pasteError ?? validation.error;
-  const canManageDomains = meta.canManagePageAccess;
+  const canManageDomains = meta.canManagePagePathDomains;
 
   const updateAddress = (nextDomain: string, nextPageSlug: string) => {
     onClearPasteError?.();

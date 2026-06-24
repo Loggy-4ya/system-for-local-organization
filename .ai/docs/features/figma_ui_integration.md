@@ -124,10 +124,7 @@ Code ↔ Figma mapping for nav and editor icons: [icon_sizes.md](../icon_sizes.m
 | `02 — Components` | `11:3` | `Badge/Warning` | `27:14` |
 | `02 — Components` | `11:3` | `Badge/Success` | `136:23` |
 | `02 — Components` | `11:3` | `Badge/Danger` | `136:25` |
-| `02 — Components` | `11:3` | `Tag/Role` | `136:30` |
 | `02 — Components` | `11:3` | `TaskChip` | `136:28` |
-| `02 — Components` | `11:3` | `StatCard` | `138:34` |
-| `02 — Components` | `11:3` | `Avatar` | `136:27` |
 | `02 — Components` | `11:3` | `NewsTile` | `27:16` |
 | `02 — Components` | `11:3` | `CommentRow` | `138:25` |
 | `02 — Components` | `11:3` | `AccentPill` | `138:37` |
@@ -226,8 +223,8 @@ Emulates live Nexus user record + task accountability:
 
 | Section | Content |
 |---------|---------|
-| **ProfileHero** | Photo avatar, name, specialty/group, linked identities (email, Telegram, Google), `Tag/Role` ×3 (including Group SE-42 badge), Telegram sync status |
-| **StatsRow** | `StatCard` ×3 — Stars (124), Tasks (18), Warnings (0/3) |
+| **ProfileHero** | Photo avatar, name, specialty/group, linked identities (email, Telegram, Google), role chips (including Group SE-42), Telegram sync status |
+| **StatsRow** | Stars (124), Tasks (18), Warnings (0/3) KPI row |
 | **BodySplit** | Left: `SegmentedControl` + 4 task rows with `Badge/Warning` / `Badge/Success` + action buttons (ack flow) |
 | **ActivityColumn** | Council votes/proposals, 30-day performance, `AccentPill` |
 
@@ -248,12 +245,9 @@ Review and approval interface for student submissions:
 |-----------------|------------|----------|--------------|--------|
 | `Header/Global` | `GlobalHeader` | Layout-level | `56:2` | Implemented |
 | `TabGroup` | `NexusTabs` | Content | `27:9` | Implemented |
-| `Button/Primary` | `NexusButton` | Content | `27:4` | Implemented (Primary, Secondary, Ghost) |
+| `Button/Primary` | — | Content | `27:4` | Removed from Puck registry (Jun 2026) |
 | `Input/Default` | `NexusInput` | Content | `27:6` | Implemented |
-| `StatCard` | `NexusStatCard` | User & Data | `138:34` | Implemented |
-| `Avatar` | `NexusAvatar` | User & Data | `136:27` | Implemented |
 | `NewsTile` / `Card/Surface` | `NexusNewsCard` | News & Cards | `27:16` / `138:39` | Implemented (Merged into rich NewsCard) |
-| `Tag/Role` | Merged into `NexusUserBadge` | User & Data | `136:30` | Implemented |
 | `Section` | `NexusSection` | Layout | — | Implemented |
 | `Grid` | `NexusGrid` | Layout | — | Implemented |
 | `Spacer` / `Divider` | `NexusSpacer` *(Spacer & Divider)* | Layout | — | Implemented (merged; style presets for space, line, section break) |
@@ -288,7 +282,7 @@ All **21 components** on `02 — Components` now use `Nexus/Spacing` tokens:
 |-------|-----|-------|
 | `spacing/xs` | 4 | Badge/chip padding, TabGroup/SegmentedControl outer pad |
 | `spacing/sm` | 8 | Button vertical pad, input vertical pad, preview card pad, section gaps |
-| `spacing/md` | 16 | Button horizontal pad, input horizontal pad, NewsTile/StatCard/Sidebar pad, row gaps |
+| `spacing/md` | 16 | Button horizontal pad, input horizontal pad, NewsTile/Sidebar pad, row gaps |
 | `spacing/lg` | 24 | Header horizontal pad, board section padding |
 
 `CommentRow` vertical padding fixed (`8/16`); `Card/Surface` body uses `16px` horizontal inset.
@@ -328,7 +322,6 @@ Rebuilt all **21 preview cards** on board `27:2` (`02 — Components`):
 | Target | Node ID | Component |
 |--------|---------|-----------|
 | News thumbnail | `166:67` | `NewsTile` → `Thumb` |
-| Avatar photo | `170:200` | `Avatar` → `Photo` |
 | Header avatar | `161:76` | `Header/Global` → `Photo` |
 | Comment avatar | `154:80` | `CommentRow` → `Photo` |
 | Card hero | `170:201` | `Card/Surface` → `HeroImage` |

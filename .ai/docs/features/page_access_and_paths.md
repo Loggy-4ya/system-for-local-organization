@@ -60,9 +60,9 @@ Pure rules: `shared/lib/pageAccessLogic.ts` — `canManagePageAccess()`
 |--------|------|
 | `shared/lib/pagePathLogic.ts` | `normalizePagePath`, `formatPagePathLabel`, `splitPageAddress`, `composePageAddress`, `formatPageDomainLabel`, `buildPagePublicHref`, `filterPagePathCatalog` |
 | `shared/lib/pagePathDomainListLogic.ts` | Hidden domain filtering for the page editor picker |
-| `shared/constants/pagePathDomains.ts` | Default domain segments (`news`, `surveys`) |
+| `shared/constants/pagePathDomains.ts` | Default domain segments (`news`, `surveys`); reserved segments include `users` (member profiles only) |
 | `shared/models/PagePathSettings.ts` | Singleton `hiddenDomains` + `customDomains` for the editor picker |
-| `PageDomain.listPagePathCatalog()` | MongoDB-backed link catalog |
+| `discoverPagePathDomainsFromPaths()` | Derive domain segments from multi-segment paths only (flat `/slug` pages excluded) |
 | `PageDomain.listReservedPagePaths()` | Slug collision list |
 | `PageDomain.hidePagePathDomain()` | Persist hidden domain labels |
 | `PageDomain.addPagePathDomain()` | Persist custom domain labels |
@@ -91,7 +91,7 @@ Pure rules: `shared/lib/pageAccessLogic.ts` — `canManagePageAccess()`
 |-------|------|
 | Publisher roster (+ reveals search) | `PageAccessEditorsField.tsx` (Publication → Publisher) |
 | Category tags | `PageCategoryTagsField.tsx` (Page Details chapter) |
-| Slug domain + page slug | `PagePathDomainSlugField.tsx` — collapsible domain list + `/domain/page_slug` row; add/remove domains when the editor may manage page access |
+| Slug domain + page slug | `PagePathDomainSlugField.tsx` — collapsible domain list + `/domain/page_slug` row; add/remove domains when the editor has `pages.create` |
 | Slug link preview | `PagePathDomainSlugField.tsx` (`PageMetaBadge` + `formatPagePathLabel`) |
 | Search client | `pageAccessClient.ts` → `/api/mentions/search` |
 

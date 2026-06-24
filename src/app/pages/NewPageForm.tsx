@@ -3,32 +3,107 @@
 /**
  * @fileoverview Client component for creating a new Puck-managed page.
  *
- * Accepts a slug input and navigates to `/<slug>/edit` on submit so the user
- * lands directly in the Puck editor for the new page.
+ * Publishers pick a path domain, enter a title, and confirm the URL slug before
+ * opening the Puck editor.
  *
  * @module src/app/pages/NewPageForm
  */
 
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import type { PagePathDomainCatalogEntry } from "@shared/constants/pageCategoriesHub";
+import { PAGE_CATALOG_UNCATEGORIZED_DOMAIN } from "@shared/constants/pageCategoriesHub";
+import {
+  composeNewPageAddressSlug,
+  formatPageDomainLabel,
+  normalizePageSlugSegment,
+  slugifyPageTitleToSlugSegment,
+} from "@shared/lib/pagePathLogic";
 import { fetchReservedPagePaths, isReservedSlugPath, validatePageSlug } from "@/components/puck/lib/pageSlugValidation";
-import { normalizePagePath } from "@/components/puck/PagePathEditor";
+import { PageCatalogSelect } from "@/components/pages/PageCatalogSelect";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
-// ── Component ────────────────────────────────────────────────────────────────
+/** Props for {@link NewPageForm}. */
+export interface NewPageFormProps {
+  /** Visible path domains for the domain picker. */
+  availableDomains: readonly PagePathDomainCatalogEntry[];
+  /** Called with the validated editor path (e.g. `/news/about/edit?title=About`). */
+  onNavigate?: (editorPath: string) => void;
+}
 
 /**
- * Inline form that navigates to the Puck editor for a new page slug.
+ * Build domain select options including flat "Other pages".
  *
- * @returns A slug input with a submit button.
+ * @param availableDomains - Domain catalog rows from the server.
+ * @returns Select options for {@link PageCatalogSelect}.
  */
-export function NewPageForm() {
+function buildNewPageDomainOptions(
+  availableDomains: readonly PagePathDomainCatalogEntry[],
+): Array<{ value: string; label: string }> {
+  const options = availableDomains.map((entry) => ({
+    value: entry.domain,
+    label: entry.title
+      ? `${entry.title} (${formatPageDomainLabel(entry.domain)})`
+      : formatPageDomainLabel(entry.domain),
+  }));
+
+  options.push({
+    value: PAGE_CATALOG_UNCATEGORIZED_DOMAIN,
+    label: "Other pages (flat URL)",
+  });
+
+  return options;
+}
+
+/**
+ * Map the form domain select value to a path domain segment.
+ *
+ * @param domain - Selected domain or {@link PAGE_CATALOG_UNCATEGORIZED_DOMAIN}.
+ * @returns Domain segment, or empty string for flat URLs.
+ */
+function resolveNewPageDomainSegment(domain: string): string {
+  return domain === PAGE_CATALOG_UNCATEGORIZED_DOMAIN ? "" : domain;
+}
+
+/**
+ * Form for creating a page — domain, title, slug, then open Puck editor.
+ *
+ * @param props - Domain catalog and navigation callback.
+ * @returns New page creation form.
+ */
+export function NewPageForm({ availableDomains, onNavigate }: NewPageFormProps) {
   const router = useRouter();
-  const [slug, setSlug] = useState("");
+  const domainOptions = useMemo(
+    () => buildNewPageDomainOptions(availableDomains),
+    [availableDomains],
+  );
+
+  const [domain, setDomain] = useState(
+    () => availableDomains[0]?.domain ?? PAGE_CATALOG_UNCATEGORIZED_DOMAIN,
+  );
+  const [title, setTitle] = useState("");
+  const [slugSegment, setSlugSegment] = useState("");
+  const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (domainOptions.some((option) => option.value === domain)) return;
+    setDomain(domainOptions[0]?.value ?? PAGE_CATALOG_UNCATEGORIZED_DOMAIN);
+  }, [domain, domainOptions]);
+
+  const previewPath = useMemo(() => {
+    const pageSlug =
+      normalizePageSlugSegment(slugSegment) || slugifyPageTitleToSlugSegment(title);
+    if (!pageSlug) return "/…";
+    const addressSlug = composeNewPageAddressSlug(resolveNewPageDomainSegment(domain), pageSlug);
+    return `/${addressSlug}`;
+  }, [domain, slugSegment, title]);
+
   /**
-   * Normalise the slug value and navigate to the Puck editor URL.
+   * Validate inputs and navigate to the Puck editor.
    *
    * @param e - Form submit event.
    */
@@ -36,15 +111,23 @@ export function NewPageForm() {
     e.preventDefault();
     setError(null);
 
-    const clean = slug.trim().replace(/^\/+/, "").replace(/\/+$/, "");
-    if (!clean) {
-      setError("Enter a URL slug for the new page.");
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Enter a page title.");
       return;
     }
 
-    const normalizedPath = normalizePagePath(clean);
+    const pageSlug =
+      normalizePageSlugSegment(slugSegment) || slugifyPageTitleToSlugSegment(trimmedTitle);
+    if (!pageSlug) {
+      setError("Enter a valid URL slug (letters, numbers, and hyphens).");
+      return;
+    }
+
+    const addressSlug = composeNewPageAddressSlug(resolveNewPageDomainSegment(domain), pageSlug);
+    const normalizedPath = `/${addressSlug}`.replace(/\/+/g, "/");
     if (isReservedSlugPath(normalizedPath)) {
-      router.push("/pages?error=reserved-slug");
+      setError("That URL is reserved. Choose a different slug.");
       return;
     }
 
@@ -52,7 +135,7 @@ export function NewPageForm() {
 
     try {
       const reservedPaths = await fetchReservedPagePaths();
-      const validation = validatePageSlug(clean, {
+      const validation = validatePageSlug(addressSlug, {
         slugLocked: false,
         currentPath: "",
         reservedPaths,
@@ -63,85 +146,92 @@ export function NewPageForm() {
         return;
       }
 
-      router.push(`${validation.normalizedPath}/edit`.replace("//", "/"));
+      const params = new URLSearchParams({ title: trimmedTitle });
+      const editorPath = `${validation.normalizedPath}/edit?${params.toString()}`.replace("//", "/");
+      if (onNavigate) {
+        onNavigate(editorPath);
+      } else {
+        router.push(editorPath);
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <div style={{ display: "flex", gap: 8 }}>
-        <span
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "0 10px",
-            borderRadius: "var(--radius-md) 0 0 var(--radius-md)",
-            background: "var(--color-bg-elevated)",
-            border: "1px solid var(--color-border-default)",
-            borderRight: "none",
-            color: "var(--color-text-secondary)",
-            fontSize: "0.875rem",
-            userSelect: "none",
-          }}
-          aria-hidden="true"
-        >
-          /
-        </span>
-        <input
-          type="text"
-          value={slug}
-          onChange={(e) => {
-            setError(null);
-            setSlug(e.target.value);
-          }}
-          placeholder="page-slug"
-          aria-label="New page slug"
-          required
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            background: "var(--color-bg-cell)",
-            border: "1px solid var(--color-border-default)",
-            color: "var(--color-text-primary)",
-            fontSize: "0.875rem",
-            borderRadius: 0,
-            outline: "none",
-            minWidth: 0,
-          }}
+    <form className="page-manager-fab__form" onSubmit={(event) => void handleSubmit(event)}>
+      <div className="page-manager-fab__field">
+        <Label htmlFor="new-page-domain" className="page-manager-fab__field-label">
+          Domain
+        </Label>
+        <PageCatalogSelect
+          aria-label="Page domain"
+          value={domain}
+          options={domainOptions}
+          triggerClassName="page-manager-fab__domain-select"
+          onValueChange={setDomain}
         />
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{
-            padding: "10px 18px",
-            background: "var(--color-accent-user)",
-            color: "#fff",
-            fontWeight: 500,
-            fontSize: "0.875rem",
-            border: "none",
-            borderRadius: "0 var(--radius-md) var(--radius-md) 0",
-            cursor: submitting ? "wait" : "pointer",
-            whiteSpace: "nowrap",
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
-          Open Editor →
-        </button>
       </div>
+
+      <div className="page-manager-fab__field">
+        <Label htmlFor="new-page-title" className="page-manager-fab__field-label">
+          Title
+        </Label>
+        <Input
+          id="new-page-title"
+          value={title}
+          onChange={(event) => {
+            setError(null);
+            const nextTitle = event.target.value;
+            setTitle(nextTitle);
+            if (!slugEditedManually) {
+              setSlugSegment(slugifyPageTitleToSlugSegment(nextTitle));
+            }
+          }}
+          placeholder="Spring fair announcement"
+          className="page-manager-fab__title-input"
+          required
+        />
+      </div>
+
+      <div className="page-manager-fab__field">
+        <Label htmlFor="new-page-slug" className="page-manager-fab__field-label">
+          URL slug
+        </Label>
+        <div className="page-manager-fab__slug-row">
+          <span className="page-manager-fab__slug-prefix" aria-hidden="true">
+            /
+          </span>
+          <Input
+            id="new-page-slug"
+            value={slugSegment}
+            onChange={(event) => {
+              setError(null);
+              setSlugEditedManually(true);
+              setSlugSegment(normalizePageSlugSegment(event.target.value));
+            }}
+            placeholder="spring-fair"
+            className="page-manager-fab__slug-input"
+            aria-describedby="new-page-path-preview"
+            required
+          />
+        </div>
+        <p id="new-page-path-preview" className="page-manager-fab__path-preview">
+          Opens at <code>{previewPath}</code>
+        </p>
+      </div>
+
       {error ? (
-        <p style={{ color: "#ef4444", fontSize: "0.8125rem", margin: 0 }} role="alert">
+        <p className="page-manager-fab__alert" role="alert">
           {error}
         </p>
       ) : null}
+
+      <Button type="submit" className="page-manager-fab__submit" disabled={submitting}>
+        {submitting ? "Opening…" : "Open editor"}
+      </Button>
     </form>
   );
 }
+
+export default NewPageForm;

@@ -180,12 +180,19 @@ export function MembershipApplicationsEditorShell() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-[var(--color-text-primary)]">
-                      {application.fullName}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-[var(--color-text-primary)]">
+                        {application.fullName}
+                      </p>
+                      <Badge variant={application.applicantType === "teacher" ? "outline" : "secondary"}>
+                        {application.applicantType === "teacher" ? "Teacher" : "Student council"}
+                      </Badge>
+                    </div>
                     <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
-                      {[application.specialty, application.group].filter(Boolean).join(" · ") ||
-                        "No specialty / group"}
+                      {application.applicantType === "teacher"
+                        ? "Teacher access application"
+                        : [application.specialty, application.group].filter(Boolean).join(" · ") ||
+                          "No specialty / group"}
                     </p>
                     {application.login ? (
                       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">

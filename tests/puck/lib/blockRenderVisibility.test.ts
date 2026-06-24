@@ -98,14 +98,10 @@ describe("PUCK_BLOCK_VISIBILITY_REGISTRY", () => {
       "NexusVideo",
       "NexusAccordion",
       "NexusList",
-      "NexusButton",
       "NexusTabs",
       "NexusCarousel",
       "NexusInput",
       "NexusNewsCard",
-      "NexusUserBadge",
-      "NexusStatCard",
-      "NexusAvatar",
     ];
     const registered = PUCK_BLOCK_VISIBILITY_REGISTRY.map((spec) => spec.blockType).sort();
     assert.deepEqual(registered, [...expected].sort());

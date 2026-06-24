@@ -21,7 +21,7 @@ interface LucideIconPickerFieldProps {
 }
 
 /**
- * Insert or clear a whitelisted Lucide icon on a Puck block (e.g. {@link NexusButton}).
+ * Insert or clear a whitelisted Lucide icon on a Puck block (e.g. {@link NexusList}).
  *
  * @param props - Puck custom field props.
  * @returns Icon picker row for the plugin sidebar.

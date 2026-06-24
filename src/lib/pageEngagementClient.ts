@@ -10,11 +10,19 @@ export interface PageViewResult {
   counted: boolean;
 }
 
-/** Like toggle API response. */
-export interface PageLikeResult {
+/** Unified page like/dislike toggle API response. */
+export interface PageEngagementResult {
   liked: boolean;
   likeCount: number;
+  disliked: boolean;
+  dislikeCount: number;
 }
+
+/** @deprecated Use {@link PageEngagementResult} — kept for call-site clarity. */
+export type PageLikeResult = PageEngagementResult;
+
+/** @deprecated Use {@link PageEngagementResult} — kept for call-site clarity. */
+export type PageDislikeResult = PageEngagementResult;
 
 const EMPTY_VIEW_RESULT: PageViewResult = { viewCount: 0, counted: false };
 
@@ -49,7 +57,7 @@ export async function recordPageView(pagePath: string): Promise<PageViewResult> 
  * @param pagePath - Normalised page path.
  * @returns Updated like state.
  */
-export async function togglePageLike(pagePath: string): Promise<PageLikeResult> {
+export async function togglePageLike(pagePath: string): Promise<PageEngagementResult> {
   const res = await fetch("/api/pages/like", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -59,5 +67,24 @@ export async function togglePageLike(pagePath: string): Promise<PageLikeResult> 
     const payload = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(payload.error ?? "Failed to toggle like.");
   }
-  return (await res.json()) as PageLikeResult;
+  return (await res.json()) as PageEngagementResult;
+}
+
+/**
+ * Toggle the current user's dislike on a page.
+ *
+ * @param pagePath - Normalised page path.
+ * @returns Updated engagement state (mutually exclusive with like).
+ */
+export async function togglePageDislike(pagePath: string): Promise<PageEngagementResult> {
+  const res = await fetch("/api/pages/dislike", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: pagePath }),
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(payload.error ?? "Failed to toggle dislike.");
+  }
+  return (await res.json()) as PageEngagementResult;
 }

@@ -31,8 +31,8 @@ import {
 import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 import {
   browserNotificationsSupported,
-  consumeNotificationPromptSessionFlag,
   getBrowserNotificationBlockReason,
+  getBrowserNotificationPermission,
   requestBrowserNotificationPermission,
   showBrowserNotificationEnabledTest,
 } from "@/lib/webNotificationPermission";
@@ -112,7 +112,6 @@ export function WebNotificationPermissionPromptHost() {
       return;
     }
 
-    const freshAuth = consumeNotificationPromptSessionFlag();
     let cancelled = false;
 
     void (async () => {
@@ -120,20 +119,24 @@ export function WebNotificationPermissionPromptHost() {
       if (!res.ok || cancelled) return;
 
       const state = (await res.json()) as WebPromptState;
-      if (cancelled) return;
+      if (cancelled || !state.needsPrompt) return;
 
-      if (state.needsPrompt || freshAuth) {
-        setFeedback(feedbackForPermission(
-          typeof Notification !== "undefined" ? Notification.permission : "denied",
-        ));
-        setOpen(true);
+      const permission = getBrowserNotificationPermission();
+
+      // Browser already allowed alerts — persist once and skip the dialog.
+      if (permission === "granted") {
+        await recordOutcome("enabled", permission);
+        return;
       }
+
+      setFeedback(feedbackForPermission(permission));
+      setOpen(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [status, session?.user?.id, pathname, supported]);
+  }, [status, session?.user?.id, pathname, supported, recordOutcome]);
 
   /** Close dialog and persist dismiss outcome. */
   async function handleDismiss() {

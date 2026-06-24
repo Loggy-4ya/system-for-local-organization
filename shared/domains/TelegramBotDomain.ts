@@ -1,17 +1,38 @@
 /**
  * @fileoverview Telegram Bot API webhook dispatch for Project Nexus.
  *
- * Handles inbound bot updates (`/start`, `/link`, `/status`, `/task_done` for project workspaces).
+ * Handles inbound bot updates (`/start`, `/link`, task commands in DM and linked groups).
  * Group auto-creation extends via {@link TelegramWorkspaceDomain} + MTProto worker.
  *
  * @module shared/domains/TelegramBotDomain
  */
 
 import { normalizeTelegramUserId } from "@shared/lib/telegramContactHarvestLogic";
+import {
+  isTelegramBotCommandMessage,
+  isTelegramReportWizardControlCommand,
+  parseTelegramBotCommand,
+  shouldCancelTelegramBotSessionForCommand,
+} from "@shared/lib/telegramBotCommandLogic";
+import {
+  interpolateTelegramMessageTemplate,
+} from "@shared/constants/generalRules";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
-import { TelegramGroupCommandDomain } from "@shared/domains/TelegramGroupCommandDomain";
+import {
+  TelegramBotTaskDomain,
+  type TelegramInboundMediaFile,
+} from "@shared/domains/TelegramBotTaskDomain";
+import { TelegramBotUserDomain } from "@shared/domains/TelegramBotUserDomain";
 import { TelegramWorkspaceDomain } from "@shared/domains/TelegramWorkspaceDomain";
+
+/** Bot commands that require a registered, profile-complete Nexus user. */
+const TELEGRAM_BOT_TASK_COMMANDS = new Set([
+  "/tasks",
+  "/task_report",
+  "/see_report",
+  "/completed",
+]);
 
 /** Minimal Telegram Bot API user shape on inbound messages. */
 export interface TelegramBotUser {
@@ -45,6 +66,34 @@ export interface TelegramBotContact {
   first_name?: string;
 }
 
+/** Telegram photo size entry. */
+export interface TelegramBotPhotoSize {
+  /** Bot API file id. */
+  file_id: string;
+  /** MIME type when present. */
+  mime_type?: string;
+}
+
+/** Telegram video attachment. */
+export interface TelegramBotVideo {
+  /** Bot API file id. */
+  file_id: string;
+  /** MIME type when present. */
+  mime_type?: string;
+  /** Original filename when present. */
+  file_name?: string;
+}
+
+/** Telegram document attachment. */
+export interface TelegramBotDocument {
+  /** Bot API file id. */
+  file_id: string;
+  /** MIME type when present. */
+  mime_type?: string;
+  /** Original filename when present. */
+  file_name?: string;
+}
+
 /** Telegram Bot API message update payload. */
 export interface TelegramBotMessage {
   /** Chat reference. */
@@ -55,6 +104,12 @@ export interface TelegramBotMessage {
   text?: string;
   /** Shared contact card when the user taps request_contact. */
   contact?: TelegramBotContact;
+  /** Photo sizes — largest is typically last. */
+  photo?: TelegramBotPhotoSize[];
+  /** Video attachment. */
+  video?: TelegramBotVideo;
+  /** Generic document attachment. */
+  document?: TelegramBotDocument;
 }
 
 /** Telegram Bot API update envelope. */
@@ -195,42 +250,290 @@ export const TelegramBotDomain = {
    */
   async handleUpdate(update: TelegramBotUpdate, botToken: string): Promise<boolean> {
     const message = update.message;
-    if (!message?.chat?.id) return false;
+    if (!message?.chat?.id || !message.from?.id) return false;
 
     if (message.contact) {
       await TelegramBotDomain.handleContactMessage(botToken, message);
       return true;
     }
 
-    if (!message.text) return false;
+    const chatId = message.chat.id;
+    const chatType = message.chat.type ?? "private";
+    const telegramUserId = message.from.id;
+    const text = message.text?.trim();
 
-    const command = message.text.trim().split(/\s+/)[0]?.toLowerCase();
-    if (command === "/start") {
-      await TelegramBotDomain.handleStartCommand(botToken, message);
+    if (text && isTelegramBotCommandMessage(text)) {
+      const parsed = parseTelegramBotCommand(text);
+      if (!parsed) return false;
+
+      if (parsed.name === "/cancel") {
+        const reply = await TelegramBotTaskDomain.handleCancelCommand(chatId, telegramUserId);
+        await TelegramBotDomain.replyText(botToken, chatId, reply);
+        return true;
+      }
+
+      if (isTelegramReportWizardControlCommand(parsed.name)) {
+        const registrationOk = await TelegramBotDomain.ensureBotUserReadyForWork(
+          botToken,
+          chatId,
+          telegramUserId,
+        );
+        if (!registrationOk) return true;
+
+        const reply = await TelegramBotTaskDomain.handleWizardControlCommand(
+          chatId,
+          telegramUserId,
+          parsed.name as "/done" | "/skip",
+        );
+        if (reply) {
+          await TelegramBotDomain.replyText(botToken, chatId, reply);
+          return true;
+        }
+      }
+
+      let sessionDiscarded = false;
+      if (shouldCancelTelegramBotSessionForCommand(parsed.name)) {
+        sessionDiscarded = await TelegramBotTaskDomain.cancelSessionIfAny(
+          chatId,
+          telegramUserId,
+        );
+      }
+
+      if (parsed.name === "/start") {
+        if (sessionDiscarded) {
+          const settings = await TelegramWorkspaceDomain.loadOrSeedSettings();
+          await TelegramBotDomain.replyText(
+            botToken,
+            chatId,
+            settings.taskReportSessionInterruptedTemplate,
+          );
+        }
+        await TelegramBotDomain.handleStartCommand(botToken, message);
+        return true;
+      }
+
+      if (parsed.name === "/phone") {
+        if (sessionDiscarded) {
+          const settings = await TelegramWorkspaceDomain.loadOrSeedSettings();
+          await TelegramBotDomain.replyText(
+            botToken,
+            chatId,
+            settings.taskReportSessionInterruptedTemplate,
+          );
+        }
+        await TelegramBotDomain.handlePhoneCommand(botToken, message);
+        return true;
+      }
+
+      if (parsed.name === "/link") {
+        if (sessionDiscarded) {
+          const settings = await TelegramWorkspaceDomain.loadOrSeedSettings();
+          await TelegramBotDomain.replyText(
+            botToken,
+            chatId,
+            settings.taskReportSessionInterruptedTemplate,
+          );
+        }
+        await TelegramBotDomain.handleLinkCommand(botToken, message);
+        return true;
+      }
+
+      const settings = sessionDiscarded
+        ? await TelegramWorkspaceDomain.loadOrSeedSettings()
+        : null;
+
+      if (TELEGRAM_BOT_TASK_COMMANDS.has(parsed.name)) {
+        const registrationOk = await TelegramBotDomain.ensureBotUserReadyForWork(
+          botToken,
+          chatId,
+          telegramUserId,
+        );
+        if (!registrationOk) {
+          if (sessionDiscarded && settings) {
+            await TelegramBotDomain.replyText(
+              botToken,
+              chatId,
+              settings.taskReportSessionInterruptedTemplate,
+            );
+          }
+          return true;
+        }
+      }
+
+      const reply = await TelegramBotDomain.dispatchCommand(
+        botToken,
+        message,
+        parsed.name,
+        parsed.arg,
+      );
+      if (reply == null) return false;
+
+      const prefix =
+        sessionDiscarded && settings
+          ? `${settings.taskReportSessionInterruptedTemplate}\n\n`
+          : "";
+      await TelegramBotDomain.replyText(botToken, chatId, `${prefix}${reply}`);
       return true;
     }
 
-    if (command === "/phone") {
-      await TelegramBotDomain.handlePhoneCommand(botToken, message);
-      return true;
-    }
+    const mediaFile = extractTelegramInboundMedia(message);
+    if (text || mediaFile) {
+      const registrationOk = await TelegramBotDomain.ensureBotUserReadyForWork(
+        botToken,
+        chatId,
+        telegramUserId,
+      );
+      if (!registrationOk) return true;
 
-    if (command === "/link") {
-      await TelegramBotDomain.handleLinkCommand(botToken, message);
-      return true;
-    }
-
-    if (command === "/status") {
-      await TelegramBotDomain.handleStatusCommand(botToken, message);
-      return true;
-    }
-
-    if (command === "/task_done") {
-      await TelegramBotDomain.handleTaskDoneCommand(botToken, message);
-      return true;
+      const reply = await TelegramBotTaskDomain.handleSessionPayload(
+        chatId,
+        telegramUserId,
+        {
+          text,
+          mediaFile,
+        },
+        (file, taskId) => TelegramBotTaskDomain.uploadTelegramMediaFile(botToken, file, taskId),
+      );
+      if (reply) {
+        await TelegramBotDomain.replyText(botToken, chatId, reply);
+        return true;
+      }
     }
 
     return false;
+  },
+
+  /**
+   * Route a parsed slash command to the appropriate handler.
+   *
+   * @param botToken - BotFather token.
+   * @param message - Inbound message.
+   * @param commandName - Normalised command name.
+   * @param arg - Optional argument string.
+   * @returns Reply text or null when unhandled.
+   */
+  async dispatchCommand(
+    botToken: string,
+    message: TelegramBotMessage,
+    commandName: string,
+    arg?: string,
+  ): Promise<string | null> {
+    void botToken;
+    const chatId = message.chat.id;
+    const chatType = message.chat.type ?? "private";
+    const telegramUserId = message.from?.id;
+    if (!telegramUserId) return "Could not identify the sender.";
+
+    if (commandName === "/tasks") {
+      return TelegramBotTaskDomain.buildTasksMessage(chatId, chatType, telegramUserId);
+    }
+
+    if (commandName === "/task_report") {
+      const result = await TelegramBotTaskDomain.handleTaskReportCommand(
+        chatId,
+        chatType,
+        telegramUserId,
+        arg,
+      );
+      return result.text;
+    }
+
+    if (commandName === "/completed") {
+      return TelegramBotTaskDomain.handleCompletedCommand(
+        chatId,
+        chatType,
+        telegramUserId,
+        arg,
+      );
+    }
+
+    if (commandName === "/see_report") {
+      return TelegramBotTaskDomain.handleSeeReportCommand(
+        chatId,
+        chatType,
+        telegramUserId,
+        arg,
+      );
+    }
+
+    return null;
+  },
+
+  /**
+   * Send a plain-text reply to a chat.
+   *
+   * @param botToken - BotFather token.
+   * @param chatId - Target chat id.
+   * @param text - Message body.
+   */
+  async replyText(botToken: string, chatId: number, text: string): Promise<void> {
+    await callTelegramBotApi(botToken, "sendMessage", {
+      chat_id: chatId,
+      text,
+    });
+  },
+
+  /**
+   * Verify the sender is a registered Nexus user with a complete profile.
+   *
+   * When not ready, sends a Mini App prompt to register or finish onboarding.
+   *
+   * @param botToken - BotFather token.
+   * @param chatId - Telegram chat id.
+   * @param telegramUserId - Sender Telegram id.
+   * @returns True when bot task commands may proceed.
+   */
+  async ensureBotUserReadyForWork(
+    botToken: string,
+    chatId: number,
+    telegramUserId: number,
+  ): Promise<boolean> {
+    const resolution = await TelegramBotUserDomain.resolve(telegramUserId);
+    if (resolution.kind === "ready") return true;
+
+    await GeneralRulesDomain.ensureLoaded();
+    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate("startOpenButtonLabel");
+
+    const templateKey =
+      resolution.kind === "unknown" ? "botRegisterPrompt" : "botFinishRegistrationPrompt";
+    const template = await GeneralRulesDomain.getTelegramMessageTemplate(templateKey);
+    const promptText = interpolateTelegramMessageTemplate(template, {
+      missingFields: resolution.missingFieldLabels ?? "",
+    });
+
+    await TelegramBotDomain.sendMiniAppOpenButton(botToken, chatId, promptText, buttonLabel);
+    return false;
+  },
+
+  /**
+   * Reply with plain text and an inline Mini App open button.
+   *
+   * @param botToken - BotFather token.
+   * @param chatId - Target chat id.
+   * @param text - Message body.
+   * @param buttonLabel - Inline keyboard label.
+   */
+  async sendMiniAppOpenButton(
+    botToken: string,
+    chatId: number,
+    text: string,
+    buttonLabel: string,
+  ): Promise<void> {
+    const miniAppUrl = resolveTelegramMiniAppUrl();
+    await callTelegramBotApi(botToken, "sendMessage", {
+      chat_id: chatId,
+      text,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: buttonLabel,
+              web_app: { url: miniAppUrl },
+            },
+          ],
+        ],
+      },
+    });
   },
 
   /**
@@ -243,10 +546,27 @@ export const TelegramBotDomain = {
     await GeneralRulesDomain.ensureLoaded();
     const welcomeText = await GeneralRulesDomain.getTelegramMessageTemplate("startWelcome");
     const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate("startOpenButtonLabel");
+
+    const senderId = message.from?.id;
+    let followUp: string | null = null;
+    if (senderId != null) {
+      const resolution = await TelegramBotUserDomain.resolve(senderId);
+      if (resolution.kind === "unknown") {
+        followUp = await GeneralRulesDomain.getTelegramMessageTemplate("botRegisterPrompt");
+      } else if (resolution.kind === "incomplete") {
+        const template = await GeneralRulesDomain.getTelegramMessageTemplate(
+          "botFinishRegistrationPrompt",
+        );
+        followUp = interpolateTelegramMessageTemplate(template, {
+          missingFields: resolution.missingFieldLabels ?? "",
+        });
+      }
+    }
+
     const miniAppUrl = resolveTelegramMiniAppUrl();
     await callTelegramBotApi(botToken, "sendMessage", {
       chat_id: message.chat.id,
-      text: welcomeText,
+      text: followUp ? `${welcomeText}\n\n${followUp}` : welcomeText,
       reply_markup: {
         inline_keyboard: [
           [
@@ -414,6 +734,15 @@ export const TelegramBotDomain = {
       void groupId;
     } catch (err) {
       const messageText = err instanceof Error ? err.message : "Link failed.";
+      if (messageText === "LINKER_NOT_REGISTERED" && message.from?.id) {
+        await TelegramBotDomain.ensureBotUserReadyForWork(
+          botToken,
+          chat.id,
+          message.from.id,
+        );
+        return;
+      }
+
       const friendly =
         messageText === "LINK_TOKEN_NOT_FOUND"
           ? "Unknown link token. Copy the current token from Nexus project settings."
@@ -428,70 +757,55 @@ export const TelegramBotDomain = {
       });
     }
   },
-
-  /**
-   * Reply with open project parts in a linked group (`/status`).
-   *
-   * @param botToken - BotFather token.
-   * @param message - Inbound group message.
-   */
-  async handleStatusCommand(botToken: string, message: TelegramBotMessage): Promise<void> {
-    const chat = message.chat;
-    const chatType = chat.type ?? "private";
-    if (chatType !== "group" && chatType !== "supergroup") {
-      await callTelegramBotApi(botToken, "sendMessage", {
-        chat_id: chat.id,
-        text: "/status works inside a linked project group.",
-      });
-      return;
-    }
-
-    const text = await TelegramGroupCommandDomain.buildStatusMessage(chat.id);
-    await callTelegramBotApi(botToken, "sendMessage", {
-      chat_id: chat.id,
-      text: text ?? "This group is not linked to an active Nexus project.",
-    });
-  },
-
-  /**
-   * Performer submits a part via `/task_done [index|id]` in a linked group.
-   *
-   * @param botToken - BotFather token.
-   * @param message - Inbound group message.
-   */
-  async handleTaskDoneCommand(botToken: string, message: TelegramBotMessage): Promise<void> {
-    const chat = message.chat;
-    const chatType = chat.type ?? "private";
-    if (chatType !== "group" && chatType !== "supergroup") {
-      await callTelegramBotApi(botToken, "sendMessage", {
-        chat_id: chat.id,
-        text: "/task_done works inside a linked project group.",
-      });
-      return;
-    }
-
-    if (!message.from?.id) {
-      await callTelegramBotApi(botToken, "sendMessage", {
-        chat_id: chat.id,
-        text: "Could not identify the sender.",
-      });
-      return;
-    }
-
-    const parts = message.text?.trim().split(/\s+/) ?? [];
-    const arg = parts.slice(1).join(" ").trim() || undefined;
-    const reply = await TelegramGroupCommandDomain.handleTaskDone(
-      chat.id,
-      message.from.id,
-      arg,
-    );
-
-    await callTelegramBotApi(botToken, "sendMessage", {
-      chat_id: chat.id,
-      text: reply,
-    });
-  },
 };
+
+/**
+ * Extract the largest photo/video/document attachment from a Telegram message.
+ *
+ * @param message - Inbound Bot API message.
+ * @returns Parsed media file or null.
+ */
+function extractTelegramInboundMedia(message: TelegramBotMessage): TelegramInboundMediaFile | null {
+  if (message.video) {
+    return {
+      fileId: message.video.file_id,
+      fileName: message.video.file_name,
+      mimeType: message.video.mime_type,
+      kind: "video",
+    };
+  }
+
+  if (message.photo && message.photo.length > 0) {
+    const largest = message.photo[message.photo.length - 1];
+    return {
+      fileId: largest.file_id,
+      mimeType: largest.mime_type ?? "image/jpeg",
+      kind: "image",
+    };
+  }
+
+  if (message.document) {
+    const mime = message.document.mime_type ?? "";
+    if (mime.startsWith("image/")) {
+      return {
+        fileId: message.document.file_id,
+        fileName: message.document.file_name,
+        mimeType: mime,
+        kind: "image",
+      };
+    }
+    if (mime.startsWith("video/")) {
+      return {
+        fileId: message.document.file_id,
+        fileName: message.document.file_name,
+        mimeType: mime,
+        kind: "video",
+      };
+    }
+  }
+
+  return null;
+}
 
 /**
  * Call a Telegram Bot API method.

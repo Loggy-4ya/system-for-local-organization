@@ -4,9 +4,6 @@
  * @module src/lib/webNotificationPermission
  */
 
-/** Session storage key — set after login/signup to show the permission prompt immediately. */
-export const NOTIFICATION_PROMPT_SESSION_FLAG = "nexus.showNotificationPrompt";
-
 /** Why the native browser prompt cannot appear. */
 export type BrowserNotificationBlockReason =
   | "unsupported"
@@ -53,25 +50,16 @@ export function getBrowserNotificationBlockReason(): BrowserNotificationBlockRea
 }
 
 /**
- * Mark the current browser session as freshly authenticated for the notification prompt.
- */
-export function markAuthSessionForNotificationPrompt(): void {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(NOTIFICATION_PROMPT_SESSION_FLAG, "1");
-}
-
-/**
- * Consume the post-auth session flag (one-shot).
+ * Read the current browser notification permission when supported.
  *
- * @returns True when the flag was present.
+ * @returns Permission state, or `"denied"` when unsupported.
  */
-export function consumeNotificationPromptSessionFlag(): boolean {
-  if (typeof window === "undefined") return false;
-  const flagged = sessionStorage.getItem(NOTIFICATION_PROMPT_SESSION_FLAG) === "1";
-  if (flagged) {
-    sessionStorage.removeItem(NOTIFICATION_PROMPT_SESSION_FLAG);
+export function getBrowserNotificationPermission(): NotificationPermission {
+  if (!browserNotificationsSupported()) {
+    return "denied";
   }
-  return flagged;
+
+  return Notification.permission;
 }
 
 /**

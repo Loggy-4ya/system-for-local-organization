@@ -29,6 +29,12 @@ import TaskReminderNotification from "@shared/models/TaskReminderNotification";
 import User, { type IUser } from "@shared/models/User";
 import { SchedulerDomain } from "@shared/domains/SchedulerDomain";
 import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
+import {
+  buildInboxDeliveryKey,
+  mapTaskReminderKindToInboxKind,
+} from "@shared/lib/notificationInboxLogic";
+import type { NotificationInboxChannel } from "@shared/constants/notificationInbox";
+import { NotificationDomain } from "@shared/domains/NotificationDomain";
 import { TaskDomain, buildTaskActor } from "@shared/domains/TaskDomain";
 import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 import type {
@@ -225,6 +231,25 @@ async function dispatchInstitutionalNotification(
     });
   }
 
+  const path = taskId ? `/tasks/${taskId}` : "/tasks";
+  const inboxChannels: NotificationInboxChannel[] = [
+    ...(wantsWeb ? (["web"] as const) : []),
+    ...(wantsTelegram ? (["telegram"] as const) : []),
+  ];
+  if (inboxChannels.length > 0) {
+    await NotificationDomain.recordNotification({
+      userId,
+      kind: mapTaskReminderKindToInboxKind("institutional"),
+      deliveryKey: buildInboxDeliveryKey("task_reminder", deliveryKey),
+      title,
+      body,
+      variant: "info",
+      actionHref: path,
+      sourceId: String(notification._id),
+      channels: [...inboxChannels],
+    }).catch(() => undefined);
+  }
+
   if (!wantsTelegram || user.telegramId == null) {
     if (wantsTelegram && user.telegramId == null) {
       await TaskReminderNotification.updateOne(
@@ -244,7 +269,6 @@ async function dispatchInstitutionalNotification(
     return;
   }
 
-  const path = taskId ? `/tasks/${taskId}` : "/tasks";
   try {
     await TelegramBotDomain.sendDirectMessage(botToken, user.telegramId, `${title}\n\n${body}\n\n${path}`);
     await TaskReminderNotification.updateOne(

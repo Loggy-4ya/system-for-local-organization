@@ -42,6 +42,12 @@ import {
   normalizeTaskReminderSettings,
 } from "@shared/lib/taskReminderLogic";
 import { buildTaskGroupReminderNotificationCopy } from "@shared/lib/taskGroupReminderNotificationCopy";
+import {
+  buildInboxDeliveryKey,
+  mapTaskReminderKindToInboxKind,
+} from "@shared/lib/notificationInboxLogic";
+import type { NotificationInboxChannel } from "@shared/constants/notificationInbox";
+import { NotificationDomain } from "@shared/domains/NotificationDomain";
 import { canCreateTask, type TaskActorSlice } from "@shared/lib/taskAccessLogic";
 import Task from "@shared/models/Task";
 import { mergeGroupPerformerUserIds, dedupeTaskGroupRosterInputs } from "@shared/lib/taskGroupRosterLogic";
@@ -461,6 +467,24 @@ async function dispatchGroupReminderDeliveries(group: ITaskGroup, firedAt: Date)
         telegramDeliveredAt: null,
         telegramError: null,
       });
+    }
+
+    const inboxChannels: NotificationInboxChannel[] = [
+      ...(wantsWeb ? (["web"] as const) : []),
+      ...(wantsTelegram ? (["telegram"] as const) : []),
+    ];
+    if (inboxChannels.length > 0) {
+      await NotificationDomain.recordNotification({
+        userId,
+        kind: mapTaskReminderKindToInboxKind("group"),
+        deliveryKey: buildInboxDeliveryKey("task_reminder", deliveryKey),
+        title: copy.title,
+        body: copy.body,
+        variant: copy.variant,
+        actionHref: groupPath,
+        sourceId: String(notification._id),
+        channels: [...inboxChannels],
+      }).catch(() => undefined);
     }
 
     if (!wantsTelegram) continue;

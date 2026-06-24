@@ -1,5 +1,5 @@
 /**
- * @fileoverview Public member profile page at `/users/[userId]`.
+ * @fileoverview Public member profile page at `/users/[ref]` (login or MongoDB id).
  *
  * @module src/app/users/[userId]/page
  */
@@ -10,8 +10,13 @@ import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { TaskDomain } from "@shared/domains/TaskDomain";
 import { canPublishCommunityContent } from "@shared/lib/userSociumHelpers";
+import {
+  buildUserProfileHref,
+  isCanonicalUserProfileSegment,
+} from "@shared/lib/userProfilePathLogic";
 import { ProfileHero } from "@/components/profile/ProfileHero";
-import { ProfileAboutSection } from "@/components/profile/ProfileAboutSection";
+import { ProfileAffiliationsSection } from "@/components/profile/ProfileAffiliationsSection";
+import { ProfileIdentityBoard } from "@/components/profile/ProfileIdentityBoard";
 import { ProfilePublishedSection } from "@/components/profile/ProfilePublishedSection";
 import { ProfileStatsRow } from "@/components/profile/ProfileStatsRow";
 import { ProfileTasksPanel } from "@/components/profile/ProfileTasksPanel";
@@ -27,114 +32,44 @@ interface PublicUserPageProps {
 }
 
 /**
- * Socium affiliations section for redacted public profiles.
- *
- * @param props - Label arrays from {@link PublicProfileUser}.
- * @returns Socium section JSX or null when empty.
- */
-function PublicProfileAffiliations({
-  sociumRoleLabels,
-  socialGroupActivityLabels,
-  organizationLabels,
-  qualityScores,
-}: {
-  sociumRoleLabels: string[];
-  socialGroupActivityLabels: string[];
-  organizationLabels: string[];
-  qualityScores: { averageScore: number; ratingCount: number } | null | undefined;
-}) {
-  const hasContent =
-    sociumRoleLabels.length > 0 ||
-    socialGroupActivityLabels.length > 0 ||
-    organizationLabels.length > 0 ||
-    qualityScores != null;
-
-  if (!hasContent) return null;
-
-  return (
-    <section className="glass-panel flex flex-col gap-4 rounded-[var(--radius-md)] p-4">
-      {sociumRoleLabels.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Socium roles</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {sociumRoleLabels.map((label) => (
-              <span key={label} className="badge badge-group">
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      {socialGroupActivityLabels.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Social group activity
-          </h2>
-          <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
-            {socialGroupActivityLabels.map((label) => (
-              <li key={label} className="badge badge-group">
-                {label}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {organizationLabels.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Organizations</h2>
-          <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
-            {organizationLabels.map((label) => (
-              <li key={label} className="badge badge-group">
-                {label}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {qualityScores && (
-        <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-4 text-sm">
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Self-government quality score
-          </h2>
-          <p className="mt-1 text-[var(--color-text-secondary)]">
-            {qualityScores.averageScore}/100 · {qualityScores.ratingCount} rating
-            {qualityScores.ratingCount === 1 ? "" : "s"}
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/**
  * Authenticated member profile view for browsing other institution users.
  *
- * @param props - Dynamic route params.
+ * @param props - Dynamic route params (`userId` accepts login or MongoDB id).
  * @returns Public profile page JSX.
  */
 export default async function PublicUserProfilePage({ params }: PublicUserPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { userId } = await params;
+  const { userId: userRef } = await params;
   const viewer = await AuthDomain.getUserById(session.user.id);
   if (!viewer) redirect("/login");
 
+  const targetUser = await AuthDomain.resolveUserByProfileRef(userRef);
+  if (!targetUser) notFound();
+
+  const targetUserId = String(targetUser._id);
+  const canonicalProfileHref = buildUserProfileHref({
+    id: targetUserId,
+    login: targetUser.login,
+  });
+
+  if (!isCanonicalUserProfileSegment(userRef, canonicalProfileHref)) {
+    redirect(canonicalProfileHref);
+  }
+
   let profile;
   try {
-    profile = await AuthDomain.getPublicProfileForViewer(viewer, userId);
+    profile = await AuthDomain.getPublicProfileForViewer(viewer, userRef);
   } catch {
     notFound();
   }
 
-  const targetUser = await AuthDomain.getUserById(userId);
-  if (!targetUser) notFound();
-
   const publicUser = AuthDomain.toPublicUser(targetUser);
   const publishedItems = canPublishCommunityContent(publicUser)
-    ? await AuthDomain.getPublishedContentForUser(userId)
+    ? await AuthDomain.getPublishedContentForUser(targetUserId)
     : [];
-  const taskSnapshot = await TaskDomain.getProfileTaskSnapshot(userId);
+  const taskSnapshot = await TaskDomain.getProfileTaskSnapshot(targetUserId);
 
   return (
     <StaticPageShell
@@ -149,12 +84,29 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
             </Link>
           </div>
         )}
-        <ProfileHero user={profile} showSettingsLink={profile.isSelf} isSelf={profile.isSelf} />
-        <ProfileAboutSection about={profile.about} socialLinks={profile.socialLinks} />
-        <PublicProfileAffiliations
-          sociumRoleLabels={profile.sociumRoleLabels}
-          socialGroupActivityLabels={profile.socialGroupActivityLabels}
-          organizationLabels={profile.organizationLabels}
+        <ProfileHero
+          user={profile}
+          showSettingsLink={profile.isSelf}
+          isSelf={profile.isSelf}
+          publicProfilePath={canonicalProfileHref}
+        />
+        <ProfileIdentityBoard
+          about={profile.about}
+          socialLinks={profile.socialLinks}
+          isSelf={profile.isSelf}
+          personalInfo={{
+            login: profile.login,
+            email: profile.email,
+            phone: profile.phone,
+            username: profile.username,
+            linkedGoogle: profile.linkedGoogle,
+            linkedApple: profile.linkedApple,
+          }}
+        />
+        <ProfileAffiliationsSection
+          sociumRoles={profile.sociumRoleLabels.map((label) => ({ key: label, label }))}
+          activities={profile.socialGroupActivityLabels.map((label) => ({ key: label, label }))}
+          organizations={profile.organizationLabels.map((label) => ({ key: label, label }))}
           qualityScores={profile.qualityScores}
         />
         {publishedItems.length > 0 && <ProfilePublishedSection items={publishedItems} />}
@@ -170,7 +122,7 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
         />
         <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:items-start">
           <ProfileTasksPanel
-            userId={userId}
+            userId={targetUserId}
             readOnly={!profile.isSelf}
             initialOpenByStatus={taskSnapshot.openByStatus}
           />

@@ -116,6 +116,8 @@ export interface ITask extends Document {
   baseScore: number | null;
   /** How performers are notified on dispatch (Telegram DM and/or project group). */
   assignmentNotifyTargets: TaskAssignmentNotifyTarget[];
+  /** When true, performers may attach proof media in completion reports (web + bot). */
+  reportMediaAllowed: boolean;
   /** Optional deadline. */
   dueAt: Date | null;
   /** Historical completion timestamps — supports redo cycles. */
@@ -219,6 +221,7 @@ const TaskSchema = new Schema<ITask>(
       enum: ["telegram_dm", "telegram_group"],
       default: () => [...DEFAULT_TASK_ASSIGNMENT_NOTIFY_TARGETS],
     },
+    reportMediaAllowed: { type: Boolean, default: false },
     dueAt: { type: Date, default: null, index: true },
     completedAtHistory: { type: [Date], default: [] },
     authorUserId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },

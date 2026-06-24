@@ -16,13 +16,14 @@ export const RESERVED_SLUG_SEGMENTS = new Set([
   "signup",
   "profile",
   "admin",
+  "users",
 ]);
 
 /**
  * Whether the current pathname is the Puck visual editor (not app settings under `/pages/*`).
  *
  * Hides global header/footer only for CMS editor routes such as `/news/edit`, not
- * `/pages/categories/edit`.
+ * `/pages/edit`.
  *
  * @param pathname - Browser pathname.
  * @returns True when global chrome should be suppressed.
@@ -81,16 +82,34 @@ export interface SlugValidationResult {
   error: string | null;
 }
 
+let reservedPathsCache: { paths: string[]; fetchedAt: number } | null = null;
+
 /**
  * Fetch all reserved page paths from the API.
  *
+ * @param options - Optional cache controls for background autosave.
  * @returns Sorted list of absolute paths.
  */
-export async function fetchReservedPagePaths(): Promise<string[]> {
+export async function fetchReservedPagePaths(options?: {
+  /** When set, reuse the last successful response within this TTL (milliseconds). */
+  maxAgeMs?: number;
+}): Promise<string[]> {
+  const maxAgeMs = options?.maxAgeMs ?? 0;
+  const now = Date.now();
+  if (
+    maxAgeMs > 0 &&
+    reservedPathsCache &&
+    now - reservedPathsCache.fetchedAt < maxAgeMs
+  ) {
+    return reservedPathsCache.paths;
+  }
+
   const res = await fetch("/api/pages/paths");
-  if (!res.ok) return [];
+  if (!res.ok) return reservedPathsCache?.paths ?? [];
   const payload = (await res.json()) as { paths?: string[] };
-  return payload.paths ?? [];
+  const paths = payload.paths ?? [];
+  reservedPathsCache = { paths, fetchedAt: now };
+  return paths;
 }
 
 /**

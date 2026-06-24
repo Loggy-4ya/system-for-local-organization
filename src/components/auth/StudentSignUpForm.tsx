@@ -19,11 +19,11 @@ import { CreatableCatalogSelect } from "@/components/auth/CreatableCatalogSelect
 import { PasswordStrengthField } from "@/components/auth/PasswordStrengthField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { FormField } from "@/components/ui/form-field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Spinner } from "@/components/ui/spinner";
 import { submitStudentSignup } from "@/lib/credentialsAuthClient";
-import { markAuthSessionForNotificationPrompt } from "@/lib/webNotificationPermission";
 import {
   clearSignupFormDraft,
   readSignupFormDraft,
@@ -38,7 +38,8 @@ import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
 import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
 import { AvatarImageField } from "@/components/media/AvatarImageField";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
-import { avatarIsRequiredAtSignup, SELF_GOVERNMENT_APPLICATION_FIELD_ERROR, SELF_GOVERNMENT_APPLICATION_FIELD_HINT, SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY, TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION } from "@shared/lib/userProfileCompleteness";
+import { avatarIsRequiredAtSignup, resolveSelfGovernmentApplicationFieldError, resolveSelfGovernmentMemberProfileHint, SELF_GOVERNMENT_APPLICATION_FIELD_HINT, SELF_GOVERNMENT_APPLICATION_REQUIREMENTS_HINT, SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY, TEACHER_APPLICATION_FIELD_HINT, TEACHER_APPLICATION_REQUIREMENTS_HINT, TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION } from "@shared/lib/userProfileCompleteness";
+import { isTeacherUser } from "@shared/lib/userSociumHelpers";
 import { useContentPolicyFields } from "@/lib/useContentPolicyField";
 
 /**
@@ -141,7 +142,11 @@ export function StudentSignUpForm() {
     stripSignupErrorQueryParam(errorParam);
   }, [errorParam]);
 
-  const avatarRequired = avatarIsRequiredAtSignup(applyForSelfGovernment);
+  const avatarRequired = avatarIsRequiredAtSignup(
+    applyForSelfGovernment,
+    signupSociumRole === "Teacher",
+  );
+  const isTeacherSignup = signupSociumRole === "Teacher";
 
   /**
    * Snapshot current form values for retry after a failed submission.
@@ -178,8 +183,19 @@ export function StudentSignUpForm() {
     clearLiveErrors();
 
     if (avatarRequired && !pendingAvatarFile && !avatar.trim()) {
-      setFieldErrors({ avatar: SELF_GOVERNMENT_APPLICATION_FIELD_ERROR });
-      setFormError(SELF_GOVERNMENT_APPLICATION_FIELD_ERROR);
+      const profileSlice = {
+        name: name || login,
+        surname: surname || null,
+        phone: phone || null,
+        specialty: specialty || null,
+        group: group || null,
+        avatar: avatar || null,
+        sociumRoles: isTeacherSignup
+          ? [{ roleKey: "teacher", roleLabel: "Teacher", kind: "teacher" as const, source: "self" as const, assignedAt: new Date() }]
+          : [],
+      };
+      setFieldErrors({ avatar: resolveSelfGovernmentApplicationFieldError(profileSlice) });
+      setFormError(resolveSelfGovernmentApplicationFieldError(profileSlice));
       writeSignupFormDraft(currentSignupDraft());
       return;
     }
@@ -230,7 +246,6 @@ export function StudentSignUpForm() {
 
       clearSignupFormDraft();
       clearLiveErrors();
-      markAuthSessionForNotificationPrompt();
       router.push("/profile");
       router.refresh();
     } catch {
@@ -371,10 +386,9 @@ export function StudentSignUpForm() {
           htmlFor="signup-confirm-password"
           error={fieldErrors.confirmPassword}
         >
-          <Input
+          <PasswordInput
             id="signup-confirm-password"
             name="confirmPassword"
-            type="password"
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -384,47 +398,51 @@ export function StudentSignUpForm() {
         </FormField>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            label="Specialty"
-            htmlFor="signup-specialty"
-            error={fieldError("specialty", fieldErrors.specialty)}
-            hint={
-              applyForSelfGovernment
-                ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
-                : "Pick from the list or type a new specialty — admins review new entries."
-            }
-          >
-            <CreatableCatalogSelect
-              id="signup-specialty"
-              value={specialty}
-              onChange={setSpecialty}
-              onBlur={() => validateField("specialty", specialty, "plain-text")}
-              options={specialtyOptions}
-              placeholder="e.g. Software Engineering"
-              disabled={loading}
-            />
-          </FormField>
+          {!isTeacherSignup ? (
+            <>
+              <FormField
+                label="Specialty"
+                htmlFor="signup-specialty"
+                error={fieldError("specialty", fieldErrors.specialty)}
+                hint={
+                  applyForSelfGovernment
+                    ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+                    : "Pick from the list or type a new specialty — admins review new entries."
+                }
+              >
+                <CreatableCatalogSelect
+                  id="signup-specialty"
+                  value={specialty}
+                  onChange={setSpecialty}
+                  onBlur={() => validateField("specialty", specialty, "plain-text")}
+                  options={specialtyOptions}
+                  placeholder="e.g. Software Engineering"
+                  disabled={loading}
+                />
+              </FormField>
 
-          <FormField
-            label="Group"
-            htmlFor="signup-group"
-            error={fieldErrors.group}
-            hint={
-              applyForSelfGovernment
-                ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
-                : "Pick from the list or enter your group number — admins review new entries."
-            }
-          >
-            <CreatableCatalogSelect
-              id="signup-group"
-              value={group}
-              onChange={setGroup}
-              options={groupOptions}
-              placeholder="e.g. 42"
-              disabled={loading}
-              numericOnly
-            />
-          </FormField>
+              <FormField
+                label="Group"
+                htmlFor="signup-group"
+                error={fieldErrors.group}
+                hint={
+                  applyForSelfGovernment
+                    ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+                    : "Pick from the list or enter your group number — admins review new entries."
+                }
+              >
+                <CreatableCatalogSelect
+                  id="signup-group"
+                  value={group}
+                  onChange={setGroup}
+                  options={groupOptions}
+                  placeholder="e.g. 42"
+                  disabled={loading}
+                  numericOnly
+                />
+              </FormField>
+            </>
+          ) : null}
         </div>
 
         <SignupSociumRoleSelect
@@ -438,8 +456,10 @@ export function StudentSignUpForm() {
           htmlFor="signup-avatar-file"
           error={fieldErrors.avatar}
           hint={
-            applyForSelfGovernment
-              ? SELF_GOVERNMENT_APPLICATION_FIELD_HINT
+            isTeacherSignup || applyForSelfGovernment
+              ? isTeacherSignup
+                ? TEACHER_APPLICATION_FIELD_HINT
+                : SELF_GOVERNMENT_APPLICATION_FIELD_HINT
               : "Optional — upload now or add later in profile settings."
           }
         >
@@ -455,24 +475,31 @@ export function StudentSignUpForm() {
         </FormField>
 
         <div className="flex flex-col gap-3 rounded-lg border border-(--color-border-default) bg-(--color-bg-panel) p-4">
-          <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-primary)">
-            <input
-              type="checkbox"
-              className="mt-0.5 size-4 shrink-0 accent-[var(--color-accent-user)]"
-              checked={applyForSelfGovernment}
-              onChange={(e) => setApplyForSelfGovernment(e.target.checked)}
-              disabled={loading}
-            />
-            <span>
-              I want to apply for membership in the student self-government
-              <span className="mt-1 block text-xs text-(--color-text-secondary)">
-                This records your intent only. Administrators review applications and assign roles.
-                {TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION
-                  ? " When checked, every item in the requirements notice — including a linked Telegram account — must be completed before you submit."
-                  : " When checked, complete every item in the requirements notice before you submit."}
+          {isTeacherSignup ? (
+            <p className="text-sm text-(--color-text-secondary)">
+              {TEACHER_APPLICATION_REQUIREMENTS_HINT} After registration, institution
+              administration or student self-government will review your access application.
+            </p>
+          ) : (
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-primary)">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-[var(--color-accent-user)]"
+                checked={applyForSelfGovernment}
+                onChange={(e) => setApplyForSelfGovernment(e.target.checked)}
+                disabled={loading}
+              />
+              <span>
+                I want to apply for membership in the student self-government
+                <span className="mt-1 block text-xs text-(--color-text-secondary)">
+                  This records your intent only. Administrators review applications and assign roles.
+                  {TELEGRAM_REQUIRED_AT_MEMBERSHIP_APPLICATION
+                    ? " When checked, every item in the requirements notice — including a linked Telegram account — must be completed before you submit."
+                    : " When checked, complete every item in the requirements notice before you submit."}
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          )}
 
           <label className="flex cursor-pointer items-start gap-3 text-sm text-(--color-text-primary)">
             <input
