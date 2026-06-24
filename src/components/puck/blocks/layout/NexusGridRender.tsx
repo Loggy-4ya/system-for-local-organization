@@ -598,7 +598,7 @@ function NexusGridEditorShell(props: NexusGridRenderProps) {
   });
 
   const selectGrid = useCallback(() => {
-    selectPuckComponentById(getPuck(), props.id);
+    selectPuckComponentById(getPuck() as unknown as import("../../lib/selectPuckComponentById").PuckSelectionStore, props.id);
   }, [getPuck, props.id]);
 
   return (

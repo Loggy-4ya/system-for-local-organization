@@ -23,10 +23,10 @@ export interface EditorModePanelSnapshot {
 
 /** Minimal Puck `appState.ui` slice used for panel snapshotting. */
 export interface EditorModePanelUiSlice {
-  previewMode?: string;
+  previewMode?: "edit" | "interactive";
   leftSideBarVisible?: boolean;
   rightSideBarVisible?: boolean;
-  rightSideBarWidth?: number;
+  rightSideBarWidth?: number | null;
   mobilePanelExpanded?: boolean;
 }
 
@@ -42,7 +42,7 @@ export function captureEditorModePanelSnapshot(ui: EditorModePanelUiSlice): void
   savedPanelSnapshot = {
     leftSideBarVisible: ui.leftSideBarVisible ?? false,
     rightSideBarVisible: ui.rightSideBarVisible ?? false,
-    rightSideBarWidth: ui.rightSideBarWidth,
+    rightSideBarWidth: ui.rightSideBarWidth ?? undefined,
     mobilePanelExpanded: ui.mobilePanelExpanded ?? false,
   };
 }

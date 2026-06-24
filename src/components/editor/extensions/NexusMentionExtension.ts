@@ -108,7 +108,7 @@ export const NexusMentionExtension = Node.create<NexusMentionExtensionOptions>({
         /** Inner `@label` text is display-only — do not parse as sibling plaintext. */
         getContent: () => "",
       },
-    ];
+    ] as never;
   },
 
   renderHTML({ node, HTMLAttributes }) {

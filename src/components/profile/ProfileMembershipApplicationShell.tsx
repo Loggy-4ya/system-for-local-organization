@@ -140,7 +140,7 @@ export function ProfileMembershipApplicationShell() {
               Your profile shows council roles and quality scores on the main profile page.
             </p>
           </section>
-        ) : isTeacherApplicant && status.teacherAccessApproved ? (
+        ) : isTeacherApplicant && status?.teacherAccessApproved ? (
           <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
             <p className="font-medium text-[var(--color-text-primary)]">
               Your teacher access has been approved.

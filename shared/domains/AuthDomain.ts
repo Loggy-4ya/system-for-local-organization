@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import connectDB from "@shared/lib/db";
 import User, {
   type IUser,
+  type IUserDocument,
   type IUserSocialLink,
   type StudentTitle,
   type UserRole,
@@ -199,7 +200,7 @@ const TELEGRAM_AUTH_MAX_AGE_SEC = 86_400;
  */
 async function createUserDocument(
   payload: Record<string, unknown>,
-): Promise<IUser> {
+): Promise<IUserDocument> {
   const doc = { ...payload };
   stripUserOptionalUniqueFields(doc);
   return User.create(doc);
@@ -993,44 +994,42 @@ export const AuthDomain = {
    * @param doc - User document (passwordHash is never included).
    * @returns Public user object for API and session payloads.
    */
-  toPublicUser(doc: IUser): PublicUser {
-    const plain = mongooseDocToPlain(doc);
-
+  toPublicUser(doc: IUser | IUserDocument): PublicUser {
     return {
-      id: String(plain._id),
-      login: plain.login ?? null,
-      email: plain.email ?? null,
-      name: plain.name,
-      surname: plain.surname ?? null,
-      fullName: formatUserFullName(plain.name, plain.surname ?? null),
-      username: plain.username ?? null,
-      avatar: plain.avatar ?? null,
-      role: plain.role,
-      accessLevelIndex: inferAccessLevelIndex(plain),
-      delegatedPermissions: (plain.delegatedPermissions ?? []) as PermissionKey[],
-      specialty: plain.specialty ?? null,
-      group: plain.group ?? null,
-      studentTitle: plain.studentTitle ?? null,
-      sociumRoles: plain.sociumRoles ?? [],
-      socialGroupActivities: plain.socialGroupActivities ?? [],
-      organizations: plain.organizations ?? [],
-      socialLinks: plain.socialLinks ?? [],
-      about: plain.about ?? null,
-      qualityScores: plain.qualityScores,
-      stars: plain.stars,
-      warnings: plain.warnings,
-      googleId: plain.googleId ?? null,
-      appleId: plain.appleId ?? null,
-      telegramId: plain.telegramId ?? null,
-      phone: plain.phone ?? null,
-      selfGovernmentApplicationIntent: plain.selfGovernmentApplicationIntent ?? false,
-      teacherAccessApproved: plain.teacherAccessApproved ?? true,
-      personalDataConsentAt: plain.personalDataConsentAt ?? null,
-      notificationChannels: normalizeUserNotificationChannels(plain.notificationChannels),
-      webNotificationPromptAt: plain.webNotificationPromptAt ?? null,
-      lastTelegramSyncAt: plain.lastTelegramSyncAt ?? null,
-      createdAt: plain.createdAt,
-      updatedAt: plain.updatedAt,
+      id: String(doc._id),
+      login: doc.login ?? null,
+      email: doc.email ?? null,
+      name: doc.name,
+      surname: doc.surname ?? null,
+      fullName: formatUserFullName(doc.name, doc.surname ?? null),
+      username: doc.username ?? null,
+      avatar: doc.avatar ?? null,
+      role: doc.role,
+      accessLevelIndex: inferAccessLevelIndex(doc),
+      delegatedPermissions: (doc.delegatedPermissions ?? []) as PermissionKey[],
+      specialty: doc.specialty ?? null,
+      group: doc.group ?? null,
+      studentTitle: doc.studentTitle ?? null,
+      sociumRoles: doc.sociumRoles ?? [],
+      socialGroupActivities: doc.socialGroupActivities ?? [],
+      organizations: doc.organizations ?? [],
+      socialLinks: doc.socialLinks ?? [],
+      about: doc.about ?? null,
+      qualityScores: doc.qualityScores,
+      stars: doc.stars,
+      warnings: doc.warnings,
+      googleId: doc.googleId ?? null,
+      appleId: doc.appleId ?? null,
+      telegramId: doc.telegramId ?? null,
+      phone: doc.phone ?? null,
+      selfGovernmentApplicationIntent: doc.selfGovernmentApplicationIntent ?? false,
+      teacherAccessApproved: doc.teacherAccessApproved ?? true,
+      personalDataConsentAt: doc.personalDataConsentAt ?? null,
+      notificationChannels: normalizeUserNotificationChannels(doc.notificationChannels),
+      webNotificationPromptAt: doc.webNotificationPromptAt ?? null,
+      lastTelegramSyncAt: doc.lastTelegramSyncAt ?? null,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
     };
   },
 
@@ -1055,7 +1054,7 @@ export const AuthDomain = {
           id: String(viewer._id),
           role: viewer.role,
           accessLevelIndex: viewer.accessLevelIndex,
-          delegatedPermissions: viewer.delegatedPermissions ?? [],
+          delegatedPermissions: (viewer.delegatedPermissions ?? []) as PermissionKey[],
           sociumRoles: viewer.sociumRoles ?? [],
           studentTitle: viewer.studentTitle,
         }

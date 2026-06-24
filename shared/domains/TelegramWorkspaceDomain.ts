@@ -120,7 +120,7 @@ function toPublicAutomationConfig(
     seeReportEmptyTemplate: doc.seeReportEmptyTemplate,
     operatorSessionConfigured: isTelegramOperatorSessionConfigured(),
     workerEnvReady: canAutoCreateTelegramGroups(),
-  };
+  } as TelegramAutomationPublicConfig;
 }
 
 /**

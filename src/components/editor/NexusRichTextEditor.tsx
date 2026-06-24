@@ -22,7 +22,11 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type ComponentType,
+  type RefAttributes,
 } from "react";
+import type { SuggestionListHandle } from "./lib/createSuggestionPortalRenderer";
+import type { SuggestionListBaseProps } from "./lib/createSuggestionPortalRenderer";
 import { cn } from "@/lib/utils";
 import {
   isSafeHref,
@@ -118,7 +122,9 @@ function handleLinkAction(editor: NonNullable<ReturnType<typeof useEditor>>): vo
  */
 const mentionSuggestionRenderer = createSuggestionPortalRenderer({
   portalClassName: "nexus-mention-suggestion-portal",
-  ListComponent: MentionSuggestionList,
+  ListComponent: MentionSuggestionList as ComponentType<
+    SuggestionListBaseProps<unknown> & RefAttributes<SuggestionListHandle>
+  >,
   mapProps: (props) => props,
 });
 
@@ -127,7 +133,9 @@ const mentionSuggestionRenderer = createSuggestionPortalRenderer({
  */
 const slashSuggestionRenderer = createSuggestionPortalRenderer({
   portalClassName: "nexus-slash-suggestion-portal",
-  ListComponent: SlashCommandList,
+  ListComponent: SlashCommandList as ComponentType<
+    SuggestionListBaseProps<unknown> & RefAttributes<SuggestionListHandle>
+  >,
   mapProps: (props) => props,
 });
 
@@ -305,13 +313,25 @@ export function NexusRichTextEditor({
     if (editor.isFocused || isNexusSuggestionActive(editor)) return;
     const incoming = sanitizeNexusEditorHtml(value || "");
     const current = sanitizeNexusEditorHtml(editor.getHTML());
-    if (incoming !== current) {
-      editor.commands.setContent(incoming || "<p></p>", { emitUpdate: false });
-      lastGoodHtmlRef.current = incoming;
+    if (incoming === current) return;
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled || editor.isDestroyed) return;
+      if (editor.isFocused || isNexusSuggestionActive(editor)) return;
+      const nextIncoming = sanitizeNexusEditorHtml(value || "");
+      const nextCurrent = sanitizeNexusEditorHtml(editor.getHTML());
+      if (nextIncoming === nextCurrent) return;
+      editor.commands.setContent(nextIncoming || "<p></p>", { emitUpdate: false });
+      lastGoodHtmlRef.current = nextIncoming;
       reportPolicyViolation(
         containsBlockedWord(editor.getText()) ? CONTENT_POLICY_BLOCKED_WORD_MESSAGE : null,
       );
-    }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [editor, value, reportPolicyViolation]);
 
   if (!editor) {

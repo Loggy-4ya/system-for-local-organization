@@ -7,6 +7,7 @@
  */
 
 import { FieldLabelRow } from "./FieldLabelRow";
+import { NexusRichTextEditor } from "@/components/editor/NexusRichTextEditor";
 import { useNexusPuck } from "../lib/useNexusPuck";
 import { parseListStepFieldPath } from "../lib/listStepTree";
 import { useListStepStripSync } from "../lib/useListStepStripSync";

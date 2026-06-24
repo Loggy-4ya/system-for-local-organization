@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 /** Props for {@link FormAlert}. */
 export interface FormAlertProps extends React.HTMLAttributes<HTMLDivElement> {
   /** The alert style variant. Defaults to "error". */
-  variant?: "error" | "success" | "info";
+  variant?: "error" | "success" | "info" | "destructive";
   /** Optional bold title prefix. */
   title?: string;
 }
@@ -32,11 +32,11 @@ export function FormAlert({
 }: FormAlertProps) {
   return (
     <div
-      role={variant === "error" ? "alert" : "status"}
+      role={variant === "error" || variant === "destructive" ? "alert" : "status"}
       className={cn(
         "form-alert",
         {
-          "form-alert--error": variant === "error",
+          "form-alert--error": variant === "error" || variant === "destructive",
           "form-alert--success": variant === "success",
           "form-alert--info": variant === "info",
         },

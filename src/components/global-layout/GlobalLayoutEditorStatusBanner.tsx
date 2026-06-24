@@ -39,7 +39,7 @@ export function GlobalLayoutEditorStatusBanner({ status }: GlobalLayoutEditorSta
   const [visible, setVisible] = useState(false);
   const [displayStatus, setDisplayStatus] = useState<GlobalLayoutEditorStatus | null>(null);
   const mountedRef = useRef(false);
-  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (exitTimerRef.current) {

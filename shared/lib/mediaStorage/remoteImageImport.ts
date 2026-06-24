@@ -142,7 +142,7 @@ export async function assertHostnameResolvesToPublicIps(hostname: string): Promi
     return;
   }
 
-  let records: dns.LookupAddress[];
+  let records: { address: string; family: number }[];
   try {
     records = await dns.lookup(hostname, { all: true, verbatim: true });
   } catch {

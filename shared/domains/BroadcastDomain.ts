@@ -227,7 +227,7 @@ function normalizeChannels(channels: string[]): BroadcastChannel[] {
       throw new Error(`Unknown broadcast channel: ${channel}`);
     }
   }
-  return unique;
+  return unique as BroadcastChannel[];
 }
 
 export default BroadcastDomain;

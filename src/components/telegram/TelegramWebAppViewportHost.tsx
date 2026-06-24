@@ -22,14 +22,6 @@ import {
 /** Telegram Web App SDK URL (also injected natively on some clients). */
 const TELEGRAM_WEB_APP_SDK = "https://telegram.org/js/telegram-web-app.js";
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: TelegramWebAppViewportSource & { initData?: string };
-    };
-  }
-}
-
 /** Dispatched when the Telegram WebApp SDK is ready for Mini App auth bootstrap. */
 export const NEXUS_TELEGRAM_WEBAPP_READY_EVENT = "nexus-telegram-webapp-ready";
 

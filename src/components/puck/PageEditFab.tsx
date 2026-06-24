@@ -38,7 +38,7 @@ export function PageEditFab({ pagePath, serverVisible = false }: PageEditFabProp
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setPortalHost(document.querySelector(PAGE_STACK_PORTAL_SELECTOR));
+    setPortalHost(document.querySelector(PAGE_STACK_PORTAL_SELECTOR) as HTMLElement | null);
     setMounted(true);
   }, []);
 

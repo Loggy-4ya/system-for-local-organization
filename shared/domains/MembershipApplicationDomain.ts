@@ -263,7 +263,7 @@ export const MembershipApplicationDomain = {
     }
 
     const page = Math.max(1, params.page ?? 1);
-    const limit = clampListPageSize(params.limit ?? DEFAULT_LIST_PAGE_SIZE);
+    const limit = clampListPageSize(params.limit, DEFAULT_LIST_PAGE_SIZE);
     const skip = pageToSkip(page, limit);
     const filter = pendingApplicationFilter(params.search);
 

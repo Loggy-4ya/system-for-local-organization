@@ -591,15 +591,15 @@ export class AccessControlDomain {
 
     // 5. Delegated Permissions change
     if (patch.delegatedPermissions !== undefined) {
-      const addedPermissions = patch.delegatedPermissions.filter(
-        (p: string) => !target.delegatedPermissions.includes(p)
+      const addedPermissions = (patch.delegatedPermissions as PermissionKey[]).filter(
+        (p) => !target.delegatedPermissions.includes(p),
       );
       if (addedPermissions.length > 0) {
         if (!canActorModifyDelegatedPermissions(actorSlice, targetSlice, addedPermissions, settings)) {
           throw new Error("PERMISSION_NOT_DELEGATABLE");
         }
       }
-      target.delegatedPermissions = patch.delegatedPermissions;
+      target.delegatedPermissions = patch.delegatedPermissions as PermissionKey[];
     }
 
     assertDirectoryMemberProfileRequirements(target);

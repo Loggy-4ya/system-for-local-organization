@@ -107,7 +107,7 @@ import type { NotificationInboxChannel } from "@shared/constants/notificationInb
 import { NotificationDomain } from "@shared/domains/NotificationDomain";
 import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
-import { Types } from "mongoose";
+import { Types, type PipelineStage } from "mongoose";
 import { SchedulerDomain } from "@shared/domains/SchedulerDomain";
 import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 
@@ -242,7 +242,7 @@ export class PageDomain {
   public static async listDistinctCategories(query = ""): Promise<string[]> {
     await connectDB();
 
-    const pipeline: Record<string, unknown>[] = [
+    const pipeline: PipelineStage[] = [
       { $unwind: "$categories" },
       { $match: { categories: { $type: "string", $ne: "" } } },
       {

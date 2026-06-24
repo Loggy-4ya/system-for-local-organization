@@ -24,6 +24,8 @@ export interface FormFieldProps {
   error?: string;
   /** Optional helper text surfaced via an info icon (tooltip / popover). */
   hint?: string;
+  /** Marks the field as required in the label row. */
+  required?: boolean;
   /** The input or control element. Must be a single valid React element. */
   children: React.ReactElement;
   /** Optional container class name. */

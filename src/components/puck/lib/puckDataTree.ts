@@ -537,7 +537,7 @@ export function migrateLegacyNexusGridItems(data: Data): Data {
       if (legacyZoneKey in zones) {
         const nextZones = { ...zones };
         delete nextZones[legacyZoneKey];
-        result = { ...result, zones: nextZones };
+        result = { ...result, zones: nextZones as Data["zones"] };
       }
       return;
     }
@@ -559,7 +559,7 @@ export function migrateLegacyNexusGridItems(data: Data): Data {
         if (itemZoneKey in (result.zones as Record<string, unknown>)) {
           const nextZones = { ...(result.zones as Record<string, unknown>) };
           delete nextZones[itemZoneKey];
-          result = { ...result, zones: nextZones };
+          result = { ...result, zones: nextZones as Data["zones"] };
         }
       }
 
@@ -583,7 +583,7 @@ export function migrateLegacyNexusGridItems(data: Data): Data {
     delete nextZones[legacyZoneKey];
     result = {
       ...result,
-      zones: nextZones,
+      zones: nextZones as Data["zones"],
     };
 
     result = replaceComponentProps(result, gridId, {

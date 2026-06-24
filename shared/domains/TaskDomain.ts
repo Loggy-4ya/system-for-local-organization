@@ -479,7 +479,7 @@ async function dispatchTaskAssignmentNotifications(task: ITask): Promise<void> {
     const chatId = group?.telegramWorkspace?.chatId;
     if (typeof chatId === "number") {
       const names = users
-        .map((user) => user.displayName || user.name || "team member")
+        .map((user) => displayNameForUser(user) || user.name || "team member")
         .join(", ");
       const groupText = names ? `${text}\n\nAssigned to: ${names}` : text;
       await TelegramBotDomain.sendGroupMessage(botToken, chatId, groupText).catch(() => undefined);

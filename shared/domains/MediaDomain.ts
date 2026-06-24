@@ -283,5 +283,5 @@ export class MediaDomain {
   }
 }
 
-export { MediaOrphanCleanupError, MediaRemoteImportError, MediaStorageValidationError };
+export { MediaRemoteImportError, MediaStorageValidationError };
 export type { OrphanUploadCleanupSummary };

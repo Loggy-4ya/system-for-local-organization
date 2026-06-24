@@ -34,6 +34,8 @@ export interface NexusListPaginationProps {
   disabled?: boolean;
   /** Optional summary line, e.g. "Showing 11–20 of 45". */
   summary?: string;
+  /** Total row count from the API (used for default summary text when `summary` is omitted). */
+  totalCount?: number;
   className?: string;
 }
 

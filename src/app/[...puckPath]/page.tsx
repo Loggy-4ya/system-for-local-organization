@@ -6,7 +6,7 @@
 
 import { notFound, redirect } from "next/navigation";
 import connectDB from "@shared/lib/db";
-import Page from "@shared/models/Page";
+import Page, { type IPage } from "@shared/models/Page";
 import type { Data } from "@puckeditor/core";
 import { auth } from "@/auth";
 import {
@@ -98,10 +98,14 @@ export default async function PuckPage({
     description: "",
     coverImage: "",
     galleryImages: [],
+    catalogImagesPerCard: 1,
+    catalogCardVariant: "tile",
     authorUserId: undefined,
     publishAt: null,
     commentsEnabled: true,
-    commentCount: null,
+    notifyOnPublish: true,
+    notifyWebOnPublish: true,
+    notifyTelegramOnPublish: true,
     viewCount: 0,
     likeCount: 0,
     dislikeCount: 0,
@@ -110,7 +114,7 @@ export default async function PuckPage({
     delegatedEditorUserIds: [],
   });
 
-  let doc: Awaited<ReturnType<typeof Page.findOne>> = null;
+  let doc: IPage | null = null;
 
   try {
     await connectDB();

@@ -63,6 +63,8 @@ export interface PageCategoryHubSection extends PageCatalogDomainVisibilityField
   sectionLabel?: string;
   /** Curated page paths in display order. */
   pagePaths: string[];
+  /** @deprecated Legacy Obsidian tag key — read for migration only. */
+  categoryLabel?: string;
 }
 
 /** Public admin/editor config shape. */

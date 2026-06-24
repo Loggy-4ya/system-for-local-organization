@@ -16,6 +16,7 @@ import { resolveProfileContactOptions } from "@shared/lib/profileContactLogic";
 import { UserAvatarImage } from "@/components/media/UserAvatarImage";
 import { ProfileBadge } from "@/components/profile/ProfileBadge";
 import { ProfileHeroActions } from "@/components/profile/ProfileHeroActions";
+import type { AccessLevelIndex } from "@shared/constants/accessControl";
 import type { UserRole } from "@shared/models/User";
 import type { StudentTitle } from "@shared/models/User";
 import { buildUserProfileHref } from "@shared/lib/userProfilePathLogic";

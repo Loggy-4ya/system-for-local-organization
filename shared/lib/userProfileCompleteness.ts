@@ -511,6 +511,8 @@ export function buildProfileCompletenessSummary(user: ProfileCompletenessSlice):
   readyForMembershipApplication: boolean;
   missingFields: ProfileCompletenessField[];
   missingFieldLabels: string[];
+  isTeacherApplicant: boolean;
+  teacherAccessApproved: boolean;
 } {
   const missingFields = getMembershipProfileGaps(user);
   return {

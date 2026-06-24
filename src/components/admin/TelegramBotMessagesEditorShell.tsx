@@ -148,7 +148,7 @@ export function TelegramBotMessagesEditorShell({
       </div>
 
       {status ? (
-        <GlobalLayoutEditorStatusBanner type={status.type} message={status.message} />
+        <GlobalLayoutEditorStatusBanner status={status} />
       ) : null}
 
       <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">

@@ -22,18 +22,6 @@ export interface TelegramMiniAppAuthResponse {
   error?: string;
 }
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData?: string;
-        ready?: () => void;
-        expand?: () => void;
-      };
-    };
-  }
-}
-
 /**
  * Read signed Mini App `initData` from the Telegram WebView SDK.
  *

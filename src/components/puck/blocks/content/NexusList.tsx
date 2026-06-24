@@ -168,7 +168,7 @@ export const NexusList = {
         ...props,
         defaultActiveIndex: undefined,
         connectorStyle,
-        items: migrateListItems(props.items, defaultExpandNested),
+        items: migrateListItems(props.items as import("../../lib/listStepTree").ListStepItem[] | undefined, defaultExpandNested),
       },
     };
   },

@@ -33,21 +33,6 @@ import { signupSchema } from "@shared/validation/authSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
 import { getAuthErrorMessage } from "@shared/validation/authErrorCodes";
 
-/** Telegram Web App SDK surface used by this entry. */
-interface TelegramWebApp {
-  initData: string;
-  ready: () => void;
-  expand: () => void;
-}
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: TelegramWebApp;
-    };
-  }
-}
-
 type EntryPhase =
   | "loading"
   | "not_configured"
@@ -182,7 +167,7 @@ export function TelegramMiniAppEntry({
     }
 
     const webApp = window.Telegram?.WebApp;
-    if (!webApp?.initData) {
+    if (!webApp || !webApp.initData) {
       setPhase("outside_telegram");
       return;
     }

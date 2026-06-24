@@ -80,7 +80,7 @@ export interface ListUserDirectoryAuditsParams {
  * @returns Serializable audit row.
  */
 function toAuditRow(doc: Record<string, unknown>): UserDirectoryAuditRow {
-  const plain = mongooseDocToPlain(doc as never);
+  const plain = mongooseDocToPlain(doc);
   return {
     id: String(plain._id ?? plain.id ?? ""),
     action: plain.action as UserDirectoryAuditAction,
@@ -227,7 +227,7 @@ export const UserDirectoryAuditDomain = {
       .limit(limit)
       .lean();
 
-    const items = docs.map((doc) => toAuditRow(doc as Record<string, unknown>));
+    const items = docs.map((doc) => toAuditRow(doc as unknown as Record<string, unknown>));
 
     return { items, page, limit, totalCount, totalPages };
   },

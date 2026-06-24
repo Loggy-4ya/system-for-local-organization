@@ -4,6 +4,7 @@
  * @module src/lib/pageCategoriesHubAccess
  */
 
+import type { Session } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
@@ -55,9 +56,7 @@ export async function requirePageCategoriesHubEditor(
  * @param session - Auth.js session or null.
  * @returns True when the user may open the new-page editor flow.
  */
-export async function canSessionCreatePages(
-  session: Awaited<ReturnType<typeof auth>>,
-): Promise<boolean> {
+export async function canSessionCreatePages(session: Session | null): Promise<boolean> {
   return canSessionManagePageCategoriesHub(session);
 }
 
@@ -67,9 +66,7 @@ export async function canSessionCreatePages(
  * @param session - Auth.js session or null.
  * @returns True when the user may manage hub sections.
  */
-export async function canSessionManagePageCategoriesHub(
-  session: Awaited<ReturnType<typeof auth>>,
-): Promise<boolean> {
+export async function canSessionManagePageCategoriesHub(session: Session | null): Promise<boolean> {
   if (!session?.user?.id) return false;
   const user = await AuthDomain.getUserById(session.user.id);
   if (!user) return false;

@@ -9,7 +9,7 @@
  * @module shared/models/User
  */
 
-import mongoose, { Document, Model, Schema } from "mongoose";
+import mongoose, { Document, Model, Schema, type HydratedDocument } from "mongoose";
 import {
   shouldUnsetUserOptionalUniqueField,
   USER_OPTIONAL_UNIQUE_STRING_FIELDS,
@@ -21,6 +21,7 @@ import type {
   IUserSocialLink,
   IUserSociumRole,
 } from "@shared/models/userTypes";
+import type { AccessLevelIndex, PermissionKey } from "@shared/constants/accessControl";
 import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 
 export type {
@@ -107,13 +108,13 @@ export interface IUser extends Document {
    * Hierarchy index — **0 is highest** authority.
    * @see {@link AccessLevelIndex} in `shared/constants/accessControl.ts`
    */
-  accessLevelIndex: number;
+  accessLevelIndex: AccessLevelIndex;
 
   /**
    * Permission keys explicitly delegated by a higher-tier user.
    * Combined with tier defaults from `access_control_settings`.
    */
-  delegatedPermissions: string[];
+  delegatedPermissions: PermissionKey[];
 
   /**
    * Academic specialty string, e.g. `"Software Engineering"`.
@@ -209,6 +210,9 @@ export interface IUser extends Document {
   /** Timestamp of the last document mutation. */
   updatedAt: Date;
 }
+
+/** Hydrated Mongoose user document (includes `_id`, `__v`, and collection methods). */
+export type IUserDocument = HydratedDocument<IUser>;
 
 // ── Schema Definition ─────────────────────────────────────────────────────────
 
@@ -335,13 +339,25 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
+/**
+ * Remove a key from Mongoose's internal `_doc` snapshot when unsetting optional unique fields.
+ * `_doc` is not declared on the public {@link Document} type but exists at runtime.
+ *
+ * @param doc - Active Mongoose document in a middleware hook.
+ * @param field - Path to remove from the internal snapshot.
+ */
+function deleteMongooseInternalField(doc: Document, field: string): void {
+  const internal = (doc as Document & { _doc?: Record<string, unknown> })._doc;
+  if (internal && field in internal) {
+    delete internal[field];
+  }
+}
+
 UserSchema.pre("validate", function unsetOptionalUniqueNulls() {
   for (const field of USER_OPTIONAL_UNIQUE_STRING_FIELDS) {
     if (shouldUnsetUserOptionalUniqueField(this.get(field))) {
       this.set(field, undefined);
-      if (this._doc && field in this._doc) {
-        delete this._doc[field as keyof typeof this._doc];
-      }
+      deleteMongooseInternalField(this, field);
     }
   }
 });
@@ -354,9 +370,7 @@ UserSchema.pre("save", function unsetOptionalUniqueNullsOnSave() {
   for (const field of USER_OPTIONAL_UNIQUE_STRING_FIELDS) {
     if (shouldUnsetUserOptionalUniqueField(this.get(field))) {
       this.set(field, undefined);
-      if (this._doc && field in this._doc) {
-        delete this._doc[field as keyof typeof this._doc];
-      }
+      deleteMongooseInternalField(this, field);
     }
   }
 });

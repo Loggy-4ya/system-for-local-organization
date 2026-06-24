@@ -80,8 +80,8 @@ export function shouldExpandLetterboxScrollport(
  * @param root - Subtree root (typically `document`).
  * @returns Number of elements with vertical overflow scroll capability.
  */
-export function countVerticalOverflowScrollports(root: ParentNode): number {
-  if (typeof Element === "undefined" || !(root instanceof ParentNode)) {
+export function countVerticalOverflowScrollports(root: Document | Element): number {
+  if (typeof Element === "undefined") {
     return 0;
   }
 

@@ -53,7 +53,7 @@ export const taskReminderSettingsSchema = z
     /** @deprecated Legacy hours-only interval — migrated on read. */
     intervalHours: z.number().int().positive().optional(),
   })
-  .transform((raw) => normalizeTaskReminderSettings(raw))
+  .transform((raw) => normalizeTaskReminderSettings(raw as import("@shared/lib/taskReminderLogic").LegacyTaskReminderSettings))
   .superRefine((settings, ctx) => {
     if (settings.mode === "on_dates") return;
 

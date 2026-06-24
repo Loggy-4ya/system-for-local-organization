@@ -390,7 +390,7 @@ export const TelegramBotDomain = {
         telegramUserId,
         {
           text,
-          mediaFile,
+          mediaFile: mediaFile ?? undefined,
         },
         (file, taskId) => TelegramBotTaskDomain.uploadTelegramMediaFile(botToken, file, taskId),
       );

@@ -5,6 +5,8 @@
  */
 
 import { z } from "zod";
+import type { AccessLevelIndex } from "@shared/constants/accessControl";
+import { isAccessLevelIndex } from "@shared/constants/accessControl";
 import {
   INSTITUTIONAL_CALENDAR_ACTIONS,
   INSTITUTIONAL_CALENDAR_SOCIUM_KINDS,
@@ -38,7 +40,8 @@ const targetFields = {
   targetAccessLevelIndexes: z
     .array(z.coerce.number().int().min(0).max(6))
     .max(7)
-    .default([]),
+    .default([])
+    .transform((values) => values.filter(isAccessLevelIndex) as AccessLevelIndex[]),
 };
 
 /** POST /api/admin/institutional-calendar create body. */
@@ -88,7 +91,13 @@ export const institutionalCalendarUpdateSchema = z
     taskTemplate: institutionalTaskTemplateSchema.optional(),
     targetSociumKinds: z.array(z.enum(INSTITUTIONAL_CALENDAR_SOCIUM_KINDS)).optional(),
     targetSociumRoleKeys: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
-    targetAccessLevelIndexes: z.array(z.coerce.number().int().min(0).max(6)).max(7).optional(),
+    targetAccessLevelIndexes: z
+      .array(z.coerce.number().int().min(0).max(6))
+      .max(7)
+      .optional()
+      .transform((values) =>
+        values === undefined ? undefined : (values.filter(isAccessLevelIndex) as AccessLevelIndex[]),
+      ),
   })
   .transform((raw) => ({
     ...raw,

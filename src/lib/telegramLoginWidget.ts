@@ -17,16 +17,6 @@ export interface MountTelegramLoginWidgetOptions {
   size?: "large" | "medium" | "small";
 }
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData?: string;
-      };
-    };
-  }
-}
-
 /**
  * Whether the page runs inside the Telegram Mini App WebView.
  *

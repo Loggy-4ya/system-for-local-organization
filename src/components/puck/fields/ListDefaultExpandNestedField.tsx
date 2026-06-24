@@ -37,7 +37,7 @@ export function ListDefaultExpandNestedField({
           trueValue="yes"
           falseValue="no"
           description="Applies to new parent steps only. Each step can override in the Steps array."
-          onChange={onChange}
+          onChange={(value) => onChange(value as "yes" | "no")}
         />
       </div>
     </FieldLabel>

@@ -175,7 +175,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       </div>
 
       {status ? (
-        <GlobalLayoutEditorStatusBanner type={status.type} message={status.message} />
+        <GlobalLayoutEditorStatusBanner status={status} />
       ) : null}
 
       {tab === "content" ? (

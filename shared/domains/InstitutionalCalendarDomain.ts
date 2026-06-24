@@ -432,6 +432,8 @@ export class InstitutionalCalendarDomain {
           explanationMedia: [],
           performers: [{ userId: String(user._id) }],
           dispatch: template.dispatch,
+          assignmentNotifyTargets: ["telegram_dm"],
+          reportMediaAllowed: false,
         });
         spawnedTaskId = task.id;
       }

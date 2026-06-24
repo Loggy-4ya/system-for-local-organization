@@ -23,7 +23,7 @@ export interface ISystemScheduledEvent extends Document {
   /** Current state of the event execution lifecycle. */
   status: ScheduledEventStatus;
   /** Task-specific JSON payload needed by the handler. */
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   /** Optional key to enforce single scheduling (idempotency/deduplication). */
   idempotencyKey?: string;
   /** Number of times execution has been attempted. */

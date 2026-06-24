@@ -197,7 +197,7 @@ export function NexusMobileNavPanelGestures() {
       const startHeight =
         options?.startHeightPx ?? measureMobilePanelHeightPx();
 
-      if (isMobilePanelHeightClosedPx(startHeight)) {
+      if (startHeight === undefined || isMobilePanelHeightClosedPx(startHeight)) {
         finishPanelClose({ resetPersistedHeight: options?.resetPersistedHeight });
         return;
       }

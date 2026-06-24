@@ -393,6 +393,8 @@ export function applyBlockShell(
   islandInnerStyle: React.CSSProperties;
   islandActive: boolean;
   bandActive: boolean;
+  islandAlign: "left" | "center" | "right";
+  islandMaxWidthCss: React.CSSProperties["maxWidth"];
 } {
   const flat = flattenBlockShellProps(props);
   const paddingTop = resolveSpacingValue(flat.paddingTop, flat.paddingTopCustom);

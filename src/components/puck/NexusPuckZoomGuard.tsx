@@ -80,7 +80,10 @@ function applyLetterboxZoomFloor(
   config: PuckZoomConfig,
 ): PuckZoomConfig {
   const inner = document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null;
-  const frameWidth = inner?.clientWidth > 0 ? inner.clientWidth : undefined;
+  const frameWidth =
+    inner !== null && typeof inner.clientWidth === "number" && inner.clientWidth > 0
+      ? inner.clientWidth
+      : undefined;
   const viewportWidth = resolvePuckViewportWidthFromAppStore(appStore);
 
   if (viewportWidth === undefined) {

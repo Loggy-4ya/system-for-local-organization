@@ -20,6 +20,8 @@ import {
   extractTelegramInviteHash,
   gramJsChannelIdToBotChatId,
 } from "@shared/lib/telegramChannelIdLogic";
+import bigInt from "big-integer";
+import type { EntityLike } from "telegram/define";
 import {
   canAutoCreateTelegramGroups,
   interpolateTelegramWorkspaceTemplate,
@@ -281,7 +283,8 @@ export const TelegramOperatorDomain = {
         }),
       );
 
-      const channel = created.chats?.[0];
+      const updates = created as import("telegram").Api.Updates;
+      const channel = updates.chats?.[0];
       if (!channel || !("id" in channel)) {
         throw new Error("CreateChannel returned no chat.");
       }
@@ -299,7 +302,11 @@ export const TelegramOperatorDomain = {
         // Queue a follow-up maintenance job if forum toggle fails at create time.
       }
 
-      const chatId = gramJsChannelIdToBotChatId(channel.id as bigint | number);
+      const chatId = gramJsChannelIdToBotChatId(
+        typeof channel.id === "object" && channel.id !== null && "toString" in channel.id
+          ? Number(channel.id.toString())
+          : Number(channel.id),
+      );
       const chatTitle = "title" in channel && channel.title ? String(channel.title) : title;
 
       await TelegramOperatorDomain.inviteUsersToChannel(client, Api, channel, telegramUserIds);
@@ -500,11 +507,11 @@ export const TelegramOperatorDomain = {
     client: import("telegram").TelegramClient,
     Api: typeof import("telegram").Api,
     chatId: number,
-  ): Promise<import("telegram").EntityLike> {
+  ): Promise<EntityLike> {
     const channelId = botChatIdToGramJsChannelId(chatId);
     return client.getInputEntity(
       new Api.PeerChannel({
-        channelId,
+        channelId: bigInt(channelId.toString()),
       }),
     );
   },
@@ -520,7 +527,7 @@ export const TelegramOperatorDomain = {
   async ensureOperatorMembership(
     client: import("telegram").TelegramClient,
     Api: typeof import("telegram").Api,
-    channel: import("telegram").EntityLike,
+    channel: EntityLike,
     inviteLink?: string | null,
   ): Promise<void> {
     try {
@@ -551,7 +558,7 @@ export const TelegramOperatorDomain = {
   async inviteUsersToChannel(
     client: import("telegram").TelegramClient,
     Api: typeof import("telegram").Api,
-    channel: import("telegram").EntityLike,
+    channel: EntityLike,
     telegramUserIds: number[],
   ): Promise<void> {
     if (telegramUserIds.length === 0) return;
@@ -586,7 +593,7 @@ export const TelegramOperatorDomain = {
   async inviteAndPromoteBot(
     client: import("telegram").TelegramClient,
     Api: typeof import("telegram").Api,
-    channel: import("telegram").EntityLike,
+    channel: EntityLike,
     botToken: string,
   ): Promise<void> {
     const botMe = (await fetch(`https://api.telegram.org/bot${botToken}/getMe`).then((res) =>

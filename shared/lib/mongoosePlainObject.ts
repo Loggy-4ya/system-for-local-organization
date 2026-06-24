@@ -22,13 +22,14 @@ export interface MongoosePlainConvertible<T> {
  * @returns Plain object without circular Mongoose internals.
  */
 export function mongooseDocToPlain<T extends Record<string, unknown>>(
-  doc: MongoosePlainConvertible<T> & T,
+  doc: MongoosePlainConvertible<T> | T,
 ): T {
-  if (typeof doc.toObject === "function") {
-    return doc.toObject({ flattenMaps: true, virtuals: false });
+  const convertible = doc as MongoosePlainConvertible<T>;
+  if (typeof convertible.toObject === "function") {
+    return convertible.toObject({ flattenMaps: true, virtuals: false });
   }
 
-  return doc;
+  return doc as T;
 }
 
 /**

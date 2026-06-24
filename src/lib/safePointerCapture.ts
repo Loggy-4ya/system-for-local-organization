@@ -31,9 +31,12 @@ export const SAFE_POINTER_CAPTURE_INLINE_SCRIPT = `(function(){if(window.__nexus
 export function installSafePointerCapture(targetWindow?: Window | null): void {
   const win =
     targetWindow ?? (typeof window !== "undefined" ? window : undefined);
-  if (!win?.Element) return;
+  if (!win) return;
 
-  const proto = win.Element.prototype;
+  const ElementCtor = (win as Window & typeof globalThis).Element;
+  if (!ElementCtor) return;
+
+  const proto = ElementCtor.prototype;
   if (patchedPrototypes.has(proto)) return;
   patchedPrototypes.add(proto);
 

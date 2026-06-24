@@ -55,7 +55,7 @@ export function ListStepChapterOpenField({
           trueValue="yes"
           falseValue="no"
           description="When off, sub-steps are hidden on the published page."
-          onChange={onChange}
+          onChange={(value) => onChange(value as "yes" | "no")}
         />
       </div>
     </FieldLabel>

@@ -614,16 +614,11 @@ export function validateTaskReminderSettings(
   }
 
   if (
-    settings.mode !== "on_dates" &&
     (settings.unit === "days" || settings.unit === "weeks") &&
     settings.atTime &&
     !parseTaskReminderAtTime(settings.atTime)
   ) {
     return "Clock time must use HH:mm format.";
-  }
-
-  if (settings.mode === "on_dates") {
-    return null;
   }
 
   const limits = TASK_REMINDER_UNIT_LIMITS[settings.unit];
