@@ -590,13 +590,25 @@ export function ProfileSettingsForm({
           onChange={setNotificationChannels}
         />
         {!user.telegramId && notificationChannels.includes("telegram") && (
-          <p className="text-xs text-(--color-text-secondary)">{USER_NOTIFICATION_TELEGRAM_LINK_HINT}</p>
+          <div className="flex items-center gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
+            <span className="text-(--color-text-secondary)">Telegram is not linked yet.</span>
+            <a
+              href="#connected-accounts"
+              className="ml-auto shrink-0 font-medium text-(--color-accent-user) underline-offset-2 hover:underline"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("connected-accounts")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              Link now ↓
+            </a>
+          </div>
         )}
       </section>
       )}
 
       {!onboardingMode && (
-      <section className="flex flex-col gap-4">
+      <section id="connected-accounts" className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-(--color-text-primary)">Connected accounts</h2>
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm text-(--color-text-secondary)">
           <li>Google: {user.googleId ? "Linked" : "Not linked"}</li>

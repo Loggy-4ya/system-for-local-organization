@@ -65,6 +65,33 @@ export function syncPuckCanvasTransparency(root: ParentNode = document): void {
 }
 
 /**
+ * Force transparent backgrounds inside the Puck preview iframe document.
+ *
+ * Called synchronously on theme switch so the iframe repaint lands in the same
+ * mutation flush — no intermediate opaque frame.
+ */
+function forceIframeTransparency(): void {
+  const iframe = document.querySelector<HTMLIFrameElement>(
+    ".Puck iframe#preview-frame, iframe#preview-frame",
+  );
+  if (!iframe) return;
+
+  let iframeDoc: Document | null = null;
+  try {
+    iframeDoc = iframe.contentDocument;
+  } catch {
+    return;
+  }
+  if (!iframeDoc) return;
+
+  for (const el of [iframeDoc.documentElement, iframeDoc.body, iframeDoc.getElementById("frame-root")]) {
+    if (!el) continue;
+    el.style.setProperty("background", "transparent", "important");
+    el.style.setProperty("background-color", "transparent", "important");
+  }
+}
+
+/**
  * Silent Puck child — keeps canvas / preview chrome transparent after Puck paints.
  *
  * @returns null
@@ -109,7 +136,7 @@ export function NexusPuckCanvasTransparencyEnforcer(): null {
     const observer =
       puckRoot && typeof MutationObserver !== "undefined"
         ? new MutationObserver(() => {
-            schedule();
+            run();
           })
         : null;
 
@@ -122,6 +149,15 @@ export function NexusPuckCanvasTransparencyEnforcer(): null {
       });
     }
 
+    const themeObserver = new MutationObserver(() => {
+      run();
+      forceIframeTransparency();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
     window.addEventListener("resize", schedule);
 
     return () => {
@@ -129,6 +165,7 @@ export function NexusPuckCanvasTransparencyEnforcer(): null {
         cancelAnimationFrame(rafId);
       }
       observer?.disconnect();
+      themeObserver.disconnect();
       window.removeEventListener("resize", schedule);
     };
   }, []);

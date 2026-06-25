@@ -33,10 +33,24 @@ function resolveRedirectTo(value: FormDataEntryValue | null): string {
  * @returns Redirect to profile on success or back to login with error.
  */
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const login = String(formData.get("login") ?? "");
-  const password = String(formData.get("password") ?? "");
-  const redirectPath = resolveRedirectTo(formData.get("redirectTo"));
+  let login = "";
+  let password = "";
+  let redirectPath = "/profile";
+
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    login = String(body.login ?? "");
+    password = String(body.password ?? "");
+    redirectPath = resolveRedirectTo(
+      typeof body.redirectTo === "string" ? body.redirectTo : null,
+    );
+  } else {
+    const formData = await req.formData();
+    login = String(formData.get("login") ?? "");
+    password = String(formData.get("password") ?? "");
+    redirectPath = resolveRedirectTo(formData.get("redirectTo"));
+  }
 
   const result = loginSchema.safeParse({ login, password });
   if (!result.success) {

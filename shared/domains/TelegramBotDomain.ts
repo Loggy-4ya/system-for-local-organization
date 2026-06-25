@@ -579,7 +579,9 @@ export const TelegramBotDomain = {
       },
     });
 
-    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+    if ((message.chat.type ?? "private") === "private") {
+      await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+    }
   },
 
   /**

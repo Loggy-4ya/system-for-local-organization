@@ -35,6 +35,22 @@ import { syncLayoutInfiniteGridCursorFromPreviewIframe } from "@/components/back
 /** DOM id used for the injected token `<style>` element inside the preview iframe. */
 const TOKEN_STYLE_ID = "nexus-puck-preview-tokens";
 
+/** DOM id for carousel edit slide backgrounds re-synced on theme switch. */
+const CAROUSEL_EDIT_BG_STYLE_ID = "nexus-puck-preview-carousel-edit-bg";
+
+/**
+ * Carousel edit slide backgrounds — re-injected after theme / host CSS clone so
+ * `color-mix` recomputes with fresh `--color-bg-panel` (iframe token lag on toggle).
+ */
+const CAROUSEL_EDIT_BACKGROUND_IFRAME_CSS = `
+.nexus-carousel--edit.nexus-carousel--multi-slide .nexus-carousel__slide {
+  background: color-mix(in srgb, var(--color-bg-panel) 75%, transparent) !important;
+}
+.nexus-carousel--edit.nexus-carousel--single-frame {
+  background: color-mix(in srgb, var(--color-bg-panel) 75%, transparent) !important;
+}
+`;
+
 /** DOM id for the last-resort transparent override inside the preview iframe. */
 const FORCE_TRANSPARENT_STYLE_ID = "nexus-puck-preview-force-transparent";
 
@@ -86,6 +102,28 @@ function forcePreviewDocumentTransparency(iframeDoc: Document): void {
 
   if (iframeDoc.head.lastElementChild !== forceStyle) {
     iframeDoc.head.appendChild(forceStyle);
+  }
+
+  syncCarouselEditSlideBackground(iframeDoc);
+}
+
+/**
+ * Re-append carousel edit slide `color-mix` after theme toggle or host stylesheet clone.
+ *
+ * @param iframeDoc - Preview iframe document.
+ */
+function syncCarouselEditSlideBackground(iframeDoc: Document): void {
+  let carouselStyle = iframeDoc.getElementById(CAROUSEL_EDIT_BG_STYLE_ID) as HTMLStyleElement | null;
+  if (!carouselStyle) {
+    carouselStyle = iframeDoc.createElement("style");
+    carouselStyle.id = CAROUSEL_EDIT_BG_STYLE_ID;
+    iframeDoc.head.appendChild(carouselStyle);
+  }
+
+  carouselStyle.textContent = CAROUSEL_EDIT_BACKGROUND_IFRAME_CSS;
+
+  if (iframeDoc.head.lastElementChild !== carouselStyle) {
+    iframeDoc.head.appendChild(carouselStyle);
   }
 }
 
@@ -424,7 +462,8 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
             (node instanceof HTMLStyleElement &&
               node.id !== FORCE_TRANSPARENT_STYLE_ID &&
               node.id !== TOKEN_STYLE_ID &&
-              node.id !== DOCUMENT_STYLE_ID),
+              node.id !== DOCUMENT_STYLE_ID &&
+              node.id !== CAROUSEL_EDIT_BG_STYLE_ID),
         ),
       );
 

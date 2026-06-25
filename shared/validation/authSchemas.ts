@@ -79,12 +79,15 @@ export const loginSchema = z.object({
 });
 
 /** Shared specialty field transform for signup. */
-const signupSpecialtyField = z
-  .string()
-  .trim()
-  .max(120, "Specialty must be under 120 characters.")
-  .optional()
-  .transform((val) => (!val || val === "" ? null : val));
+const signupSpecialtyField = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    if (typeof value === "string") return value.trim();
+    return value;
+  },
+  z.union([z.null(), z.string().max(120, "Specialty must be under 120 characters.")]),
+);
 
 /** Shared group field — numeric group number only (1–4 digits). */
 const signupGroupField = z.preprocess(

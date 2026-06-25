@@ -85,6 +85,7 @@ export function PagePathDomainSlugField({
     (async () => {
       const rows = await fetchPagePathDomains({
         alwaysInclude: activeDomainInclude,
+        force: true,
       });
       if (!cancelled) setDomains(rows);
     })();

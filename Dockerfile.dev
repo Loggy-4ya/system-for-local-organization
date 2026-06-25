@@ -2,6 +2,9 @@
 FROM node:20-alpine
 WORKDIR /app
 
+# Native deps (e.g. utf-8-validate via ws) need node-gyp build chain on Alpine.
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
 RUN npm ci
 

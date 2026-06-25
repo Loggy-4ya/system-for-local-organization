@@ -89,6 +89,10 @@ function extractAdminProfilePatch(patch: Record<string, unknown>): ProfileUpdate
 /** Permission keys introduced after initial deployments — merged into stored settings on load. */
 const MIGRATED_PERMISSION_KEYS: PermissionKey[] = ["users.edit_profile", "users.delete"];
 
+/** Module-level cache for the singleton access-control config. */
+let _aclConfigCache: AccessControlSettingsConfig | null = null;
+let _aclConfigCacheExpiresAt = 0;
+
 /**
  * Access-control domain engine — singleton settings and permission resolution.
  */
@@ -192,15 +196,43 @@ export class AccessControlDomain {
    * @returns Serializable configuration.
    */
   public static toPublicConfig(doc: IAccessControlSettings): AccessControlSettingsConfig {
+    const plain: IAccessControlSettings =
+      typeof (doc as unknown as { toObject?: () => IAccessControlSettings }).toObject === "function"
+        ? (doc as unknown as { toObject: (opts?: object) => IAccessControlSettings }).toObject({
+            flattenObjectIds: true,
+          })
+        : doc;
     return {
-      levels: [...(doc.levels ?? [])],
+      levels: [...(plain.levels ?? [])],
       levelPermissions: {
-        ...(doc.levelPermissions ?? {}),
+        ...(plain.levelPermissions ?? {}),
       } as AccessControlSettingsConfig["levelPermissions"],
       grantRules: {
-        ...(doc.grantRules ?? {}),
+        ...(plain.grantRules ?? {}),
       } as AccessControlSettingsConfig["grantRules"],
     };
+  }
+
+  /**
+   * Return the singleton config, using a 30-second in-memory cache to avoid
+   * issuing a findOneAndUpdate on every permission check.
+   *
+   * @returns Plain access-control config object.
+   */
+  public static async resolveConfig(): Promise<AccessControlSettingsConfig> {
+    if (_aclConfigCache && Date.now() < _aclConfigCacheExpiresAt) {
+      return _aclConfigCache;
+    }
+    const doc = await this.loadOrSeed();
+    _aclConfigCache = this.toPublicConfig(doc);
+    _aclConfigCacheExpiresAt = Date.now() + 30_000;
+    return _aclConfigCache;
+  }
+
+  /** Invalidate the in-memory config cache (call after saving settings). */
+  private static clearConfigCache(): void {
+    _aclConfigCache = null;
+    _aclConfigCacheExpiresAt = 0;
   }
 
   /**
@@ -233,6 +265,7 @@ export class AccessControlDomain {
     }
 
     await current.save();
+    this.clearConfigCache();
     return current;
   }
 
@@ -259,7 +292,7 @@ export class AccessControlDomain {
    * @returns Permission key list.
    */
   public static async resolvePermissionsForUser(user: IUser): Promise<PermissionKey[]> {
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     return resolveEffectivePermissions(this.userSliceFromDocument(user), settings);
   }
 
@@ -270,7 +303,7 @@ export class AccessControlDomain {
    * @returns True when permitted.
    */
   public static async canUserManageSettings(user: IUser): Promise<boolean> {
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     return canManageAccessControlSettings(this.userSliceFromDocument(user), settings);
   }
 
@@ -281,7 +314,7 @@ export class AccessControlDomain {
    * @returns True when `notifications.broadcast` is granted.
    */
   public static async canUserSendBroadcasts(user: IUser): Promise<boolean> {
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     return hasPermission(
       this.userSliceFromDocument(user),
       settings,
@@ -297,7 +330,7 @@ export class AccessControlDomain {
    * @returns True when permitted.
    */
   public static async canActorManageTarget(actor: IUser, target: IUser): Promise<boolean> {
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     return canManageUserAccess(
       this.userSliceFromDocument(actor),
       this.userSliceFromDocument(target),
@@ -312,7 +345,7 @@ export class AccessControlDomain {
    * @returns True when permitted.
    */
   public static async canUserViewDirectory(user: IUser): Promise<boolean> {
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     return canActorViewDirectory(this.userSliceFromDocument(user), settings);
   }
 
@@ -327,7 +360,7 @@ export class AccessControlDomain {
       return true;
     }
 
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     const slice = this.userSliceFromDocument(user);
 
     return (
@@ -358,7 +391,7 @@ export class AccessControlDomain {
     nextCursor: string | null;
   }> {
     await connectDB();
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     const actorSlice = this.userSliceFromDocument(actor);
 
     if (!canActorViewDirectory(actorSlice, settings)) {
@@ -425,7 +458,7 @@ export class AccessControlDomain {
    */
   public static async getDirectoryUser(actor: IUser, targetId: string): Promise<DirectoryUserRow> {
     await connectDB();
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
     const actorSlice = this.userSliceFromDocument(actor);
 
     if (!canActorViewDirectory(actorSlice, settings)) {
@@ -502,7 +535,7 @@ export class AccessControlDomain {
     patch: any,
   ): Promise<DirectoryUserRow> {
     await connectDB();
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
 
     if (actor._id.toString() === targetId) {
       throw new Error("SELF_MODIFICATION_FORBIDDEN");
@@ -630,7 +663,7 @@ export class AccessControlDomain {
    */
   public static async adminDeleteUser(actor: IUser, targetId: string): Promise<void> {
     await connectDB();
-    const settings = this.toPublicConfig(await this.loadOrSeed());
+    const settings = await this.resolveConfig();
 
     if (actor._id.toString() === targetId) {
       throw new Error("SELF_MODIFICATION_FORBIDDEN");

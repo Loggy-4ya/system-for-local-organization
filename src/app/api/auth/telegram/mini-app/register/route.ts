@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
       login: body.login,
       email: body.email,
       password: body.password,
+      confirmPassword: body.password,
       phone: body.phone,
       specialty: body.specialty,
       group: body.group,
-      studentTitle: body.studentTitle,
+      personalDataConsent: true,
     });
 
     if (!parsed.success) {

@@ -4423,6 +4423,16 @@ html[data-puck-dragging] .nexus-grid-item--edit [data-puck-dropzone]:not([class*
   position: relative;
 }
 
+/* Theme switch in Puck iframe: full --color-bg-panel lags stale; transparent washes out in light.
+   75% color-mix keeps slide cards readable while the animated grid shows through. */
+.nexus-carousel--edit.nexus-carousel--multi-slide .nexus-carousel__slide {
+  background: color-mix(in srgb, var(--color-bg-panel) 75%, transparent) !important;
+}
+
+.nexus-carousel--edit.nexus-carousel--single-frame {
+  background: color-mix(in srgb, var(--color-bg-panel) 75%, transparent) !important;
+}
+
 .nexus-carousel--edit [data-slot="carousel-content"] {
   touch-action: pan-y pinch-zoom;
 }

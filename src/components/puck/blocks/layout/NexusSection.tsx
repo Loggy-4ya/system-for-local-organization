@@ -130,7 +130,7 @@ export const NexusSection = {
       <section
         style={{
           width: "100%",
-          background: backgroundOverride || "transparent",
+          background: puck?.isEditing ? "transparent" : (backgroundOverride || "transparent"),
           borderTop: borderTop === "thin" ? borderStyle : "none",
           borderBottom: borderBottom === "thin" ? borderStyle : "none",
         }}

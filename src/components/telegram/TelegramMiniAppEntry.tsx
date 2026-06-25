@@ -208,10 +208,11 @@ export function TelegramMiniAppEntry({
       login,
       email: email || null,
       password,
+      confirmPassword: password,
       phone: phone || null,
       specialty: specialty || null,
       group: group || null,
-      studentTitle: studentTitle ?? "Neither",
+      personalDataConsent: true,
     });
 
     if (!parsed.success) {
