@@ -17,11 +17,11 @@ services:
       - SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15
     env_file:
       - .env.local
-    # Docker's default resolver (127.0.0.11) often fails SRV lookups for
-    # mongodb+srv:// Atlas URIs on Linux dev hosts — use public DNS instead.
+    # AWS VPC DNS (169.254.169.253) resolves SRV records and is always reachable
+    # on EC2 regardless of security group outbound rules.
     dns:
+      - 169.254.169.253
       - 8.8.8.8
-      - 8.8.4.4
     restart: unless-stopped
 
   # ── MongoDB database (optional — local dev only) ───────────────────────────
@@ -54,8 +54,8 @@ services:
     env_file:
       - .env.local
     dns:
+      - 169.254.169.253
       - 8.8.8.8
-      - 8.8.4.4
     environment:
       - NODE_ENV=development
     volumes:
