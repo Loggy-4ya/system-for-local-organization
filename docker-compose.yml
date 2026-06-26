@@ -17,10 +17,10 @@ services:
       - SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15
     env_file:
       - .env.local
-    # AWS VPC DNS (169.254.169.253) resolves SRV records and is always reachable
-    # on EC2 regardless of security group outbound rules.
+    # AWS VPC DNS (172.31.0.2) resolves SRV records and is reachable from
+    # Docker bridge containers; 8.8.8.8 as fallback for non-AWS environments.
     dns:
-      - 169.254.169.253
+      - 172.31.0.2
       - 8.8.8.8
     restart: unless-stopped
 
@@ -54,7 +54,7 @@ services:
     env_file:
       - .env.local
     dns:
-      - 169.254.169.253
+      - 172.31.0.2
       - 8.8.8.8
     environment:
       - NODE_ENV=development
