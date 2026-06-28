@@ -1,36 +1,73 @@
+# =============================================================================
+# Nexus — single Docker Compose file (dev + production)
+# =============================================================================
+#
+# Local dev + bundled MongoDB (default):
+#   npm run docker:up
+#
+# Local dev + external MongoDB (Atlas — set MONGODB_URI in .env.local):
+#   npm run docker:up:external
+#
+# AWS EC2 production:
+#   npm run docker:up:prod
+#
+# Stack always includes web + telegram-worker. MongoDB is optional (bundled-db profile).
+# Requires `.env.local` — npm run env:init  or  npm run env:pull-team
+# =============================================================================
+
 services:
-  # ── Next.js web application ─────────────────────────────────────────────────
+  # ── Next.js web (local dev — hot reload) ───────────────────────────────────
   web:
+    profiles: [dev]
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: dev
     ports:
       - "8080:3000"
     volumes:
-      # Mount source for hot-reload; exclude node_modules to preserve container copy
       - .:/app
       - /app/node_modules
       - /app/.next
     environment:
-      - NODE_ENV=development
-      - NEXUS_HOSTING_MODE=vps
-      - SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15
+      NODE_ENV: development
+      NEXUS_HOSTING_MODE: vps
+      SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS: "15"
     env_file:
       - .env.local
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
     restart: unless-stopped
 
-  # ── MongoDB database (optional — local dev only) ───────────────────────────
-  # Bundled dev: docker compose -f docker-compose.yml -f docker-compose.bundled-db.yml --profile bundled-db up
-  # External DB: docker compose up  (set MONGODB_URI in .env.local — see .env.vps-external-db.example)
+  # ── Next.js web (production — standalone image, no bind mounts) ──────────────
+  web-prod:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8080:3000"
+    environment:
+      NODE_ENV: production
+      NEXUS_HOSTING_MODE: vps
+    env_file:
+      - .env.local
+    command: ["node", "server.js"]
+    restart: unless-stopped
+
+  # ── MongoDB (local dev only — bundled-db profile) ───────────────────────────
   db:
-    profiles: ["bundled-db"]
+    profiles: [bundled-db]
     image: mongo:7-jammy
     ports:
       - "27017:27017"
     volumes:
       - nexus_mongo_data:/data/db
     environment:
-      - MONGO_INITDB_DATABASE=nexus
+      MONGO_INITDB_DATABASE: nexus
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -38,21 +75,35 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ── MTProto telegram-worker (optional — auto-create project groups) ─────────
-  # Start with: docker compose --profile telegram-worker up
+  # ── MTProto telegram-worker (local dev) ────────────────────────────────────
   telegram-worker:
-    profiles: ["telegram-worker"]
+    profiles: [dev]
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: dev
     command: npm run worker:telegram
     env_file:
       - .env.local
     environment:
-      - NODE_ENV=development
+      NODE_ENV: development
     volumes:
       - .:/app
       - /app/node_modules
+    restart: unless-stopped
+
+  # ── MTProto telegram-worker (production) ───────────────────────────────────
+  telegram-worker-prod:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    command: ["npx", "tsx", "scripts/workers/telegramWorker.ts"]
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: production
     restart: unless-stopped
 
 volumes:

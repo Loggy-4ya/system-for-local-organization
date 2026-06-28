@@ -46,7 +46,7 @@ All paths merge into a single `users` document via `telegramId` (sparse unique i
 
 ### Change Telegram account
 
-1. User signs in with another method (login/password, Google, Apple).
+1. User signs in with another method (login/password or Google).
 2. **Profile → Settings → Connected accounts → Unlink Telegram** (`DELETE /api/profile/telegram`).
 3. Requires at least one other sign-in method (password or OAuth).
 4. Link a different Telegram account via Login Widget or by opening the Mini App while signed in (future: explicit link flow).
@@ -133,7 +133,7 @@ The Login Widget on `/login`, `/signup`, and profile settings embeds an iframe f
 3. Open the site over **HTTPS** (or `localhost` for dev). LAN IPs need an ngrok tunnel — see `DEV_AUTH_TUNNEL_HINT` in `shared/lib/devAuthTunnelHint.ts`.
 4. CSP must allow `frame-src https://oauth.telegram.org` — see [content_security.md](./content_security.md).
 
-When the page runs inside Telegram (`data-telegram-webapp`), Nexus **does not** mount the Login Widget. Instead, `/login` shows a **Telegram** provider button beside Google and Apple (`TelegramWebAppAuthButton`) that authenticates via signed `initData` — the same flow as `/telegram`.
+When the page runs inside Telegram (`data-telegram-webapp`), Nexus **does not** mount the Login Widget. Instead, `/login` shows a **Telegram** provider button (`TelegramWebAppAuthButton`) that authenticates via signed `initData` — the same flow as `/telegram`.
 
 ### Phone harvest (`request_contact`)
 
@@ -145,7 +145,7 @@ When the page runs inside Telegram (`data-telegram-webapp`), Nexus **does not** 
 4. Mini App onboarding reads `harvestedPhone` from `POST /api/auth/telegram/mini-app` and pre-fills the phone field.
 5. Registration persists the phone on the new user and clears the harvest row.
 
-Pure rules: `shared/lib/telegramContactHarvestLogic.ts` — normalizes Telegram user ids (webhook JSON may send `user_id` as a string) and accepts vCard `TEL` fallbacks. Tests: `npm run test:telegram-contact-harvest`.
+Pure rules: `shared/lib/telegramContactHarvestLogic.ts` — normalizes Telegram user ids (webhook JSON may send `user_id` as a string) and accepts vCard `TEL` fallbacks. Tests: `npm run test:run -- telegram-contact-harvest`.
 
 ### Bot user recognition (register / finish profile)
 
@@ -159,7 +159,7 @@ Before task commands (`/tasks`, `/task_report`, `/see_report`, `/completed`), th
 
 `/start` appends the same register/finish hint to the welcome message when applicable. `/link` uses the register prompt when the linker is not in Nexus.
 
-Templates are editable in **Admin → General Rules → Telegram messages** (`botRegisterPrompt`, `botFinishRegistrationPrompt`). Logic: `shared/lib/telegramBotUserLogic.ts`, `shared/domains/TelegramBotUserDomain.ts`. Tests: `npm run test:telegram-bot-user-logic`.
+Templates are editable in **Admin → General Rules → Telegram messages** (`botRegisterPrompt`, `botFinishRegistrationPrompt`). Logic: `shared/lib/telegramBotUserLogic.ts`, `shared/domains/TelegramBotUserDomain.ts`. Tests: `npm run test:run -- telegram-bot-user-logic`.
 
 ---
 

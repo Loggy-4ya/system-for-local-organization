@@ -88,9 +88,9 @@ Web toasts link to `/task-groups/[id]` for group reminders.
 ## Tests
 
 ```bash
-npm run test:task-group-access-logic
-npm run test:task-group-roster-logic
-npm run test:task-group-status-logic
-npm run test:task-group-reminder-notification-copy
-npm run test:task-reminder-logic   # includes ongoing mode
+npm run test:run -- task-group-access-logic
+npm run test:run -- task-group-roster-logic
+npm run test:run -- task-group-status-logic
+npm run test:run -- task-group-reminder-notification-copy
+npm run test:run -- task-reminder-logic   # includes ongoing mode
 ```

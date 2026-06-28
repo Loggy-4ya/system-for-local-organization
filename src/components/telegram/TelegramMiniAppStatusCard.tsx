@@ -268,7 +268,7 @@ export function TelegramOutsideAppCard({ botUsername }: TelegramOutsideAppCardPr
             In a browser
           </p>
           <p className="mt-2 text-sm leading-relaxed text-(--color-text-secondary)">
-            Use the login page with Google, Apple, credentials, or the Telegram Login Widget once
+            Use the login page with Google, credentials, or the Telegram Login Widget once
             the bot username is configured.
           </p>
         </div>

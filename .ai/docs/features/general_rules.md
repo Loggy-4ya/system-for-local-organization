@@ -72,8 +72,8 @@ Hub tile: **General Rules** in `src/lib/adminHubAreas.ts`.
 ## Tests
 
 ```bash
-npm run test:general-rules-domain
-npm run test:content-policy
+npm run test:run -- general-rules-domain
+npm run test:run -- content-policy
 ```
 
 ## Acceptance

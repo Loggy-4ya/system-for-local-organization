@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Nexus `users` collection is the single identity record for every person in the institution. It merges **credentials** (login + password), **OAuth** (Google, Apple, Telegram), **system RBAC**, **socium roles** (student-life identity), **catalog-linked affiliations**, **self-authored profile content**, and **quality scores** for self-government members.
+The Nexus `users` collection is the single identity record for every person in the institution. It merges **credentials** (login + password), **OAuth** (Google, Telegram), **system RBAC**, **socium roles** (student-life identity), **catalog-linked affiliations**, **self-authored profile content**, and **quality scores** for self-government members.
 
 Community participation (comments on news/proposals, surveys, quizzes) is stored in separate engagement collections keyed by `userId`, with a published-content feed surfaced on eligible user profile pages.
 

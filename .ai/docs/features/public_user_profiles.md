@@ -30,7 +30,7 @@ Middleware protects `/users/*` alongside `/profile` and `/tasks`.
 
 ## PII redaction
 
-Pure rules: `shared/lib/publicProfileRedaction.ts` — tests `npm run test:public-profile-redaction`.
+Pure rules: `shared/lib/publicProfileRedaction.ts` — tests `npm run test:run -- public-profile-redaction`.
 
 | Field | Peer viewer | Self | Outranking admin |
 |-------|-------------|------|------------------|
@@ -48,7 +48,7 @@ Domain helper: `AuthDomain.getPublicProfileForViewer(viewer, targetUserId)`.
 | `ProfileHero` | Avatar, name, **Role in the system** callout (hierarchy + RBAC), typed `ProfileBadge` chips |
 | `ProfileIdentityBoard` | Personal board: about note, contact grid (when PII visible), social link cards with platform accents |
 | `ProfileAffiliationsSection` | Socium roles, activities, organizations — each category uses a distinct `ProfileBadge` color |
-| `ProfileBadge` | Typed identity chips via `shared/lib/profileBadgeLogic.ts` (`npm run test:profile-badge-logic`) |
+| `ProfileBadge` | Typed identity chips via `shared/lib/profileBadgeLogic.ts` (`npm run test:run -- profile-badge-logic`) |
 | `ProfileHeroActions` | Message via Telegram DM or `mailto:` when contact is visible; public social links work for peers when PII is redacted |
 | `ProfileAboutSection` | Thin wrapper over `ProfileIdentityBoard` (legacy import path) |
 | `ProfilePublishedSection` | Published news/social feed when author is eligible |
@@ -60,7 +60,7 @@ Domain helper: `AuthDomain.getPublicProfileForViewer(viewer, targetUserId)`.
 
 Peers cannot see login, email, or Telegram username unless they outrank the target or are Admin. The **Message** action still works when the profile owner published a **Telegram social link** (always visible). Otherwise the button is disabled with “Message unavailable”.
 
-Pure rules: `shared/lib/profileContactLogic.ts` — tests `npm run test:profile-contact-logic`.
+Pure rules: `shared/lib/profileContactLogic.ts` — tests `npm run test:run -- profile-contact-logic`.
 
 ---
 

@@ -75,8 +75,6 @@ export interface DirectoryUserRow {
   telegramId: number | null;
   /** Whether Google OAuth is linked. Null when PII is redacted — never exposes provider tokens/IDs. */
   linkedGoogle: boolean | null;
-  /** Whether Apple OAuth is linked. Null when PII is redacted — never exposes provider tokens/IDs. */
-  linkedApple: boolean | null;
 
   // ── Redactable Access Fields ───────────────────────────────────────────────
   /** Explicitly delegated permissions. Redacted when actor lacks delegate permission for target tier. */
@@ -185,7 +183,6 @@ export function toDirectoryRow(
     phone: canSeePII ? target.phone : null,
     telegramId: canSeePII ? target.telegramId : null,
     linkedGoogle: canSeePII ? Boolean(target.googleId) : null,
-    linkedApple: canSeePII ? Boolean(target.appleId) : null,
 
     // Redacted Access Fields
     delegatedPermissions:

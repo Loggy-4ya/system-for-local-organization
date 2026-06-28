@@ -26,7 +26,7 @@ export interface MediaStorageUploadPayload {
 export interface MediaStorageUploadResult {
   /** Browser-resolvable public URL (path for local, absolute URL for cloud). */
   url: string;
-  /** Provider-internal object key (relative path or GCS object name). */
+  /** Provider-internal object key (relative path or S3 object name). */
   storageKey: string;
   purpose: MediaPurpose;
   mimeType: string;
@@ -36,8 +36,7 @@ export interface MediaStorageUploadResult {
 /**
  * Pluggable media storage backend.
  *
- * Implementations: {@link LocalFilesystemMediaProvider}, {@link GcsMediaProvider},
- * {@link S3MediaProvider}.
+ * Implementations: {@link LocalFilesystemMediaProvider}, {@link S3MediaProvider}.
  */
 export interface MediaStorageProvider {
   /**
@@ -56,7 +55,7 @@ export interface MediaStorageProvider {
   delete?(storageKey: string): Promise<void>;
 
   /**
-   * List stored objects for orphan cleanup scans (optional — local + GCS providers).
+   * List stored objects for orphan cleanup scans (optional — local + S3 providers).
    *
    * @returns Files/objects with provider storage keys and last-modified timestamps.
    */
@@ -70,10 +69,6 @@ export interface MediaStorageEnvConfig {
   driver: import("@shared/constants/mediaStorage").MediaStorageDriver;
   /** Project root for local filesystem writes. */
   projectRoot: string;
-  /** GCS bucket name — required when driver is `gcs`. */
-  gcsBucket?: string;
-  /** Optional CDN or bucket public base URL for GCS objects. */
-  gcsPublicBaseUrl?: string;
   /** S3 bucket name — required when driver is `s3`. */
   s3Bucket?: string;
   /** AWS region for the S3 bucket — required when driver is `s3`. */

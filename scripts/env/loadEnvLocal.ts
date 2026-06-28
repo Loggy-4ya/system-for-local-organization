@@ -4,14 +4,14 @@
  * Jobs use the same MongoDB target as local dev — typically a remote Atlas URI in
  * `.env.local`, not the bundled Docker `mongodb://db:27017/nexus` profile.
  *
- * @module scripts/loadEnvLocal
+ * @module scripts/env/loadEnvLocal
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { findRepoRoot } from "../lib/repoRoot";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = findRepoRoot(import.meta.url);
 const envPath = resolve(root, ".env.local");
 
 /**

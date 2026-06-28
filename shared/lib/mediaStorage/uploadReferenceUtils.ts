@@ -1,7 +1,7 @@
 /**
  * @fileoverview Parse and collect upload references from URL strings and JSON trees.
  *
- * Supports local `/uploads/…` paths and GCS/S3/CDN absolute URLs when a
+ * Supports local `/uploads/…` paths and S3/CDN absolute URLs when a
  * {@link MediaReferenceContext} is supplied.
  *
  * @module shared/lib/mediaStorage/uploadReferenceUtils
@@ -11,10 +11,6 @@
  */
 
 import { MEDIA_PURPOSE_POLICIES } from "@shared/constants/mediaStorage";
-import {
-  gcsPublicUrlToStorageKey,
-  type GcsMediaReferenceContext,
-} from "@shared/lib/mediaStorage/gcsObjectKey";
 import {
   s3PublicUrlToStorageKey,
   type S3MediaReferenceContext,
@@ -29,8 +25,8 @@ export const UPLOAD_STORAGE_SEGMENTS = new Set(
   Object.values(MEDIA_PURPOSE_POLICIES).map((policy) => policy.storageSegment),
 );
 
-/** Optional driver context for resolving absolute cloud media URLs. */
-export type MediaReferenceContext = GcsMediaReferenceContext & S3MediaReferenceContext;
+/** Optional S3/CDN context for resolving absolute cloud media URLs. */
+export type MediaReferenceContext = S3MediaReferenceContext;
 
 /**
  * Build reference context from active media storage env config.
@@ -39,14 +35,9 @@ export type MediaReferenceContext = GcsMediaReferenceContext & S3MediaReferenceC
  * @returns Context for {@link mediaUrlToStorageKey}.
  */
 export function mediaReferenceContextFromConfig(
-  config: Pick<
-    MediaStorageEnvConfig,
-    "gcsBucket" | "gcsPublicBaseUrl" | "s3Bucket" | "s3Region" | "s3PublicBaseUrl"
-  >,
+  config: Pick<MediaStorageEnvConfig, "s3Bucket" | "s3Region" | "s3PublicBaseUrl">,
 ): MediaReferenceContext {
   return {
-    gcsBucket: config.gcsBucket,
-    gcsPublicBaseUrl: config.gcsPublicBaseUrl,
     s3Bucket: config.s3Bucket,
     s3Region: config.s3Region,
     s3PublicBaseUrl: config.s3PublicBaseUrl,
@@ -90,10 +81,10 @@ export function publicUploadPathToStorageKey(pathOrUrl: string): string | null {
 }
 
 /**
- * Resolve a stored media URL/path to a provider storage key (local, GCS, or S3).
+ * Resolve a stored media URL/path to a provider storage key (local or S3).
  *
  * @param pathOrUrl - Value from MongoDB or Puck props.
- * @param context - Optional cloud bucket/CDN context for absolute URLs.
+ * @param context - Optional S3 bucket/CDN context for absolute URLs.
  * @returns Storage key or null when unrecognised.
  */
 export function mediaUrlToStorageKey(
@@ -103,7 +94,6 @@ export function mediaUrlToStorageKey(
   const resolvedContext = context ?? {};
   return (
     publicUploadPathToStorageKey(pathOrUrl) ??
-    gcsPublicUrlToStorageKey(pathOrUrl, resolvedContext) ??
     s3PublicUrlToStorageKey(pathOrUrl, resolvedContext)
   );
 }
@@ -115,7 +105,7 @@ export function mediaUrlToStorageKey(
  *
  * @param value - Document subtree (Puck data, profile patch, etc.).
  * @param target - Mutable set receiving discovered storage keys.
- * @param context - Optional GCS/S3/CDN context for absolute URLs.
+ * @param context - Optional S3/CDN context for absolute URLs.
  */
 export function collectUploadStorageKeysFromValue(
   value: unknown,
@@ -148,7 +138,7 @@ export function collectUploadStorageKeysFromValue(
  * Merge multiple string/path values into a storage-key set.
  *
  * @param values - Candidate URL or path strings.
- * @param context - Optional GCS/S3/CDN context.
+ * @param context - Optional S3/CDN context.
  * @returns Deduped storage keys.
  */
 export function storageKeysFromStrings(

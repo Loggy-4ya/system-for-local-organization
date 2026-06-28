@@ -13,7 +13,7 @@ Nexus merges **multiple sign-in methods** into one `users` document. Without exp
 | Situation | Old behaviour | Expected behaviour |
 |-----------|---------------|-------------------|
 | Login handle never registered | Generic “Invalid login or password” | **Create account first** |
-| OAuth-only account (Google/Apple/Telegram) + password attempt | Generic invalid credentials | **Use linked provider** |
+| OAuth-only account (Google/Telegram) + password attempt | Generic invalid credentials | **Use linked provider** |
 | Wrong password on credentials account | Invalid credentials | Invalid credentials (unchanged — avoids enumeration of existence when password path is valid) |
 | Email entered in login field | Invalid credentials | Invalid credentials (email is not a credentials handle) |
 | OAuth first sign-in creates sparse profile | Redirect to `/profile/settings?onboarding=1` until required fields + consent are saved | Gate enforced in root layout; membership readiness banner still lists gaps on `/profile` |
@@ -58,7 +58,6 @@ Implementation:
 | Provider | Auto-filled on first sign-in | Signup form prefill (query params) | Notes |
 |----------|------------------------------|-------------------------------------|-------|
 | Google | `name` → split to `name`/`surname`, `email`, `avatar` | `?name=&surname=&email=` | No phone scope by default |
-| Apple | Same as Google | Same | Relay emails supported |
 | Telegram widget | `first_name`/`last_name`, `username`, `avatar` | `?name=&surname=` | Phone via bot `request_contact` → profile / Mini App pre-fill |
 | Credentials signup | All form fields | — | Source of truth for specialty/group/phone at enrolment |
 

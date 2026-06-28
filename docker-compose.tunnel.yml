@@ -1,7 +1,0 @@
-# DEPRECATED — use host ngrok: npm run dev:tunnel
-#
-# Nexus tunnels via the ngrok binary on your machine (snap/apt/brew), not Docker.
-# If an old container is still running:
-#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml --profile tunnel down
-
-services: {}

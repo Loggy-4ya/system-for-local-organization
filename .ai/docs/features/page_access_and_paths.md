@@ -107,5 +107,5 @@ Publisher UX: author badge always visible; **+** opens the same `nexus-puck-inpu
 
 | Script | Module |
 |--------|--------|
-| `npm run test:page-access-logic` | `pageAccessLogic.ts` |
-| `npm run test:page-path-logic` | `pagePathLogic.ts` |
+| `npm run test:run -- page-access-logic` | `pageAccessLogic.ts` |
+| `npm run test:run -- page-path-logic` | `pagePathLogic.ts` |

@@ -168,15 +168,6 @@ export function UserDirectoryPersonalFields({
             </p>
           </div>
         </div>
-        <div className="flex min-w-0 items-center gap-3">
-          <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Apple OAuth</p>
-            <p className="truncate text-sm font-medium text-foreground">
-              {formatOAuthLinkStatus(user.linkedApple)}
-            </p>
-          </div>
-        </div>
       </div>
 
       {showSocialLabels ? (

@@ -27,16 +27,14 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
 | `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
 | `.cursor/rules/` | File-targeted Cursor agent rules (`.mdc`) | Puck sidebar chapter policy, file-specific constraints | Runtime `.ts` / `.tsx`, tests |
-| `scripts/` | CLI maintenance jobs (orphan upload cleanup, future migrations) | `*.ts` runnable via `npm run job:*` | Application UI, long-running servers |
-| `docker-compose.yml` | Container orchestration for stateless services | Service definitions, env wiring (`NEXUS_HOSTING_MODE=vps`) | Application logic |
-| `.env.example` | Full environment variable reference (master catalogue) | Active |
-| `.env.vps.example` | VPS/Docker profile with bundled MongoDB (local dev) | Active |
-| `.env.vps-external-db.example` | VPS/Docker profile with external MongoDB (Atlas, remote host) | Active |
-| `.env.vercel.example` | Vercel serverless deployment profile template | Active |
-| `.env.hybrid.example` | Hybrid (Vercel web + telegram-worker) profile template | Active |
-| `.env.aws.example` | AWS S3 media storage profile (merge with VPS or Vercel env) | Active |
-| `docker-compose.bundled-db.yml` | Compose override — wait for bundled `db` health before web | Active |
-| `vercel.json` | Vercel cron schedules for scheduled-events and media cleanup | Active |
+| `scripts/` | CLI jobs, env tooling, test runner, workers — see [`scripts/README.md`](../scripts/README.md) | Domain subdirs: `env/`, `auth/`, `jobs/`, `test/`, `workers/` | Application UI, `*.test.ts` |
+| `scripts/test/testRegistry.json` | Canonical unit/browser test suite registry | Suite ids, file paths, groups | Application code |
+| `.env.example` | Committed environment template (all variables + dev defaults) | Active | Real secrets |
+| `.env.staging` | Team shared env encrypted with dotenvx (optional) | Active when team uses dotenvx | Plaintext secrets |
+| `.env.staging.plain.example` | Plaintext template before first dotenvx encrypt | Active | — |
+| `.ai/docs/env_and_secrets.md` | Canonical env & dotenvx guide (solo dev, team, scripts) | Markdown spec | — |
+| `docker-compose.yml` | All services — profiles: `dev`, `prod`, `bundled-db` (web + telegram-worker always) | Active |
+| `Dockerfile` | Unified multi-stage image — targets `dev`, `production`, `worker` | Active |
 
 ## `src/` Sub-directories
 
@@ -154,7 +152,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/instrumentation.ts` | Next.js boot hook — hosting bootstrap + in-process job schedulers | Active |
 | `src/app/api/admin/hosting-config/` | GET admin hosting mode, policy, warnings, errors | Active |
 | `src/app/admin/hosting/` | Admin hosting diagnostics page | Active |
-| `scripts/telegramWorker.ts` | MTProto worker poll loop (`npm run worker:telegram`) | Active |
+| `scripts/workers/telegramWorker.ts` | MTProto worker poll loop (`npm run worker:telegram`) | Active |
 
 ## `tests/` Sub-directories
 
@@ -200,7 +198,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/constants/listPagination.ts` | Default/max page sizes for paginated list APIs | Active |
 | `shared/constants/contentPolicy.ts` | Central blocked-word and weak-password denylists | Active |
 | `shared/constants/taskSettings.ts` | Task status registry, delegation limit defaults, score bounds | Active |
-| `shared/constants/nexusHosting.ts` | Hosting mode slugs (`vps`, `serverless`, `hybrid`) and env key names | Active |
+| `shared/constants/nexusHosting.ts` | Hosting mode (`vps` only) and env key names | Active |
 | `shared/lib/nexusHostingLogic.ts` | Pure hosting mode resolution, env validation, effective policy | Active |
 | `shared/domains/BroadcastDomain.ts` | System-wide broadcast send, web toast query, dismiss | Active |
 | `shared/domains/NotificationDomain.ts` | Personal notification inbox — record, list, read state, legacy backfill | Active |
@@ -250,9 +248,9 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `shared/lib/nexusMentionTypes.ts` | Shared mention item types and href builders | Active |
 | `shared/constants/mediaStorage.ts` | Upload purpose policies, size limits, driver constants | Active |
 | `shared/constants/imageCropContexts.ts` | Preview mask definitions for the app-wide image crop editor | Active |
-| `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, GCS, S3) | Active |
+| `shared/lib/mediaStorage/` | Storage provider implementations (local filesystem, S3) | Active |
 | `shared/lib/safeHref.ts` | Hyperlink allowlist for Puck blocks and rich text | Active |
-| `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, GCS, S3, HTTPS) | Active |
+| `shared/lib/safeMediaUrl.ts` | Media `src` URL validation (local uploads, S3, HTTPS) | Active |
 | `shared/lib/nexusRichTextSanitize.ts` | TipTap HTML allowlist + mention anchor normalization | Active |
 | `shared/lib/puckContentSanitize.ts` | Deep-walk Puck JSON sanitization on page save | Active |
 | `shared/lib/puckContentSanitizeReport.ts` | Field-level sanitization diff types for audit logging | Active |
@@ -278,7 +276,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/docs/features/puck_editor_performance.md` | Canvas performance playbook (ref-only sync, selectors, deferred fields, resolveData) | Markdown spec | — |
 | `.ai/docs/features/puck_field_controls.md` | Puck sidebar field controls — outline-flat select/segmented/switch/input style | Markdown spec | — |
 | `.ai/docs/features/puck_grid_item_zone_policy.md` | Grid Item placement rule (`{gridId}:content`), slot disallow, outline/root guards | Markdown spec | — |
-| `.ai/docs/features/media_storage.md` | Unified media upload/storage architecture (local + GCS + S3) | Markdown spec | — |
+| `.ai/docs/features/media_storage.md` | Unified media upload/storage architecture (local + S3) | Markdown spec | — |
 | `.ai/docs/assets/` | Design-time media (background engine sources, Figma exports) | Reference images, prototype HTML/JS | Production bundles, duplicates of `public/` without documented reason |
 | `.ai/docs/directory_hygiene.md` | Single-purpose folder policy and placement decision tree | Policy documentation | — |
 | `.ai/docs/architecture_map.md` | This file — directory purpose registry | Structure maps | Application code |

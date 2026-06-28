@@ -93,7 +93,7 @@ Response shape follows [list_pagination.md](./list_pagination.md): `items`, `unr
 ## Tests
 
 ```bash
-npm run test:notification-inbox
+npm run test:run -- notification-inbox
 ```
 
 Pure logic: `shared/lib/notificationInboxLogic.ts` — delivery keys, kind mapping, channel normalization.

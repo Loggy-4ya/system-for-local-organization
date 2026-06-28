@@ -8,7 +8,6 @@ import {
   DEFAULT_MEDIA_STORAGE_DRIVER,
   type MediaStorageDriver,
 } from "@shared/constants/mediaStorage";
-import { GcsMediaProvider } from "@shared/lib/mediaStorage/gcsMediaProvider";
 import { LocalFilesystemMediaProvider } from "@shared/lib/mediaStorage/localFilesystemProvider";
 import { S3MediaProvider } from "@shared/lib/mediaStorage/s3MediaProvider";
 import type { MediaStorageEnvConfig, MediaStorageProvider } from "@shared/lib/mediaStorage/types";
@@ -25,7 +24,6 @@ let cachedDriver: MediaStorageDriver | null = null;
  */
 function parseMediaStorageDriver(raw: string | undefined): MediaStorageDriver {
   const normalized = raw?.trim().toLowerCase();
-  if (normalized === "gcs") return "gcs";
   if (normalized === "s3") return "s3";
   return DEFAULT_MEDIA_STORAGE_DRIVER;
 }
@@ -44,8 +42,6 @@ export function readMediaStorageEnvConfig(
   return {
     driver,
     projectRoot: process.cwd(),
-    gcsBucket: env.GCS_MEDIA_BUCKET?.trim() || undefined,
-    gcsPublicBaseUrl: env.GCS_MEDIA_PUBLIC_BASE_URL?.trim() || undefined,
     s3Bucket: env.S3_MEDIA_BUCKET?.trim() || undefined,
     s3Region: env.S3_MEDIA_REGION?.trim() || env.AWS_REGION?.trim() || undefined,
     s3PublicBaseUrl: env.S3_MEDIA_PUBLIC_BASE_URL?.trim() || undefined,
@@ -57,7 +53,7 @@ export function readMediaStorageEnvConfig(
  *
  * @param config - Optional explicit config (tests); defaults to env.
  * @returns Active storage provider.
- * @throws When a cloud driver is selected without required bucket config.
+ * @throws When S3 is selected without required bucket config.
  */
 export function resolveMediaStorageProvider(
   config?: MediaStorageEnvConfig,
@@ -70,12 +66,7 @@ export function resolveMediaStorageProvider(
 
   let provider: MediaStorageProvider;
 
-  if (resolved.driver === "gcs") {
-    if (!resolved.gcsBucket) {
-      throw new Error("GCS_MEDIA_BUCKET is required when MEDIA_STORAGE_DRIVER=gcs.");
-    }
-    provider = new GcsMediaProvider(resolved.gcsBucket, resolved.gcsPublicBaseUrl);
-  } else if (resolved.driver === "s3") {
+  if (resolved.driver === "s3") {
     if (!resolved.s3Bucket) {
       throw new Error("S3_MEDIA_BUCKET is required when MEDIA_STORAGE_DRIVER=s3.");
     }

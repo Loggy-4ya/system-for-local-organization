@@ -77,9 +77,9 @@ Client-side: `useContentPolicyFields()` + `getContentPolicyFieldError()` in `src
 ## Tests
 
 ```bash
-npm run test:content-policy
-npm run test:password-strength
-npm run test:general-rules-domain
+npm run test:run -- content-policy
+npm run test:run -- password-strength
+npm run test:run -- general-rules-domain
 ```
 
 ## Acceptance (foundation)

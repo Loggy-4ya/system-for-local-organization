@@ -46,7 +46,7 @@ flowchart TB
   end
 
   subgraph worker [telegram-worker — MTProto]
-    TW[scripts/telegramWorker.ts]
+    TW[scripts/workers/telegramWorker.ts]
     OP[TelegramOperatorDomain]
     ENV[TELEGRAM_OPERATOR_SESSION + API_ID/HASH]
   end
@@ -87,7 +87,7 @@ Default institution strategy is **`auto`** — deploy `telegram-worker` with ope
 | Session string | `TELEGRAM_OPERATOR_SESSION` env | GramJS export — **never** in MongoDB |
 | API credentials | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` | From [my.telegram.org](https://my.telegram.org) |
 | Bot token | `TELEGRAM_BOT_TOKEN` | Same bot as web — promoted inside created groups |
-| Worker | `npm run worker:telegram` or `docker compose --profile telegram-worker up` | Provisioning + maintenance poll loop |
+| Worker | `npm run worker:telegram` or `npm run docker:up` (included in default stack) | Provisioning + maintenance poll loop |
 | Fallback | Automatic | Without full worker env, `auto` → `manual_link` |
 
 **Security:** Use a dedicated institutional Telegram account. Rotate session by updating env and restarting the worker.
@@ -202,7 +202,7 @@ On dispatch, `TaskDomain` → `TelegramWorkspaceDomain.syncTaskForumTopic()`. If
 | `shared/domains/TelegramWorkspaceDomain.ts` | State machine, queue operator jobs, bot topic sync |
 | `shared/domains/TelegramOperatorDomain.ts` | MTProto create, forum, invites, dismantle |
 | `shared/domains/TelegramBotDomain.ts` | Webhook, forum topic create, group messages |
-| `scripts/telegramWorker.ts` | Poll provisioning + `operatorPendingAction` |
+| `scripts/workers/telegramWorker.ts` | Poll provisioning + `operatorPendingAction` |
 | `shared/domains/TaskGroupDomain.ts` | Lifecycle hooks |
 
 ---
@@ -210,7 +210,7 @@ On dispatch, `TaskDomain` → `TelegramWorkspaceDomain.syncTaskForumTopic()`. If
 ## Deploy telegram-worker
 
 1. Set `TELEGRAM_OPERATOR_SESSION`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_BOT_TOKEN` on the worker host (see [hosting_and_deployment.md](./hosting_and_deployment.md)).
-2. Run `npm run worker:telegram` or `docker compose --profile telegram-worker up`.
+2. Run `npm run worker:telegram` or `npm run docker:up` / `npm run docker:up:prod` (worker is always in the stack).
 3. Worker polls every 15s (override with `TELEGRAM_WORKER_POLL_SECONDS`).
 
 ---
@@ -239,11 +239,11 @@ On dispatch, `TaskDomain` → `TelegramWorkspaceDomain.syncTaskForumTopic()`. If
 ## Tests
 
 ```bash
-npm run test:telegram-workspace-logic
-npm run test:telegram-channel-id-logic
-npm run test:telegram-bot-command-logic
-npm run test:telegram-report-flow-logic
-npm run test:telegram-bot-task-logic
+npm run test:run -- telegram-workspace-logic
+npm run test:run -- telegram-channel-id-logic
+npm run test:run -- telegram-bot-command-logic
+npm run test:run -- telegram-report-flow-logic
+npm run test:run -- telegram-bot-task-logic
 ```
 
 ---

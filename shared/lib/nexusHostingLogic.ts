@@ -1,8 +1,8 @@
 /**
  * @fileoverview Pure hosting-mode resolution and environment validation.
  *
- * Supports VPS (in-process scheduler), serverless (HTTP cron), and hybrid
- * (serverless app + separate telegram-worker / MTProto service).
+ * Nexus deploys on always-on AWS EC2 / Docker (`vps`). In-process scheduler and
+ * optional HTTP cron via `CRON_SECRET` / `NEXUS_CRON_SECRET`.
  *
  * @module shared/lib/nexusHostingLogic
  *
@@ -21,8 +21,6 @@ import {
 export interface NexusHostingEnvSnapshot {
   /** Explicit {@link NEXUS_HOSTING_MODE_ENV} value. */
   hostingMode?: string;
-  /** Vercel platform marker (`VERCEL=1`). */
-  vercel?: string;
   /** In-process scheduled-events tick interval (seconds). */
   scheduledEventsTickIntervalSeconds?: string;
   /** In-process media orphan cleanup interval (hours). */
@@ -31,7 +29,7 @@ export interface NexusHostingEnvSnapshot {
   cronSecret?: string;
   /** Alias cron secret for external crontab. */
   nexusCronSecret?: string;
-  /** Media storage driver (`local` | `gcs` | `s3`). */
+  /** Media storage driver (`local` | `s3`). */
   mediaStorageDriver?: string;
   /** MTProto operator session for telegram-worker. */
   telegramOperatorSession?: string;
@@ -86,7 +84,6 @@ export function readNexusHostingEnvSnapshot(
 ): NexusHostingEnvSnapshot {
   return {
     hostingMode: env[NEXUS_HOSTING_MODE_ENV]?.trim(),
-    vercel: env.VERCEL?.trim(),
     scheduledEventsTickIntervalSeconds: env.SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS?.trim(),
     mediaOrphanCleanupIntervalHours: env.MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS?.trim(),
     cronSecret: env.CRON_SECRET?.trim(),
@@ -109,21 +106,16 @@ export function isNexusHostingMode(value: string): value is NexusHostingMode {
 }
 
 /**
- * Resolve hosting mode from explicit env or platform hints.
+ * Resolve hosting mode from explicit env (defaults to `vps`).
  *
  * @param snapshot - Hosting env snapshot.
- * @returns Resolved mode (`vps` when unset and not on Vercel).
+ * @returns Resolved mode.
  */
 export function resolveNexusHostingMode(snapshot: NexusHostingEnvSnapshot): NexusHostingMode {
   const explicit = snapshot.hostingMode?.toLowerCase();
   if (explicit && isNexusHostingMode(explicit)) {
     return explicit;
   }
-
-  if (snapshot.vercel === "1") {
-    return "serverless";
-  }
-
   return "vps";
 }
 
@@ -150,9 +142,9 @@ export function hasCronSecretConfigured(snapshot: NexusHostingEnvSnapshot): bool
 }
 
 /**
- * Build effective policy for a resolved hosting mode.
+ * Build effective policy for always-on VPS / EC2 hosting.
  *
- * @param mode - Hosting profile.
+ * @param mode - Hosting profile (always `vps`).
  * @param snapshot - Raw env snapshot.
  * @returns Policy with clamped scheduler intervals.
  */
@@ -164,44 +156,16 @@ export function buildNexusHostingPolicy(
   const cleanupHours = parsePositiveFloat(snapshot.mediaOrphanCleanupIntervalHours);
   const hasOperatorSession = Boolean(snapshot.telegramOperatorSession);
 
-  switch (mode) {
-    case "serverless":
-      return {
-        mode,
-        allowInProcessScheduler: false,
-        allowInProcessMediaCleanup: false,
-        requireCronSecretInProduction: true,
-        allowLocalMediaInProduction: false,
-        telegramWorkerExpected: false,
-        scheduledEventsTickIntervalMs: 0,
-        mediaOrphanCleanupIntervalHours: 0,
-      };
-
-    case "hybrid":
-      return {
-        mode,
-        allowInProcessScheduler: false,
-        allowInProcessMediaCleanup: false,
-        requireCronSecretInProduction: true,
-        allowLocalMediaInProduction: false,
-        telegramWorkerExpected: true,
-        scheduledEventsTickIntervalMs: 0,
-        mediaOrphanCleanupIntervalHours: 0,
-      };
-
-    case "vps":
-    default:
-      return {
-        mode: "vps",
-        allowInProcessScheduler: true,
-        allowInProcessMediaCleanup: true,
-        requireCronSecretInProduction: false,
-        allowLocalMediaInProduction: true,
-        telegramWorkerExpected: hasOperatorSession,
-        scheduledEventsTickIntervalMs: tickSeconds > 0 ? tickSeconds * 1000 : 0,
-        mediaOrphanCleanupIntervalHours: cleanupHours,
-      };
-  }
+  return {
+    mode,
+    allowInProcessScheduler: true,
+    allowInProcessMediaCleanup: true,
+    requireCronSecretInProduction: false,
+    allowLocalMediaInProduction: false,
+    telegramWorkerExpected: hasOperatorSession,
+    scheduledEventsTickIntervalMs: tickSeconds > 0 ? tickSeconds * 1000 : 0,
+    mediaOrphanCleanupIntervalHours: cleanupHours,
+  };
 }
 
 /**
@@ -228,62 +192,30 @@ export function validateNexusHostingConfiguration(
   const policy = buildNexusHostingPolicy(mode, snapshot);
 
   const tickSeconds = parsePositiveFloat(snapshot.scheduledEventsTickIntervalSeconds);
-  const cleanupHours = parsePositiveFloat(snapshot.mediaOrphanCleanupIntervalHours);
+  const driver = snapshot.mediaStorageDriver ?? "local";
 
-  if ((mode === "serverless" || mode === "hybrid") && tickSeconds > 0) {
+  if (isProduction && driver !== "s3") {
     errors.push(
-      `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS must be unset on ${mode} — use CRON_SECRET and HTTP cron (vercel.json).`,
+      "MEDIA_STORAGE_DRIVER=s3 is required in production. Configure S3_MEDIA_BUCKET, S3_MEDIA_REGION, and IAM credentials on EC2.",
     );
   }
 
-  if ((mode === "serverless" || mode === "hybrid") && cleanupHours > 0) {
-    errors.push(
-      `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS must be unset on ${mode} — use vercel.json cron or external HTTP job.`,
-    );
-  }
-
-  if (isProduction && policy.requireCronSecretInProduction && !hasCronSecretConfigured(snapshot)) {
-    errors.push(
-      `CRON_SECRET (or NEXUS_CRON_SECRET) is required in production for ${mode} hosting.`,
-    );
-  }
-
-  if (
-    isProduction &&
-    !policy.allowLocalMediaInProduction &&
-    (snapshot.mediaStorageDriver ?? "local") === "local"
-  ) {
-    errors.push(
-      `MEDIA_STORAGE_DRIVER=local is not supported in production on ${mode}. Set MEDIA_STORAGE_DRIVER=gcs or s3.`,
-    );
-  }
-
-  if (mode === "vps" && tickSeconds === 0 && !hasCronSecretConfigured(snapshot) && isProduction) {
+  if (isProduction && tickSeconds === 0 && !hasCronSecretConfigured(snapshot)) {
     warnings.push(
-      "VPS production has no scheduler: set SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS or configure HTTP cron with CRON_SECRET.",
+      "Production has no in-process scheduler: set SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS or configure HTTP cron with CRON_SECRET.",
     );
   }
 
-  if (mode === "vps" && tickSeconds > 0 && hasCronSecretConfigured(snapshot)) {
+  if (tickSeconds > 0 && hasCronSecretConfigured(snapshot)) {
     warnings.push(
-      "Both in-process scheduler and HTTP cron secrets are set — only one is usually needed on VPS.",
+      "Both in-process scheduler and HTTP cron secrets are set — only one is usually needed on EC2.",
     );
   }
 
-  if (mode === "hybrid" && !snapshot.telegramOperatorSession) {
+  if (!snapshot.telegramOperatorSession) {
     warnings.push(
-      "Hybrid mode expects TELEGRAM_OPERATOR_SESSION on a separate telegram-worker service for auto-create groups.",
+      "TELEGRAM_OPERATOR_SESSION is unset — telegram-worker cannot auto-create project groups (manual /link only).",
     );
-  }
-
-  if (mode === "serverless" && snapshot.telegramOperatorSession) {
-    warnings.push(
-      "TELEGRAM_OPERATOR_SESSION on the serverless app is ignored — run MTProto in a separate worker (hybrid mode).",
-    );
-  }
-
-  if (snapshot.vercel === "1" && mode === "vps" && explicit !== "vps") {
-    warnings.push("Running on Vercel but hosting mode resolved to vps — set NEXUS_HOSTING_MODE=serverless.");
   }
 
   const strict = snapshot.hostingStrict === "true" || snapshot.hostingStrict === "1";

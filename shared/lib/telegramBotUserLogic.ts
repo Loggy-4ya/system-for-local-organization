@@ -67,7 +67,6 @@ export function profileOnboardingSliceFromTelegramUser(user: {
   selfGovernmentApplicationIntent?: boolean;
   telegramId?: number | null;
   googleId?: string | null;
-  appleId?: string | null;
   personalDataConsentAt?: Date | null;
   teacherAccessApproved?: boolean | null;
 }): ProfileOnboardingSlice {
@@ -82,7 +81,6 @@ export function profileOnboardingSliceFromTelegramUser(user: {
     selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent ?? false,
     telegramId: user.telegramId ?? null,
     googleId: user.googleId ?? null,
-    appleId: user.appleId ?? null,
     personalDataConsentAt: user.personalDataConsentAt ?? null,
     teacherAccessApproved: user.teacherAccessApproved ?? null,
   };

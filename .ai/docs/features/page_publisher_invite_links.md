@@ -89,7 +89,7 @@ First click in an editor session calls the API and caches the URL for subsequent
 
 | Script | Module |
 |--------|--------|
-| `npm run test:page-publisher-invite-logic` | `pagePublisherInviteLogic.ts` |
+| `npm run test:run -- page-publisher-invite-logic` | `pagePublisherInviteLogic.ts` |
 
 ---
 

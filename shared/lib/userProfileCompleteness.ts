@@ -212,7 +212,6 @@ export interface ProfileCompletenessSlice {
 /** User slice for OAuth / Telegram onboarding gate evaluation. */
 export interface ProfileOnboardingSlice extends ProfileCompletenessSlice {
   googleId?: string | null;
-  appleId?: string | null;
   telegramId?: number | null;
   personalDataConsentAt?: Date | null;
 }
@@ -394,10 +393,10 @@ export function userNeedsSelfGovernmentProfileCompliance(
  * Whether the user signed in via an external identity provider.
  *
  * @param user - Profile onboarding slice.
- * @returns True when Google, Apple, or Telegram is linked.
+ * @returns True when Google or Telegram is linked.
  */
 export function userHasExternalAuthIdentity(user: ProfileOnboardingSlice): boolean {
-  return Boolean(user.googleId || user.appleId || user.telegramId);
+  return Boolean(user.googleId || user.telegramId);
 }
 
 /**

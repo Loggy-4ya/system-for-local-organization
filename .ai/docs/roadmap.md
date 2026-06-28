@@ -6,16 +6,16 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 
 ## Phase 0: Infrastructure & Core Architecture
 - [x] Initialize Next.js Monorepo (Node.js, TypeScript).
-- [x] Configure Docker containerization (`docker-compose.yml` + `Dockerfile.dev`) for stateless local operation.
+- [x] Configure Docker containerization (`docker-compose.yml` + unified multi-stage `Dockerfile` with `dev` / `production` / `worker` targets) for stateless local and VPS deploy.
 - [x] Setup MongoDB with Mongoose ODM (`shared/lib/db.ts` global-cached connection helper).
 - [x] Define `User` and `Page` shared models (`shared/models/`).
 - [x] Establish `.ai/docs/` Live Documentation Loop and core `AGENT.md` guidelines.
-- [x] **Multi-hosting deployment profiles:** `NEXUS_HOSTING_MODE` (`vps` | `serverless` | `hybrid`), env templates (`.env.vps.example`, `.env.vercel.example`, `.env.hybrid.example`), boot validation, admin diagnostics — see [hosting_and_deployment.md](./features/hosting_and_deployment.md).
+- [x] **AWS EC2 deployment:** `NEXUS_HOSTING_MODE=vps`, root `.env.example`, [env_and_secrets.md](./env_and_secrets.md) (dotenvx), boot validation — see [hosting_and_deployment.md](./features/hosting_and_deployment.md).
 
 ## Phase 1: Global Layout, Theming & Background Engine
 - [~] **Figma Design Preview:** Dark theme + strict admin shell on `58:2`/`58:17`. News (`59:17`), Editor (`59:32`), Profile (`59:47`) dark-themed. Remaining: variable bindings, light toggle previews, Foundations type/spacing specimens. See `.ai/docs/features/figma_ui_integration.md`.
 - [~] **Puck.js Integration:** `@puckeditor/core` 0.21.x installed; block registry (`src/components/puck/config.tsx`) with 13 Figma-mapped components across 4 categories; slots/grids layout support; unified media storage via `MediaDomain` + `/api/upload`; root background picker; catch-all route (`src/app/[...puckPath]/`); MongoDB save/load API (`src/app/api/puck/route.ts`); mobile plugin rail; Outline tree drag reorder; auto viewport sync; glass viewport instrument island; three-tier responsive canvas layout (compact ≤900px, narrow desktop 901–1023px).
-- [~] **Unified Media Storage:** Purpose-based upload pipeline (`avatar`, `page-cover`, `puck-block`, `task-report`) with local filesystem provider and GCS migration stub — see `.ai/docs/features/media_storage.md`.
+- [x] **Unified Media Storage:** Purpose-based upload pipeline (`avatar`, `page-cover`, `puck-block`, `task-report`) with local filesystem (dev) and Amazon S3 (production) — see `.ai/docs/features/media_storage.md`.
 - [x] **Image crop editor:** App-wide crop/rotate dialog with contextual preview masks (`react-easy-crop`) — see [image_crop_editor.md](./features/image_crop_editor.md).
 - [~] **Content Security (XSS):** Safe href/media URL helpers, Puck save sanitization, render-time guards, SVG upload block, CSP middleware — see `.ai/docs/features/content_security.md`.
 - [~] **Puck Editor UI/UX Refinements:** Path state fix, RGBA/media fields, accent background presets, header chrome, inline title, block spacing/lining, root-level block default margin (`sm` / `--spacing-sm`), canvas slot reparenting + full-container drop highlights, **settings readability pass** (field hint icons, category divider cleanup, chapter renames) — see `.ai/docs/features/puck_editor_enhancements.md` (`[x]` completed), `.ai/docs/features/field_hints.md`, and `.ai/docs/features/puck_editor.md` §3b / §6c.
@@ -26,7 +26,7 @@ This document is the central living roadmap for **Project Nexus**. It tracks the
 - [x] **Configurable Global Layout:** MongoDB-backed configurable header categories and footer columns with live preview and Admin-only Global Layout Editor at `/admin/global-layout`.
 
 ## Phase 2: Authentication & User Profiles (Auth Domain)
-- [x] **Cross-Platform Auth:** Google OAuth2, Apple Sign In, Telegram Login Widget, Telegram Mini App, and login/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md` and `.ai/docs/features/telegram_mini_app_and_bot.md`.
+- [x] **Cross-Platform Auth:** Google OAuth2, Telegram Login Widget, Telegram Mini App, and login/password via Auth.js. See `.ai/docs/features/auth_and_profiles.md` and `.ai/docs/features/telegram_mini_app_and_bot.md`.
 - [~] **Bot Data Harvesting:** Telegram Login Widget and Mini App merge name, username, avatar into unified MongoDB record; **phone harvest via bot `request_contact`** stores pre-registration phones and updates linked profiles — see [telegram_mini_app_and_bot.md](./features/telegram_mini_app_and_bot.md).
 - [~] **Profile Management:** `/profile` read-only dashboard; `/profile/settings` for editable fields; **personal notification center** at `/profile/notifications` — see [notification_center.md](./features/notification_center.md). **Public member profiles** at `/users/[userId]` — see [public_user_profiles.md](./features/public_user_profiles.md). Extended socium identity, about, social links — see [user_model_and_social_identity.md](./features/user_model_and_social_identity.md). Task panels wired to live engine (Phase 5).
 - [~] **Student Registration Flow:** `/signup` — two-column name/surname, phone, password strength + confirm, creatable specialty/group dropdowns, socium role (Student/Starosta), self-government application intent, personal data consent. **Membership review** at `/admin/membership-applications` — see [membership_applications.md](./features/membership_applications.md). See [signin_identity_matrix.md](./features/signin_identity_matrix.md).

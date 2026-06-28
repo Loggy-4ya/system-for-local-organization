@@ -111,7 +111,7 @@ The **Distribution** chapter stores author intent for syndicating the same field
 | Stats field | `src/components/puck/fields/FormFieldStatsPanelField.tsx` |
 | Distribution field | `src/components/puck/fields/FormFieldDistributionField.tsx` |
 | Client | `src/lib/formFieldClient.ts` |
-| Tests | `tests/shared/lib/formFieldLogic.test.ts` — `npm run test:form-field-logic` |
+| Tests | `tests/shared/lib/formFieldLogic.test.ts` — `npm run test:run -- form-field-logic` |
 
 ---
 

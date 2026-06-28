@@ -77,7 +77,7 @@ When implementing remaining Page Manager visual polish:
 
 | Script | File |
 |--------|------|
-| `npm run test:page-category` | `tests/shared/lib/pageCategoryLogic.test.ts` |
+| `npm run test:run -- page-category` | `tests/shared/lib/pageCategoryLogic.test.ts` |
 
 ---
 

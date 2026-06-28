@@ -8,7 +8,7 @@
 
 ## Overview
 
-Cross-platform authentication merges Google OAuth2, Apple Sign In, Telegram Login Widget, **Telegram Mini App** (`/telegram`), and login/password credentials into a single MongoDB `users` document. Auth.js (NextAuth v5) issues JWT sessions; all mutations flow through `shared/domains/AuthDomain.ts`.
+Cross-platform authentication merges Google OAuth2, Telegram Login Widget, **Telegram Mini App** (`/telegram`), and login/password credentials into a single MongoDB `users` document. Auth.js (NextAuth v5) issues JWT sessions; all mutations flow through `shared/domains/AuthDomain.ts`.
 
 **Telegram surfaces:** Browser users link via the Login Widget; Telegram app users open the Mini App at `/telegram` (auto-login or onboarding). See [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md). **Local dev checklist:** [local_oauth_setup.md](./local_oauth_setup.md).
 
@@ -71,7 +71,7 @@ sequenceDiagram
   participant AuthDomain
   participant MongoDB
 
-  Client->>AuthJS: signIn Google / Apple / Credentials
+  Client->>AuthJS: signIn Google / Credentials
   AuthJS->>AuthDomain: findOrCreate / validateCredentials
   AuthDomain->>MongoDB: upsert users
   AuthDomain-->>AuthJS: user id + role
@@ -100,7 +100,6 @@ See full specification: [user_model_and_social_identity.md](./user_model_and_soc
 | `personalDataConsentAt` | `Date \| null` | Timestamp when user accepted personal data processing at signup |
 | `email` | `string \| null` | Optional linked email; sparse unique index; OAuth merge |
 | `emailVerified` | `Date \| null` | Set on OAuth verify |
-| `appleId` | `string \| null` | Apple `sub` |
 | `studentTitle` | `Starosta \| Deputy \| Neither \| null` | Registration chips; synced to `sociumRoles` |
 | `sociumRoles` | `IUserSociumRole[]` | Socium identity array (starosta, self-gov, custom) |
 | `socialGroupActivities` | `IUserSocialGroupActivity[]` | Admin-assigned activity categories |
@@ -121,8 +120,6 @@ NEXTAUTH_SECRET=          # Required in production
 NEXTAUTH_URL=http://localhost:8080
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-AUTH_APPLE_ID=            # Apple Services ID
-AUTH_APPLE_SECRET=        # Apple client secret JWT
 TELEGRAM_BOT_TOKEN=       # BotFather token for widget + Mini App initData + bot API
 NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET=  # Optional webhook header validation
@@ -173,9 +170,7 @@ Not emitted by Nexus application code. Brave and some wallet extensions assign t
 | `registerWithCredentials` | Signup with bcrypt hash |
 | `validateCredentials` | Login handle + password |
 | `findOrCreateFromGoogle` | OAuth merge by `googleId` or email |
-| `findOrCreateFromApple` | OAuth merge by `appleId` or email |
 | `linkGoogleProfile` | Link Google onto an existing account (profile settings); sets email from OAuth |
-| `linkAppleProfile` | Link Apple onto an existing account (profile settings) |
 | `linkTelegramProfile` | Link Telegram Login Widget onto an existing account |
 | `verifyTelegramLoginWidget` | HMAC verify + sign-in / sparse account create |
 | `authenticateTelegramMiniApp` | Mini App initData → returning user or onboarding |
@@ -196,7 +191,7 @@ npm run job:remove-user-accent-fields:dry-run   # inspect count
 npm run job:remove-user-accent-fields         # $unset on all users
 ```
 
-Script: `scripts/removeUserAccentFields.ts`. Site-wide accent styling still uses the fixed CSS token `--color-accent-user` (default blue) in `globals.css` — not per-user MongoDB fields.
+Script: `scripts/jobs/migrations/removeUserAccentFields.ts`. Site-wide accent styling still uses the fixed CSS token `--color-accent-user` (default blue) in `globals.css` — not per-user MongoDB fields.
 
 ---
 
@@ -242,7 +237,7 @@ We use two reusable design system components for displaying errors and success m
 
 ## OAuth / Telegram profile onboarding
 
-Users who first sign in via **Google**, **Apple**, or the **Telegram Login Widget** receive a sparse MongoDB record (name, optional email/avatar). Before browsing the rest of the app they must complete:
+Users who first sign in via **Google** or the **Telegram Login Widget** receive a sparse MongoDB record (name, optional email/avatar). Before browsing the rest of the app they must complete:
 
 | Field | Required |
 |-------|----------|
@@ -293,7 +288,7 @@ Dev bypass: when `NEXTAUTH_SECRET` is unset, API write guards allow all requests
 
 - [x] Sign up with login/password, phone, password confirmation + strength check, optional linked email, creatable specialty/group, socium role (Student/Starosta), optional profile photo (**required** when applying for self-government), membership intent checkbox, personal data consent
 - [x] Credentials login distinguishes unknown login (sign up first) from OAuth-only accounts (use provider)
-- [x] Sign in via Google, Apple, Telegram widget, Telegram Mini App, or credentials (inline errors, no full-page reload on bad password)
+- [x] Sign in via Google, Telegram widget, Telegram Mini App, or credentials (inline errors, no full-page reload on bad password)
 - [x] Profile settings can unlink Telegram when another sign-in method exists
 - [x] Identities merge into one `users` document
 - [x] `/profile` read-only dashboard with live user data

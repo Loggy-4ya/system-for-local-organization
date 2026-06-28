@@ -69,8 +69,6 @@ export interface PublicProfileUser {
   username: string | null;
   /** Whether Google is linked — null when redacted. */
   linkedGoogle: boolean | null;
-  /** Whether Apple is linked — null when redacted. */
-  linkedApple: boolean | null;
   /** Last Telegram sync — null when redacted. */
   lastTelegramSyncAt: Date | null;
 }
@@ -144,7 +142,6 @@ export function toPublicProfileUser(
     phone: canSeePii ? (target.phone ?? null) : null,
     username: canSeePii ? (target.username ?? null) : null,
     linkedGoogle: canSeePii ? Boolean(target.googleId) : null,
-    linkedApple: canSeePii ? Boolean(target.appleId) : null,
     lastTelegramSyncAt: canSeePii ? (target.lastTelegramSyncAt ?? null) : null,
   };
 }

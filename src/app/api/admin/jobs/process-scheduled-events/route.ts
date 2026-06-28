@@ -1,7 +1,7 @@
 /**
  * @fileoverview Admin/cron API to process pending due scheduled events from MongoDB.
  *
- * Supports both GET and POST requests. Compatible with Vercel Cron.
+ * Supports both GET and POST requests (external crontab / HTTP job triggers).
  *
  * @module src/app/api/admin/jobs/process-scheduled-events/route
  */

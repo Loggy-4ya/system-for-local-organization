@@ -61,15 +61,6 @@ describe("sanitizeMediaUrl", () => {
 });
 
 describe("isSafeMediaUrl", () => {
-  it("recognises GCS storage URLs", () => {
-    assert.equal(
-      isSafeMediaUrl(
-        "https://storage.googleapis.com/nexus-media/puck-blocks/foo.png",
-      ),
-      true,
-    );
-  });
-
   it("recognises S3 storage URLs", () => {
     assert.equal(
       isSafeMediaUrl(

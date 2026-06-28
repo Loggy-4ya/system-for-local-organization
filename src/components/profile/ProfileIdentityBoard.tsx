@@ -29,7 +29,6 @@ export interface ProfileIdentityPersonalInfo {
   phone?: string | null;
   username?: string | null;
   linkedGoogle?: boolean | null;
-  linkedApple?: boolean | null;
 }
 
 /** Props for {@link ProfileIdentityBoard}. */
@@ -219,9 +218,6 @@ function buildPersonalRows(personalInfo?: ProfileIdentityPersonalInfo) {
   }
   if (personalInfo.linkedGoogle) {
     rows.push({ key: "google", label: "Google", value: "Linked", icon: Link2 });
-  }
-  if (personalInfo.linkedApple) {
-    rows.push({ key: "apple", label: "Apple", value: "Linked", icon: Link2 });
   }
 
   return rows;

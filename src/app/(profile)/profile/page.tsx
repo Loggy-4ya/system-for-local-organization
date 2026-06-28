@@ -56,7 +56,6 @@ export default async function ProfilePage() {
             phone: publicUser.phone,
             username: publicUser.username,
             linkedGoogle: Boolean(publicUser.googleId),
-            linkedApple: Boolean(publicUser.appleId),
           }}
         />
         <ProfileSociumSection user={publicUser} />

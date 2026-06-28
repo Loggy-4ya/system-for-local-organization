@@ -24,18 +24,14 @@ Instead of managing separate schedules/crons for each feature, Nexus employs a *
 
 ---
 
-## Dual Hosting Models
+## Hosting model (AWS EC2 / Docker)
 
-Hosting profiles are selected with **`NEXUS_HOSTING_MODE`** (`vps` | `serverless` | `hybrid`). See [hosting_and_deployment.md](./hosting_and_deployment.md) for templates, validation, and the admin diagnostics API.
-
-To support both simple containerized deployments (Docker / VPS) and serverless deployments (Vercel) without code modifications, the system adapts its execution model based on mode + environment variables:
+Nexus runs on **always-on** hosts (`NEXUS_HOSTING_MODE=vps` — the only supported mode). See [hosting_and_deployment.md](./hosting_and_deployment.md) for templates, validation, and the admin diagnostics API.
 
 | Mode | Environment Settings | How it works |
 |------|----------------------|--------------|
-| **`vps`** | `NEXUS_HOSTING_MODE=vps`, `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` | In-process `setInterval` loop in `instrumentation.ts`. Good for Docker / always-on servers. |
-| **`serverless`** | `NEXUS_HOSTING_MODE=serverless`, `CRON_SECRET=...` | Platform cron hits `/api/admin/jobs/process-scheduled-events`. In-process tick is **disabled** (boot error if set). |
-| **`hybrid`** | `NEXUS_HOSTING_MODE=hybrid`, `CRON_SECRET=...` on web; `TELEGRAM_OPERATOR_SESSION` on worker | Same scheduler as serverless on the web app; MTProto worker runs separately. |
-| **External Cron (VPS)** | `NEXUS_CRON_SECRET=...`, no tick interval | Host `crontab` pings job routes or runs `npm run job:process-scheduled-events`. |
+| **`vps` (default)** | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` | In-process `setInterval` loop in `instrumentation.ts`. Recommended on AWS EC2 / Docker. |
+| **External Cron** | `NEXUS_CRON_SECRET=...` or `CRON_SECRET=...`, no tick interval | Host `crontab` pings job routes or runs `npm run job:process-scheduled-events`. |
 
 ---
 

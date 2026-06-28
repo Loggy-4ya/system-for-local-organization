@@ -1,7 +1,7 @@
 /**
  * @fileoverview MTProto operator provisioning and maintenance for Telegram project workspaces.
  *
- * Runs in the `telegram-worker` process — not in the Next.js serverless bundle.
+ * Runs in the `telegram-worker` process — not in the Next.js web container.
  * Handles capabilities the Bot API cannot: create supergroups, enable forum topics,
  * invite members, promote the bot, and leave/delete groups on dismantle.
  *
@@ -84,7 +84,7 @@ async function collectProjectTelegramUserIds(groupId: string): Promise<number[]>
 }
 
 /**
- * MTProto operator domain — polled by `scripts/telegramWorker.ts`.
+ * MTProto operator domain — polled by `scripts/workers/telegramWorker.ts`.
  */
 export const TelegramOperatorDomain = {
   /**

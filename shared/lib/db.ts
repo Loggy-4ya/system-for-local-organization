@@ -3,7 +3,7 @@
  *
  * Uses a global cache to reuse an existing Mongoose connection across:
  *  - Next.js hot-reloads in development (prevents exhausting connections).
- *  - Serverless API Route invocations in production (cold-start optimisation).
+ *  - Long-lived Docker / EC2 processes in production (connection reuse).
  *
  * @module shared/lib/db
  */

@@ -23,7 +23,7 @@ import {
 } from "./ngrokDevLib.mjs";
 
 if (!existsSync(envPath)) {
-  console.error("Missing .env.local — run: cp .env.vps.example .env.local");
+  console.error("Missing .env.local — run: npm run env:init");
   process.exit(1);
 }
 

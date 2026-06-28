@@ -1,6 +1,6 @@
 # Local OAuth & Telegram Auth Setup
 
-**Status:** `[x] Completed` — ngrok tunnel workflow, env validator, Apple JWT helper.
+**Status:** `[x] Completed` — ngrok tunnel workflow and env validator.
 
 **Related:** [auth_and_profiles.md](./auth_and_profiles.md), [telegram_mini_app_and_bot.md](./telegram_mini_app_and_bot.md), [signin_identity_matrix.md](./signin_identity_matrix.md)
 
@@ -12,7 +12,6 @@
 |----------|------------------------|-------------|-------------|
 | **Google OAuth** | Rejected — must end with public TLD | Works on desktop only | Works everywhere |
 | **Telegram Login Widget** | No widget / “bot domain invalid” | Unreliable — needs HTTPS | Works |
-| **Apple Sign In** | Rejected | Limited | Works |
 
 **Do not use `http://192.168.x.x:8080` for OAuth testing.** Use **`npm run dev:tunnel`** and open the ngrok URL.
 
@@ -22,7 +21,8 @@
 
 ```bash
 # 1. App + MongoDB
-docker compose -f docker-compose.yml -f docker-compose.bundled-db.yml --profile bundled-db up -d
+npm run docker:up
+# or: docker compose --profile dev --profile bundled-db up -d
 
 # 2. Add to .env.local (get token from https://dashboard.ngrok.com/get-started/your-authtoken)
 NGROK_AUTHTOKEN=your_ngrok_authtoken
@@ -102,13 +102,6 @@ Optional Mini App / webhook (same HTTPS base):
 - **Web App URL:** `https://YOUR-SUBDOMAIN.ngrok-free.app/telegram`
 - **Webhook:** `https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR-SUBDOMAIN.ngrok-free.app/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>`
 
-### Apple Developer
-
-- **Domains:** `YOUR-SUBDOMAIN.ngrok-free.app`
-- **Return URL:** `https://YOUR-SUBDOMAIN.ngrok-free.app/api/auth/callback/apple`
-
-Generate JWT: `npm run auth:apple-secret -- ...` (see below).
-
 ---
 
 ## `NEXTAUTH_URL` rule
@@ -122,27 +115,6 @@ NEXTAUTH_URL=https://your-subdomain.ngrok-free.app
 After any change: `docker compose up -d --force-recreate web`
 
 With **`NGROK_STATIC_DOMAIN`**, the URL stays the same across restarts — strongly recommended.
-
----
-
-## Apple Sign In JWT
-
-Requires [Apple Developer Program](https://developer.apple.com/programs/) membership.
-
-```bash
-npm run auth:apple-secret -- \
-  --team-id YOUR_TEAM_ID \
-  --client-id com.institution.nexus.service \
-  --key-id YOUR_KEY_ID \
-  --key-file ./AuthKey_YOUR_KEY_ID.p8
-```
-
-```bash
-AUTH_APPLE_ID=com.institution.nexus.service
-AUTH_APPLE_SECRET=eyJhbGciOi...
-```
-
-Regenerate before expiry (~180 days).
 
 ---
 
@@ -179,8 +151,8 @@ Telegram widget on plain `localhost` is **unreliable** (HTTPS + domain issues). 
 
 | Path | Role |
 |------|------|
-| `scripts/startDevTunnel.mjs` | `npm run dev:tunnel` — host ngrok |
-| `scripts/stopDevTunnel.mjs` | `npm run dev:tunnel:stop` |
-| `scripts/ngrokSyncEnv.mjs` | Writes `NEXTAUTH_URL` from ngrok inspector |
-| `scripts/checkAuthEnv.mjs` | `npm run auth:check-env` |
+| `scripts/dev/tunnel/startDevTunnel.mjs` | `npm run dev:tunnel` — host ngrok |
+| `scripts/dev/tunnel/stopDevTunnel.mjs` | `npm run dev:tunnel:stop` |
+| `scripts/dev/tunnel/ngrokSyncEnv.mjs` | Writes `NEXTAUTH_URL` from ngrok inspector |
+| `scripts/auth/checkAuthEnv.mjs` | `npm run auth:check-env` |
 | `shared/lib/devAuthTunnelHint.ts` | UI hint on LAN HTTP |

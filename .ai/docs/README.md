@@ -10,11 +10,13 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 
 | Document | Purpose |
 |----------|---------|
-| **[README.md](../README.md)** | **Project entry for humans and agents** — quick start, env profiles, common commands, machine-readable YAML block |
+| **[README.md](../README.md)** | **Project entry** — quick start, common commands |
+| **[env_and_secrets.md](./env_and_secrets.md)** | **Environment & dotenvx** — `.env.local`, team staging, encrypt/pull, troubleshooting |
+| **[.env.example](../.env.example)** | Variable catalogue and dev defaults |
 | **[production_readiness.md](./production_readiness.md)** | **Production deploy checklist and deferred work** — verify before go-live; track future tasks from security, media, admin, and platform workstreams |
 | [roadmap.md](./roadmap.md) | Master feature progress tracker (`Planned` / `In Progress` / `Completed`) |
 | [architecture_map.md](./architecture_map.md) | Directory purposes and domain map |
-| [testing.md](./testing.md) | Test registry — every `npm run test:*` script and `tests/**/*.test.ts` file |
+| [testing.md](./testing.md) | Test registry — `scripts/test/testRegistry.json`, `npm run test:run -- <id>` |
 | [directory_hygiene.md](./directory_hygiene.md) | Where files belong; test placement rules |
 
 ---

@@ -18,7 +18,8 @@ You are an elite, pragmatic AI Software Architect and autonomous developer agent
 
 | User intent | Read first (authoritative) | Also read if relevant |
 |-------------|---------------------------|------------------------|
-| **Deploy / hosting / env vars / Docker / Vercel** | [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) | [production_readiness.md](.ai/docs/production_readiness.md), [scheduled_events.md](.ai/docs/features/scheduled_events.md), [media_storage.md](.ai/docs/features/media_storage.md), root [`.env.example`](.env.example) |
+| **Deploy / hosting / env vars / Docker / AWS** | [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) | [env_and_secrets.md](.ai/docs/env_and_secrets.md), [production_readiness.md](.ai/docs/production_readiness.md), [`.env.example`](.env.example) |
+| **Env files / dotenvx / team secrets** | [env_and_secrets.md](.ai/docs/env_and_secrets.md) | [`.env.example`](.env.example), [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) |
 | **Pre-go-live checklist / prod gaps** | [production_readiness.md](.ai/docs/production_readiness.md) | [roadmap.md](.ai/docs/roadmap.md) |
 | **Folder structure / where files go** | [architecture_map.md](.ai/docs/architecture_map.md) | [directory_hygiene.md](.ai/docs/directory_hygiene.md) |
 | **What is built vs planned** | [roadmap.md](.ai/docs/roadmap.md) | Matching file under [`.ai/docs/features/`](.ai/docs/features/) |
@@ -29,23 +30,21 @@ You are an elite, pragmatic AI Software Architect and autonomous developer agent
 | **Admin UI / hub areas** | [admin_hub.md](.ai/docs/features/admin_hub.md) | `/admin/hosting` — [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) |
 | **Background jobs / cron / scheduler** | [scheduled_events.md](.ai/docs/features/scheduled_events.md) | [hosting_and_deployment.md](.ai/docs/features/hosting_and_deployment.md) |
 | **Telegram groups for projects** | [telegram_project_workspaces.md](.ai/docs/features/telegram_project_workspaces.md) | [telegram_mini_app_and_bot.md](.ai/docs/features/telegram_mini_app_and_bot.md) |
-| **Uploads / GCS / media** | [media_storage.md](.ai/docs/features/media_storage.md) | [image_crop_editor.md](.ai/docs/features/image_crop_editor.md) |
+| **Uploads / S3 / media** | [media_storage.md](.ai/docs/features/media_storage.md) | [image_crop_editor.md](.ai/docs/features/image_crop_editor.md) |
 | **Security / XSS / sanitization** | [content_security.md](.ai/docs/features/content_security.md) | [content_policy.md](.ai/docs/features/content_policy.md) |
-| **Tests / how to verify** | [testing.md](.ai/docs/testing.md) | `package.json` `test:*` scripts |
+| **Tests / how to verify** | [testing.md](.ai/docs/testing.md) | `scripts/test/testRegistry.json`, `npm run test:run -- <id>` |
 | **Any other feature** | Entry in [`.ai/docs/README.md`](.ai/docs/README.md) § Features | Matching `features/*.md` |
 
-### Env templates (pointers only — details in hosting doc)
+### Env templates (pointers only — full guide in env_and_secrets.md)
 
 | File | Role |
 |------|------|
-| [`.env.example`](.env.example) | Master catalogue of all variables (not a deploy profile) |
-| [`.env.vps.example`](.env.vps.example) | Local Docker dev with bundled MongoDB |
-| [`.env.vps-external-db.example`](.env.vps-external-db.example) | VPS with Atlas / remote MongoDB |
-| [`.env.vercel.example`](.env.vercel.example) | Vercel serverless checklist |
-| [`.env.hybrid.example`](.env.hybrid.example) | Vercel web + separate telegram-worker |
-| [`.env.aws.example`](.env.aws.example) | AWS S3 media storage (VPS/ECS/Vercel) |
+| [env_and_secrets.md](.ai/docs/env_and_secrets.md) | **Canonical env & dotenvx guide** — solo dev, team staging, scripts, troubleshooting |
+| [`.env.example`](.env.example) | Committed env template — `npm run env:init` |
+| [`.env.staging`](.env.staging) | Team shared secrets (dotenvx encrypted, optional) |
+| [`.env.staging.plain.example`](.env.staging.plain.example) | Plaintext template before first encrypt |
 
-**Do not duplicate** deploy commands or env lists in chat when `hosting_and_deployment.md` already documents them — summarize the **choice** (VPS bundled vs external DB vs Vercel vs hybrid vs AWS S3 media) and link to that file.
+**Do not duplicate** env or dotenvx workflows in chat when [env_and_secrets.md](.ai/docs/env_and_secrets.md) already documents them — link to that file.
 
 ### Agent response shape for onboarding questions
 

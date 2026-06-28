@@ -149,7 +149,7 @@ Middleware: `/admin/global-layout` remains **legacy Admin-only**; `/admin/user-a
 The user directory at `/admin/users` allows authorized actors to view and search all registered users. To protect sensitive Personal Identifiable Information (PII), field-level redaction is applied dynamically based on the actor's relationship to the target user:
 
 - **Always visible:** `fullName`, `avatar`, `accessLevelIndex`, `accessLevelLabel`, `sociumRoleLabels`, `specialty`, `group`, `studentTitle`, `about`, `socialLinks`.
-- **Outrank only:** `login`, `email`, `phone`, `telegramId`, `linkedGoogle`, `linkedApple` (only visible when actor strictly outranks the target user, or holds the legacy `Admin` role). OAuth flags expose **Linked / Not linked** only — never provider tokens or `googleId` / `appleId` values.
+- **Outrank only:** `login`, `email`, `phone`, `telegramId`, `linkedGoogle` (only visible when actor strictly outranks the target user, or holds the legacy `Admin` role). OAuth flags expose **Linked / Not linked** only — never provider tokens or `googleId` values.
 - **Outrank + permission only:**
   - `delegatedPermissions` (requires `users.delegate_permissions`)
   - `sociumRoles` (requires `users.assign_socium_roles`) — **discovery labels** for student-life roles

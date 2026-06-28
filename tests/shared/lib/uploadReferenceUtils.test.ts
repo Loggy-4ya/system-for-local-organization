@@ -8,9 +8,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  buildGcsPublicUrl,
-} from "@shared/lib/mediaStorage/gcsObjectKey";
-import {
   collectUploadStorageKeysFromValue,
   mediaUrlToStorageKey,
   publicUploadPathToStorageKey,
@@ -68,40 +65,6 @@ describe("collectUploadStorageKeysFromValue", () => {
       "page-covers/cover.jpg",
       "puck-blocks/a.png",
     ]);
-  });
-});
-
-describe("mediaUrlToStorageKey — GCS/CDN", () => {
-  const context = {
-    gcsBucket: "nexus-media-prod",
-    gcsPublicBaseUrl: "https://cdn.nexus.example/media",
-  };
-
-  it("parses storage.googleapis.com URLs", () => {
-    assert.equal(
-      mediaUrlToStorageKey(
-        "https://storage.googleapis.com/nexus-media-prod/avatars/user-1.png",
-        context,
-      ),
-      "avatars/user-1.png",
-    );
-  });
-
-  it("parses CDN base URLs", () => {
-    assert.equal(
-      mediaUrlToStorageKey("https://cdn.nexus.example/media/puck-blocks/a.webp", context),
-      "puck-blocks/a.webp",
-    );
-  });
-
-  it("rejects bucket mismatches", () => {
-    assert.equal(
-      mediaUrlToStorageKey(
-        "https://storage.googleapis.com/other-bucket/avatars/user-1.png",
-        context,
-      ),
-      null,
-    );
   });
 });
 
@@ -168,22 +131,6 @@ describe("buildS3PublicUrl", () => {
     assert.equal(
       buildS3PublicUrl("avatars/a.png", "my-bucket", "us-east-1"),
       "https://my-bucket.s3.amazonaws.com/avatars/a.png",
-    );
-  });
-});
-
-describe("buildGcsPublicUrl", () => {
-  it("uses CDN base when configured", () => {
-    assert.equal(
-      buildGcsPublicUrl("avatars/a.png", "bucket", "https://cdn.example.com/media"),
-      "https://cdn.example.com/media/avatars/a.png",
-    );
-  });
-
-  it("falls back to storage.googleapis.com", () => {
-    assert.equal(
-      buildGcsPublicUrl("avatars/a.png", "my-bucket"),
-      "https://storage.googleapis.com/my-bucket/avatars/a.png",
     );
   });
 });

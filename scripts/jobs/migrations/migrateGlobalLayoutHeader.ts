@@ -11,7 +11,7 @@
  */
 
 import mongoose from "mongoose";
-import { envPath, loadEnvLocal } from "./loadEnvLocal";
+import { envPath, loadEnvLocal } from "../../env/loadEnvLocal";
 
 loadEnvLocal();
 

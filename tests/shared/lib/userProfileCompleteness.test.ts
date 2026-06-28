@@ -226,7 +226,6 @@ describe("userNeedsProfileOnboarding", () => {
     specialty: null,
     group: null,
     googleId: "google-123",
-    appleId: null,
     telegramId: null,
     personalDataConsentAt: null,
   };
@@ -241,7 +240,6 @@ describe("userNeedsProfileOnboarding", () => {
         ...completeProfile,
         personalDataConsentAt: new Date(),
         googleId: null,
-        appleId: null,
         telegramId: null,
       }),
       false,

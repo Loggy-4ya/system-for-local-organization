@@ -1,7 +1,7 @@
 /**
  * @fileoverview Unified cron and maintenance job authorization checks.
  *
- * Supports Vercel's convention `CRON_SECRET`, `NEXUS_CRON_SECRET`, legacy fallback secrets,
+ * Supports `CRON_SECRET`, `NEXUS_CRON_SECRET`, legacy fallback secrets,
  * and standard admin session authorization.
  *
  * @module src/lib/cronJobAuth

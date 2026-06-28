@@ -70,4 +70,4 @@ Editor and published views both wrap content in `PageEditorMetaProvider` + `Nexu
 
 ## Tests
 
-`npm run test:nexus-page-variables`
+`npm run test:run -- nexus-page-variables`

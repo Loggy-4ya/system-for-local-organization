@@ -98,11 +98,11 @@ export function ProfileSettingsForm({
 
   const [unlinkLoading, setUnlinkLoading] = useState(false);
 
-  const hasPassword = Boolean(user.login) && !user.googleId && !user.appleId;
+  const hasPassword = Boolean(user.login) && !user.googleId;
   const canChangePassword = hasPassword;
   const canUnlinkTelegram =
     Boolean(user.telegramId) &&
-    Boolean(user.googleId || user.appleId || user.login) &&
+    Boolean(user.googleId || user.login) &&
     !telegramIsRequiredForUser({
       name: user.name,
       surname: user.surname,
@@ -612,7 +612,6 @@ export function ProfileSettingsForm({
         <h2 className="text-lg font-semibold text-(--color-text-primary)">Connected accounts</h2>
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm text-(--color-text-secondary)">
           <li>Google: {user.googleId ? "Linked" : "Not linked"}</li>
-          <li>Apple: {user.appleId ? "Linked" : "Not linked"}</li>
           <li>Telegram: {user.telegramId ? `Linked (@${user.username ?? user.telegramId})` : "Not linked"}</li>
         </ul>
         {canUnlinkTelegram && (
@@ -640,7 +639,7 @@ export function ProfileSettingsForm({
               telegramId: user.telegramId,
             })
               ? "Telegram is required for self-government members."
-              : "Set a password or link Google/Apple before unlinking Telegram."}
+              : "Set a password or link Google before unlinking Telegram."}
           </p>
         )}
         {!user.telegramId && !showMemberTelegramConnect && (

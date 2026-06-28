@@ -66,12 +66,12 @@ Report types: `shared/lib/puckContentSanitizeReport.ts`.
 ## Tests
 
 ```bash
-npm run test:safe-href
-npm run test:puck-content-sanitize
-npm run test:security-sanitize-audit
-npm run test:content-security-policy
-npm run test:nexus-editor-content
-npm run test:media-storage
+npm run test:run -- safe-href
+npm run test:run -- puck-content-sanitize
+npm run test:run -- security-sanitize-audit
+npm run test:run -- content-security-policy
+npm run test:run -- nexus-editor-content
+npm run test:run -- media-storage
 ```
 
 Registry: [testing.md](../testing.md)

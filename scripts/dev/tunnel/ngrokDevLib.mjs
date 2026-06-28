@@ -6,11 +6,11 @@
  */
 
 import { readFileSync, existsSync, writeFileSync, unlinkSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { spawnSync, spawn } from "node:child_process";
+import { findRepoRoot } from "../../lib/repoRoot.mjs";
 
-export const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const root = findRepoRoot(import.meta.url);
 export const envPath = resolve(root, ".env.local");
 export const pidPath = resolve(root, ".ngrok.pid");
 export const inspectorUrl = process.env.NGROK_INSPECTOR_URL ?? "http://127.0.0.1:4040/api/tunnels";

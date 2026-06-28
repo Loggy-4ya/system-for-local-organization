@@ -1,7 +1,7 @@
 /**
  * @fileoverview Unit tests for hosting mode resolution and env validation.
  *
- * Run: `npm run test:nexus-hosting-logic`
+ * Run: `npm run test:run -- nexus-hosting-logic`
  * Registry: `.ai/docs/testing.md`
  *
  * @module tests/shared/lib/nexusHostingLogic.test
@@ -17,24 +17,12 @@ import {
 } from "@shared/lib/nexusHostingLogic";
 
 describe("nexusHostingLogic", () => {
-  it("defaults to vps when mode unset and not on Vercel", () => {
+  it("defaults to vps when mode unset", () => {
     assert.equal(resolveNexusHostingMode({}), "vps");
   });
 
-  it("infers serverless on Vercel when mode unset", () => {
-    assert.equal(resolveNexusHostingMode({ vercel: "1" }), "serverless");
-  });
-
-  it("respects explicit NEXUS_HOSTING_MODE", () => {
-    assert.equal(resolveNexusHostingMode({ hostingMode: "hybrid" }), "hybrid");
-  });
-
-  it("disables in-process scheduler on serverless", () => {
-    const policy = buildNexusHostingPolicy("serverless", {
-      scheduledEventsTickIntervalSeconds: "15",
-    });
-    assert.equal(policy.scheduledEventsTickIntervalMs, 0);
-    assert.equal(policy.allowInProcessScheduler, false);
+  it("respects explicit NEXUS_HOSTING_MODE=vps", () => {
+    assert.equal(resolveNexusHostingMode({ hostingMode: "vps" }), "vps");
   });
 
   it("allows in-process scheduler on vps", () => {
@@ -44,35 +32,32 @@ describe("nexusHostingLogic", () => {
     assert.equal(policy.scheduledEventsTickIntervalMs, 15000);
   });
 
-  it("errors when serverless sets in-process tick", () => {
+  it("requires S3 media in production", () => {
     const result = validateNexusHostingConfiguration({
-      hostingMode: "serverless",
       nodeEnv: "production",
+      mediaStorageDriver: "local",
       scheduledEventsTickIntervalSeconds: "15",
-      cronSecret: "secret",
-      mediaStorageDriver: "gcs",
     });
-    assert.ok(result.errors.some((e) => e.includes("SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS")));
+    assert.ok(result.errors.some((e) => e.includes("MEDIA_STORAGE_DRIVER=s3")));
     assert.equal(result.shouldAbortBoot, true);
   });
 
-  it("requires CRON_SECRET in production serverless", () => {
+  it("accepts S3 media in production", () => {
     const result = validateNexusHostingConfiguration({
-      hostingMode: "serverless",
       nodeEnv: "production",
-      mediaStorageDriver: "gcs",
+      mediaStorageDriver: "s3",
+      scheduledEventsTickIntervalSeconds: "15",
     });
-    assert.ok(result.errors.some((e) => e.includes("CRON_SECRET")));
+    assert.equal(result.errors.length, 0);
   });
 
-  it("rejects local media in production serverless", () => {
+  it("rejects invalid hosting mode", () => {
     const result = validateNexusHostingConfiguration({
       hostingMode: "serverless",
       nodeEnv: "production",
-      cronSecret: "secret",
-      mediaStorageDriver: "local",
+      mediaStorageDriver: "s3",
     });
-    assert.ok(result.errors.some((e) => e.includes("MEDIA_STORAGE_DRIVER=local")));
+    assert.ok(result.errors.some((e) => e.includes("Invalid NEXUS_HOSTING_MODE")));
   });
 
   it("detects cron secret from either env var", () => {
@@ -81,13 +66,11 @@ describe("nexusHostingLogic", () => {
     assert.equal(hasCronSecretConfigured({}), false);
   });
 
-  it("hybrid expects telegram worker warning when session missing", () => {
+  it("warns when telegram operator session missing", () => {
     const result = validateNexusHostingConfiguration({
-      hostingMode: "hybrid",
       nodeEnv: "development",
-      cronSecret: "secret",
-      mediaStorageDriver: "gcs",
+      mediaStorageDriver: "local",
     });
-    assert.ok(result.warnings.some((w) => w.includes("telegram-worker")));
+    assert.ok(result.warnings.some((w) => w.includes("TELEGRAM_OPERATOR_SESSION")));
   });
 });

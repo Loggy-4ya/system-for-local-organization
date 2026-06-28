@@ -77,6 +77,29 @@ If any answer is “no,” place the file elsewhere or delete it.
 
 See [testing.md](./testing.md) for the full registry and `npm run test:*` scripts.
 
+### `scripts/`
+
+**For:** CLI entrypoints, maintenance jobs, env tooling, test runner, and long-running workers — **not** imported by the Next.js app.
+
+Index: [`scripts/README.md`](../scripts/README.md).
+
+| Subfolder | Purpose |
+|-----------|---------|
+| `scripts/env/` | `env:init`, dotenvx team staging |
+| `scripts/auth/` | OAuth/Telegram env checks |
+| `scripts/dev/tunnel/` | ngrok dev tunnel for local HTTPS OAuth |
+| `scripts/test/` | `runTests.mjs`, `testRegistry.json` |
+| `scripts/jobs/` | Cron/CLI jobs (`mediaOrphanCleanup`, `processScheduledEvents`) |
+| `scripts/jobs/migrations/` | One-off DB migrations |
+| `scripts/workers/` | Sidecar processes (`telegramWorker`) |
+| `scripts/lib/` | Shared helpers (`findRepoRoot`) — not run directly |
+
+| Allowed | Forbidden |
+|---------|-----------|
+| Runnable `.ts` / `.mjs` in the domain folder above | React components, API routes, Mongoose models |
+| `test/testRegistry.json` + [testing.md](./testing.md) entry for new suites | `*.test.ts` (use `tests/` instead) |
+| JSDoc with `npm run …` and registry links | Catch-all `scripts/misc/` dump folder |
+
 ### `shared/`
 
 **For:** Code shared across web, workers, and containers (no React, no Next.js).

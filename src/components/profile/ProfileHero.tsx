@@ -46,7 +46,6 @@ function formatPublicUserIdentities(user: PublicUser): string {
   if (user.phone) parts.push(user.phone);
   if (user.telegramId && user.username) parts.push(`Telegram @${user.username}`);
   if (user.googleId) parts.push("Google linked");
-  if (user.appleId) parts.push("Apple linked");
   return parts.join(" · ") || "No linked accounts";
 }
 
@@ -63,7 +62,6 @@ function formatPublicProfileIdentities(user: PublicProfileUser): string {
   if (user.phone) parts.push(user.phone);
   if (user.username) parts.push(`Telegram @${user.username}`);
   if (user.linkedGoogle) parts.push("Google linked");
-  if (user.linkedApple) parts.push("Apple linked");
   return parts.join(" · ") || "Institution member";
 }
 

@@ -7,10 +7,10 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { findRepoRoot } from "../lib/repoRoot.mjs";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = findRepoRoot(import.meta.url);
 const envPath = resolve(root, ".env.local");
 
 /** @param {string} path */
@@ -44,15 +44,13 @@ function line(label, ok, detail) {
 const env = loadEnvFile(envPath);
 
 if (!existsSync(envPath)) {
-  console.error("Missing .env.local — copy .env.vps.example to .env.local first.");
+  console.error("Missing .env.local — run: npm run env:init");
   process.exit(1);
 }
 
 const nextAuthUrl = env.NEXTAUTH_URL ?? "";
 const googleId = env.GOOGLE_CLIENT_ID ?? "";
 const googleSecret = env.GOOGLE_CLIENT_SECRET ?? "";
-const appleId = env.AUTH_APPLE_ID ?? "";
-const appleSecret = env.AUTH_APPLE_SECRET ?? "";
 const botToken = env.TELEGRAM_BOT_TOKEN ?? "";
 const botUsername = (env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "").trim().replace(/^@+/, "");
 
@@ -70,12 +68,6 @@ const googleReady = Boolean(googleId && googleSecret);
 line("Google OAuth", googleReady, googleReady ? "ready" : "fill GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET");
 if (nextAuthUrl && googleReady) {
   console.log(`    Redirect URI: ${nextAuthUrl.replace(/\/$/, "")}/api/auth/callback/google`);
-}
-
-const appleReady = Boolean(appleId && appleSecret);
-line("Apple Sign In", appleReady, appleReady ? "ready" : "fill AUTH_APPLE_ID + AUTH_APPLE_SECRET");
-if (nextAuthUrl && appleReady) {
-  console.log(`    Return URL: ${nextAuthUrl.replace(/\/$/, "")}/api/auth/callback/apple`);
 }
 
 const telegramEnvReady = Boolean(botToken && botUsername);

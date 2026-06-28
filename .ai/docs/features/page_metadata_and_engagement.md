@@ -62,11 +62,11 @@ When a page becomes **public for the first time** (immediate publish or schedule
 2. Users with **Telegram** enabled and a linked `telegramId` receive a bot DM using the `pagePublishedAnnouncement` template from **General Rules** (`{title}`, `{body}`, `{url}`) — **except the page author**.
 3. Republishing an already-live page does **not** re-notify. Draft saves never notify.
 
-**@mention notifications on go-live:** When a page becomes public for the first time, every **user** `@` mention embedded in Puck rich text (`NexusText`, list step labels, etc.) receives a personal inbox row (`kind: page_mention`) and optional Telegram DM — independent of the **Notify members** master switch. The **page author** is never notified, even when they mention themselves. Republishing does not re-notify mentions. Pure rules: `shared/lib/pageMentionNotificationLogic.ts` — tests `npm run test:page-mention-notification`.
+**@mention notifications on go-live:** When a page becomes public for the first time, every **user** `@` mention embedded in Puck rich text (`NexusText`, list step labels, etc.) receives a personal inbox row (`kind: page_mention`) and optional Telegram DM — independent of the **Notify members** master switch. The **page author** is never notified, even when they mention themselves. Republishing does not re-notify mentions. Pure rules: `shared/lib/pageMentionNotificationLogic.ts` — tests `npm run test:run -- page-mention-notification`.
 
 Editors configure member notifications in **Publication → Member notifications** (`notifyOnPublish` master switch plus per-channel **Web inbox** / **Telegram DM** toggles). A live Telegram preview uses the institutional `pagePublishedAnnouncement` template. Admins edit default bot copy at **`/admin/telegram-bot`** (also under General Rules → Telegram bot). Delivery still respects per-user channel prefs at `/profile/settings#notifications`.
 
-Pure rules: `shared/lib/pagePublishNotificationLogic.ts` — tests `npm run test:page-publish-notification`.
+Pure rules: `shared/lib/pagePublishNotificationLogic.ts` — tests `npm run test:run -- page-publish-notification`.
 
 Public visibility: {@link isPagePubliclyVisible} — requires `published` and `publishAt <= now`.
 
@@ -121,7 +121,7 @@ Optional **Publisher** roster in Publication adds collaborators via **+**; it do
 
 Enforced on: `POST/DELETE /api/puck`, `/[path]/edit` route, edit FAB visibility.
 
-Pure rules: `shared/lib/pageEditAccessLogic.ts` — tests `npm run test:page-edit-access-logic`.
+Pure rules: `shared/lib/pageEditAccessLogic.ts` — tests `npm run test:run -- page-edit-access-logic`.
 
 ---
 
@@ -142,13 +142,13 @@ Pure rules: `shared/lib/pageEditAccessLogic.ts` — tests `npm run test:page-edi
 
 | Script | Module |
 |--------|--------|
-| `npm run test:page-publication` | `pagePublicationLogic.ts` |
-| `npm run test:page-publish-notification` | `pagePublishNotificationLogic.ts` |
-| `npm run test:page-mention-notification` | `pageMentionNotificationLogic.ts` |
-| `npm run test:page-edit-access-logic` | `pageEditAccessLogic.ts` |
-| `npm run test:page-edit-access` | `src/lib/pageEditAccess.ts` |
-| `npm run test:page-domain` | `PageDomain.ts` |
-| `npm run test:page-comment-logic` | `pageCommentLogic.ts` |
+| `npm run test:run -- page-publication` | `pagePublicationLogic.ts` |
+| `npm run test:run -- page-publish-notification` | `pagePublishNotificationLogic.ts` |
+| `npm run test:run -- page-mention-notification` | `pageMentionNotificationLogic.ts` |
+| `npm run test:run -- page-edit-access-logic` | `pageEditAccessLogic.ts` |
+| `npm run test:run -- page-edit-access` | `src/lib/pageEditAccess.ts` |
+| `npm run test:run -- page-domain` | `PageDomain.ts` |
+| `npm run test:run -- page-comment-logic` | `pageCommentLogic.ts` |
 
 ---
 

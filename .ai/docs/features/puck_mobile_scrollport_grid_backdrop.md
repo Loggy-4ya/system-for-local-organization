@@ -39,8 +39,8 @@ The plugin panel lived in the **CSS grid row** (`grid-template-rows`), so openin
 
 | Command | Covers |
 |---------|--------|
-| `npm run test:mobile-scrollport-grid-freeze` | Backdrop helpers |
-| `PLAYWRIGHT_BASE_URL=http://localhost:8080 npm run test:browser:puck-mobile-panel` | Overlay + fixed grid/canvas E2E |
+| `npm run test:run -- mobile-scrollport-grid-freeze` | Backdrop helpers |
+| `PLAYWRIGHT_BASE_URL=http://localhost:8080 npm run test:run -- browser:puck-mobile-panel` | Overlay + fixed grid/canvas E2E |
 
 E2E: *grid and canvas stay fixed while overlay panel opens*.
 

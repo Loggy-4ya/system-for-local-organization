@@ -167,7 +167,7 @@ Sizing math reuses `resolveCanvasDropTargetMetrics` — applied as explicit over
 - **Floor:** `80px` (`CANVAS_DROP_TARGET_MIN_PX`).
 - **Fallback dragged height:** `128px` when the drag ghost cannot be measured.
 
-Tests: `npm run test:canvas-drop-target`, `npm run test:canvas-reparent`
+Tests: `npm run test:run -- canvas-drop-target`, `npm run test:run -- canvas-reparent`
 
 ---
 
@@ -256,7 +256,7 @@ Slot hit-testing during drag **does not** use the live pointer position. Instead
 6. Drag **Image** into carousel slide with existing content (append area).
 7. Outline drag still works (regression).
 
-Run: `npm run test:canvas-drop-target && npm run test:canvas-reparent && npm run test:canvas-carousel-drag && npm run test:canvas-section-drop`
+Run: `npm run test:run -- canvas-drop-target && npm run test:run -- canvas-reparent && npm run test:run -- canvas-carousel-drag && npm run test:run -- canvas-section-drop`
 
 ---
 

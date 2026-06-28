@@ -74,7 +74,7 @@ Uses existing **`users.assign_socium_roles`** — no new permission key. Peer-ti
 
 **Validation:** `shared/validation/membershipApplicationSchemas.ts`
 
-**Tests:** `npm run test:membership-application` (`shared/lib/membershipApplicationLogic.ts`)
+**Tests:** `npm run test:run -- membership-application` (`shared/lib/membershipApplicationLogic.ts`)
 
 ---
 

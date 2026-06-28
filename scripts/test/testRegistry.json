@@ -1,0 +1,955 @@
+{
+  "unit": [
+    {
+      "id": "preview-content-height",
+      "files": [
+        "tests/puck/lib/previewContentHeight.test.ts"
+      ]
+    },
+    {
+      "id": "page-root-field-props",
+      "files": [
+        "tests/puck/lib/pageRootFieldProps.test.ts"
+      ]
+    },
+    {
+      "id": "deferred-field-commit",
+      "files": [
+        "tests/puck/lib/useDeferredFieldCommit.test.ts"
+      ]
+    },
+    {
+      "id": "interactive-preview-scrollport",
+      "files": [
+        "tests/puck/lib/interactivePreviewScrollport.test.ts"
+      ]
+    },
+    {
+      "id": "editor-mode-panel",
+      "files": [
+        "tests/puck/lib/editorModePanelSnapshot.test.ts"
+      ]
+    },
+    {
+      "id": "mobile-nav-gestures",
+      "files": [
+        "tests/puck/lib/mobileNavPanelGestureLogic.test.ts"
+      ]
+    },
+    {
+      "id": "mobile-panel-dismiss",
+      "files": [
+        "tests/puck/lib/mobilePanelDismissLogic.test.ts"
+      ]
+    },
+    {
+      "id": "mobile-blocks-palette-dismiss",
+      "files": [
+        "tests/puck/lib/mobileBlocksPalettePanelDismissLogic.test.ts"
+      ]
+    },
+    {
+      "id": "carousel-pagination",
+      "files": [
+        "tests/puck/lib/carouselPagination.test.ts"
+      ]
+    },
+    {
+      "id": "carousel-nav",
+      "files": [
+        "tests/puck/lib/carouselNavController.test.ts"
+      ]
+    },
+    {
+      "id": "carousel-edit-swipe",
+      "files": [
+        "tests/puck/lib/carouselEditSwipeLogic.test.ts"
+      ]
+    },
+    {
+      "id": "carousel-media-fill",
+      "files": [
+        "tests/puck/lib/carouselMediaFill.test.ts"
+      ]
+    },
+    {
+      "id": "preview-iframe-composite",
+      "files": [
+        "tests/puck/lib/previewIframeShellComposite.test.ts"
+      ]
+    },
+    {
+      "id": "preview-iframe-grid-backing",
+      "files": [
+        "tests/puck/lib/previewIframeGridBacking.test.ts"
+      ]
+    },
+    {
+      "id": "desktop-letterbox-zoom",
+      "files": [
+        "tests/puck/lib/desktopLetterboxZoom.test.ts"
+      ]
+    },
+    {
+      "id": "puck-canvas-root-zoom-presentation",
+      "files": [
+        "tests/puck/lib/puckCanvasRootZoomPresentation.test.ts"
+      ]
+    },
+    {
+      "id": "viewport-zoom-label",
+      "files": [
+        "tests/puck/lib/formatViewportZoomLabel.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-letterbox-scrollport",
+      "files": [
+        "tests/puck/lib/canvasLetterboxScrollport.test.ts"
+      ]
+    },
+    {
+      "id": "resolve-auto-viewport",
+      "files": [
+        "tests/puck/lib/resolveAutoViewport.test.ts"
+      ]
+    },
+    {
+      "id": "desktop-editor-scrollport",
+      "files": [
+        "tests/puck/lib/desktopEditorScrollport.test.ts"
+      ]
+    },
+    {
+      "id": "compact-editor-viewport",
+      "files": [
+        "tests/puck/lib/compactEditorViewport.test.ts"
+      ]
+    },
+    {
+      "id": "mobile-scrollport-grid-freeze",
+      "files": [
+        "tests/puck/lib/mobileScrollportGridFreeze.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-island-stack",
+      "files": [
+        "tests/puck/lib/canvasIslandStackSync.test.ts"
+      ]
+    },
+    {
+      "id": "outline-sortable",
+      "files": [
+        "tests/puck/lib/outlineSortableLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-grid-item-zone",
+      "files": [
+        "tests/puck/lib/nexusGridItemZonePolicy.test.ts"
+      ]
+    },
+    {
+      "id": "grid-item-array-reorder",
+      "files": [
+        "tests/puck/lib/gridItemArrayReorder.test.ts"
+      ]
+    },
+    {
+      "id": "grid-cell-placement",
+      "files": [
+        "tests/puck/lib/gridCellPlacement.test.ts"
+      ]
+    },
+    {
+      "id": "grid-row-height-sync",
+      "files": [
+        "tests/puck/lib/gridRowHeightSync.test.ts"
+      ]
+    },
+    {
+      "id": "array-item-labels",
+      "files": [
+        "tests/puck/lib/arrayItemLabels.test.ts"
+      ]
+    },
+    {
+      "id": "grid-edit-sizing",
+      "files": [
+        "tests/puck/lib/gridEditSizing.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-grid-migration",
+      "files": [
+        "tests/puck/lib/nexusGridMigration.test.ts"
+      ]
+    },
+    {
+      "id": "island-defaults",
+      "files": [
+        "tests/puck/lib/applyIslandDefaultsOnInsert.test.ts"
+      ]
+    },
+    {
+      "id": "block-shell-band",
+      "files": [
+        "tests/puck/lib/blockShellBand.test.ts"
+      ]
+    },
+    {
+      "id": "content-width-tokens",
+      "files": [
+        "tests/puck/lib/contentWidthTokens.test.ts"
+      ]
+    },
+    {
+      "id": "separator-block",
+      "files": [
+        "tests/puck/lib/separatorBlockLogic.test.ts"
+      ]
+    },
+    {
+      "id": "embed-media",
+      "files": [
+        "tests/puck/lib/embedMedia.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-drop-target",
+      "files": [
+        "tests/puck/lib/canvasDropTargetLogic.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-reparent",
+      "files": [
+        "tests/puck/lib/canvasReparentLogic.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-carousel-drag",
+      "files": [
+        "tests/puck/lib/canvasDragCarouselScenarios.test.ts"
+      ]
+    },
+    {
+      "id": "canvas-section-drop",
+      "files": [
+        "tests/puck/lib/canvasSectionDropTarget.test.ts"
+      ]
+    },
+    {
+      "id": "block-render-visibility",
+      "files": [
+        "tests/puck/lib/blockRenderVisibility.test.ts"
+      ]
+    },
+    {
+      "id": "global-layout",
+      "files": [
+        "tests/shared/domains/globalLayoutValidation.test.ts"
+      ],
+      "env": {
+        "MONGODB_URI": "mongodb://localhost/dummy"
+      }
+    },
+    {
+      "id": "page-domain",
+      "files": [
+        "tests/shared/domains/pageDomain.test.ts"
+      ],
+      "env": {
+        "MONGODB_URI": "mongodb://localhost/dummy"
+      }
+    },
+    {
+      "id": "page-comment-logic",
+      "files": [
+        "tests/shared/lib/pageCommentLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-comments-block-logic",
+      "files": [
+        "tests/shared/lib/pageCommentsBlockLogic.test.ts"
+      ]
+    },
+    {
+      "id": "form-field-logic",
+      "files": [
+        "tests/shared/lib/formFieldLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-comment-count-cache",
+      "files": [
+        "tests/shared/lib/pageCommentCountCache.test.ts"
+      ]
+    },
+    {
+      "id": "page-comments-layout-logic",
+      "files": [
+        "tests/shared/lib/pageCommentsLayoutLogic.test.ts"
+      ]
+    },
+    {
+      "id": "engagement-vote-logic",
+      "files": [
+        "tests/shared/lib/engagementVoteLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-category",
+      "files": [
+        "tests/shared/lib/pageCategoryLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-categories-hub-logic",
+      "files": [
+        "tests/shared/lib/pageCategoriesHubLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-manager-catalog-logic",
+      "files": [
+        "tests/shared/lib/pageManagerCatalogLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-manager-catalog-drag-motion-logic",
+      "files": [
+        "tests/shared/lib/pageManagerCatalogDragMotionLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-catalog-domain-visibility-logic",
+      "files": [
+        "tests/shared/lib/pageCatalogDomainVisibilityLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-catalog-display-logic",
+      "files": [
+        "tests/shared/lib/pageCatalogDisplayLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-path-logic",
+      "files": [
+        "tests/shared/lib/pagePathLogic.test.ts"
+      ]
+    },
+    {
+      "id": "dom-event-rejection-logic",
+      "files": [
+        "tests/shared/lib/domEventRejectionLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-page-variables",
+      "files": [
+        "tests/shared/lib/nexusPageVariables.test.ts"
+      ]
+    },
+    {
+      "id": "page-access-logic",
+      "files": [
+        "tests/shared/lib/pageAccessLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-publisher-invite-logic",
+      "files": [
+        "tests/shared/lib/pagePublisherInviteLogic.test.ts"
+      ]
+    },
+    {
+      "id": "global-layout-sortable",
+      "files": [
+        "tests/global-layout/lib/editorSortableLogic.test.ts"
+      ]
+    },
+    {
+      "id": "global-layout-align",
+      "files": [
+        "tests/global-layout/lib/headerNavAlignLogic.test.ts"
+      ]
+    },
+    {
+      "id": "drag-scroll",
+      "files": [
+        "tests/lib/dragAutoScrollLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-edit-access",
+      "files": [
+        "tests/lib/pageEditAccess.test.ts"
+      ]
+    },
+    {
+      "id": "page-edit-access-logic",
+      "files": [
+        "tests/shared/lib/pageEditAccessLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-publication",
+      "files": [
+        "tests/shared/lib/pagePublicationLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-publish-notification",
+      "files": [
+        "tests/shared/lib/pagePublishNotificationLogic.test.ts"
+      ]
+    },
+    {
+      "id": "page-mention-notification",
+      "files": [
+        "tests/shared/lib/pageMentionNotificationLogic.test.ts"
+      ]
+    },
+    {
+      "id": "loader-auto-retry",
+      "files": [
+        "tests/lib/loaderAutoRetryLogic.test.ts"
+      ]
+    },
+    {
+      "id": "route-loader-recovery",
+      "files": [
+        "tests/lib/routeLoaderRecoveryLogic.test.ts"
+      ]
+    },
+    {
+      "id": "validation",
+      "files": [
+        "tests/shared/validation/schemas.test.ts"
+      ]
+    },
+    {
+      "id": "password-strength",
+      "files": [
+        "tests/shared/lib/passwordStrength.test.ts"
+      ]
+    },
+    {
+      "id": "content-policy",
+      "files": [
+        "tests/shared/lib/contentPolicy.test.ts",
+        "tests/shared/validation/contentPolicySchemas.test.ts"
+      ]
+    },
+    {
+      "id": "puck-content-policy",
+      "files": [
+        "tests/shared/lib/puckContentPolicy.test.ts"
+      ]
+    },
+    {
+      "id": "general-rules-domain",
+      "files": [
+        "tests/shared/domains/generalRulesDomain.test.ts"
+      ],
+      "env": {
+        "MONGODB_URI": "mongodb://localhost/dummy"
+      }
+    },
+    {
+      "id": "academic-catalog",
+      "files": [
+        "tests/shared/lib/academicCatalogLogic.test.ts"
+      ]
+    },
+    {
+      "id": "split-person-name",
+      "files": [
+        "tests/shared/lib/splitPersonName.test.ts"
+      ]
+    },
+    {
+      "id": "broadcast-schemas",
+      "files": [
+        "tests/shared/validation/broadcastSchemas.test.ts"
+      ]
+    },
+    {
+      "id": "user-socium",
+      "files": [
+        "tests/shared/lib/userSociumHelpers.test.ts"
+      ]
+    },
+    {
+      "id": "access-control",
+      "files": [
+        "tests/shared/lib/accessControlLogic.test.ts"
+      ]
+    },
+    {
+      "id": "membership-application",
+      "files": [
+        "tests/shared/lib/membershipApplicationLogic.test.ts"
+      ]
+    },
+    {
+      "id": "directory-redaction",
+      "files": [
+        "tests/shared/lib/directoryRedaction.test.ts"
+      ]
+    },
+    {
+      "id": "user-directory-schemas",
+      "files": [
+        "tests/shared/validation/userDirectorySchemas.test.ts"
+      ]
+    },
+    {
+      "id": "user-directory-save",
+      "files": [
+        "tests/shared/lib/userDirectorySaveLogic.test.ts"
+      ]
+    },
+    {
+      "id": "list-pagination",
+      "files": [
+        "tests/shared/lib/listPaginationLogic.test.ts"
+      ]
+    },
+    {
+      "id": "list-step-tree",
+      "files": [
+        "tests/puck/lib/listStepTree.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-list-stepper",
+      "files": [
+        "tests/puck/lib/nexusListStepper.test.ts"
+      ]
+    },
+    {
+      "id": "infinite-grid-icon-loader",
+      "files": [
+        "tests/components/background/infiniteGridIconLoader.test.ts"
+      ]
+    },
+    {
+      "id": "infinite-grid-motion-ease",
+      "files": [
+        "tests/components/background/infiniteGridMotionEase.test.ts"
+      ]
+    },
+    {
+      "id": "infinite-grid-cursor-sync",
+      "files": [
+        "tests/components/background/infiniteGridCursorSync.test.ts"
+      ]
+    },
+    {
+      "id": "apply-profile-patch",
+      "files": [
+        "tests/shared/domains/applyProfilePatchToUser.test.ts"
+      ]
+    },
+    {
+      "id": "site-profile-basic",
+      "files": [
+        "tests/shared/lib/siteProfileBasic.test.ts"
+      ]
+    },
+    {
+      "id": "public-profile-redaction",
+      "files": [
+        "tests/shared/lib/publicProfileRedaction.test.ts"
+      ]
+    },
+    {
+      "id": "profile-badge-logic",
+      "files": [
+        "tests/shared/lib/profileBadgeLogic.test.ts"
+      ]
+    },
+    {
+      "id": "profile-contact-logic",
+      "files": [
+        "tests/shared/lib/profileContactLogic.test.ts"
+      ]
+    },
+    {
+      "id": "profile-task-display-logic",
+      "files": [
+        "tests/shared/lib/profileTaskDisplayLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-access-logic",
+      "files": [
+        "tests/shared/lib/taskAccessLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-score-logic",
+      "files": [
+        "tests/shared/lib/taskScoreLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-categories-settings-logic",
+      "files": [
+        "tests/shared/lib/taskCategoriesSettingsLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-delegation-limits-logic",
+      "files": [
+        "tests/shared/lib/taskDelegationLimitsLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-reminder-logic",
+      "files": [
+        "tests/shared/lib/taskReminderLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-reminder-notification-copy",
+      "files": [
+        "tests/shared/lib/taskReminderNotificationCopy.test.ts"
+      ]
+    },
+    {
+      "id": "task-status-logic",
+      "files": [
+        "tests/shared/lib/taskStatusLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-group-access-logic",
+      "files": [
+        "tests/shared/lib/taskGroupAccessLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-group-roster-logic",
+      "files": [
+        "tests/shared/lib/taskGroupRosterLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-group-status-logic",
+      "files": [
+        "tests/shared/lib/taskGroupStatusLogic.test.ts"
+      ]
+    },
+    {
+      "id": "task-group-reminder-notification-copy",
+      "files": [
+        "tests/shared/lib/taskGroupReminderNotificationCopy.test.ts"
+      ]
+    },
+    {
+      "id": "institutional-calendar-logic",
+      "files": [
+        "tests/shared/lib/institutionalCalendarLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-hosting-logic",
+      "files": [
+        "tests/shared/lib/nexusHostingLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-workspace-logic",
+      "files": [
+        "tests/shared/lib/telegramWorkspaceLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-channel-id-logic",
+      "files": [
+        "tests/shared/lib/telegramChannelIdLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-bot-command-logic",
+      "files": [
+        "tests/shared/lib/telegramBotCommandLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-report-flow-logic",
+      "files": [
+        "tests/shared/lib/telegramReportFlowLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-bot-task-logic",
+      "files": [
+        "tests/shared/lib/telegramBotTaskLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-bot-user-logic",
+      "files": [
+        "tests/shared/lib/telegramBotUserLogic.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-operator-env",
+      "files": [
+        "tests/shared/lib/telegramOperatorEnv.test.ts"
+      ]
+    },
+    {
+      "id": "user-search-logic",
+      "files": [
+        "tests/shared/lib/userSearchLogic.test.ts"
+      ]
+    },
+    {
+      "id": "profile-completeness",
+      "files": [
+        "tests/shared/lib/userProfileCompleteness.test.ts"
+      ]
+    },
+    {
+      "id": "phone-schema",
+      "files": [
+        "tests/shared/validation/phoneSchema.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-init-data",
+      "files": [
+        "tests/shared/lib/verifyTelegramWebAppInitData.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-webapp-viewport",
+      "files": [
+        "tests/shared/lib/telegramWebAppViewport.test.ts"
+      ]
+    },
+    {
+      "id": "telegram-contact-harvest",
+      "files": [
+        "tests/shared/lib/telegramContactHarvestLogic.test.ts"
+      ]
+    },
+    {
+      "id": "seed-admin-user",
+      "files": [
+        "tests/shared/lib/seedAdminUser.test.ts"
+      ]
+    },
+    {
+      "id": "media-storage",
+      "files": [
+        "tests/shared/lib/mediaStorageRules.test.ts"
+      ]
+    },
+    {
+      "id": "image-crop",
+      "files": [
+        "tests/shared/lib/imageCropLogic.test.ts"
+      ]
+    },
+    {
+      "id": "remote-image-import",
+      "files": [
+        "tests/shared/lib/remoteImageImport.test.ts"
+      ]
+    },
+    {
+      "id": "upload-reference-utils",
+      "files": [
+        "tests/shared/lib/uploadReferenceUtils.test.ts"
+      ]
+    },
+    {
+      "id": "orphan-upload-cleanup",
+      "files": [
+        "tests/shared/lib/orphanUploadCleanupLogic.test.ts"
+      ]
+    },
+    {
+      "id": "scheduled-events",
+      "files": [
+        "tests/shared/lib/scheduledEventLogic.test.ts"
+      ]
+    },
+    {
+      "id": "safe-href",
+      "files": [
+        "tests/shared/lib/safeHref.test.ts"
+      ]
+    },
+    {
+      "id": "puck-content-sanitize",
+      "files": [
+        "tests/shared/lib/puckContentSanitize.test.ts"
+      ]
+    },
+    {
+      "id": "puck-draft-autosave",
+      "files": [
+        "tests/shared/lib/puckDraftAutosaveLogic.test.ts"
+      ]
+    },
+    {
+      "id": "content-security-policy",
+      "files": [
+        "tests/lib/contentSecurityPolicy.test.ts"
+      ]
+    },
+    {
+      "id": "site-toast-motion",
+      "files": [
+        "tests/lib/siteToastMotion.test.ts"
+      ]
+    },
+    {
+      "id": "security-sanitize-audit",
+      "files": [
+        "tests/shared/lib/securitySanitizeAudit.test.ts"
+      ]
+    },
+    {
+      "id": "security-sanitize-domain",
+      "files": [
+        "tests/shared/domains/securitySanitizeDomain.test.ts"
+      ],
+      "env": {
+        "MONGODB_URI": "mongodb://localhost/dummy"
+      }
+    },
+    {
+      "id": "user-directory-audit",
+      "files": [
+        "tests/shared/lib/userDirectoryAuditLog.test.ts"
+      ]
+    },
+    {
+      "id": "user-directory-audit-domain",
+      "files": [
+        "tests/shared/domains/userDirectoryAuditDomain.test.ts"
+      ],
+      "env": {
+        "MONGODB_URI": "mongodb://localhost/dummy"
+      }
+    },
+    {
+      "id": "global-layout-header-seed",
+      "files": [
+        "tests/shared/lib/globalLayoutHeaderSeedLogic.test.ts"
+      ]
+    },
+    {
+      "id": "strip-user-optional-unique-fields",
+      "files": [
+        "tests/shared/lib/stripUserOptionalUniqueFields.test.ts"
+      ]
+    },
+    {
+      "id": "user-notification-settings",
+      "files": [
+        "tests/shared/lib/userNotificationSettingsLogic.test.ts"
+      ]
+    },
+    {
+      "id": "notification-inbox",
+      "files": [
+        "tests/shared/lib/notificationInboxLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-mention-types",
+      "files": [
+        "tests/shared/lib/nexusMentionTypes.test.ts"
+      ]
+    },
+    {
+      "id": "suggestion-portal-logic",
+      "files": [
+        "tests/lib/suggestionPortalLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-editor-slash",
+      "files": [
+        "tests/lib/nexusEditor/slashCommandCatalog.test.ts"
+      ]
+    }
+  ],
+  "browser": [
+    {
+      "id": "browser:install",
+      "install": true
+    },
+    {
+      "id": "browser:puck-mobile-panel",
+      "file": "tests/e2e/puck/mobile-panel.spec.ts",
+      "project": "puck-mobile-chrome"
+    },
+    {
+      "id": "browser:puck-canvas-scrollport",
+      "file": "tests/e2e/puck/canvas-scrollport.spec.ts",
+      "project": "puck-desktop-chrome"
+    },
+    {
+      "id": "browser:puck-grid-settings",
+      "file": "tests/e2e/puck/grid-settings-select.spec.ts",
+      "project": "puck-desktop-chrome"
+    },
+    {
+      "id": "browser:puck-page-title",
+      "file": "tests/e2e/puck/page-title-blur.spec.ts",
+      "project": "puck-desktop-chrome"
+    },
+    {
+      "id": "browser:puck-inline-mention",
+      "file": "tests/e2e/puck/inline-mention.spec.ts",
+      "project": "puck-desktop-chrome",
+      "workers": 1
+    },
+    {
+      "id": "browser:puck-grid-row-height",
+      "file": "tests/e2e/puck/grid-row-height.spec.ts",
+      "project": "puck-desktop-chrome"
+    }
+  ],
+  "groups": {
+    "puck": {
+      "description": "Puck canvas logic bundle",
+      "suites": [
+        "mobile-nav-gestures",
+        "carousel-pagination",
+        "carousel-nav",
+        "carousel-edit-swipe",
+        "carousel-media-fill",
+        "outline-sortable",
+        "nexus-grid-item-zone",
+        "grid-item-array-reorder",
+        "grid-cell-placement",
+        "grid-edit-sizing",
+        "nexus-grid-migration",
+        "island-defaults",
+        "block-shell-band",
+        "content-width-tokens",
+        "separator-block",
+        "embed-media",
+        "canvas-drop-target",
+        "canvas-reparent",
+        "canvas-carousel-drag",
+        "canvas-section-drop",
+        "block-render-visibility"
+      ]
+    }
+  }
+}

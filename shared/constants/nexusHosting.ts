@@ -1,23 +1,21 @@
 /**
- * @fileoverview Deployment hosting modes for VPS, serverless, and hybrid layouts.
+ * @fileoverview Deployment hosting mode — always-on AWS EC2 / Docker (VPS).
  *
  * @module shared/constants/nexusHosting
  */
 
-/** Supported Nexus deployment profiles. */
-export const NEXUS_HOSTING_MODES = ["vps", "serverless", "hybrid"] as const;
+/** Supported Nexus deployment profile (AWS EC2 / Docker always-on Node). */
+export const NEXUS_HOSTING_MODES = ["vps"] as const;
 
 /** Active hosting profile — drives scheduler and storage guardrails. */
 export type NexusHostingMode = (typeof NEXUS_HOSTING_MODES)[number];
 
 /** Human-readable labels for admin and logs. */
 export const NEXUS_HOSTING_MODE_LABELS: Record<NexusHostingMode, string> = {
-  vps: "VPS / Docker (always-on Node)",
-  serverless: "Serverless (Vercel / HTTP cron)",
-  hybrid: "Hybrid (serverless web + always-on worker)",
+  vps: "AWS EC2 / Docker (always-on Node)",
 };
 
-/** Env var that selects the hosting profile. */
+/** Env var that selects the hosting profile (`vps` — default when unset). */
 export const NEXUS_HOSTING_MODE_ENV = "NEXUS_HOSTING_MODE";
 
 /** When true, misconfigured hosting env vars fail server boot. */

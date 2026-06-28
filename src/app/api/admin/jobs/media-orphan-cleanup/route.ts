@@ -1,7 +1,7 @@
 /**
  * @fileoverview Admin/cron API to scan `public/uploads/` against MongoDB references.
  *
- * Supports both GET and POST requests. Compatible with Vercel Cron (which triggers GET requests).
+ * Supports both GET and POST requests (external crontab / HTTP job triggers).
  *
  * @module src/app/api/admin/jobs/media-orphan-cleanup/route
  */

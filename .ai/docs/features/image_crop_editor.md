@@ -107,7 +107,7 @@ await uploadMediaFile(file, { purpose: "puck-block", skipCrop: true });
 - [x] Profile settings and Puck `MediaUploadField` use `uploadMediaFileWithCrop`
 - [x] Puck sidebar preview: click uploaded raster image to re-open crop and replace upload
 - [x] Dialog offers **Use original** (skip crop) or **Use cropped** after editing
-- [x] Unit tests for pure crop geometry (`npm run test:image-crop`)
+- [x] Unit tests for pure crop geometry (`npm run test:run -- image-crop`)
 
 ---
 

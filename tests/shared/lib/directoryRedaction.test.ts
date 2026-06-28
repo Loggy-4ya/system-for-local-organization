@@ -282,7 +282,6 @@ describe("toDirectoryRow redaction", () => {
     email: "ivan@nexus.edu",
     phone: "+380991234567",
     googleId: "google-oauth-id",
-    appleId: null,
     telegramId: 987654321,
     delegatedPermissions: ["tasks.receive"],
     sociumRoles: [
@@ -331,7 +330,6 @@ describe("toDirectoryRow redaction", () => {
     assert.equal(row.phone, "+380991234567");
     assert.equal(row.telegramId, 987654321);
     assert.equal(row.linkedGoogle, true);
-    assert.equal(row.linkedApple, false);
     assert.ok(row.delegatedPermissions);
     assert.ok(row.sociumRoles);
     assert.ok(row.socialGroupActivities);
@@ -364,7 +362,6 @@ describe("toDirectoryRow redaction", () => {
     assert.equal(row.phone, null);
     assert.equal(row.telegramId, null);
     assert.equal(row.linkedGoogle, null);
-    assert.equal(row.linkedApple, null);
     assert.equal(row.delegatedPermissions, null);
     assert.equal(row.sociumRoles, null);
     assert.equal(row.socialGroupActivities, null);

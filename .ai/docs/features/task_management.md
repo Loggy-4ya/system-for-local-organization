@@ -44,11 +44,11 @@ Collection: `tasks` — `shared/models/Task.ts`
 | `tasks.dispatch` | Create tasks, list all institution tasks |
 | `tasks.receive` | Be assigned, acknowledge, submit reports |
 
-Pure rules: `shared/lib/taskAccessLogic.ts` — tests `npm run test:task-access-logic`.
+Pure rules: `shared/lib/taskAccessLogic.ts` — tests `npm run test:run -- task-access-logic`.
 
-Status transitions: `shared/lib/taskStatusLogic.ts` — tests `npm run test:task-status-logic`.
+Status transitions: `shared/lib/taskStatusLogic.ts` — tests `npm run test:run -- task-status-logic`.
 
-Reminder scheduling: `shared/lib/taskReminderLogic.ts` — tests `npm run test:task-reminder-logic`. Supports:
+Reminder scheduling: `shared/lib/taskReminderLogic.ts` — tests `npm run test:run -- task-reminder-logic`. Supports:
 
 - `every`, `before_due`, `ongoing`, **`on_dates`** (calendar date array + optional yearly repeat)
 
@@ -175,12 +175,12 @@ Tags UI: `TaskCategoryTagsField` — reuses `/api/pages/categories` catalog.
 ## Tests
 
 ```bash
-npm run test:task-access-logic
-npm run test:task-score-logic
-npm run test:task-categories-settings-logic
-npm run test:task-delegation-limits-logic
-npm run test:task-reminder-logic
-npm run test:task-reminder-notification-copy
-npm run test:task-status-logic
-npm run test:user-search-logic
+npm run test:run -- task-access-logic
+npm run test:run -- task-score-logic
+npm run test:run -- task-categories-settings-logic
+npm run test:run -- task-delegation-limits-logic
+npm run test:run -- task-reminder-logic
+npm run test:run -- task-reminder-notification-copy
+npm run test:run -- task-status-logic
+npm run test:run -- user-search-logic
 ```

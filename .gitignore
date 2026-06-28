@@ -34,9 +34,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — keep the template, ignore local overrides
+# env files — keep .env.example in git, ignore local overrides
 .env*.local
 .env.production
+.env.keys
+.env.staging.plain
 .ngrok.pid
 
 # vercel

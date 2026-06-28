@@ -142,8 +142,8 @@ Type `/` at the start of a line (or after whitespace) to open the command menu. 
 
 ## Tests
 
-- `npm run test:nexus-editor-content` — `tests/lib/nexusEditor/nexusEditorContent.test.ts`
-- `npm run test:nexus-editor-slash` — `tests/lib/nexusEditor/slashCommandCatalog.test.ts`
-- `npm run test:suggestion-portal-logic` — `tests/lib/suggestionPortalLogic.test.ts`
-- `npm run test:nexus-mention-types` — `tests/shared/lib/nexusMentionTypes.test.ts`
-- `npm run test:browser:puck-inline-mention` — Playwright: mention badge render + href in Puck Body Text
+- `npm run test:run -- nexus-editor-content` — `tests/lib/nexusEditor/nexusEditorContent.test.ts`
+- `npm run test:run -- nexus-editor-slash` — `tests/lib/nexusEditor/slashCommandCatalog.test.ts`
+- `npm run test:run -- suggestion-portal-logic` — `tests/lib/suggestionPortalLogic.test.ts`
+- `npm run test:run -- nexus-mention-types` — `tests/shared/lib/nexusMentionTypes.test.ts`
+- `npm run test:run -- browser:puck-inline-mention` — Playwright: mention badge render + href in Puck Body Text

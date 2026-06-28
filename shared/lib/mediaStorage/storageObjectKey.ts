@@ -1,5 +1,5 @@
 /**
- * @fileoverview Shared object-key validation for local, GCS, and S3 media storage.
+ * @fileoverview Shared object-key validation for local and S3 media storage.
  *
  * @module shared/lib/mediaStorage/storageObjectKey
  *

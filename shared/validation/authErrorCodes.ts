@@ -14,11 +14,9 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
   account_not_found:
     "No account exists with this login. Please create an account first.",
   oauth_only:
-    "This account signs in with a linked provider. Continue with Google, Apple, or Telegram instead of a password.",
+    "This account signs in with a linked provider. Continue with Google or Telegram instead of a password.",
   oauth_only_google:
     "This account uses Google sign-in. Continue with Google instead of a password.",
-  oauth_only_apple:
-    "This account uses Apple sign-in. Continue with Apple instead of a password.",
   oauth_only_telegram:
     "This account uses Telegram sign-in. Continue with Telegram instead of a password.",
   signin: "Account created but sign-in failed. Please log in.",

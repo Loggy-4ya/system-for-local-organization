@@ -29,7 +29,7 @@ Long MongoDB-backed lists must never render or fetch an entire collection in one
 - `clampListPageSize`, `computeTotalPages`, `pageToSkip`, `computePageRowRange`
 - `buildPaginationItems` — page numbers + ellipsis for Shadcn bar
 
-Tests: `npm run test:list-pagination`
+Tests: `npm run test:run -- list-pagination`
 
 ## API contract
 

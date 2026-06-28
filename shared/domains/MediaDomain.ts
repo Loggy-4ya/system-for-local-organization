@@ -194,7 +194,7 @@ export class MediaDomain {
   /**
    * Scan stored uploads against MongoDB references and delete orphan objects.
    *
-   * Works for `MEDIA_STORAGE_DRIVER=local` (filesystem), `gcs`, and `s3` (bucket listing).
+   * Works for `MEDIA_STORAGE_DRIVER=local` (filesystem) and `s3` (bucket listing).
    * Files newer than `MEDIA_ORPHAN_MIN_AGE_HOURS` (default 24) are retained even when unreferenced.
    *
    * @param options - Dry-run flag and optional age override.

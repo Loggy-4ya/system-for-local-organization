@@ -44,6 +44,6 @@ At least one filter dimension is required per rule.
 ## Tests
 
 ```bash
-npm run test:institutional-calendar-logic
-npm run test:task-reminder-logic
+npm run test:run -- institutional-calendar-logic
+npm run test:run -- task-reminder-logic
 ```

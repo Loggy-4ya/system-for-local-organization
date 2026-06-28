@@ -76,7 +76,7 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
                   : teacherOnboardingMode
                     ? TEACHER_APPLICATION_REQUIREMENTS_HINT
                     : onboardingMode
-                      ? "Finish the required details below to use Nexus after signing in with Google, Apple, or Telegram."
+                      ? "Finish the required details below to use Nexus after signing in with Google or Telegram."
                       : "Update your personal information and preferences."}
               </p>
             </div>

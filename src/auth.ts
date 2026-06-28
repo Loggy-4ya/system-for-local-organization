@@ -1,7 +1,7 @@
 /**
  * @fileoverview Auth.js (NextAuth v5) configuration for Project Nexus.
  *
- * Providers: Google, Apple, Credentials (login/password + Telegram bridge).
+ * Providers: Google, Credentials (login/password + Telegram bridge).
  * Session strategy: JWT. User data loaded from MongoDB via AuthDomain.
  *
  * @module src/auth
@@ -9,7 +9,6 @@
 
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
-import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
 import { cookies } from "next/headers";
 import { AuthDomain, type OAuthProfileInput } from "@shared/domains/AuthDomain";
@@ -30,7 +29,7 @@ class OAuthOnlyError extends CredentialsSignin {
   /**
    * @param providers - Linked provider slugs for targeted messaging.
    */
-  constructor(providers: Array<"google" | "apple" | "telegram">) {
+  constructor(providers: Array<"google" | "telegram">) {
     super();
     if (providers.length === 1) {
       this.code = `oauth_only_${providers[0]}`;
@@ -47,11 +46,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    }),
-    Apple({
-      clientId: process.env.AUTH_APPLE_ID,
-      clientSecret: process.env.AUTH_APPLE_SECRET,
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
@@ -122,24 +116,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const oauthProfile = normalizeOAuthProfile(account, profile);
 
         if (linkUserId) {
-          if (account.provider === "google") {
-            await AuthDomain.linkGoogleProfile(linkUserId, oauthProfile);
-          } else if (account.provider === "apple") {
-            await AuthDomain.linkAppleProfile(linkUserId, oauthProfile);
-          } else {
+          if (account.provider !== "google") {
             return false;
           }
 
+          await AuthDomain.linkGoogleProfile(linkUserId, oauthProfile);
           cookieStore.delete(OAUTH_LINK_USER_COOKIE);
           return true;
         }
 
         if (account.provider === "google") {
           await AuthDomain.findOrCreateFromGoogle(oauthProfile);
-        }
-
-        if (account.provider === "apple") {
-          await AuthDomain.findOrCreateFromApple(oauthProfile);
         }
 
         return true;
@@ -171,12 +158,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             const p = profile as { sub?: string } | undefined;
             const googleId = p?.sub ?? account.providerAccountId;
             dbUser = await User.findOne({ googleId });
-          }
-
-          if (account.provider === "apple") {
-            const p = profile as { sub?: string } | undefined;
-            const appleId = p?.sub ?? account.providerAccountId;
-            dbUser = await User.findOne({ appleId });
           }
 
           if (dbUser) {

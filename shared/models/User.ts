@@ -73,9 +73,6 @@ export interface IUser extends Document {
   /** Google OAuth2 `sub` identifier. Null until Google account is linked. */
   googleId: string | null;
 
-  /** Apple Sign In `sub` identifier. Null until Apple account is linked. */
-  appleId: string | null;
-
   /** Telegram numeric user ID. Null until Telegram account is linked. */
   telegramId: number | null;
 
@@ -231,7 +228,6 @@ const UserSchema = new Schema<IUser>(
     emailVerified:{ type: Date, default: null },
     passwordHash: { type: String, default: null, select: false },
     googleId:     { type: String, default: null, sparse: true, index: true },
-    appleId:      { type: String, default: null, sparse: true, index: true },
     telegramId:   { type: Number, default: null, sparse: true, index: true },
     phone:        { type: String, default: null },
     name:         { type: String, required: true, trim: true },

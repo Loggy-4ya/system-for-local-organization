@@ -2,7 +2,7 @@
  * @fileoverview Consolidated authentication and profile domain engine for Project Nexus.
  *
  * Single cohesive domain object handling credentials registration, OAuth identity
- * merging (Google, Apple), Telegram Login Widget verification, and profile mutations.
+ * merging (Google), Telegram Login Widget verification, and profile mutations.
  * All auth-related database operations must flow through this module.
  *
  * @module shared/domains/AuthDomain
@@ -88,7 +88,7 @@ export interface RegisterCredentialsInput {
 }
 
 /** Linked OAuth provider ids for credential error messaging. */
-export type LinkedOAuthProvider = "google" | "apple" | "telegram";
+export type LinkedOAuthProvider = "google" | "telegram";
 
 /** Discriminated result for credentials login resolution. */
 export type CredentialsLoginResolution =
@@ -97,7 +97,7 @@ export type CredentialsLoginResolution =
   | { status: "oauth_only"; providers: LinkedOAuthProvider[] }
   | { status: "invalid_password" };
 
-/** OAuth profile shape from Google or Apple providers. */
+/** OAuth profile shape from Google provider. */
 export interface OAuthProfileInput {
   providerId: string;
   email: string | null;
@@ -143,7 +143,6 @@ export interface PublicUser {
   stars: number;
   warnings: number;
   googleId: string | null;
-  appleId: string | null;
   telegramId: number | null;
   phone: string | null;
   selfGovernmentApplicationIntent: boolean;
@@ -407,19 +406,6 @@ export const AuthDomain = {
   },
 
   /**
-   * Find or create a user from an Apple Sign In profile.
-   *
-   * Merges by `appleId` first, then by email if present.
-   *
-   * @param profile - Apple OAuth profile data.
-   * @returns Upserted user document.
-   */
-  async findOrCreateFromApple(profile: OAuthProfileInput): Promise<IUser> {
-    await connectDB();
-    return mergeOAuthUser("appleId", profile);
-  },
-
-  /**
    * Link a Google OAuth profile to an existing Nexus account (profile settings flow).
    *
    * Populates `email` and `emailVerified` from the Google profile. Does not create
@@ -434,19 +420,6 @@ export const AuthDomain = {
   async linkGoogleProfile(userId: string, profile: OAuthProfileInput): Promise<IUser> {
     await connectDB();
     return linkOAuthProfileToUser(userId, "googleId", profile);
-  },
-
-  /**
-   * Link an Apple OAuth profile to an existing Nexus account (profile settings flow).
-   *
-   * @param userId - Target user MongoDB id.
-   * @param profile - Verified Apple OAuth profile.
-   * @returns Updated user document.
-   * @throws When user not found or Apple id/email conflicts with another account.
-   */
-  async linkAppleProfile(userId: string, profile: OAuthProfileInput): Promise<IUser> {
-    await connectDB();
-    return linkOAuthProfileToUser(userId, "appleId", profile);
   },
 
   /**
@@ -800,11 +773,11 @@ export const AuthDomain = {
     }
 
     const hasAlternateAuth =
-      Boolean(user.passwordHash) || Boolean(user.googleId) || Boolean(user.appleId);
+      Boolean(user.passwordHash) || Boolean(user.googleId);
 
     if (!hasAlternateAuth) {
       throw new Error(
-        "Set a password or link Google/Apple before unlinking Telegram.",
+        "Set a password or link Google before unlinking Telegram.",
       );
     }
 
@@ -1027,7 +1000,6 @@ export const AuthDomain = {
       stars: d.stars,
       warnings: d.warnings,
       googleId: d.googleId ?? null,
-      appleId: d.appleId ?? null,
       telegramId: d.telegramId ?? null,
       phone: d.phone ?? null,
       selfGovernmentApplicationIntent: d.selfGovernmentApplicationIntent ?? false,
@@ -1082,7 +1054,7 @@ export const AuthDomain = {
  * @returns Upserted user document.
  */
 async function mergeOAuthUser(
-  idField: "googleId" | "appleId",
+  idField: "googleId",
   profile: OAuthProfileInput
 ): Promise<IUser> {
   const email = profile.email?.trim().toLowerCase() || null;
@@ -1133,7 +1105,7 @@ async function mergeOAuthUser(
  */
 async function linkOAuthProfileToUser(
   userId: string,
-  idField: "googleId" | "appleId",
+  idField: "googleId",
   profile: OAuthProfileInput,
 ): Promise<IUser> {
   const email = profile.email?.trim().toLowerCase() || null;
@@ -1145,7 +1117,7 @@ async function linkOAuthProfileToUser(
 
   const existingProviderId = user[idField];
   if (existingProviderId && existingProviderId !== profile.providerId) {
-    throw new Error(`A different ${idField === "googleId" ? "Google" : "Apple"} account is already linked.`);
+    throw new Error("A different Google account is already linked.");
   }
 
   const existingByProvider = await User.findOne({
@@ -1258,7 +1230,6 @@ function mergeUniqueLabels(primary: string[], fallback: string[]): string[] {
 function listLinkedOAuthProviders(user: IUser): LinkedOAuthProvider[] {
   const providers: LinkedOAuthProvider[] = [];
   if (user.googleId) providers.push("google");
-  if (user.appleId) providers.push("apple");
   if (user.telegramId) providers.push("telegram");
   return providers;
 }

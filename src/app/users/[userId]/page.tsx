@@ -100,7 +100,6 @@ export default async function PublicUserProfilePage({ params }: PublicUserPagePr
             phone: profile.phone,
             username: profile.username,
             linkedGoogle: profile.linkedGoogle,
-            linkedApple: profile.linkedApple,
           }}
         />
         <ProfileAffiliationsSection

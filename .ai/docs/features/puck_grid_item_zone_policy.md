@@ -98,7 +98,7 @@ Root guard scans Puck `indexes` after `insert` / `move` / `reorder` / `duplicate
 
 **Module:** [`src/components/puck/lib/nexusGridItemZonePolicy.ts`](../../src/components/puck/lib/nexusGridItemZonePolicy.ts)
 
-**Tests:** `tests/puck/lib/nexusGridItemZonePolicy.test.ts` — `npm run test:nexus-grid-item-zone`
+**Tests:** `tests/puck/lib/nexusGridItemZonePolicy.test.ts` — `npm run test:run -- nexus-grid-item-zone`
 
 ### Constants
 
@@ -151,7 +151,7 @@ Only `NexusGrid.fields.content` uses `allow: ["NexusGridItem"]` instead of disal
 - [x] Grid Item cannot be placed inside another Grid Item’s `content` slot.
 - [x] Grid Item **can** be inserted, reordered, and moved within and between `NexusGrid` `content` zones.
 - [x] Outline drag does not show or commit invalid cross-zone targets for grid items.
-- [x] Pure policy helpers covered by `npm run test:nexus-grid-item-zone`.
+- [x] Pure policy helpers covered by `npm run test:run -- nexus-grid-item-zone`.
 
 ---
 

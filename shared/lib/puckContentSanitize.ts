@@ -7,7 +7,7 @@
  * Registry: `.ai/docs/testing.md`
  */
 
-import type { GcsMediaReferenceContext } from "@shared/lib/mediaStorage/gcsObjectKey";
+import type { CloudMediaReferenceContext } from "@shared/lib/safeMediaUrl";
 import {
   createEmptyPuckSanitizeReport,
   puckSanitizeKindFromPropKey,
@@ -46,24 +46,24 @@ export interface PuckSanitizeResult {
  *
  * @param key - Puck prop key.
  * @param value - Raw string value.
- * @param gcsContext - GCS/CDN context for cloud media URLs.
+ * @param cloudContext - S3/CDN context for cloud media URLs.
  * @returns Sanitized string.
  */
 function sanitizePuckStringProp(
   key: string,
   value: string,
-  gcsContext: GcsMediaReferenceContext,
+  cloudContext: CloudMediaReferenceContext,
 ): string {
   if (HREF_KEYS.has(key)) {
     return sanitizeUserHref(value);
   }
 
   if (MEDIA_URL_KEYS.has(key)) {
-    return sanitizeMediaUrl(value, gcsContext);
+    return sanitizeMediaUrl(value, cloudContext);
   }
 
   if (MEDIA_OR_LINK_URL_KEYS.has(key)) {
-    return sanitizeUserHref(value) || sanitizeMediaUrl(value, gcsContext);
+    return sanitizeUserHref(value) || sanitizeMediaUrl(value, cloudContext);
   }
 
   if (RICH_TEXT_KEYS.has(key)) {
@@ -80,14 +80,14 @@ function sanitizePuckStringProp(
  * Deep-walk Puck JSON, sanitize user-authored strings, and collect audit events.
  *
  * @param value - Arbitrary Puck data subtree.
- * @param gcsContext - Optional GCS/CDN context for media URL validation.
+ * @param cloudContext - Optional S3/CDN context for media URL validation.
  * @param report - Mutable audit accumulator.
  * @param pathPrefix - JSON path prefix for nested props.
  * @returns Sanitized copy (objects/arrays cloned; primitives unchanged).
  */
 function sanitizePuckDataNode(
   value: unknown,
-  gcsContext: GcsMediaReferenceContext,
+  cloudContext: CloudMediaReferenceContext,
   report: PuckSanitizeReport,
   pathPrefix: string,
 ): unknown {
@@ -97,7 +97,7 @@ function sanitizePuckDataNode(
 
   if (Array.isArray(value)) {
     return value.map((item, index) =>
-      sanitizePuckDataNode(item, gcsContext, report, `${pathPrefix}[${index}]`),
+      sanitizePuckDataNode(item, cloudContext, report, `${pathPrefix}[${index}]`),
     );
   }
 
@@ -108,7 +108,7 @@ function sanitizePuckDataNode(
     const fieldPath = pathPrefix ? `${pathPrefix}.${key}` : key;
 
     if (typeof nested === "string") {
-      const sanitized = sanitizePuckStringProp(key, nested, gcsContext);
+      const sanitized = sanitizePuckStringProp(key, nested, cloudContext);
       recordPuckSanitizeFieldChange(
         report,
         fieldPath,
@@ -118,7 +118,7 @@ function sanitizePuckDataNode(
       );
       output[key] = sanitized;
     } else {
-      output[key] = sanitizePuckDataNode(nested, gcsContext, report, fieldPath);
+      output[key] = sanitizePuckDataNode(nested, cloudContext, report, fieldPath);
     }
   }
 
@@ -129,15 +129,15 @@ function sanitizePuckDataNode(
  * Deep-walk Puck JSON and sanitize user-authored strings with an audit report.
  *
  * @param value - Arbitrary Puck data subtree.
- * @param gcsContext - Optional GCS/CDN context for media URL validation.
+ * @param cloudContext - Optional S3/CDN context for media URL validation.
  * @returns Sanitized data and field-level audit report.
  */
 export function sanitizePuckDataForStorageWithReport(
   value: unknown,
-  gcsContext: GcsMediaReferenceContext = {},
+  cloudContext: CloudMediaReferenceContext = {},
 ): PuckSanitizeResult {
   const report = createEmptyPuckSanitizeReport();
-  const data = sanitizePuckDataNode(value, gcsContext, report, "");
+  const data = sanitizePuckDataNode(value, cloudContext, report, "");
   return { data, report };
 }
 
@@ -145,12 +145,12 @@ export function sanitizePuckDataForStorageWithReport(
  * Deep-walk Puck JSON and sanitize user-authored strings.
  *
  * @param value - Arbitrary Puck data subtree.
- * @param gcsContext - Optional GCS/CDN context for media URL validation.
+ * @param cloudContext - Optional S3/CDN context for media URL validation.
  * @returns Sanitized copy (objects/arrays cloned; primitives unchanged).
  */
 export function sanitizePuckDataForStorage(
   value: unknown,
-  gcsContext: GcsMediaReferenceContext = {},
+  cloudContext: CloudMediaReferenceContext = {},
 ): unknown {
-  return sanitizePuckDataForStorageWithReport(value, gcsContext).data;
+  return sanitizePuckDataForStorageWithReport(value, cloudContext).data;
 }

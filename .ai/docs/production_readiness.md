@@ -24,7 +24,7 @@ When you ship code that is **dev-safe but needs prod verification**, add a row h
 |------|--------|-------|
 | Set strong `NEXTAUTH_SECRET`, `NEXTAUTH_URL` (public HTTPS origin) | `[ ]` | Must match browser URL |
 | Configure MongoDB (`MONGODB_URI`) with backups | `[ ]` | |
-| Configure OAuth secrets (Google, Apple) for prod domain | `[ ]` | |
+| Configure OAuth secrets (Google) for prod domain | `[ ]` | |
 | Configure Telegram bot token + webhook URL | `[ ]` | See [telegram_mini_app_and_bot.md](./features/telegram_mini_app_and_bot.md) |
 | Seed / rotate admin credentials (`ADMIN_SEED_*`) | `[ ]` | Change defaults; link OAuth in profile after first login |
 | Choose hosting mode for scheduled jobs | `[x]` | `NEXUS_HOSTING_MODE` + profile templates — [hosting_and_deployment.md](./features/hosting_and_deployment.md) |
@@ -44,7 +44,7 @@ Shipped in codebase; **production verification still required.**
 | Puck save sanitization (`POST /api/puck`) | `[x]` | Strips unsafe `href`, media URLs, rich HTML before MongoDB write |
 | Render-time URL guards (Puck blocks) | `[x]` | Defense in depth on published pages |
 | SVG upload block | `[x]` | Reject `image/svg+xml` on all upload paths |
-| Remote image import (HTTPS + raster sniff) | `[x]` | No SVG; SSRF guards — run `npm run test:remote-image-import` |
+| Remote image import (HTTPS + raster sniff) | `[x]` | No SVG; SSRF guards — run `npm run test:run -- remote-image-import` |
 | Sanitization audit persistence | `[~]` | Writes to `security_sanitize_audits` unless `SECURITY_SANITIZE_AUDIT_PERSIST=false`. **Review audit rows after first prod Puck saves.** |
 | Admin system logs viewer | `[x]` | `/admin/logs` — content sanitization + user directory sections (legacy Admin) |
 | **Prod smoke:** inject `javascript:` href in Puck → save → confirm stripped + audit row | `[ ]` | Manual acceptance test |
@@ -68,14 +68,13 @@ Shipped in codebase; **production verification still required.**
 | Item | Status | Notes |
 |------|--------|-------|
 | Local driver (`MEDIA_STORAGE_DRIVER=local`) | `[x]` | Default dev setup |
-| GCS driver (`MEDIA_STORAGE_DRIVER=gcs`) | `[~]` | Requires `GCS_MEDIA_BUCKET`, credentials, optional `GCS_MEDIA_PUBLIC_BASE_URL` |
-| S3 driver (`MEDIA_STORAGE_DRIVER=s3`) | `[~]` | Requires `S3_MEDIA_BUCKET`, `S3_MEDIA_REGION` (or `AWS_REGION`), credentials, optional `S3_MEDIA_PUBLIC_BASE_URL` |
+| S3 driver (`MEDIA_STORAGE_DRIVER=s3`) | `[~]` | **Required in production** — `S3_MEDIA_BUCKET`, `S3_MEDIA_REGION` (or `AWS_REGION`), IAM role or credentials, optional `S3_MEDIA_PUBLIC_BASE_URL` |
 | Orphan upload cleanup job | `[~]` | `npm run job:media-orphan-cleanup` / API cron — configure `MEDIA_ORPHAN_MIN_AGE_HOURS`, schedule in prod |
-| GCS orphan cleanup (`listInventory`) | `[x]` | Same job scans GCS when driver is `gcs` |
+| S3 orphan cleanup (`listInventory`) | `[x]` | Same job scans S3 when driver is `s3` |
 | **Prod:** schedule orphan cleanup (cron or `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS`) | `[ ]` | Do not rely on manual CLI in prod |
 | **Prod:** run user accent field migration (one-time) | `[ ]` | `npm run job:remove-user-accent-fields` after deploy — see [auth_and_profiles.md](./features/auth_and_profiles.md) |
 | **Prod:** fix optional unique email/login indexes (one-time) | `[~]` | `npm run job:fix-user-unique-indexes` — partial filter uses `{ $gt: "" }` (not `$ne`); run once per MongoDB deployment. Applied on local dev DB 2026-06-22. |
-| **Prod:** verify CDN/base URL matches stored Puck media URLs | `[ ]` | When using `GCS_MEDIA_PUBLIC_BASE_URL` |
+| **Prod:** verify CDN/base URL matches stored Puck media URLs | `[ ]` | When using `S3_MEDIA_PUBLIC_BASE_URL` |
 | Task report media UI (Phase 5) | `[ ]` | `task-report` purpose exists; UI not wired — [media_storage.md](./features/media_storage.md) |
 | Delete-on-replace for replaced uploads | `[ ]` | **Explicitly not implemented** — orphan job is the retention strategy |
 
@@ -129,20 +128,17 @@ Copy [`.env.example`](../.env.example) to `.env.local` and follow the inline com
 | `NEXTAUTH_SECRET` / `NEXTAUTH_URL` | Yes | Session signing + public site URL for OAuth |
 | `CSP_USE_NONCE` | Default `true` in production | Stricter script CSP |
 | `SECURITY_SANITIZE_AUDIT_PERSIST` | Default persist | Set `false` to log-only |
-| `MEDIA_STORAGE_DRIVER` | Yes | `local` (dev), `gcs` (GCP/Vercel), or `s3` (AWS) |
-| `GCS_MEDIA_BUCKET` | If `gcs` | GCS object storage bucket |
-| `GCS_MEDIA_PUBLIC_BASE_URL` | Optional | CDN origin for GCS media URLs |
+| `MEDIA_STORAGE_DRIVER` | Yes | `local` (dev) or `s3` (production on AWS EC2) |
 | `S3_MEDIA_BUCKET` | If `s3` | S3 object storage bucket |
 | `S3_MEDIA_REGION` | If `s3` | AWS region (`AWS_REGION` fallback) |
 | `S3_MEDIA_PUBLIC_BASE_URL` | Optional | CDN/CloudFront origin for S3 media URLs |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | Recommended | Hours before an unreferenced upload may be deleted (default 24) |
 
-**Background jobs — pick one hosting mode** ([scheduled_events.md](./features/scheduled_events.md)):
+**Background jobs — pick one approach** ([scheduled_events.md](./features/scheduled_events.md)):
 
 | Deployment | Set | Do not set |
 |------------|-----|------------|
-| **Vercel** | `CRON_SECRET` (+ `vercel.json` crons) | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS`, `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS` |
-| **Docker / always-on** | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` (optional `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24`) | — |
+| **Docker / AWS EC2 (recommended)** | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS=15` (optional `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24`) | — |
 | **External crontab** | `CRON_SECRET` or `NEXUS_CRON_SECRET` + HTTP/CLI job calls | `SCHEDULED_EVENTS_TICK_INTERVAL_SECONDS` |
 
 `CRON_SECRET` authorises both `/api/admin/jobs/process-scheduled-events` and `/api/admin/jobs/media-orphan-cleanup`. Legacy `MEDIA_ORPHAN_CLEANUP_CRON_SECRET` still works but is optional.
@@ -154,14 +150,14 @@ Copy [`.env.example`](../.env.example) to `.env.local` and follow the inline com
 Run suites for domains you touched; minimum security/media regression:
 
 ```bash
-npm run test:safe-href
-npm run test:puck-content-sanitize
-npm run test:security-sanitize-audit
-npm run test:content-security-policy
-npm run test:nexus-editor-content
-npm run test:media-storage
-npm run test:remote-image-import
-npm run test:orphan-upload-cleanup
+npm run test:run -- safe-href
+npm run test:run -- puck-content-sanitize
+npm run test:run -- security-sanitize-audit
+npm run test:run -- content-security-policy
+npm run test:run -- nexus-editor-content
+npm run test:run -- media-storage
+npm run test:run -- remote-image-import
+npm run test:run -- orphan-upload-cleanup
 ```
 
 Registry: [testing.md](./testing.md)
@@ -172,6 +168,6 @@ Registry: [testing.md](./testing.md)
 
 | Date | Change |
 |------|--------|
-| 2026-06-19 | Initial production readiness doc: XSS/CSP, media/GCS, sanitization audit, admin deferrals from security hardening workstream |
+| 2026-06-19 | Initial production readiness doc: XSS/CSP, media/S3, sanitization audit, admin deferrals from security hardening workstream |
 | 2026-06-19 | Added `/admin/security-audits` viewer; linked docs index at `.ai/docs/README.md` |
 | 2026-06-20 | Page categories in Puck editor; Page Manager badge UI deferred — [page_categories.md](./features/page_categories.md) |

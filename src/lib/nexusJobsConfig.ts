@@ -1,7 +1,7 @@
 /**
  * @fileoverview Environment configuration readers for Nexus scheduled/background jobs.
  *
- * Intervals are clamped by {@link getNexusHostingPolicy} — serverless/hybrid modes
+ * Intervals are clamped by {@link getNexusHostingPolicy} on always-on VPS deployments.
  * always return 0 for in-process loops regardless of raw env values.
  *
  * @module src/lib/nexusJobsConfig
@@ -12,7 +12,7 @@ import { getNexusHostingPolicy } from "@/lib/nexusHostingBootstrap";
 /**
  * Read the scheduled events tick interval in milliseconds.
  *
- * Honors `NEXUS_HOSTING_MODE` — serverless/hybrid force 0 (HTTP cron only).
+ * Honors `NEXUS_HOSTING_MODE` — HTTP cron is optional when in-process tick is disabled.
  *
  * @returns The interval in milliseconds, or 0 if disabled.
  */
@@ -23,7 +23,7 @@ export function readScheduledEventsTickIntervalMs(): number {
 /**
  * Read the media orphan cleanup interval in hours.
  *
- * Honors `NEXUS_HOSTING_MODE` — serverless/hybrid force 0 (HTTP cron only).
+ * Honors `NEXUS_HOSTING_MODE` — HTTP cron is optional when in-process tick is disabled.
  *
  * @returns The interval in hours, or 0 if disabled.
  */

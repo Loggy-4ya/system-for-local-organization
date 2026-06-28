@@ -92,7 +92,7 @@ Drop on a landing page (e.g. `/news`). Fetches `/api/page-categories/hub` client
 
 | Script | Module |
 |--------|--------|
-| `npm run test:page-categories-hub-logic` | `pageCategoriesHubLogic.ts` |
-| `npm run test:page-manager-catalog-logic` | `pageManagerCatalogLogic.ts` |
-| `npm run test:page-catalog-display-logic` | `pageCatalogDisplayLogic.ts` |
-| `npm run test:page-path-logic` | `pagePathLogic.ts` |
+| `npm run test:run -- page-categories-hub-logic` | `pageCategoriesHubLogic.ts` |
+| `npm run test:run -- page-manager-catalog-logic` | `pageManagerCatalogLogic.ts` |
+| `npm run test:run -- page-catalog-display-logic` | `pageCatalogDisplayLogic.ts` |
+| `npm run test:run -- page-path-logic` | `pagePathLogic.ts` |

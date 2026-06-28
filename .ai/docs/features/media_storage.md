@@ -1,6 +1,6 @@
 # Media Storage — Unified Upload Architecture
 
-**Status:** In progress (local filesystem active; GCS and S3 providers + orphan cleanup implemented).
+**Status:** `[x] Completed` — local filesystem (dev) + Amazon S3 (production) + orphan cleanup.
 
 ## Goal
 
@@ -14,7 +14,7 @@ One storage pipeline for all user-generated images and videos across Nexus:
 | Future task report attachments | `task-report` | Images + videos | 5 MB / 100 MB |
 | Generic fallback | `general` | Images + videos | 5 MB / 50 MB |
 
-Changing storage backend (local disk → Google Cloud Storage or Amazon S3) must require **only** env changes — not edits to Puck fields, profile UI, or API route callers.
+Changing storage backend (local disk → Amazon S3) must require **only** env changes — not edits to Puck fields, profile UI, or API route callers.
 
 ---
 
@@ -38,7 +38,6 @@ flowchart LR
     Rules[mediaStorageRules]
     Provider[resolveMediaStorageProvider]
     Local[LocalFilesystemMediaProvider]
-    GCS[GcsMediaProvider]
     S3[S3MediaProvider]
   end
 
@@ -50,9 +49,9 @@ flowchart LR
   Domain --> Rules
   Domain --> Provider
   Provider --> Local
-  Provider -.-> GCS
-  Provider -.-> S3
+  Provider --> S3
   Local --> Public["public/uploads/{segment}/"]
+  S3 --> Bucket["S3 bucket"]
 ```
 
 ### Layer responsibilities
@@ -65,8 +64,6 @@ flowchart LR
 | `shared/lib/mediaStorage/uploadReferenceUtils.ts` | Parse `/uploads/…` paths; walk JSON for references |
 | `shared/lib/mediaStorage/orphanUploadCleanupLogic.ts` | Orphan detection + min-age rules |
 | `shared/lib/mediaStorage/localFilesystemProvider.ts` | Dev/default writer to `public/uploads/` |
-| `shared/lib/mediaStorage/gcsMediaProvider.ts` | GCS upload, delete, and bucket inventory listing |
-| `shared/lib/mediaStorage/gcsObjectKey.ts` | GCS public URL build/parse for reference scanning |
 | `shared/lib/mediaStorage/s3MediaProvider.ts` | S3 upload, delete, and bucket inventory listing |
 | `shared/lib/mediaStorage/s3ObjectKey.ts` | S3 public URL build/parse for reference scanning |
 | `shared/lib/mediaStorage/storageObjectKey.ts` | Shared storage-key normalisation for all cloud drivers |
@@ -76,7 +73,7 @@ flowchart LR
 | `src/app/api/upload/from-url/route.ts` | JSON remote image import API |
 | `src/app/api/admin/jobs/media-orphan-cleanup/route.ts` | HTTP trigger for orphan cleanup job |
 | `shared/lib/mediaStorage/remoteImageImport.ts` | SSRF-safe HTTPS fetch + raster MIME sniff for link import |
-| `scripts/mediaOrphanCleanup.ts` | CLI orphan cleanup entrypoint |
+| `scripts/jobs/mediaOrphanCleanup.ts` | CLI orphan cleanup entrypoint |
 | `src/instrumentation.ts` | Optional in-process cleanup scheduler |
 | `src/lib/mediaOrphanCleanupScheduler.ts` | Interval runner for orphan cleanup |
 | `src/lib/mediaUploadClient.ts` | App-wide browser upload + import helpers |
@@ -161,9 +158,7 @@ URLs are root-relative (`/uploads/avatars/...`) and served by Next.js static hos
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEDIA_STORAGE_DRIVER` | `local` | `local`, `gcs`, or `s3` |
-| `GCS_MEDIA_BUCKET` | — | Required when driver is `gcs` |
-| `GCS_MEDIA_PUBLIC_BASE_URL` | — | Optional CDN/base URL prefix for public GCS objects |
+| `MEDIA_STORAGE_DRIVER` | `local` | `local` (dev) or `s3` (production on AWS EC2) |
 | `S3_MEDIA_BUCKET` | — | Required when driver is `s3` |
 | `S3_MEDIA_REGION` | — | Required when driver is `s3` (falls back to `AWS_REGION`) |
 | `S3_MEDIA_PUBLIC_BASE_URL` | — | Optional CDN/base URL prefix for public S3 objects |
@@ -183,10 +178,9 @@ Unreferenced upload objects are removed by comparing storage inventory to MongoD
 | Driver | Inventory source |
 |--------|------------------|
 | `local` | Files under `public/uploads/{segment}/` |
-| `gcs` | Objects in `GCS_MEDIA_BUCKET` with prefixes `avatars/`, `puck-blocks/`, etc. |
 | `s3` | Objects in `S3_MEDIA_BUCKET` with prefixes `avatars/`, `puck-blocks/`, etc. |
 
-Reference scanning recognises `/uploads/…` paths (local) and GCS/S3/CDN absolute URLs when a cloud driver is active.
+Reference scanning recognises `/uploads/…` paths (local) and S3/CDN absolute URLs when `MEDIA_STORAGE_DRIVER=s3`.
 
 | Source | Fields scanned |
 |--------|----------------|
@@ -195,7 +189,7 @@ Reference scanning recognises `/uploads/…` paths (local) and GCS/S3/CDN absolu
 
 **Safety:** files newer than `MEDIA_ORPHAN_MIN_AGE_HOURS` are never deleted (protects uploads not yet saved to MongoDB).
 
-**Triggers (local, GCS, or S3):**
+**Triggers (local or S3):**
 
 | Method | Command / endpoint |
 |--------|-------------------|
@@ -204,7 +198,7 @@ Reference scanning recognises `/uploads/…` paths (local) and GCS/S3/CDN absolu
 | HTTP cron | `GET` or `POST` on `/api/admin/jobs/media-orphan-cleanup` with `?dryRun=true` or `{ "dryRun": true }` |
 | In-process schedule | Set `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS=24` |
 
-**Auth for HTTP job:** Unified `CRON_SECRET` or `NEXUS_CRON_SECRET` Bearer token (Vercel Cron friendly), legacy `MEDIA_ORPHAN_CLEANUP_CRON_SECRET`, or an Admin session. See [scheduled_events.md](./scheduled_events.md) for hosting configurations.
+**Auth for HTTP job:** Unified `CRON_SECRET` or `NEXUS_CRON_SECRET` Bearer token, legacy `MEDIA_ORPHAN_CLEANUP_CRON_SECRET`, or an Admin session. See [scheduled_events.md](./scheduled_events.md).
 
 Example host cron (daily at 03:00):
 
@@ -216,22 +210,11 @@ curl -sS -X POST \
   "$NEXTAUTH_URL/api/admin/jobs/media-orphan-cleanup"
 ```
 
-**GCS auth:** set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON path, or run on GCP with Application Default Credentials. The account needs `storage.objects.list`, `storage.objects.delete`, and `storage.objects.create` on the media bucket.
-
-**S3 auth:** set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or run on AWS with an IAM instance/task role. The principal needs `s3:PutObject`, `s3:DeleteObject`, and `s3:ListBucket` on the media bucket and its object prefixes.
+**S3 auth:** set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or run on AWS EC2 with an IAM instance role. The principal needs `s3:PutObject`, `s3:DeleteObject`, and `s3:ListBucket` on the media bucket and its object prefixes.
 
 ---
 
-## Deployment migration
-
-### Google Cloud Storage
-
-1. Set `MEDIA_STORAGE_DRIVER=gcs` and provision `GCS_MEDIA_BUCKET`.
-2. Optionally set `GCS_MEDIA_PUBLIC_BASE_URL` to your CDN origin.
-3. Optionally run a one-off migration script to copy `public/uploads/**` into the bucket (same `{segment}/{filename}` keys).
-4. Update `next.config.ts` `images.remotePatterns` for avatars/covers served from the CDN hostname.
-
-### Amazon S3
+## Deployment migration (Amazon S3)
 
 1. Set `MEDIA_STORAGE_DRIVER=s3`, `S3_MEDIA_BUCKET`, and `S3_MEDIA_REGION` (or `AWS_REGION`).
 2. Configure the bucket for public read (or front it with CloudFront) and optionally set `S3_MEDIA_PUBLIC_BASE_URL`.
@@ -277,9 +260,8 @@ await importMediaImageFromUrl("https://cdn.example.com/photo.png", { purpose: "p
 - [x] Purpose-based validation (MIME + size) centralised in `mediaStorageRules.ts`
 - [x] SVG uploads rejected at validation (`image/svg+xml` blocked; raster only)
 - [x] Local provider writes to segmented folders under `public/uploads/`
-- [x] GCS provider (`upload`, `delete`, `listInventory`) via `@google-cloud/storage`
 - [x] S3 provider (`upload`, `delete`, `listInventory`) via `@aws-sdk/client-s3`
-- [x] Periodic orphan upload cleanup (DB reference scan; local + GCS + S3)
+- [x] Periodic orphan upload cleanup (DB reference scan; local + S3)
 - [ ] Task report UI integration (Phase 5)
 
 ---
