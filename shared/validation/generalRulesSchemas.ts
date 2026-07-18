@@ -36,7 +36,17 @@ const telegramMessagesSchema = z
     contactPhoneRejected: z.string().trim().min(1).max(2000).optional(),
     broadcastAnnouncementPrefix: z.string().trim().min(1).max(2000).optional(),
     pagePublishedAnnouncement: z.string().trim().min(1).max(2000).optional(),
+    botRegisterPrompt: z.string().trim().min(1).max(2000).optional(),
+    botFinishRegistrationPrompt: z.string().trim().min(1).max(2000).optional(),
   })
+  .optional();
+
+const telegramMessagesByLocaleSchema = z
+  .object({
+    en: telegramMessagesSchema,
+    uk: telegramMessagesSchema,
+  })
+  .partial()
   .optional();
 
 const accessLevelKeySchema = z.enum(
@@ -81,7 +91,9 @@ export const generalRulesUpdateSchema = z.object({
     .optional(),
   blockedWordMessage: z.string().trim().min(1).max(240).optional(),
   weakPasswordMessage: z.string().trim().min(1).max(240).optional(),
+  /** @deprecated Prefer {@link telegramMessagesByLocale}. */
   telegramMessages: telegramMessagesSchema,
+  telegramMessagesByLocale: telegramMessagesByLocaleSchema,
   taskDelegationLimits: taskDelegationLimitsSchema.optional(),
   taskCategories: z.array(taskCategorySchema).max(MAX_TASK_CATEGORIES).optional(),
 });

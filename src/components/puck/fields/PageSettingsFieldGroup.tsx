@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -70,6 +71,8 @@ interface PageSettingsFieldGroupProps {
  */
 export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGroupProps) {
   const router = useRouter();
+  const t = useTranslations("puck.pageSettings");
+  const tChapters = useTranslations("puck.pageChapters");
   const meta = usePageEditorMeta();
   const settings: PageSettingsValue = {
     title: value?.title ?? "Untitled Page",
@@ -195,7 +198,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
     const pagePath = meta.path || editorPagePathRef.currentPath;
     const pageTitle = settings.title.trim() || "Untitled Page";
     const confirmed = window.confirm(
-      `Delete "${pageTitle}" (${pagePath})?\n\nThis permanently removes the page from the database. This cannot be undone.`,
+      t("deleteConfirm", { title: pageTitle, path: pagePath }),
     );
     if (!confirmed) return;
 
@@ -206,16 +209,17 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
       await deletePersistedPage(pagePath);
       router.push("/pages");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete page.");
+      const fallback = t("deleteError");
+      setDeleteError(err instanceof Error && err.message ? err.message : fallback);
     } finally {
       setDeleting(false);
     }
   };
 
   return (
-    <FieldChapter title="Page Details" icon={<SettingsIcon />}>
+    <FieldChapter title={tChapters("pageDetails")} icon={<SettingsIcon />}>
       <div className="nexus-field-category">
-        <FieldLabelRow label="Page Title" />
+        <FieldLabelRow label={t("pageTitle")} />
         <input
           type="text"
           className="nexus-puck-input"
@@ -242,17 +246,17 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
               (e.target as HTMLInputElement).blur();
             }
           }}
-          placeholder="Untitled Page"
+          placeholder={t("untitledPlaceholder")}
         />
       </div>
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="URL Slug"
+          label={t("urlSlug")}
           hint={
             isHomepageSlug
-              ? "The homepage URL cannot be renamed. Create other pages from All Pages to set custom slugs."
-              : "Choose a domain label, then set the page slug — public path is /domain/page_slug."
+              ? t("homepageSlugHint")
+              : t("customSlugHint")
           }
         />
         {isHomepageSlug ? (
@@ -263,7 +267,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
                 className="nexus-puck-input nexus-page-slug-row__input nexus-page-slug-row__locked-value"
                 aria-readonly="true"
               >
-                (homepage — fixed at /)
+                {t("homepageLocked")}
               </span>
             </div>
           </>
@@ -271,16 +275,16 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
           <>
             <div className="nexus-page-auto-slug-row nexus-switch-field">
               <span className="nexus-page-auto-slug-row__label">
-                <span className="nexus-page-auto-slug-row__text">Auto slug from title</span>
+                <span className="nexus-page-auto-slug-row__text">{t("autoSlugLabel")}</span>
                 <NexusFieldHint
-                  text="When enabled, the page slug updates as you type the title. Turn off to set a custom URL manually."
-                  label="About auto slug from title"
+                  text={t("autoSlugHint")}
+                  label={t("autoSlugHintAria")}
                   size="sm"
                 />
               </span>
               <Switch
                 checked={autoSlugFromTitle}
-                aria-label="Auto slug from title"
+                aria-label={t("autoSlugAria")}
                 onCheckedChange={(checked) => {
                   setPageAutoSlugFromTitlePreference(checked);
                   if (checked && !isHomepageSlug) {
@@ -317,8 +321,8 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="Categories"
-          hint={`News-style tags for cards and filters — separate from the URL slug (max ${MAX_PAGE_CATEGORIES}). Search existing labels or create new ones. Press Enter to add.`}
+          label={t("categories")}
+          hint={t("categoriesHint", { max: MAX_PAGE_CATEGORIES })}
         />
         <PageCategoryTagsField
           value={settings.categories ?? []}
@@ -331,8 +335,8 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
       {canDeletePage ? (
         <div className="nexus-field-category nexus-field-category--danger">
           <FieldLabelRow
-            label="Delete"
-            hint="Permanently remove this page and its layout from the database."
+            label={t("delete")}
+            hint={t("deleteHint")}
           />
           <Button
             type="button"
@@ -344,7 +348,7 @@ export function PageSettingsFieldGroup({ value, onChange }: PageSettingsFieldGro
             }}
           >
             <Trash2 size={14} aria-hidden="true" />
-            {deleting ? "Deleting…" : "Delete Page"}
+            {deleting ? t("deleting") : t("deletePage")}
           </Button>
           {deleteError ? (
             <p className="nexus-page-slug-error" role="alert">

@@ -7,7 +7,8 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import type { TelegramAutomationPublicConfig } from "@shared/domains/TelegramWorkspaceDomain";
 import {
@@ -46,6 +47,8 @@ export interface TelegramWorkspaceEditorShellProps {
 export function TelegramWorkspaceEditorShell({
   initialConfig,
 }: TelegramWorkspaceEditorShellProps) {
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.telegramWorkspaces");
   const [config, setConfig] = useState(initialConfig);
   const [savedConfig, setSavedConfig] = useState(initialConfig);
   const [saving, setSaving] = useState(false);
@@ -74,13 +77,13 @@ export function TelegramWorkspaceEditorShell({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(typeof data.error === "string" ? data.error : "Save failed.");
+      setError(typeof data.error === "string" ? data.error : t("saveError"));
       setSaving(false);
       return;
     }
     setConfig(data.config);
     setSavedConfig(data.config);
-    setMessage("Settings saved.");
+    setMessage(t("saveSuccess"));
     setSaving(false);
   }
 
@@ -94,12 +97,13 @@ export function TelegramWorkspaceEditorShell({
             </span>
             <div>
               <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                Telegram project workspaces
+                {tAdmin("hub.telegram-workspaces.title")}
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
-                Control how multi-part projects bind to Telegram groups. Changes apply immediately
-                — no redeploy. Auto-create requires an operator MTProto session in{" "}
-                <code className="text-xs">TELEGRAM_OPERATOR_SESSION</code>.
+                {tAdmin("hub.telegram-workspaces.description")}{" "}
+                {t.rich("sessionHint", {
+                  envVar: () => <code className="text-xs">TELEGRAM_OPERATOR_SESSION</code>,
+                })}
               </p>
             </div>
           </div>
@@ -108,28 +112,28 @@ export function TelegramWorkspaceEditorShell({
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0")}
           >
             <ArrowLeft className="mr-1 size-4" aria-hidden="true" />
-            Admin hub
+            {tAdmin("backToHub")}
           </Link>
         </header>
 
         <div className="flex flex-col gap-6 py-8">
-          <FormAlert variant="info" title="Operator session">
+          <FormAlert variant="info" title={t("operatorSessionTitle")}>
             {config.workerEnvReady
-              ? "telegram-worker env is complete — auto-create runs when the worker container is up."
+              ? t("workerEnvReady")
               : config.operatorSessionConfigured
-                ? "Session string present but worker env incomplete — set TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_BOT_TOKEN on the worker host."
-                : "No operator session configured. Projects use manual /link until TELEGRAM_OPERATOR_SESSION is set."}
+                ? t("workerEnvIncomplete")
+                : t("noOperatorSession")}
           </FormAlert>
 
           <TaskFormCheckbox
-            label="Enable Telegram workspaces"
-            description="When off, no provisioning or dismantle jobs run."
+            label={t("enableWorkspaces")}
+            description={t("enableWorkspacesDesc")}
             checked={config.enabled}
             onChange={(enabled) => setConfig((prev) => ({ ...prev, enabled }))}
           />
 
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Default strategy">
+            <FormField label={t("defaultStrategy")}>
               <Select
                 value={config.defaultStrategy}
                 onValueChange={(value) =>
@@ -140,26 +144,26 @@ export function TelegramWorkspaceEditorShell({
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Strategy" />
+                  <SelectValue placeholder={t("strategyPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto" label="Automatic">
-                    Automatic (session or manual fallback)
+                  <SelectItem value="auto" label={t("strategyAuto")}>
+                    {t("strategyAuto")}
                   </SelectItem>
-                  <SelectItem value="manual_link" label="Manual link">
-                    Manual link only
+                  <SelectItem value="manual_link" label={t("strategyManual")}>
+                    {t("strategyManual")}
                   </SelectItem>
-                  <SelectItem value="user_session" label="Operator session">
-                    Operator session only
+                  <SelectItem value="user_session" label={t("strategySession")}>
+                    {t("strategySession")}
                   </SelectItem>
-                  <SelectItem value="disabled" label="Disabled">
-                    Disabled
+                  <SelectItem value="disabled" label={t("strategyDisabled")}>
+                    {t("strategyDisabled")}
                   </SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="Minimum performers for auto group">
+            <FormField label={t("minPerformers")}>
               <Input
                 type="number"
                 min={0}
@@ -176,8 +180,8 @@ export function TelegramWorkspaceEditorShell({
           </div>
 
           <TaskFormCheckbox
-            label="Auto-provision when project activates"
-            description="Queue workspace setup when a project becomes active."
+            label={t("autoProvision")}
+            description={t("autoProvisionDesc")}
             checked={config.autoProvisionOnActivate}
             onChange={(autoProvisionOnActivate) =>
               setConfig((prev) => ({ ...prev, autoProvisionOnActivate }))
@@ -185,7 +189,7 @@ export function TelegramWorkspaceEditorShell({
           />
 
           <TaskFormCheckbox
-            label="Dismantle workspace when project completes"
+            label={t("dismantleOnComplete")}
             checked={config.dismantleOnComplete}
             onChange={(dismantleOnComplete) =>
               setConfig((prev) => ({ ...prev, dismantleOnComplete }))
@@ -193,18 +197,15 @@ export function TelegramWorkspaceEditorShell({
           />
 
           <TaskFormCheckbox
-            label="Create Telegram forum topic per task part"
-            description="When the linked group has Topics enabled, Nexus opens a branch for each dispatched child task."
+            label={t("forumTopicPerTask")}
+            description={t("forumTopicPerTaskDesc")}
             checked={config.createForumTopicPerTask}
             onChange={(createForumTopicPerTask) =>
               setConfig((prev) => ({ ...prev, createForumTopicPerTask }))
             }
           />
 
-          <FormField
-            label="Task forum topic welcome message"
-            hint="Placeholders: {{taskTitle}}, {{taskUrl}}, {{title}}, {{projectUrl}}"
-          >
+          <FormField label={t("forumWelcome")} hint={t("forumWelcomeHint")}>
             <textarea
               className="min-h-[5rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.taskForumTopicWelcomeTemplate}
@@ -217,7 +218,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="On complete action">
+          <FormField label={t("onCompleteAction")}>
             <Select
               value={config.dismantleAction}
               onValueChange={(value) =>
@@ -228,24 +229,24 @@ export function TelegramWorkspaceEditorShell({
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Action" />
+                <SelectValue placeholder={t("actionPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="archive_notice" label="Post notice">
-                  Post completion notice in group
+                <SelectItem value="archive_notice" label={t("actionArchive")}>
+                  {t("actionArchive")}
                 </SelectItem>
-                <SelectItem value="leave" label="Bot leaves">
-                  Bot leaves the group
+                <SelectItem value="leave" label={t("actionLeave")}>
+                  {t("actionLeave")}
                 </SelectItem>
-                <SelectItem value="none" label="None">
-                  No action
+                <SelectItem value="none" label={t("actionNone")}>
+                  {t("actionNone")}
                 </SelectItem>
               </SelectContent>
             </Select>
           </FormField>
 
           <FormField
-            label="Group title template"
+            label={t("groupTitleTemplate")}
             hint={`Placeholders: ${TELEGRAM_WORKSPACE_TEMPLATE_PLACEHOLDERS.join(", ")}`}
           >
             <Input
@@ -256,7 +257,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Welcome message (after /link)">
+          <FormField label={t("welcomeAfterLink")}>
             <textarea
               className="min-h-[5rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.groupWelcomeTemplate}
@@ -266,7 +267,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Manual link instructions (DM to author)">
+          <FormField label={t("manualLinkInstructions")}>
             <textarea
               className="min-h-[5rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.linkCommandHelpTemplate}
@@ -276,7 +277,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Completion notice">
+          <FormField label={t("completionNotice")}>
             <textarea
               className="min-h-[5rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.dismantleNoticeTemplate}
@@ -288,29 +289,32 @@ export function TelegramWorkspaceEditorShell({
 
           <div className="border-t border-[var(--color-border-default)] pt-6">
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-              Bot task commands
+              {t("botCommandsTitle")}
             </h2>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              `/tasks`, `/task_report`, `/see_report`, and optional `/completed` in DM and linked
-              project groups. Placeholders:{" "}
-              {TELEGRAM_WORKSPACE_TEMPLATE_PLACEHOLDERS.join(", ")}, {"{{index}}"}, {"{{statusLabel}}"}
-              , {"{{dueAtShort}}"}, {"{{description}}"}, {"{{mediaCount}}"}.
+              {t("botCommandsIntro", {
+                placeholders: [
+                  ...TELEGRAM_WORKSPACE_TEMPLATE_PLACEHOLDERS,
+                  "{{index}}",
+                  "{{statusLabel}}",
+                  "{{dueAtShort}}",
+                  "{{description}}",
+                  "{{mediaCount}}",
+                ].join(", "),
+              })}
             </p>
           </div>
 
           <TaskFormCheckbox
-            label="Enable /completed for dispatch admins"
-            description="When off, the bot rejects /completed even for institution admins."
+            label={t("enableCompleted")}
+            description={t("enableCompletedDesc")}
             checked={config.botCompletedCommandEnabled}
             onChange={(botCompletedCommandEnabled) =>
               setConfig((prev) => ({ ...prev, botCompletedCommandEnabled }))
             }
           />
 
-          <FormField
-            label="Report wizard step order"
-            hint="Comma-separated: description, media — media is skipped when a task disallows proof attachments."
-          >
+          <FormField label={t("reportStepOrder")} hint={t("reportStepOrderHint")}>
             <Input
               value={config.reportFlowSteps.join(", ")}
               onChange={(e) => {
@@ -326,7 +330,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Group /tasks line template">
+          <FormField label={t("groupTasksTemplate")}>
             <Input
               value={config.tasksLineTemplate}
               onChange={(e) =>
@@ -335,7 +339,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="DM /tasks line template">
+          <FormField label={t("dmTasksTemplate")}>
             <Input
               value={config.tasksDmLineTemplate}
               onChange={(e) =>
@@ -344,7 +348,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Unlinked group message">
+          <FormField label={t("unlinkedGroupMessage")}>
             <textarea
               className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.tasksUnlinkedGroupTemplate}
@@ -354,7 +358,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Report description prompt">
+          <FormField label={t("reportDescriptionPrompt")}>
             <textarea
               className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.taskReportDescriptionPromptTemplate}
@@ -367,7 +371,7 @@ export function TelegramWorkspaceEditorShell({
             />
           </FormField>
 
-          <FormField label="Report media prompt">
+          <FormField label={t("reportMediaPrompt")}>
             <textarea
               className="min-h-[4rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               value={config.taskReportMediaPromptTemplate}
@@ -382,19 +386,19 @@ export function TelegramWorkspaceEditorShell({
         </div>
 
         {error ? (
-          <FormAlert variant="error" title="Could not save" className="mb-4">
+          <FormAlert variant="error" title={t("saveErrorTitle")} className="mb-4">
             {error}
           </FormAlert>
         ) : null}
         {message ? (
-          <FormAlert variant="success" title="Saved" className="mb-4">
+          <FormAlert variant="success" title={t("saveSuccessTitle")} className="mb-4">
             {message}
           </FormAlert>
         ) : null}
 
         <footer className="flex flex-wrap gap-3 border-t border-[var(--color-border-default)] pt-6">
           <Button type="button" disabled={!isDirty || saving} onClick={() => void handleSave()}>
-            {saving ? "Saving…" : "Save settings"}
+            {saving ? tAdmin("editorToolbar.saving") : t("saveSettings")}
           </Button>
           <Button
             type="button"
@@ -402,7 +406,7 @@ export function TelegramWorkspaceEditorShell({
             disabled={!isDirty || saving}
             onClick={() => setConfig(savedConfig)}
           >
-            Reset
+            {t("reset")}
           </Button>
         </footer>
       </div>

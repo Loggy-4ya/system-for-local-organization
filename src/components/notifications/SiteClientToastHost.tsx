@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import {
   dismissSiteClientToast,
   getSiteClientToasts,
@@ -20,6 +21,7 @@ import { SiteToastCard } from "@/components/notifications/SiteToastCard";
  * @returns Client toast host markup or null when empty.
  */
 export function SiteClientToastHost() {
+  const tToast = useTranslations("notifications.toast");
   const toasts = useSyncExternalStore(
     subscribeSiteClientToasts,
     getSiteClientToasts,
@@ -35,12 +37,12 @@ export function SiteClientToastHost() {
   }
 
   return (
-    <div className="site-notification-toast-group" role="region" aria-label="Notifications">
+    <div className="site-notification-toast-group" role="region" aria-label={tToast("notificationsRegion")}>
       {toasts.map((toast) => (
         <SiteToastCard
           key={toast.id}
           variant={toast.variant}
-          dismissLabel="Dismiss notification"
+          dismissLabel={tToast("dismissNotification")}
           autoDismissMs={toast.durationMs}
           onDismissComplete={() => handleDismissComplete(toast.id)}
         >

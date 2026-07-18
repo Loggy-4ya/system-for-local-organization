@@ -160,7 +160,7 @@ ADMIN_SEED_PASSWORD=
 
 ### `window.ethereum.selectedAddress` TypeError
 
-Not emitted by Nexus application code. Brave and some wallet extensions assign to `window.ethereum` before the provider is injected. Root layout runs a minimal `beforeInteractive` shim (`nexus-wallet-shim`) so `window.ethereum` exists as a stub when extensions race ahead of injection.
+Not emitted by Nexus application code. Brave and some wallet extensions assign to `window.ethereum` before the provider is injected. Locale layout streams a minimal early shim (`nexus-wallet-shim` via `BootstrapInlineScriptsHost`) so `window.ethereum` exists as a stub when extensions race ahead of injection.
 
 
 ## AuthDomain API

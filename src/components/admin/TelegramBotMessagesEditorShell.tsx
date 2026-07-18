@@ -7,16 +7,19 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, MessageCircle } from "lucide-react";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { DEFAULT_BOT_LOCALE } from "@shared/constants/botLocales";
 import type { GeneralRulesPublicConfig } from "@shared/domains/GeneralRulesDomain";
 import type { TelegramMessageTemplateKey } from "@shared/constants/generalRules";
+import { AdminBotLocaleTabs } from "@/components/admin/AdminBotLocaleTabs";
 import { AdminEditorActionToolbar } from "@/components/admin/AdminEditorActionToolbar";
 import { TelegramMessageTemplatesEditor } from "@/components/admin/TelegramMessageTemplatesEditor";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { GlobalLayoutEditorStatusBanner } from "@/components/global-layout/GlobalLayoutEditorStatusBanner";
+import { Link, useRouter } from "@/i18n/navigation";
 import "@/app/global-layout-editor.css";
 
 /** Props for {@link TelegramBotMessagesEditorShell}. */
@@ -40,14 +43,19 @@ export function TelegramBotMessagesEditorShell({
   initialConfig,
 }: TelegramBotMessagesEditorShellProps) {
   const router = useRouter();
+  const t = useTranslations("admin.telegramBotEditor");
+  const tCommon = useTranslations("common.locale");
+  const [editLocale, setEditLocale] = useState<BotLocale>(DEFAULT_BOT_LOCALE);
   const [config, setConfig] = useState(() => cloneConfig(initialConfig));
   const [savedConfig, setSavedConfig] = useState(() => cloneConfig(initialConfig));
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const isDirty = useMemo(
-    () => JSON.stringify(config.telegramMessages) !== JSON.stringify(savedConfig.telegramMessages),
-    [config.telegramMessages, savedConfig.telegramMessages],
+    () =>
+      JSON.stringify(config.telegramMessagesByLocale) !==
+      JSON.stringify(savedConfig.telegramMessagesByLocale),
+    [config.telegramMessagesByLocale, savedConfig.telegramMessagesByLocale],
   );
 
   useEffect(() => {
@@ -76,35 +84,38 @@ export function TelegramBotMessagesEditorShell({
       const res = await fetch("/api/admin/general-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify({ telegramMessagesByLocale: config.telegramMessagesByLocale }),
       });
       const data = (await res.json()) as { error?: string; config?: GeneralRulesPublicConfig };
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to save Telegram bot messages.");
+        throw new Error(data.error ?? t("saveError"));
       }
 
       const next = cloneConfig(data.config ?? config);
       setConfig(next);
       setSavedConfig(next);
-      setStatus({ type: "success", message: "Telegram bot messages saved." });
+      setStatus({ type: "success", message: t("saveSuccess") });
       router.refresh();
     } catch (err) {
       setStatus({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to save Telegram bot messages.",
+        message: err instanceof Error ? err.message : t("saveError"),
       });
     } finally {
       setIsSaving(false);
     }
   }
 
-  /** Update one template key in local state. */
+  /** Update one template key in local state for the active locale. */
   function handleTemplateChange(key: TelegramMessageTemplateKey, value: string) {
     setConfig((prev) => ({
       ...prev,
-      telegramMessages: {
-        ...prev.telegramMessages,
-        [key]: value,
+      telegramMessagesByLocale: {
+        ...prev.telegramMessagesByLocale,
+        [editLocale]: {
+          ...prev.telegramMessagesByLocale[editLocale],
+          [key]: value,
+        },
       },
     }));
   }
@@ -121,26 +132,24 @@ export function TelegramBotMessagesEditorShell({
           className="mb-4 inline-flex items-center gap-2 text-sm text-(--color-text-secondary) no-underline hover:text-(--color-text-primary)"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Back to Administration
+          {t("backToAdmin")}
         </Link>
 
         <div className="flex flex-col gap-1.5">
           <div className="mb-1 flex items-center gap-2 text-primary">
             <MessageCircle size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wide uppercase">Telegram bot</span>
+            <span className="text-xs font-semibold tracking-wide uppercase">{t("eyebrow")}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-            Bot message templates
+            {t("title")}
           </h1>
           <p className="max-w-3xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Default copy for /start, phone harvest, broadcasts, page go-live DMs, and registration
-            prompts. Page publishers can enable Telegram notifications per page in the Puck Publication
-            chapter; delivery still respects each member&apos;s notification preferences.
+            {t("description")}
           </p>
           <p className="text-sm text-(--color-text-secondary)">
-            Content policy and task settings remain on{" "}
+            {t("generalRulesLinkPrefix")}{" "}
             <Link href="/admin/general-rules" className="text-(--color-text-primary) underline">
-              General Rules
+              {t("generalRulesLinkLabel")}
             </Link>
             .
           </p>
@@ -152,8 +161,13 @@ export function TelegramBotMessagesEditorShell({
       ) : null}
 
       <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
+        <AdminBotLocaleTabs
+          value={editLocale}
+          onChange={setEditLocale}
+          labels={{ en: tCommon("en"), uk: tCommon("uk") }}
+        />
         <TelegramMessageTemplatesEditor
-          templates={config.telegramMessages}
+          templates={config.telegramMessagesByLocale[editLocale]}
           onChange={handleTemplateChange}
         />
       </section>

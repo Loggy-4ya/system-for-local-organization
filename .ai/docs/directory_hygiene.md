@@ -81,12 +81,13 @@ See [testing.md](./testing.md) for the full registry and `npm run test:*` script
 
 **For:** CLI entrypoints, maintenance jobs, env tooling, test runner, and long-running workers — **not** imported by the Next.js app.
 
-Index: [`scripts/README.md`](../scripts/README.md).
+**Human guide (commands, when to use each folder):** [`scripts/README.md`](../scripts/README.md).
 
 | Subfolder | Purpose |
 |-----------|---------|
 | `scripts/env/` | `env:init`, dotenvx team staging |
 | `scripts/auth/` | OAuth/Telegram env checks |
+| `scripts/deploy/` | GitHub/AWS environment bootstrap and SSM EC2 rollout |
 | `scripts/dev/tunnel/` | ngrok dev tunnel for local HTTPS OAuth |
 | `scripts/test/` | `runTests.mjs`, `testRegistry.json` |
 | `scripts/jobs/` | Cron/CLI jobs (`mediaOrphanCleanup`, `processScheduledEvents`) |

@@ -7,14 +7,14 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { TaskGroupListRow } from "@shared/domains/TaskGroupDomain";
-import { TASK_GROUP_STATUS_LABELS } from "@shared/constants/taskSettings";
+import type { TaskGroupStatus } from "@shared/constants/taskSettings";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { NexusListPagination } from "@/components/ui/NexusListPagination";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link TaskGroupManagerShell}. */
@@ -25,6 +25,12 @@ export interface TaskGroupManagerShellProps {
 
 type GroupScope = "all" | "authored" | "involved";
 
+const SCOPE_LABEL_KEYS: Record<GroupScope, "scopeAll" | "scopeAuthored" | "scopeInvolved"> = {
+  all: "scopeAll",
+  authored: "scopeAuthored",
+  involved: "scopeInvolved",
+};
+
 /**
  * Institutional task group list at `/task-groups`.
  *
@@ -33,6 +39,8 @@ type GroupScope = "all" | "authored" | "involved";
  */
 export function TaskGroupManagerShell({ canDispatch }: TaskGroupManagerShellProps) {
   const router = useRouter();
+  const t = useTranslations("tasks");
+  const tCommon = useTranslations("common");
   const [groups, setGroups] = useState<TaskGroupListRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -65,23 +73,26 @@ export function TaskGroupManagerShell({ canDispatch }: TaskGroupManagerShellProp
     setPage(1);
   }, [scope]);
 
+  /** Render localized group status label. */
+  function groupStatusLabel(status: TaskGroupStatus): string {
+    return t(`groupStatus.${status}`);
+  }
+
   return (
     <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
       <div className="glass-panel flex w-full flex-col gap-4 rounded-[var(--radius-lg)] p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Projects</h1>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Group related tasks into multi-part projects with long-run reminders.
-            </p>
+            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{t("projects")}</h1>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("groupsSubtitle")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/tasks" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              Tasks
+              {t("title")}
             </Link>
             {canDispatch && (
               <Link href="/task-groups/new" className={cn(buttonVariants({ size: "sm" }))}>
-                New project
+                {t("newProject")}
               </Link>
             )}
           </div>
@@ -102,23 +113,21 @@ export function TaskGroupManagerShell({ canDispatch }: TaskGroupManagerShellProp
               aria-selected={scope === tab}
               onClick={() => setScope(tab)}
               className={cn(
-                "rounded-[6px] px-4 py-2 text-xs font-medium capitalize transition-colors",
+                "rounded-[6px] px-4 py-2 text-xs font-medium transition-colors",
                 scope === tab
                   ? "bg-[var(--color-accent-user)] text-[#0f172a]"
                   : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
               )}
             >
-              {tab}
+              {t(SCOPE_LABEL_KEYS[tab])}
             </button>
           ))}
         </div>
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{tCommon("loading")}</p>
         ) : groups.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No projects found.
-          </p>
+          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("noProjects")}</p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {groups.map((group) => (
@@ -130,12 +139,14 @@ export function TaskGroupManagerShell({ canDispatch }: TaskGroupManagerShellProp
                 >
                   <span className="font-medium text-[var(--color-text-primary)]">{group.title}</span>
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    {TASK_GROUP_STATUS_LABELS[group.status]} · {group.openTaskCount} open /{" "}
-                    {group.taskCount} parts
+                    {groupStatusLabel(group.status)} ·{" "}
+                    {t("openParts", { open: group.openTaskCount, total: group.taskCount })}
                     {group.dueAt
-                      ? ` · due ${new Date(group.dueAt).toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
+                      ? ` · ${t("due", {
+                          date: new Date(group.dueAt).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }),
                         })}`
                       : ""}
                   </span>

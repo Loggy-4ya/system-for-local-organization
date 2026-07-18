@@ -7,6 +7,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
 import { SiteToastCard } from "@/components/notifications/SiteToastCard";
 
@@ -25,6 +26,7 @@ interface BroadcastToast {
  * @returns Toast host portal markup or null when empty / signed out.
  */
 export function SiteBroadcastToastHost() {
+  const tToast = useTranslations("notifications.toast");
   const { status } = useSession();
   const [toasts, setToasts] = useState<BroadcastToast[]>([]);
 
@@ -77,14 +79,14 @@ export function SiteBroadcastToastHost() {
     <div
       className="site-broadcast-toast-host"
       role="region"
-      aria-label="System announcements"
+      aria-label={tToast("announcementsRegion")}
       aria-live="polite"
     >
       {toasts.map((toast) => (
         <SiteToastCard
           key={toast.id}
           variant={toast.variant}
-          dismissLabel="Dismiss announcement"
+          dismissLabel={tToast("dismissAnnouncement")}
           onDismissComplete={() => void finalizeDismiss(toast.id)}
         >
           {toast.title ? <p className="site-broadcast-toast__title">{toast.title}</p> : null}

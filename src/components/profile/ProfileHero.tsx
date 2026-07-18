@@ -4,6 +4,7 @@
  * @module src/components/profile/ProfileHero
  */
 
+import { getTranslations } from "next-intl/server";
 import type { PublicUser } from "@shared/domains/AuthDomain";
 import type { PublicProfileUser } from "@shared/lib/publicProfileRedaction";
 import { formatAcademicGroupSpecialtyLabel } from "@shared/lib/academicCatalogLogic";
@@ -34,38 +35,6 @@ export interface ProfileHeroProps {
 }
 
 /**
- * Format linked identity summary for a full {@link PublicUser}.
- *
- * @param user - Public user record.
- * @returns Identity summary string.
- */
-function formatPublicUserIdentities(user: PublicUser): string {
-  const parts: string[] = [];
-  if (user.login) parts.push(`@${user.login}`);
-  if (user.email) parts.push(user.email);
-  if (user.phone) parts.push(user.phone);
-  if (user.telegramId && user.username) parts.push(`Telegram @${user.username}`);
-  if (user.googleId) parts.push("Google linked");
-  return parts.join(" · ") || "No linked accounts";
-}
-
-/**
- * Format linked identity summary for a redacted {@link PublicProfileUser}.
- *
- * @param user - Redacted profile DTO.
- * @returns Identity summary string.
- */
-function formatPublicProfileIdentities(user: PublicProfileUser): string {
-  const parts: string[] = [];
-  if (user.login) parts.push(`@${user.login}`);
-  if (user.email) parts.push(user.email);
-  if (user.phone) parts.push(user.phone);
-  if (user.username) parts.push(`Telegram @${user.username}`);
-  if (user.linkedGoogle) parts.push("Google linked");
-  return parts.join(" · ") || "Institution member";
-}
-
-/**
  * Resolve socium role badge labels from either profile shape.
  *
  * @param user - Profile user payload.
@@ -77,38 +46,74 @@ function resolveSociumRoleLabels(user: PublicUser | PublicProfileUser): string[]
 }
 
 /**
- * Format last Telegram sync relative label.
- *
- * @param date - Last sync timestamp.
- * @returns Human-readable sync label.
- */
-function formatSync(date: Date | null): string {
-  if (!date) return "Never synced";
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return date.toLocaleDateString();
-}
-
-/**
  * Profile hero block with identity, badges, and contact actions.
  *
  * @param props - See {@link ProfileHeroProps}.
  * @returns Profile hero JSX.
  */
-export function ProfileHero({
+export async function ProfileHero({
   user,
   showSettingsLink = false,
   isSelf,
   publicProfilePath,
 }: ProfileHeroProps) {
+  const t = await getTranslations("profile.hero");
+
+  /**
+   * Format last Telegram sync relative label.
+   *
+   * @param date - Last sync timestamp.
+   * @returns Human-readable sync label.
+   */
+  function formatSync(date: Date | null): string {
+    if (!date) return t("neverSynced");
+    const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
+    if (diffMin < 1) return t("justNow");
+    if (diffMin < 60) return t("minutesAgo", { count: diffMin });
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return t("hoursAgo", { count: diffHr });
+    return date.toLocaleDateString();
+  }
+
+  /**
+   * Format linked identity summary for a full {@link PublicUser}.
+   *
+   * @param publicUser - Public user record.
+   * @returns Identity summary string.
+   */
+  function formatPublicUserIdentities(publicUser: PublicUser): string {
+    const parts: string[] = [];
+    if (publicUser.login) parts.push(`@${publicUser.login}`);
+    if (publicUser.email) parts.push(publicUser.email);
+    if (publicUser.phone) parts.push(publicUser.phone);
+    if (publicUser.telegramId && publicUser.username) {
+      parts.push(`Telegram @${publicUser.username}`);
+    }
+    if (publicUser.googleId) parts.push(t("googleLinked"));
+    return parts.join(" · ") || t("noLinkedAccounts");
+  }
+
+  /**
+   * Format linked identity summary for a redacted {@link PublicProfileUser}.
+   *
+   * @param publicUser - Redacted profile DTO.
+   * @returns Identity summary string.
+   */
+  function formatPublicProfileIdentities(publicUser: PublicProfileUser): string {
+    const parts: string[] = [];
+    if (publicUser.login) parts.push(`@${publicUser.login}`);
+    if (publicUser.email) parts.push(publicUser.email);
+    if (publicUser.phone) parts.push(publicUser.phone);
+    if (publicUser.username) parts.push(`Telegram @${publicUser.username}`);
+    if (publicUser.linkedGoogle) parts.push(t("googleLinked"));
+    return parts.join(" · ") || t("institutionMember");
+  }
+
   const academicLabel = formatAcademicGroupSpecialtyLabel(user.specialty, user.group);
   const isTeacher = "sociumRoles" in user ? isTeacherUser(user.sociumRoles) : false;
   const subtitle = isTeacher
-    ? academicLabel ?? "Teacher"
-    : academicLabel ?? "No specialty / group assigned";
+    ? academicLabel ?? t("teacher")
+    : academicLabel ?? t("noSpecialtyGroup");
   const identityLine =
     "sociumRoles" in user ? formatPublicUserIdentities(user) : formatPublicProfileIdentities(user);
   const sociumRoleLabels = resolveSociumRoleLabels(user);
@@ -142,7 +147,7 @@ export function ProfileHero({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[28px] font-semibold text-[var(--color-text-primary)]">{user.fullName}</h1>
-                {viewerIsSelf && <ProfileBadge kind="self">You</ProfileBadge>}
+                {viewerIsSelf && <ProfileBadge kind="self">{t("youBadge")}</ProfileBadge>}
               </div>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{identityLine}</p>
@@ -159,7 +164,7 @@ export function ProfileHero({
 
           <div className="mt-4 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-3">
             <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
-              Role in the system
+              {t("roleInSystem")}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ProfileBadge kind="access_level">{accessLevelLabel}</ProfileBadge>
@@ -178,22 +183,20 @@ export function ProfileHero({
               </ProfileBadge>
             ))}
             {user.warnings > 0 && (
-              <ProfileBadge kind="warning">
-                {user.warnings} warning{user.warnings === 1 ? "" : "s"}
-              </ProfileBadge>
+              <ProfileBadge kind="warning">{t("warnings", { count: user.warnings })}</ProfileBadge>
             )}
           </div>
         </div>
 
         {showTelegramSync && user.lastTelegramSyncAt && (
           <div className="glass-panel shrink-0 rounded-[var(--radius-md)] border border-[var(--color-border-default)] px-3 py-2.5 text-xs">
-            <p className="font-medium text-[var(--color-text-secondary)]">Last sync</p>
+            <p className="font-medium text-[var(--color-text-secondary)]">{t("lastSync")}</p>
             <p className="mt-0.5 text-[var(--color-text-primary)]">
-              Telegram bot · {formatSync(user.lastTelegramSyncAt)}
+              {t("telegramBotSync", { time: formatSync(user.lastTelegramSyncAt) })}
             </p>
             {user.phone && (
               <p className="mt-0.5 text-[var(--color-text-secondary)]">
-                Phone {user.phone.slice(0, 4)}… · Avatar updated
+                {t("phoneAvatarUpdated", { phonePrefix: user.phone.slice(0, 4) })}
               </p>
             )}
           </div>

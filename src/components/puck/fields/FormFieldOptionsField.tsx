@@ -7,6 +7,7 @@
  */
 
 import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 import {
   MAX_FORM_FIELD_OPTIONS,
@@ -17,11 +18,11 @@ import {
   answerModeToGradingParts,
   coerceFormFieldOptionsForGrading,
   createFormFieldOptionId,
-  getFormFieldOptionsEditorHint,
   isQuizGradingMode,
   resolveFormFieldAnswerMode,
   type FormFieldOptionProps,
 } from "@shared/lib/formFieldLogic";
+import { translateFormFieldOptionsEditorHint } from "../lib/translateFormFieldOptionsEditorHint";
 import { EditorDropSlot } from "@/components/global-layout/EditorDropSlot";
 import { EditorDragHandle } from "@/components/global-layout/EditorDragHandle";
 import { useEditorSortableList } from "@/components/global-layout/useEditorSortableList";
@@ -110,6 +111,7 @@ function OptionLabelInput({
  * @returns Options editor UI.
  */
 export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptionsFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const answerMode = useNexusPuck((state) =>
     selectNexusInputAnswerMode(state.selectedItem?.props as Record<string, unknown> | undefined),
   );
@@ -121,7 +123,7 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
   );
 
   const showCorrectControls = isQuizGradingMode(gradingMode);
-  const hint = getFormFieldOptionsEditorHint(answerMode, options);
+  const hint = translateFormFieldOptionsEditorHint(answerMode, options, t);
 
   const commitOptions = useCallback(
     (next: FormFieldOptionProps[]) => {
@@ -184,8 +186,8 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
   return (
     <div className="nexus-form-field-options nexus-sidebar-field">
       <FieldLabelRow
-        label={field.label ?? "Answer Options"}
-        hint="Drag rows to reorder. Quiz modes show a Correct badge on each option."
+        label={field.label ?? t("formOptionsDefaultLabel")}
+        hint={t("formOptionsHint")}
       />
 
       <p
@@ -202,7 +204,7 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
 
       <div className="nexus-form-field-options__list">
         {options.map((option, index) => {
-          const placeholder = `Option ${index + 1}`;
+          const placeholder = t("formOptionsOptionPlaceholder", { n: index + 1 });
           const label = option.label.trim() || placeholder;
           const isCorrect = option.isCorrect === "yes";
 
@@ -214,7 +216,7 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
                 className={sortable.getRowClassName(index, "nexus-form-field-options__row")}
               >
                 <div className="nexus-form-field-options__row-head">
-                  <EditorDragHandle {...sortable.getHandleProps(index)} label={`Reorder ${label}`} />
+                  <EditorDragHandle {...sortable.getHandleProps(index)} label={t("formOptionsReorder", { label })} />
                   <OptionLabelInput
                     value={option.label}
                     placeholder={placeholder}
@@ -222,19 +224,23 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
                   />
                   {showCorrectControls ? (
                     <EditorFlagBadge
-                      label="Correct"
+                      label={t("formOptionsCorrect")}
                       icon={<CheckCircle2 size={11} aria-hidden />}
                       active={isCorrect}
                       activeVariant="default"
-                      ariaLabel={`${label} — ${isCorrect ? "marked correct" : "not correct"}`}
+                      ariaLabel={
+                        isCorrect
+                          ? t("formOptionsMarkedCorrect", { label })
+                          : t("formOptionsNotCorrect", { label })
+                      }
                       tooltip={
                         gradingMode === "single"
                           ? isCorrect
-                            ? "Correct answer (click to clear)"
-                            : "Mark as the only correct answer"
+                            ? t("formOptionsSingleClear")
+                            : t("formOptionsSingleMark")
                           : isCorrect
-                            ? "Correct answer (click to unmark)"
-                            : "Mark as a correct answer"
+                            ? t("formOptionsMultiUnmark")
+                            : t("formOptionsMultiMark")
                       }
                       onToggle={() => toggleCorrect(index)}
                     />
@@ -243,7 +249,7 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
                     type="button"
                     className="nexus-form-field-options__remove"
                     disabled={options.length <= MIN_FORM_FIELD_OPTIONS}
-                    aria-label={`Remove ${label}`}
+                    aria-label={t("formOptionsRemove", { label })}
                     onClick={() => removeOption(index)}
                   >
                     <Trash2 size={13} aria-hidden />
@@ -263,7 +269,7 @@ export function FormFieldOptionsField({ field, value, onChange }: FormFieldOptio
         onClick={addOption}
       >
         <Plus aria-hidden size={13} />
-        Add option
+        {t("formOptionsAdd")}
       </button>
     </div>
   );

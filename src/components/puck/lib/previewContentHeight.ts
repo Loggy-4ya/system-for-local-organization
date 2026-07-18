@@ -28,6 +28,7 @@ import {
   resolvePuckPreviewModeFromDocument,
   type PuckPreviewMode,
 } from "@/components/puck/lib/puckPreviewMode";
+import { resolvePuckPreviewDocument } from "@/components/puck/lib/previewIframeDocumentReady";
 
 /** CSS selector for the primary page content column inside the preview iframe. */
 export const PREVIEW_PAGE_CONTENT_SLOT_SELECTOR = ".global-layout-page-content-slot";
@@ -265,12 +266,7 @@ export function clampPuckRootHeightToMeasuredContent(
  * @returns Preview document or null when unavailable.
  */
 export function resolvePreviewIframeDocument(): Document | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
-  return iframe?.contentDocument ?? null;
+  return resolvePuckPreviewDocument();
 }
 
 /**
@@ -396,15 +392,13 @@ export function installPreviewContentHeightSync(onChange: () => void): () => voi
     schedule();
   };
 
-  const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
-  const existingDoc = iframe?.contentDocument ?? null;
-  if (existingDoc?.body) {
-    attachToPreviewDocument(existingDoc);
+  const previewDoc = resolvePuckPreviewDocument();
+  if (previewDoc?.body) {
+    attachToPreviewDocument(previewDoc);
   }
 
   mountObserver = new MutationObserver(() => {
-    const frame = document.getElementById("preview-frame") as HTMLIFrameElement | null;
-    const doc = frame?.contentDocument ?? null;
+    const doc = resolvePuckPreviewDocument();
     if (doc?.body) {
       attachToPreviewDocument(doc);
     }

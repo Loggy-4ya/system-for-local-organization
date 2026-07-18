@@ -7,6 +7,7 @@
  */
 
 import { useGetPuck } from "@puckeditor/core";
+import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { formatListStepLabel } from "../lib/arrayItemLabels";
 import { FieldLabelRow } from "./FieldLabelRow";
@@ -40,6 +41,7 @@ export function ListStepLabelField({
   value,
   onChange,
 }: ListStepLabelFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const getPuck = useGetPuck();
   const parsed = parseListStepFieldPath(name);
   const parentIndex = parsed?.parentIndex ?? null;
@@ -67,12 +69,12 @@ export function ListStepLabelField({
 
   const placeholder =
     parentIndex === null
-      ? "Step"
+      ? t("listStepPlaceholder")
       : formatListStepLabel(parentIndex);
 
   return (
     <div className="nexus-list-step-field nexus-sidebar-field">
-      <FieldLabelRow label="Sidebar name" hint="Shown in the Steps array list above." />
+      <FieldLabelRow label={t("listStepSidebarLabel")} hint={t("listStepSidebarHint")} />
       <input
           type="text"
           className="nexus-puck-input"

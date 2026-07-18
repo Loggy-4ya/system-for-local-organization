@@ -149,6 +149,7 @@ export interface PublicUser {
   teacherAccessApproved: boolean;
   personalDataConsentAt: Date | null;
   notificationChannels: TaskReminderChannel[];
+  preferredLocale: "en" | "uk" | null;
   webNotificationPromptAt: Date | null;
   lastTelegramSyncAt: Date | null;
   createdAt: Date;
@@ -1006,6 +1007,7 @@ export const AuthDomain = {
       teacherAccessApproved: d.teacherAccessApproved ?? true,
       personalDataConsentAt: d.personalDataConsentAt ?? null,
       notificationChannels: normalizeUserNotificationChannels(d.notificationChannels),
+      preferredLocale: d.preferredLocale ?? null,
       webNotificationPromptAt: d.webNotificationPromptAt ?? null,
       lastTelegramSyncAt: d.lastTelegramSyncAt ?? null,
       createdAt: d.createdAt,

@@ -101,6 +101,7 @@ import {
   shouldDispatchPageMentionNotifications,
 } from "@shared/lib/pageMentionNotificationLogic";
 import { formatTelegramPagePublishedMessage } from "@shared/lib/telegramPagePublishFormat";
+import { resolveBotLocale } from "@shared/lib/resolveBotLocale";
 import { buildInboxDeliveryKey } from "@shared/lib/notificationInboxLogic";
 import { userAcceptsNotificationChannel } from "@shared/lib/userNotificationSettingsLogic";
 import type { NotificationInboxChannel } from "@shared/constants/notificationInbox";
@@ -1508,11 +1509,12 @@ async function dispatchPageGoLiveNotifications(
   const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
   const actionHref = buildPagePublishActionHref(baseUrl, snapshot.path);
   const { title, body } = buildPagePublishNotificationCopy(snapshot.title, snapshot.description);
-  const telegramText = formatTelegramPagePublishedMessage(title, body, actionHref);
   const deliveryKey = buildInboxDeliveryKey("page_published", snapshot.path);
   const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
 
-  const users = await User.find({}).select("_id telegramId notificationChannels").lean();
+  const users = await User.find({})
+    .select("_id telegramId notificationChannels preferredLocale")
+    .lean();
 
   for (const user of users) {
     const userId = String(user._id);
@@ -1548,6 +1550,8 @@ async function dispatchPageGoLiveNotifications(
       typeof user.telegramId === "number" &&
       user.telegramId > 0
     ) {
+      const locale = resolveBotLocale({ preferredLocale: user.preferredLocale ?? null });
+      const telegramText = formatTelegramPagePublishedMessage(title, body, actionHref, locale);
       await TelegramBotDomain.sendDirectMessage(botToken, user.telegramId, telegramText).catch(
         () => undefined,
       );

@@ -3,6 +3,7 @@
  *
  * Shared by the server page (`searchParams`) and the client shell (tab links).
  * Kept outside `"use client"` modules so server components can call the resolver.
+ * Tab labels are resolved in the client via `admin.systemLogs.sections`.
  *
  * @module src/lib/systemLogsSections
  */
@@ -10,18 +11,10 @@
 /** Supported log section identifiers (URL `section` query param). */
 export type SystemLogsSectionId = "content-sanitization" | "user-directory";
 
-/** Section registry entry. */
-export interface SystemLogsSection {
-  /** Stable section id for deep links. */
-  id: SystemLogsSectionId;
-  /** Short tab label. */
-  label: string;
-}
-
-/** Canonical section list (display order). */
-export const SYSTEM_LOG_SECTIONS: SystemLogsSection[] = [
-  { id: "content-sanitization", label: "Content sanitization" },
-  { id: "user-directory", label: "User directory" },
+/** Canonical section ids (display order). */
+export const SYSTEM_LOG_SECTION_IDS: SystemLogsSectionId[] = [
+  "content-sanitization",
+  "user-directory",
 ];
 
 /**
@@ -36,5 +29,5 @@ export function resolveSystemLogsSectionId(
   if (raw === "user-directory" || raw === "content-sanitization") {
     return raw;
   }
-  return SYSTEM_LOG_SECTIONS[0]!.id;
+  return SYSTEM_LOG_SECTION_IDS[0]!;
 }

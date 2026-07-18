@@ -7,9 +7,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { FormField } from "@/components/ui/form-field";
 import { assessPasswordStrength } from "@shared/lib/passwordStrength";
+import { CONTENT_POLICY_WEAK_PASSWORD_MESSAGE } from "@shared/constants/contentPolicy";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link PasswordStrengthField}. */
@@ -32,7 +34,16 @@ export interface PasswordStrengthFieldProps {
   disabled?: boolean;
 }
 
-const STRENGTH_LABELS = ["Very weak", "Weak", "Fair", "Good", "Strong"] as const;
+const STRENGTH_KEYS = ["veryWeak", "weak", "fair", "good", "strong"] as const;
+
+/** Maps canonical English issue strings from {@link assessPasswordStrength} to message keys. */
+const ISSUE_KEY_BY_ENGLISH: Record<string, "tooShort" | "sameAsLogin" | "tooCommon" | "repeatedChar" | "mixRequired"> = {
+  "Password must be at least 8 characters.": "tooShort",
+  "Password cannot be the same as your login.": "sameAsLogin",
+  [CONTENT_POLICY_WEAK_PASSWORD_MESSAGE]: "tooCommon",
+  "Password cannot be a single repeated character.": "repeatedChar",
+  "Use a mix of letters, numbers, or symbols (at least two character types).": "mixRequired",
+};
 
 /**
  * Password field with strength meter and issue list for signup flows.
@@ -50,6 +61,8 @@ export function PasswordStrengthField({
   autoComplete = "new-password",
   disabled = false,
 }: PasswordStrengthFieldProps) {
+  const tStrength = useTranslations("auth.passwordStrength");
+
   const assessment = useMemo(
     () => (value ? assessPasswordStrength(value, login) : null),
     [value, login],
@@ -57,7 +70,7 @@ export function PasswordStrengthField({
 
   const strengthLabel =
     assessment && value.length > 0
-      ? STRENGTH_LABELS[Math.max(0, assessment.score)]
+      ? tStrength(STRENGTH_KEYS[Math.max(0, assessment.score)])
       : null;
 
   return (
@@ -99,9 +112,10 @@ export function PasswordStrengthField({
 
             {assessment.issues.length > 0 && (
               <ul className="list-inside list-disc text-xs text-(--color-text-secondary)">
-                {assessment.issues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
+                {assessment.issues.map((issue) => {
+                  const key = ISSUE_KEY_BY_ENGLISH[issue];
+                  return <li key={issue}>{key ? tStrength(key) : issue}</li>;
+                })}
               </ul>
             )}
           </div>

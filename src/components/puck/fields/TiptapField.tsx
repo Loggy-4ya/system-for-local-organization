@@ -10,6 +10,7 @@
  */
 
 import { FieldLabel } from "@puckeditor/core";
+import { useTranslations } from "next-intl";
 import { NexusRichTextEditor } from "@/components/editor/NexusRichTextEditor";
 import { useNexusPuck } from "../lib/useNexusPuck";
 import {
@@ -32,6 +33,7 @@ interface TiptapFieldProps {
  * @returns Rich text editor inside a {@link FieldLabel}.
  */
 export function TiptapField({ field, value, onChange }: TiptapFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const selectedItem = useNexusPuck((state) => state.selectedItem);
 
   const blockProps = selectedItem?.props as {
@@ -58,7 +60,7 @@ export function TiptapField({ field, value, onChange }: TiptapFieldProps) {
           onChange={onChange}
           variant="full"
           className="nexus-rich-text-editor--puck"
-          placeholder="Write body text… Type @ to mention, / for commands."
+          placeholder={t("tiptapPlaceholder")}
           minHeight={160}
         />
       </div>

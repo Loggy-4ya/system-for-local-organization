@@ -4,7 +4,7 @@
  * @module src/components/profile/ProfileMemberTelegramBanner
  */
 
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import {
@@ -12,6 +12,7 @@ import {
   SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT,
 } from "@shared/lib/userProfileCompleteness";
 import { MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH } from "@/lib/profileOnboardingGate";
+import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,8 @@ export async function ProfileMemberTelegramBanner() {
     return null;
   }
 
+  const t = await getTranslations("profile.telegramBanner");
+
   return (
     <div
       className="border-b border-[var(--color-accent-warning,#f59e0b)]/40 bg-[var(--color-bg-panel)] px-4 py-3"
@@ -44,7 +47,7 @@ export async function ProfileMemberTelegramBanner() {
           href={MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH}
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
         >
-          Connect Telegram
+          {t("connect")}
         </Link>
       </div>
     </div>

@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import type { IslandProps, SpacingToken } from "../lib/spacingFields";
 import { normalizeIslandMaxWidthSelect } from "../lib/spacingFields";
 import {
@@ -28,6 +29,7 @@ import { FieldChapter, IslandIcon } from "./FieldChapter";
 import { FieldLabelRow } from "./FieldLabelRow";
 import { PuckSelectField } from "./PuckSelectField";
 import { PuckSwitchField } from "./PuckSwitchField";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 
 const PADDING_UNITS: SpacingCustomUnit[] = ["px", "rem", "em", "%"];
 const WIDTH_UNITS: SpacingCustomUnit[] = ["px", "rem", "%"];
@@ -100,6 +102,8 @@ function ColorRow({
  */
 export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   const island = value ?? {};
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
   const enabled = Boolean(island.islandEnabled);
   const widthToken = normalizeIslandMaxWidthSelect(island.islandMaxWidth);
   const paddingToken = (island.islandPadding ?? "md") as SpacingToken;
@@ -124,15 +128,13 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   const blockedReason = useMemo(() => {
     if (!selectedId || !puckData) return undefined;
     if (hasAncestorWithActiveIsland(puckData, selectedId)) {
-      return "Disabled — parent block already uses island mode.";
+      return tLabels("island_blocked_parent");
     }
     return undefined;
-  }, [puckData, selectedId]);
+  }, [puckData, selectedId, tLabels]);
 
   const slotShellHint =
-    inSlotShell && !enabled && !blockedByParent
-      ? "Off by default in carousel and tab slides — enable if you need an extra frame."
-      : undefined;
+    inSlotShell && !enabled && !blockedByParent ? tLabels("island_slot_hint") : undefined;
 
   const set = <K extends keyof IslandProps>(key: K, next: IslandProps[K]) => {
     if (island[key] === next) return;
@@ -146,27 +148,24 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
     });
   };
 
-  const layoutWidthHint =
-    !enabled
-      ? "Applies even when island mode is off. Choose Full Width for edge-to-edge blocks on full-width pages."
-      : undefined;
+  const layoutWidthHint = !enabled ? tLabels("island_layout_width_hint") : undefined;
 
   const layoutControls = (
     <div className="nexus-field-category">
       <FieldLabelRow
-        label={enabled ? "Layout" : "Content width"}
+        label={enabled ? tLabels("layout") : tLabels("content_width")}
         hint={layoutWidthHint}
       />
       <div className="nexus-field-grid nexus-field-grid--stack">
         <div className="nexus-field-grid__cell">
-          <span className="nexus-field-grid__label">Max width</span>
+          <span className="nexus-field-grid__label">{tLabels("max_width")}</span>
           <PuckSelectField
             value={widthToken}
             onChange={(next) =>
               set("islandMaxWidth", next as IslandProps["islandMaxWidth"])
             }
             options={ISLAND_MAX_WIDTH_OPTIONS.map((opt) => ({
-              label: opt.label,
+              label: translatePuckSidebarCopy(opt.label, tOptions),
               value: opt.value,
             }))}
           />
@@ -175,21 +174,21 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
               value={island.islandMaxWidthCustom}
               onChange={(next) => set("islandMaxWidthCustom", next)}
               units={WIDTH_UNITS}
-              ariaLabel="Custom max width"
+              ariaLabel={tLabels("custom_max_width")}
             />
           ) : null}
         </div>
         <div className="nexus-field-grid__cell">
-          <span className="nexus-field-grid__label">Align</span>
+          <span className="nexus-field-grid__label">{tLabels("align")}</span>
           <PuckSelectField
             value={island.islandAlign ?? "center"}
             onChange={(next) =>
               set("islandAlign", next as IslandProps["islandAlign"])
             }
             options={[
-              { label: "Left", value: "left" },
-              { label: "Center", value: "center" },
-              { label: "Right", value: "right" },
+              { label: translatePuckSidebarCopy("Left", tOptions), value: "left" },
+              { label: translatePuckSidebarCopy("Center", tOptions), value: "center" },
+              { label: translatePuckSidebarCopy("Right", tOptions), value: "right" },
             ]}
           />
         </div>
@@ -198,10 +197,10 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
   );
 
   return (
-    <FieldChapter title="Island" icon={<IslandIcon />}>
+    <FieldChapter title={tLabels("island")} icon={<IslandIcon />}>
       <div className="nexus-field-category">
         <PuckSwitchField
-          label="Island mode"
+          label={tLabels("island_mode")}
           value={enabled ? "on" : "off"}
           onChange={handleIslandToggle}
           trueValue="on"
@@ -216,16 +215,16 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
       {enabled && !blockedByParent ? (
         <>
           <div className="nexus-field-category">
-            <span className="nexus-field-category__label">Colors</span>
+            <span className="nexus-field-category__label">{tLabels("colors")}</span>
             <div className="nexus-field-grid nexus-field-grid--stack">
               <ColorRow
-                label="Fill"
+                label={tLabels("fill")}
                 group="island-fill"
                 value={island.islandFillPreset ?? "glass-panel"}
                 onChange={(v) => set("islandFillPreset", v)}
               />
               <ColorRow
-                label="Border"
+                label={tLabels("border")}
                 group="island-border"
                 value={island.islandBorderPreset ?? "border-default"}
                 onChange={(v) => set("islandBorderPreset", v)}
@@ -234,17 +233,17 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
           </div>
 
           <div className="nexus-field-category">
-            <span className="nexus-field-category__label">Shape</span>
+            <span className="nexus-field-category__label">{tLabels("shape")}</span>
             <div className="nexus-field-grid nexus-field-grid--stack">
               <div className="nexus-field-grid__cell">
-                <span className="nexus-field-grid__label">Border</span>
+                <span className="nexus-field-grid__label">{tLabels("border")}</span>
                 <PuckSelectField
                   value={borderWidthToken}
                   onChange={(next) =>
                     set("islandBorderWidth", next as IslandProps["islandBorderWidth"])
                   }
                   options={ISLAND_BORDER_WIDTH_OPTIONS.map((opt) => ({
-                    label: opt.label,
+                    label: translatePuckSidebarCopy(opt.label, tOptions),
                     value: opt.value,
                   }))}
                 />
@@ -253,19 +252,19 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                     value={island.islandBorderWidthCustom}
                     onChange={(next) => set("islandBorderWidthCustom", next)}
                     units={BORDER_UNITS}
-                    ariaLabel="Custom island border width"
+                    ariaLabel={tLabels("custom_border_width")}
                   />
                 ) : null}
               </div>
               <div className="nexus-field-grid__cell">
-                <span className="nexus-field-grid__label">Radius</span>
+                <span className="nexus-field-grid__label">{tLabels("corner_radius")}</span>
                 <PuckSelectField
                   value={radiusToken}
                   onChange={(next) =>
                     set("islandRadius", next as IslandProps["islandRadius"])
                   }
                   options={ISLAND_RADIUS_OPTIONS.map((opt) => ({
-                    label: opt.label,
+                    label: translatePuckSidebarCopy(opt.label, tOptions),
                     value: opt.value,
                   }))}
                 />
@@ -274,17 +273,17 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                     value={island.islandRadiusCustom}
                     onChange={(next) => set("islandRadiusCustom", next)}
                     units={RADIUS_UNITS}
-                    ariaLabel="Custom island corner radius"
+                    ariaLabel={tLabels("custom_corner_radius")}
                   />
                 ) : null}
               </div>
               <div className="nexus-field-grid__cell">
-                <span className="nexus-field-grid__label">Padding</span>
+                <span className="nexus-field-grid__label">{tLabels("padding")}</span>
                 <PuckSelectField
                   value={paddingToken}
                   onChange={(next) => set("islandPadding", next as SpacingToken)}
                   options={SPACING_TOKEN_LABELS.map((opt) => ({
-                    label: opt.label,
+                    label: translatePuckSidebarCopy(opt.label, tOptions),
                     value: opt.value,
                   }))}
                 />
@@ -304,7 +303,7 @@ export function IslandFieldGroup({ value, onChange }: IslandFieldGroupProps) {
                     value={island.islandPaddingCustom}
                     onChange={(next) => set("islandPaddingCustom", next)}
                     units={PADDING_UNITS}
-                    ariaLabel="Custom island padding"
+                    ariaLabel={tLabels("custom_island_padding")}
                   />
                 ) : null}
               </div>

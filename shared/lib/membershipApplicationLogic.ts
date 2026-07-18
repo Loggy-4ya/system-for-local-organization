@@ -9,6 +9,7 @@
 import {
   buildProfileCompletenessSummary,
   isProfileReadyForMembershipApplication,
+  type ProfileCompletenessField,
   type ProfileCompletenessSlice,
 } from "@shared/lib/userProfileCompleteness";
 import { isSelfGovernmentMember, isTeacherAccessApproved, isTeacherUser } from "@shared/lib/userSociumHelpers";
@@ -21,8 +22,10 @@ export interface MembershipApplicationStatusDto {
   hasActiveApplication: boolean;
   /** Profile prerequisites satisfied for submission. */
   readyForSubmission: boolean;
-  /** Missing field labels when not ready. */
+  /** Missing field labels when not ready (English — prefer {@link missingFields} in UI). */
   missingFieldLabels: string[];
+  /** Missing field keys for client-side i18n. */
+  missingFields: ProfileCompletenessField[];
   /** Whether the applicant registered as a teacher. */
   isTeacherApplicant: boolean;
   /** Whether teacher access has been approved (always true for non-teachers). */
@@ -46,6 +49,7 @@ export function buildMembershipApplicationStatus(
       Boolean(user.selfGovernmentApplicationIntent) && !summary.isSelfGovernmentMember,
     readyForSubmission: summary.readyForMembershipApplication,
     missingFieldLabels: summary.missingFieldLabels,
+    missingFields: summary.missingFields,
     isTeacherApplicant: summary.isTeacherApplicant,
     teacherAccessApproved: summary.teacherAccessApproved,
   };

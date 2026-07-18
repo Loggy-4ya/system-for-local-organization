@@ -7,10 +7,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowUpRight, Clock3 } from "lucide-react";
 import type { TaskListRow } from "@shared/domains/TaskDomain";
-import { TASK_STATUS_LABELS } from "@shared/constants/taskSettings";
+import type { TaskStatus } from "@shared/constants/taskSettings";
 import {
   formatProfileTaskMetaLine,
   formatProfileTaskRelativeTime,
@@ -19,6 +19,7 @@ import {
   sortProfileTaskRows,
 } from "@shared/lib/profileTaskDisplayLogic";
 import { ProfileTaskStatusStrip } from "@/components/profile/ProfileTaskStatusStrip";
+import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,8 @@ export function ProfileTasksPanel({
   readOnly = false,
   initialOpenByStatus,
 }: ProfileTasksPanelProps) {
+  const t = useTranslations("profile.tasksPanel");
+  const tTasks = useTranslations("tasks");
   const [tasks, setTasks] = useState<TaskListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,21 +128,24 @@ export function ProfileTasksPanel({
     setError(result.error);
   }
 
+  /** Localized task status label. */
+  function taskStatusLabel(status: TaskStatus): string {
+    return tTasks(`status.${status}`);
+  }
+
   return (
     <div className="glass-panel flex flex-1 flex-col gap-3 rounded-[var(--radius-md)] p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Current tasks</h2>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-            Latest open assignments sorted by urgency
-          </p>
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h2>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t("subtitle")}</p>
         </div>
         {!readOnly && (
           <Link
             href="/tasks"
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1 text-[var(--color-accent-user)]")}
           >
-            Manage all
+            {t("manageAll")}
             <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </Link>
         )}
@@ -148,15 +154,13 @@ export function ProfileTasksPanel({
       {!loading && !error && <ProfileTaskStatusStrip openByStatus={openByStatus} />}
 
       {loading && (
-        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">Loading tasks…</p>
+        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">{t("loading")}</p>
       )}
       {error && (
-        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">{error}</p>
+        <p className="py-6 text-center text-sm text-[var(--color-text-secondary)]">{t("loadError")}</p>
       )}
       {!loading && !error && tasks.length === 0 && (
-        <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">
-          No open tasks assigned right now.
-        </p>
+        <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("noOpenAssigned")}</p>
       )}
 
       <div className="flex flex-col gap-2">
@@ -197,21 +201,21 @@ export function ProfileTasksPanel({
 
             <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
               <span className={cn("badge", profileTaskStatusBadgeClass(task.status))}>
-                {TASK_STATUS_LABELS[task.status]}
+                {taskStatusLabel(task.status)}
               </span>
               {!readOnly && task.status === "dispatched" && (
                 <Button variant="outline" size="sm" type="button" onClick={() => void handleAcknowledge(task.id)}>
-                  Confirm receipt
+                  {t("acknowledge")}
                 </Button>
               )}
               {!readOnly && task.status !== "dispatched" && (
                 <Link href={`/tasks/${task.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-                  Open
+                  {t("open")}
                 </Link>
               )}
               {readOnly && (
                 <Link href={`/tasks/${task.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                  View task
+                  {t("viewTask")}
                 </Link>
               )}
             </div>

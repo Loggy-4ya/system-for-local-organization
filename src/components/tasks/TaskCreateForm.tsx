@@ -7,8 +7,9 @@
  */
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import type { ITaskMediaRef, ITaskReminderSettings } from "@shared/models/Task";
 import type { TaskAssignmentNotifyTarget } from "@shared/constants/taskSettings";
@@ -48,6 +49,8 @@ import { cn } from "@/lib/utils";
 export function TaskCreateForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("tasks.create");
+  const tTasks = useTranslations("tasks");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueAt, setDueAt] = useState<string | null>(null);
@@ -77,7 +80,7 @@ export function TaskCreateForm() {
     setError(null);
 
     if (performers.length === 0) {
-      setError("Add at least one performer using the search field.");
+      setError(t("performersRequired"));
       setSaving(false);
       return;
     }
@@ -118,7 +121,7 @@ export function TaskCreateForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(typeof data.error === "string" ? data.error : "Failed to create task.");
+      setError(typeof data.error === "string" ? data.error : t("createFailed"));
       setSaving(false);
       return;
     }
@@ -143,11 +146,10 @@ export function TaskCreateForm() {
             </span>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-                New task
+                {t("title")}
               </h1>
               <p className="mt-1 max-w-xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                Describe the assignment, set a deadline, assign performers, and configure optional
-                reminders.
+                {t("subtitle")}
               </p>
             </div>
           </div>
@@ -155,24 +157,24 @@ export function TaskCreateForm() {
             href="/tasks"
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0")}
           >
-            Cancel
+            {t("cancel")}
           </Link>
         </header>
 
         <div className="flex flex-col gap-8 py-8">
-          <TaskFormSection title="Task details" description="What needs to be done and any supporting media.">
-            <FormField label="Title" required htmlFor="task-title">
+          <TaskFormSection title={t("sectionDetailsTitle")} description={t("sectionDetailsDesc")}>
+            <FormField label={t("titleLabel")} required htmlFor="task-title">
               <Input
                 id="task-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 maxLength={200}
-                placeholder="Short headline for the assignment"
+                placeholder={t("titlePlaceholder")}
               />
             </FormField>
 
-            <FormField label="Description">
+            <FormField label={t("descriptionLabel")}>
               <TaskDescriptionField
                 value={description}
                 onChange={setDescription}
@@ -181,20 +183,20 @@ export function TaskCreateForm() {
             </FormField>
 
             <FormField
-              label="Explanation media"
-              hint="Photos or videos that clarify the assignment."
+              label={t("explanationMediaLabel")}
+              hint={t("explanationMediaHint")}
             >
               <TaskMediaAttachmentsField value={explanationMedia} onChange={setExplanationMedia} />
             </FormField>
           </TaskFormSection>
 
-          <TaskFormSection title="Schedule & tags" description="Organize the task and set expectations.">
-            <FormField label="Due date" hint="Required for deadline-relative reminders.">
+          <TaskFormSection title={t("sectionScheduleTitle")} description={t("sectionScheduleDesc")}>
+            <FormField label={t("dueDateLabel")} hint={t("dueDateHint")}>
               <NexusDateTimePicker
                 value={dueAt}
                 onChange={setDueAt}
-                emptyLabel="No due date"
-                clearLabel="Clear due date"
+                emptyLabel={tTasks("noDueDate")}
+                clearLabel={t("clearDueDate")}
                 triggerClassName={taskFormSelectTriggerClass}
               />
             </FormField>
@@ -205,21 +207,21 @@ export function TaskCreateForm() {
               disabled={saving}
             />
 
-            <FormField label="Tags" hint="Optional extra labels — search or create.">
+            <FormField label={t("tagsLabel")} hint={t("tagsHint")}>
               <TaskCategoryTagsField value={tags} onChange={setTags} />
             </FormField>
           </TaskFormSection>
 
           <TaskFormSection
-            title="Project"
-            description="Optionally attach this task as one part of a larger project."
+            title={t("sectionProjectTitle")}
+            description={t("sectionProjectDesc")}
           >
             <TaskGroupPickerField value={groupId} onChange={setGroupId} />
           </TaskFormSection>
 
           <TaskFormSection
-            title="Assignment"
-            description="Search institution members and optionally label their role on this task."
+            title={t("sectionAssignmentTitle")}
+            description={t("sectionAssignmentDesc")}
           >
             {groupId ? (
               <TaskGroupRosterQuickAdd
@@ -240,14 +242,14 @@ export function TaskCreateForm() {
                 }
               />
             ) : null}
-            <FormField label="Performers" required hint="Search by name, login, group, or email.">
+            <FormField label={t("performersLabel")} required hint={t("performersHint")}>
               <TaskPerformerPicker value={performers} onChange={setPerformers} />
             </FormField>
           </TaskFormSection>
 
           <TaskFormSection
-            title="Notifications"
-            description="How performers are alerted when you dispatch this task."
+            title={t("sectionNotificationsTitle")}
+            description={t("sectionNotificationsDesc")}
           >
             <TaskAssignmentNotifyField
               value={assignmentNotifyTargets}
@@ -256,7 +258,7 @@ export function TaskCreateForm() {
             />
           </TaskFormSection>
 
-          <TaskFormSection title="Reminders" description="Optional nudges for performers until completion.">
+          <TaskFormSection title={t("sectionRemindersTitle")} description={t("sectionRemindersDesc")}>
             <TaskReminderSettingsField
               value={reminderSettings}
               onChange={setReminderSettings}
@@ -266,14 +268,14 @@ export function TaskCreateForm() {
         </div>
 
         {error ? (
-          <FormAlert variant="error" title="Could not save task" className="mb-4">
+          <FormAlert variant="error" title={t("saveErrorTitle")} className="mb-4">
             {error}
           </FormAlert>
         ) : null}
 
         <footer className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border-default)] pt-6">
           <Button type="submit" disabled={saving}>
-            {saving ? "Creating…" : "Dispatch task"}
+            {saving ? t("creating") : t("dispatch")}
           </Button>
           <Button
             type="button"
@@ -281,7 +283,7 @@ export function TaskCreateForm() {
             disabled={saving}
             onClick={() => void handleSubmit(false)}
           >
-            Save as draft
+            {t("saveDraft")}
           </Button>
         </footer>
       </form>

@@ -7,12 +7,12 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import type { InstitutionalCalendarRuleDto } from "@shared/domains/InstitutionalCalendarDomain";
 import {
   DEFAULT_INSTITUTIONAL_TASK_TEMPLATE,
-  INSTITUTIONAL_CALENDAR_ACTION_LABELS,
   INSTITUTIONAL_CALENDAR_ACTIONS,
   INSTITUTIONAL_CALENDAR_SOCIUM_KINDS,
   type InstitutionalCalendarAction,
@@ -59,6 +59,8 @@ function createEmptyDraft(): Omit<InstitutionalCalendarRuleDto, "id" | "authorUs
  * @returns Editor shell JSX.
  */
 export function InstitutionalCalendarEditorShell() {
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.institutionalCalendar");
   const [rules, setRules] = useState<InstitutionalCalendarRuleDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState(createEmptyDraft());
@@ -146,13 +148,13 @@ export function InstitutionalCalendarEditorShell() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(typeof data.error === "string" ? data.error : "Save failed.");
+      setError(typeof data.error === "string" ? data.error : t("saveFailed"));
       setSaving(false);
       return;
     }
 
     const saved = (await res.json()) as InstitutionalCalendarRuleDto;
-    setMessage("Saved.");
+    setMessage(t("savedMessage"));
     setSelectedId(saved.id);
     await loadRules();
     setSaving(false);
@@ -160,11 +162,11 @@ export function InstitutionalCalendarEditorShell() {
 
   /** Delete selected rule. */
   async function handleDelete() {
-    if (!selectedId || !window.confirm("Delete this calendar rule?")) return;
+    if (!selectedId || !window.confirm(t("deleteConfirm"))) return;
     setSaving(true);
     const res = await fetch(`/api/admin/institutional-calendar/${selectedId}`, { method: "DELETE" });
     if (!res.ok) {
-      setError("Delete failed.");
+      setError(t("deleteFailed"));
       setSaving(false);
       return;
     }
@@ -185,31 +187,30 @@ export function InstitutionalCalendarEditorShell() {
               href="/admin"
               className="inline-flex items-center gap-1 text-xs text-[var(--color-accent-user)] hover:underline"
             >
-              <ArrowLeft className="size-3.5" /> Admin hub
+              <ArrowLeft className="size-3.5" /> {tAdmin("backToHub")}
             </Link>
             <h1 className="mt-2 flex items-center gap-2 text-2xl font-semibold text-[var(--color-text-primary)]">
               <CalendarDays className="size-6" aria-hidden="true" />
-              Institutional calendar
+              {tAdmin("hub.institutional-calendar.title")}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
-              Yearly recurring reminders and optional auto-created tasks for socium roles and access
-              tiers. Use {"{year}"} in task templates for the fire year.
+              {tAdmin("hub.institutional-calendar.description")} {t("yearHint")}
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={startNewRule}>
-            New rule
+            {t("newRule")}
           </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
           <aside className="flex flex-col gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
-              Rules
+              {t("rulesHeading")}
             </p>
             {loading ? (
-              <p className="text-sm text-[var(--color-text-secondary)]">Loading…</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">{tAdmin("loading")}</p>
             ) : rules.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-secondary)]">No rules yet.</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">{t("noRulesYet")}</p>
             ) : (
               rules.map((rule) => (
                 <button
@@ -223,14 +224,14 @@ export function InstitutionalCalendarEditorShell() {
                   }`}
                 >
                   {rule.title}
-                  {!rule.enabled ? " (disabled)" : ""}
+                  {!rule.enabled ? t("disabledSuffix") : ""}
                 </button>
               ))
             )}
           </aside>
 
           <div className="flex flex-col gap-4">
-            <FormField label="Title" required>
+            <FormField label={t("titleLabel")} required>
               <Input
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -238,7 +239,7 @@ export function InstitutionalCalendarEditorShell() {
               />
             </FormField>
 
-            <FormField label="Description">
+            <FormField label={t("descriptionLabel")}>
               <textarea
                 className="nexus-puck-input min-h-[80px] w-full"
                 value={draft.description}
@@ -246,14 +247,14 @@ export function InstitutionalCalendarEditorShell() {
               />
             </FormField>
 
-            <FormField label="When it fires">
+            <FormField label={t("whenItFiresLabel")}>
               <InstitutionalYearlyAnchorField
                 value={draft.yearlyAnchors as InstitutionalYearlyAnchor[]}
                 onChange={(yearlyAnchors) => setDraft({ ...draft, yearlyAnchors })}
               />
             </FormField>
 
-            <FormField label="Action">
+            <FormField label={t("actionLabel")}>
               <Select
                 value={draft.action}
                 onValueChange={(action) =>
@@ -265,8 +266,8 @@ export function InstitutionalCalendarEditorShell() {
                 </SelectTrigger>
                 <SelectContent>
                   {INSTITUTIONAL_CALENDAR_ACTIONS.map((action) => (
-                    <SelectItem key={action} value={action} label={INSTITUTIONAL_CALENDAR_ACTION_LABELS[action]}>
-                      {INSTITUTIONAL_CALENDAR_ACTION_LABELS[action]}
+                    <SelectItem key={action} value={action} label={t(`actions.${action}`)}>
+                      {t(`actions.${action}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -275,7 +276,7 @@ export function InstitutionalCalendarEditorShell() {
 
             {showTaskTemplate ? (
               <>
-                <FormField label="Task title template" hint="Use {year} for the fire year.">
+                <FormField label={t("taskTitleTemplateLabel")} hint={t("taskTitleTemplateHint")}>
                   <Input
                     value={draft.taskTemplate.title}
                     onChange={(e) =>
@@ -286,7 +287,7 @@ export function InstitutionalCalendarEditorShell() {
                     }
                   />
                 </FormField>
-                <FormField label="Task description template">
+                <FormField label={t("taskDescriptionTemplateLabel")}>
                   <textarea
                     className="nexus-puck-input min-h-[80px] w-full"
                     value={draft.taskTemplate.description}
@@ -301,26 +302,26 @@ export function InstitutionalCalendarEditorShell() {
               </>
             ) : null}
 
-            <FormField label="Socium roles">
+            <FormField label={t("sociumRolesLabel")}>
               <div className="flex flex-wrap gap-2">
                 {INSTITUTIONAL_CALENDAR_SOCIUM_KINDS.map((kind) => (
                   <button
                     key={kind}
                     type="button"
                     onClick={() => toggleSociumKind(kind)}
-                    className={`rounded-md border px-3 py-1 text-xs capitalize ${
+                    className={`rounded-md border px-3 py-1 text-xs ${
                       draft.targetSociumKinds.includes(kind)
                         ? "border-[var(--color-accent-user)] text-[var(--color-text-primary)]"
                         : "border-[var(--color-border-default)] text-[var(--color-text-secondary)]"
                     }`}
                   >
-                    {kind.replace(/_/g, " ")}
+                    {t(`sociumKinds.${kind}`)}
                   </button>
                 ))}
               </div>
             </FormField>
 
-            <FormField label="Access levels">
+            <FormField label={t("accessLevelsLabel")}>
               <div className="flex flex-wrap gap-2">
                 {DEFAULT_ACCESS_LEVELS.map((level) => (
                   <button
@@ -333,13 +334,13 @@ export function InstitutionalCalendarEditorShell() {
                         : "border-[var(--color-border-default)] text-[var(--color-text-secondary)]"
                     }`}
                   >
-                    {level.label}
+                    {t(`accessLevels.${level.key}`)}
                   </button>
                 ))}
               </div>
             </FormField>
 
-            <FormField label="Delivery channels">
+            <FormField label={t("deliveryChannelsLabel")}>
               <TaskChannelToggleGroup
                 value={draft.channels}
                 onChange={(channels) => setDraft({ ...draft, channels })}
@@ -352,27 +353,27 @@ export function InstitutionalCalendarEditorShell() {
                 checked={draft.enabled}
                 onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
               />
-              Rule enabled
+              {t("ruleEnabledLabel")}
             </label>
 
             {error ? (
-              <FormAlert variant="error" title="Error">
+              <FormAlert variant="error" title={t("errorTitle")}>
                 {error}
               </FormAlert>
             ) : null}
             {message ? (
-              <FormAlert variant="success" title="Saved">
+              <FormAlert variant="success" title={t("savedTitle")}>
                 {message}
               </FormAlert>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" disabled={saving} onClick={() => void handleSave()}>
-                {saving ? "Saving…" : selectedId ? "Update rule" : "Create rule"}
+                {saving ? t("saving") : selectedId ? t("updateRule") : t("createRule")}
               </Button>
               {selectedId ? (
                 <Button type="button" variant="destructive" disabled={saving} onClick={() => void handleDelete()}>
-                  Delete
+                  {t("delete")}
                 </Button>
               ) : null}
             </div>

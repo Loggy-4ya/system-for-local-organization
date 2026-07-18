@@ -25,6 +25,7 @@ import {
 import {
   buildProfileCompletenessSummary,
   isProfileReadyForMembershipApplication,
+  type ProfileCompletenessField,
 } from "@shared/lib/userProfileCompleteness";
 import { AccessControlDomain } from "@shared/domains/AccessControlDomain";
 import { UserDirectoryAuditDomain } from "@shared/domains/UserDirectoryAuditDomain";
@@ -70,8 +71,10 @@ export interface MembershipApplicationRowDto {
   phone: string | null;
   /** Profile ready for reviewer decision. */
   readyForReview: boolean;
-  /** Missing field labels when profile is incomplete. */
+  /** Missing field labels when profile is incomplete (English — prefer {@link missingFields} in UI). */
   missingFieldLabels: string[];
+  /** Missing field keys for client-side i18n. */
+  missingFields: ProfileCompletenessField[];
   /** Whether the actor may approve this applicant. */
   canApprove: boolean;
   /** Whether the actor may reject this applicant. */
@@ -166,6 +169,7 @@ function toApplicationRow(
     phone: canAdminister ? target.phone : null,
     readyForReview: summary.readyForMembershipApplication,
     missingFieldLabels: summary.missingFieldLabels,
+    missingFields: summary.missingFields,
     canApprove: canReview,
     canReject: canReview,
     applicantType: isTeacherUser(target.sociumRoles ?? []) ? "teacher" : "student",

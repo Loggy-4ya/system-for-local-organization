@@ -7,6 +7,7 @@
  */
 
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { EditorFlagBadge } from "@/components/global-layout/EditorFlagBadge";
 import { FieldLabelRow } from "./FieldLabelRow";
 
@@ -28,20 +29,21 @@ export function ListStepHighlightField({
   value,
   onChange,
 }: ListStepHighlightFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const active = value === true;
 
   return (
     <div className="nexus-list-step-field nexus-sidebar-field">
       <FieldLabelRow
-        label="Highlight"
-        hint="Emphasize this step on the published page with accent styling."
+        label={t("listStepHighlightLabel")}
+        hint={t("listStepHighlightHint")}
       />
       <EditorFlagBadge
-        label="Highlight"
+        label={t("listStepHighlightLabel")}
         icon={<Sparkles size={12} aria-hidden />}
         active={active}
         activeVariant="default"
-        tooltip="Emphasize this step on the published page"
+        tooltip={t("listStepHighlightTooltip")}
         onToggle={() => onChange(!active)}
       />
     </div>

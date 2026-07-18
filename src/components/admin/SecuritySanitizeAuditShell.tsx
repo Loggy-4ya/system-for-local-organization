@@ -8,7 +8,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
 import type { SecuritySanitizeAuditRow } from "@shared/domains/SecuritySanitizeDomain";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
@@ -42,6 +43,7 @@ function formatAuditTimestamp(iso: string): string {
  * @returns Audit log page JSX.
  */
 export function SecuritySanitizeAuditShell() {
+  const tAdmin = useTranslations("admin");
   const [items, setItems] = useState<SecuritySanitizeAuditRow[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pathFilter, setPathFilter] = useState("");
@@ -129,7 +131,7 @@ export function SecuritySanitizeAuditShell() {
             className="global-layout-editor__btn-text inline-flex w-fit items-center gap-1.5 border border-zinc-700/10 text-xs text-(--color-text-secondary) no-underline transition-colors hover:bg-zinc-700/10 hover:text-(--color-text-primary) dark:border-zinc-300/5 dark:hover:bg-zinc-300/5"
           >
             <ArrowLeft size={12} aria-hidden="true" />
-            Back to Administration
+            {tAdmin("backToAdmin")}
           </Link>
 
           <div className="flex flex-col gap-1.5">

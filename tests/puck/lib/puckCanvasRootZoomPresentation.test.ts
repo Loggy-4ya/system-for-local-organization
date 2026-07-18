@@ -97,4 +97,35 @@ describe("applyPuckCanvasRootZoomPresentation", () => {
       root.remove();
     }
   });
+
+  it("applies CSS zoom on inline scale host instead of transform", (t) => {
+    if (typeof document === "undefined") {
+      t.skip("requires DOM");
+      return;
+    }
+
+    const root = document.createElement("div");
+    root.id = "puck-canvas-root";
+
+    const frame = document.createElement("div");
+    frame.id = "preview-frame";
+    frame.setAttribute("data-puck-preview", "");
+
+    const host = document.createElement("div");
+    host.id = "nexus-puck-preview-scale-host";
+
+    frame.appendChild(host);
+    root.appendChild(frame);
+    document.body.appendChild(root);
+
+    try {
+      assert.equal(applyPuckCanvasRootZoomPresentation(config), true);
+      assert.equal(host.style.zoom, "0.921875");
+      assert.equal(host.style.transform, "");
+      assert.equal(root.style.transform, "");
+      assert.equal(root.style.height, "1085");
+    } finally {
+      root.remove();
+    }
+  });
 });

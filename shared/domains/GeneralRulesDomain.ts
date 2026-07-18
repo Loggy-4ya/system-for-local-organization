@@ -14,9 +14,15 @@ import {
   buildDefaultWeakPasswordsSeed,
   DEFAULT_BLOCKED_WORD_USER_MESSAGE,
   DEFAULT_WEAK_PASSWORD_USER_MESSAGE,
-  TELEGRAM_MESSAGE_TEMPLATE_DEFS,
   type TelegramMessageTemplateKey,
 } from "@shared/constants/generalRules";
+import {
+  buildDefaultTelegramMessageTemplatesByLocale,
+  normalizeTelegramMessagesByLocale,
+} from "@shared/constants/botMessageDefaults";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { DEFAULT_BOT_LOCALE } from "@shared/constants/botLocales";
+import { isBotLocale } from "@shared/lib/resolveBotLocale";
 import type { ContentPolicyBlockedWordEntry } from "@shared/constants/contentPolicy";
 import {
   normalizeTaskDelegationLimits,
@@ -38,19 +44,15 @@ import GeneralRulesSettings, {
 
 /** Public DTO for admin UI and APIs. */
 export interface GeneralRulesPublicConfig {
-  /** Institutional blocklist. */
   blockedWords: ContentPolicyBlockedWordEntry[];
-  /** Weak password denylist. */
   weakPasswords: string[];
-  /** User-facing blocked-language message. */
   blockedWordMessage: string;
-  /** User-facing weak-password message. */
   weakPasswordMessage: string;
-  /** Telegram bot templates keyed by template id. */
+  /** @deprecated Use {@link telegramMessagesByLocale}. */
   telegramMessages: Record<TelegramMessageTemplateKey, string>;
-  /** Per-tier task delegation quotas (`null` = unlimited). */
+  /** Telegram bot templates per locale. */
+  telegramMessagesByLocale: Record<BotLocale, Record<TelegramMessageTemplateKey, string>>;
   taskDelegationLimits: Record<string, number | null>;
-  /** Institutional task categories for scoring and filters. */
   taskCategories: TaskCategoryDefinition[];
 }
 
@@ -60,33 +62,13 @@ export interface GeneralRulesUpdateInput {
   weakPasswords?: string[];
   blockedWordMessage?: string;
   weakPasswordMessage?: string;
+  /** @deprecated Merged into {@link telegramMessagesByLocale}.en */
   telegramMessages?: Partial<Record<TelegramMessageTemplateKey, string>>;
-  /** Partial delegation limit overrides keyed by access level index string. */
+  telegramMessagesByLocale?: Partial<
+    Record<BotLocale, Partial<Record<TelegramMessageTemplateKey, string>>>
+  >;
   taskDelegationLimits?: Record<string, number | null>;
-  /** Task category catalog overrides. */
   taskCategories?: TaskCategoryDefinition[];
-}
-
-/**
- * Merge persisted Telegram templates with code defaults for missing keys.
- *
- * @param stored - Raw map from MongoDB.
- * @returns Complete template map.
- */
-function normalizeTelegramMessages(
-  stored: Record<string, string> | undefined | null,
-): Record<TelegramMessageTemplateKey, string> {
-  const defaults = buildDefaultTelegramMessageTemplates();
-  const output = { ...defaults };
-
-  for (const def of TELEGRAM_MESSAGE_TEMPLATE_DEFS) {
-    const candidate = stored?.[def.key];
-    if (typeof candidate === "string" && candidate.trim()) {
-      output[def.key] = candidate.trim();
-    }
-  }
-
-  return output;
 }
 
 /**
@@ -96,17 +78,25 @@ function normalizeTelegramMessages(
  * @returns Serializable config for admin UI.
  */
 export function generalRulesToPublicConfig(doc: IGeneralRulesSettings): GeneralRulesPublicConfig {
+  const telegramMessagesByLocale = normalizeTelegramMessagesByLocale(
+    doc.telegramMessages,
+    doc.telegramMessagesByLocale as Partial<Record<BotLocale, Record<string, string>>> | null,
+  );
+
   return {
-    blockedWords: (doc.blockedWords ?? []).map((entry) => ({
-      term: String(entry.term ?? "").trim(),
-      category: entry.category,
-    })).filter((entry) => entry.term.length > 0),
+    blockedWords: (doc.blockedWords ?? [])
+      .map((entry) => ({
+        term: String(entry.term ?? "").trim(),
+        category: entry.category,
+      }))
+      .filter((entry) => entry.term.length > 0),
     weakPasswords: (doc.weakPasswords ?? [])
       .map((entry) => String(entry).trim())
       .filter(Boolean),
     blockedWordMessage: doc.blockedWordMessage?.trim() || DEFAULT_BLOCKED_WORD_USER_MESSAGE,
     weakPasswordMessage: doc.weakPasswordMessage?.trim() || DEFAULT_WEAK_PASSWORD_USER_MESSAGE,
-    telegramMessages: normalizeTelegramMessages(doc.telegramMessages),
+    telegramMessages: telegramMessagesByLocale[DEFAULT_BOT_LOCALE],
+    telegramMessagesByLocale,
     taskDelegationLimits: serializeTaskDelegationLimits(
       normalizeTaskDelegationLimits(doc.taskDelegationLimits as Record<string, number | null>),
     ),
@@ -126,7 +116,7 @@ export function publishEffectiveGeneralRules(config: GeneralRulesPublicConfig): 
     weakPasswords: config.weakPasswords,
     blockedWordMessage: config.blockedWordMessage,
     weakPasswordMessage: config.weakPasswordMessage,
-    telegramMessages: config.telegramMessages,
+    telegramMessagesByLocale: config.telegramMessagesByLocale,
   });
   setEffectiveGeneralRulesCache(effective);
   return effective;
@@ -149,7 +139,14 @@ export async function loadGeneralRulesOrSeed(): Promise<IGeneralRulesSettings> {
       blockedWordMessage: DEFAULT_BLOCKED_WORD_USER_MESSAGE,
       weakPasswordMessage: DEFAULT_WEAK_PASSWORD_USER_MESSAGE,
       telegramMessages: buildDefaultTelegramMessageTemplates(),
+      telegramMessagesByLocale: buildDefaultTelegramMessageTemplatesByLocale(),
     });
+  } else if (!doc.telegramMessagesByLocale || Object.keys(doc.telegramMessagesByLocale).length === 0) {
+    doc.telegramMessagesByLocale = normalizeTelegramMessagesByLocale(
+      doc.telegramMessages,
+      null,
+    );
+    await doc.save();
   }
 
   publishEffectiveGeneralRules(generalRulesToPublicConfig(doc));
@@ -158,8 +155,6 @@ export async function loadGeneralRulesOrSeed(): Promise<IGeneralRulesSettings> {
 
 /**
  * Ensure effective rules are loaded from MongoDB (respects in-process TTL cache).
- *
- * Call at the start of API handlers that run synchronous content-policy scans.
  */
 export async function ensureGeneralRulesLoaded(): Promise<EffectiveGeneralRules> {
   await loadGeneralRulesOrSeed();
@@ -170,11 +165,16 @@ export async function ensureGeneralRulesLoaded(): Promise<EffectiveGeneralRules>
  * Resolve one Telegram template after rules are loaded.
  *
  * @param key - Template key.
- * @returns Template text.
+ * @param locale - Target locale (`en` or `uk`).
+ * @returns Template text for the locale.
  */
-export async function getTelegramMessageTemplate(key: TelegramMessageTemplateKey): Promise<string> {
+export async function getTelegramMessageTemplate(
+  key: TelegramMessageTemplateKey,
+  locale: BotLocale = DEFAULT_BOT_LOCALE,
+): Promise<string> {
   await ensureGeneralRulesLoaded();
-  return getEffectiveGeneralRulesSync().telegramMessages[key];
+  const resolvedLocale = isBotLocale(locale) ? locale : DEFAULT_BOT_LOCALE;
+  return getEffectiveGeneralRulesSync().telegramMessagesByLocale[resolvedLocale][key];
 }
 
 /**
@@ -208,16 +208,38 @@ export async function updateGeneralRules(
     doc.weakPasswordMessage = input.weakPasswordMessage.trim() || DEFAULT_WEAK_PASSWORD_USER_MESSAGE;
   }
 
+  const currentByLocale = normalizeTelegramMessagesByLocale(
+    doc.telegramMessages,
+    doc.telegramMessagesByLocale as Partial<Record<BotLocale, Record<string, string>>> | null,
+  );
+
   if (input.telegramMessages !== undefined) {
-    doc.telegramMessages = {
-      ...normalizeTelegramMessages(doc.telegramMessages),
+    currentByLocale.en = {
+      ...currentByLocale.en,
       ...Object.fromEntries(
         Object.entries(input.telegramMessages).filter(
           ([, value]) => typeof value === "string" && value.trim().length > 0,
         ),
       ),
-    };
+    } as Record<TelegramMessageTemplateKey, string>;
   }
+
+  if (input.telegramMessagesByLocale !== undefined) {
+    for (const [localeKey, partial] of Object.entries(input.telegramMessagesByLocale)) {
+      if (!isBotLocale(localeKey) || !partial) continue;
+      currentByLocale[localeKey] = {
+        ...currentByLocale[localeKey],
+        ...Object.fromEntries(
+          Object.entries(partial).filter(
+            ([, value]) => typeof value === "string" && value.trim().length > 0,
+          ),
+        ),
+      } as Record<TelegramMessageTemplateKey, string>;
+    }
+  }
+
+  doc.telegramMessagesByLocale = currentByLocale;
+  doc.telegramMessages = currentByLocale.en;
 
   if (input.taskDelegationLimits !== undefined) {
     doc.taskDelegationLimits = normalizeTaskDelegationLimits(input.taskDelegationLimits);

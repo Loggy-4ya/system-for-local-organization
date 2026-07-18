@@ -7,7 +7,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, RefreshCw, Server } from "lucide-react";
 import type { NexusHostingEffectivePolicy } from "@shared/lib/nexusHostingLogic";
 import type { NexusHostingMode } from "@shared/constants/nexusHosting";
@@ -33,6 +34,8 @@ interface HostingConfigResponse {
  * Admin hosting diagnostics at `/admin/hosting`.
  */
 export function HostingConfigEditorShell() {
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.hosting");
   const [data, setData] = useState<HostingConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +46,13 @@ export function HostingConfigEditorShell() {
     const res = await fetch("/api/admin/hosting-config");
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(typeof json.error === "string" ? json.error : "Failed to load hosting config.");
+      setError(typeof json.error === "string" ? json.error : t("loadError"));
       setLoading(false);
       return;
     }
     setData(json as HostingConfigResponse);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -67,11 +70,11 @@ export function HostingConfigEditorShell() {
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-2")}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Admin hub
+          {tAdmin("backToHub")}
         </Link>
         <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden="true" />
-          Refresh
+          {tAdmin("refresh")}
         </Button>
       </div>
 
@@ -82,16 +85,18 @@ export function HostingConfigEditorShell() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-primary">
             <Server size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wide uppercase">Platform</span>
+            <span className="text-xs font-semibold tracking-wide uppercase">{t("eyebrow")}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-            Hosting & deployment
+            {tAdmin("hub.hosting.title")}
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Resolved hosting mode, scheduler policy, and environment validation for this running
-            instance. See{" "}
-            <code className="text-xs">.ai/docs/features/hosting_and_deployment.md</code> for deploy
-            profiles.
+            {tAdmin("hub.hosting.description")}{" "}
+            {t.rich("docsHint", {
+              path: () => (
+                <code className="text-xs">.ai/docs/features/hosting_and_deployment.md</code>
+              ),
+            })}
           </p>
         </div>
       </div>
@@ -101,45 +106,45 @@ export function HostingConfigEditorShell() {
       {data ? (
         <div className="glass-panel flex flex-col gap-5 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-(--color-text-primary)">Mode</span>
+            <span className="text-sm font-medium text-(--color-text-primary)">{t("mode")}</span>
             <Badge variant={data.healthy ? "default" : "destructive"}>
               {data.modeLabel} ({data.mode})
             </Badge>
             <Badge variant={data.healthy ? "secondary" : "destructive"}>
-              {data.healthy ? "Healthy" : "Misconfigured"}
+              {data.healthy ? t("healthy") : t("misconfigured")}
             </Badge>
           </div>
 
           <div className="grid gap-3 text-sm sm:grid-cols-2">
             <PolicyRow
-              label="In-process scheduler"
-              value={data.policy.scheduledEventsTickIntervalMs > 0 ? "on" : "off"}
+              label={t("scheduler")}
+              value={data.policy.scheduledEventsTickIntervalMs > 0 ? t("on") : t("off")}
             />
             <PolicyRow
-              label="Tick interval (ms)"
+              label={t("tickInterval")}
               value={String(data.policy.scheduledEventsTickIntervalMs)}
             />
             <PolicyRow
-              label="In-process media cleanup (h)"
+              label={t("mediaCleanup")}
               value={String(data.policy.mediaOrphanCleanupIntervalHours)}
             />
             <PolicyRow
-              label="Cron required in prod"
-              value={data.policy.requireCronSecretInProduction ? "yes" : "no"}
+              label={t("cronRequired")}
+              value={data.policy.requireCronSecretInProduction ? t("yes") : t("no")}
             />
             <PolicyRow
-              label="Local media allowed in prod"
-              value={data.policy.allowLocalMediaInProduction ? "yes" : "no"}
+              label={t("localMediaProd")}
+              value={data.policy.allowLocalMediaInProduction ? t("yes") : t("no")}
             />
             <PolicyRow
-              label="Telegram worker expected"
-              value={data.policy.telegramWorkerExpected ? "yes" : "no"}
+              label={t("telegramWorker")}
+              value={data.policy.telegramWorkerExpected ? t("yes") : t("no")}
             />
           </div>
 
           {data.warnings.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-semibold text-(--color-text-primary)">Warnings</h2>
+              <h2 className="text-sm font-semibold text-(--color-text-primary)">{t("warnings")}</h2>
               <ul className="list-disc space-y-1 pl-5 text-sm text-(--color-text-secondary)">
                 {data.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -150,7 +155,7 @@ export function HostingConfigEditorShell() {
 
           {data.errors.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-semibold text-destructive">Errors</h2>
+              <h2 className="text-sm font-semibold text-destructive">{t("errors")}</h2>
               <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
                 {data.errors.map((err) => (
                   <li key={err}>{err}</li>

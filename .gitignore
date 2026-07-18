@@ -16,6 +16,7 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/tests/e2e/artifacts/
 
 # next.js
 /.next/
@@ -23,6 +24,7 @@
 
 # production
 /build
+/cdk.out/
 
 # misc
 .DS_Store

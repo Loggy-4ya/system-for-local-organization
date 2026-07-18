@@ -14,6 +14,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { formatViewportZoomLabel } from "@/components/puck/lib/formatViewportZoomLabel";
+import { isInlinePuckPreview } from "@/components/puck/lib/previewIframeDocumentReady";
 import { matchesCompactEditorViewport, PUCK_COMPACT_EDITOR_MQ } from "@/components/puck/usePuckMobileEditorChrome";
 
 /** Zoom mount context for the viewport instrument island. */
@@ -191,7 +192,7 @@ export function NexusViewportZoomEnhancer() {
     () => null,
   );
 
-  if (!context) return null;
+  if (!context || isInlinePuckPreview()) return null;
 
   return createPortal(
     <div className="nexus-viewport-zoom-enhancer">

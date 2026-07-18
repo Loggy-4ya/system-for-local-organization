@@ -3,6 +3,9 @@
 /**
  * @fileoverview Per-block sidebar field chapter layouts for Content and Layout Puck components.
  *
+ * Chapter {@link BlockFieldChapter.titleKey} values resolve under `puck.chapters` at render time;
+ * {@link BlockFieldChapter.title} remains the English fallback for tests and non-React contexts.
+ *
  * @module src/components/puck/lib/blockFieldChapterConfigs
  */
 
@@ -45,12 +48,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "sectionLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         fieldKeys: ["maxWidth", "padding"],
       },
       {
         id: "sectionAppearance",
+        titleKey: "appearance",
         title: "Appearance",
         icon: <AppearanceIcon />,
         fieldKeys: ["backgroundOverride", "textColor", "borderTop", "borderBottom"],
@@ -63,6 +68,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "gridLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         defaultOpen: true,
@@ -76,6 +82,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "spacerSize",
+        titleKey: "size",
         title: "Size",
         icon: <SizeIcon />,
         visibleWhenFlat: (props) => props.stylePreset === "custom",
@@ -83,6 +90,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
       },
       {
         id: "lineAppearance",
+        titleKey: "line",
         title: "Line",
         icon: <DividerIcon />,
         visibleWhenFlat: (props) => props.stylePreset === "custom",
@@ -103,18 +111,21 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "headingContent",
+        titleKey: "content",
         title: "Content",
         icon: <ContentIcon />,
         fieldKeys: ["text", "level"],
       },
       {
         id: "headingTypography",
+        titleKey: "typography",
         title: "Typography",
         icon: <TypographyIcon />,
         fieldKeys: ["colorPreset", "fontFamily", "fontWeight"],
       },
       {
         id: "headingLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         fieldKeys: ["align"],
@@ -126,12 +137,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "textContent",
+        titleKey: "content",
         title: "Content",
         icon: <ContentIcon />,
         fieldKeys: ["text"],
       },
       {
         id: "textTypography",
+        titleKey: "typography",
         title: "Typography",
         icon: <TypographyIcon />,
         fieldKeys: ["align", "colorPreset", "fontFamily", "fontWeight", "fontSize", "lineHeight"],
@@ -143,18 +156,21 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "imageMedia",
+        titleKey: "media",
         title: "Media",
         icon: <MediaIcon />,
         fieldKeys: ["image", "alt"],
       },
       {
         id: "imageLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         fieldKeys: ["width", "height", "aspectRatio", "align", "carouselFill", "mediaFit"],
       },
       {
         id: "imageAppearance",
+        titleKey: "appearance",
         title: "Appearance",
         icon: <AppearanceIcon />,
         fieldKeys: ["borderRadius", "shadowDepth"],
@@ -166,18 +182,21 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "quoteContent",
+        titleKey: "content",
         title: "Content",
         icon: <ContentIcon />,
         fieldKeys: ["text", "author"],
       },
       {
         id: "quoteTypography",
+        titleKey: "typography",
         title: "Typography",
         icon: <TypographyIcon />,
         fieldKeys: ["fontFamily", "fontWeight"],
       },
       {
         id: "quoteAppearance",
+        titleKey: "appearance",
         title: "Appearance",
         icon: <AppearanceIcon />,
         fieldKeys: ["borderColor"],
@@ -189,18 +208,21 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "videoSource",
+        titleKey: "source",
         title: "Source",
         icon: <SourceIcon />,
         fieldKeys: ["url"],
       },
       {
         id: "videoLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         fieldKeys: ["aspectRatio", "width", "maxWidth", "align"],
       },
       {
         id: "videoPlayback",
+        titleKey: "playback",
         title: "Playback",
         icon: <PlaybackIcon />,
         fieldKeys: ["autoplay", "controls"],
@@ -213,6 +235,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "accordionBehavior",
+        titleKey: "accordionOptions",
         title: "Accordion Options",
         icon: <BehaviorIcon />,
         fieldKeys: ["allowMultiple"],
@@ -225,12 +248,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "listBehavior",
+        titleKey: "stepDefaults",
         title: "Step Defaults",
         icon: <BehaviorIcon />,
         fieldKeys: ["defaultExpandNested"],
       },
       {
         id: "listStyle",
+        titleKey: "listStyle",
         title: "List Style",
         icon: <StyleIcon />,
         fieldKeys: ["connectorStyle", "itemSpacing"],
@@ -243,6 +268,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "tabsBehavior",
+        titleKey: "tabOptions",
         title: "Tab Options",
         icon: <BehaviorIcon />,
         fieldKeys: ["defaultActiveIndex", "align", "size", "accentColor"],
@@ -255,12 +281,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "carouselSizeGroup",
+        titleKey: "carouselSize",
         title: "Carousel Size",
         icon: <SizeIcon />,
         fieldKeys: ["carouselSize"],
       },
       {
         id: "carouselBehavior",
+        titleKey: "carouselPlayback",
         title: "Carousel Playback",
         icon: <BehaviorIcon />,
         fieldKeys: [
@@ -279,12 +307,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "inputContent",
+        titleKey: "content",
         title: "Content",
         icon: <ContentIcon />,
         fieldKeys: ["question", "mode", "helperText"],
       },
       {
         id: "inputOptions",
+        titleKey: "options",
         title: "Options",
         icon: <ContentIcon />,
         fieldKeys: ["options"],
@@ -292,6 +322,7 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
       },
       {
         id: "inputTextSettings",
+        titleKey: "textAnswer",
         title: "Text Answer",
         icon: <ContentIcon />,
         fieldKeys: ["placeholder", "inputType"],
@@ -299,12 +330,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
       },
       {
         id: "inputValidation",
+        titleKey: "validation",
         title: "Validation",
         icon: <ValidationIcon />,
         fieldKeys: ["required"],
       },
       {
         id: "inputQuizGrading",
+        titleKey: "quizGrading",
         title: "Quiz Grading",
         icon: <ValidationIcon />,
         fieldKeys: ["answerMode"],
@@ -312,12 +345,14 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
       },
       {
         id: "inputDistribution",
+        titleKey: "distribution",
         title: "Distribution",
         icon: <LinkIcon />,
         fieldKeys: ["distribution"],
       },
       {
         id: "inputStatistics",
+        titleKey: "statistics",
         title: "Statistics",
         icon: <BehaviorIcon />,
         fieldKeys: ["statsPanel"],
@@ -330,18 +365,21 @@ export const BLOCK_FIELD_CHAPTER_CONFIGS: Record<string, BlockFieldChapterConfig
     chapters: [
       {
         id: "commentsContent",
+        titleKey: "content",
         title: "Content",
         icon: <ContentIcon />,
         fieldKeys: ["launcherLabel", "viewMode"],
       },
       {
         id: "commentsBehavior",
+        titleKey: "behavior",
         title: "Behavior",
         icon: <BehaviorIcon />,
         fieldKeys: ["commentsEnabled"],
       },
       {
         id: "commentsLayout",
+        titleKey: "layout",
         title: "Layout",
         icon: <LayoutIcon />,
         fieldKeys: ["layoutWidth", "layoutAlign", "previewIntervalSeconds"],

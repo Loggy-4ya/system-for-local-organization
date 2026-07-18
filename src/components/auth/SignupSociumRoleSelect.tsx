@@ -8,6 +8,7 @@
 
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { z } from "zod";
 import type { signupSociumRoleSchema } from "@shared/validation/authSchemas";
 import {
@@ -31,11 +32,13 @@ export interface SignupSociumRoleSelectProps {
   disabled?: boolean;
 }
 
-const OPTIONS: { label: string; value: SignupSociumRole }[] = [
-  { label: "Student", value: "Student" },
-  { label: "Starosta (group leader)", value: "Starosta" },
-  { label: "Teacher", value: "Teacher" },
-];
+const OPTION_VALUES: SignupSociumRole[] = ["Student", "Starosta", "Teacher"];
+
+const OPTION_MESSAGE_KEYS: Record<SignupSociumRole, "student" | "starosta" | "teacher"> = {
+  Student: "student",
+  Starosta: "starosta",
+  Teacher: "teacher",
+};
 
 /**
  * Select control for self-assignable socium roles during signup.
@@ -48,14 +51,14 @@ export function SignupSociumRoleSelect({
   onChange,
   disabled = false,
 }: SignupSociumRoleSelectProps) {
+  const t = useTranslations("auth.sociumRoleSelect");
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor="signup-socium-role" className="text-sm font-medium text-(--color-text-primary)">
-        Role in socium
+        {t("label")}
       </label>
-      <p className="text-xs text-(--color-text-secondary)">
-        Other roles are assigned by administrators after review.
-      </p>
+      <p className="text-xs text-(--color-text-secondary)">{t("hint")}</p>
       <Select
         value={value}
         onValueChange={(next) => {
@@ -64,12 +67,12 @@ export function SignupSociumRoleSelect({
         disabled={disabled}
       >
         <SelectTrigger id="signup-socium-role" className="w-full" size="sm">
-          <SelectValue placeholder="Select your role…" />
+          <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>
-          {OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
+          {OPTION_VALUES.map((roleValue) => (
+            <SelectItem key={roleValue} value={roleValue}>
+              {t(OPTION_MESSAGE_KEYS[roleValue])}
             </SelectItem>
           ))}
         </SelectContent>

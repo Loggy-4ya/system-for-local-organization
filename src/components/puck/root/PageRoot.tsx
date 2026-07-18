@@ -30,6 +30,7 @@ import {
 } from "../lib/pageRootFieldProps";
 import { useInsidePuckEditorShell } from "../lib/useInsidePuckEditorShell";
 import { useNexusEditorCanvas } from "../NexusEditorCanvasContext";
+import { InlinePreviewScaleWrapper } from "./InlinePreviewScaleWrapper";
 
 /** Root props shape for PageRoot render and field resolution. */
 interface PageRootProps extends PageRootStoredProps {
@@ -137,9 +138,13 @@ function PageRootRender(props: PageRootProps) {
   const insidePuckEditorShell = useInsidePuckEditorShell();
   const showEditorBackground = isPuckEditMode || isNexusEditorCanvas || insidePuckEditorShell;
 
-  return (
-    <PageRootBody {...props} showEditorBackground={showEditorBackground} />
-  );
+  const body = <PageRootBody {...props} showEditorBackground={showEditorBackground} />;
+
+  if (!insidePuckEditorShell) {
+    return body;
+  }
+
+  return <InlinePreviewScaleWrapper>{body}</InlinePreviewScaleWrapper>;
 }
 
 export const PageRoot = {

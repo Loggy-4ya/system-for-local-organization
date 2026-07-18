@@ -4,6 +4,9 @@
  * @module src/components/admin/AdminHubShell
  */
 
+"use client";
+
+import { useTranslations } from "next-intl";
 import { Columns, GraduationCap, Layout, Megaphone, MessageCircle, Server, Shield, ShieldAlert, Users, BookOpen, CalendarDays, UserCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
@@ -39,6 +42,9 @@ export interface AdminHubShellProps {
  * @returns Hub page JSX.
  */
 export function AdminHubShell({ areas }: AdminHubShellProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
+
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
@@ -52,14 +58,13 @@ export function AdminHubShell({ areas }: AdminHubShellProps) {
         <div className="flex flex-col gap-1.5">
           <div className="mb-1 flex items-center gap-2 text-primary">
             <Columns size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wide uppercase">Administration</span>
+            <span className="text-xs font-semibold tracking-wide uppercase">{t("hubEyebrow")}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-            Choose an area
+            {t("hubTitle")}
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Select a workspace below to configure site-wide settings, access control, or
-            institution messaging. Only areas you are permitted to manage are listed.
+            {t("hubDescription")}
           </p>
         </div>
       </div>
@@ -72,13 +77,12 @@ export function AdminHubShell({ areas }: AdminHubShellProps) {
           return (
             <NexusSurfaceCard
               key={area.id}
-              title={area.title}
-              description={area.description}
+              title={(t as (key: string) => string)(`hub.${area.id}.title`)}
+              description={(t as (key: string) => string)(`hub.${area.id}.description`)}
               href={isComingSoon ? undefined : area.href}
               icon={Icon}
-              eyebrow={isComingSoon ? "Coming soon" : "Open workspace"}
+              eyebrow={isComingSoon ? tc("comingSoon") : tc("openWorkspace")}
               disabled={isComingSoon}
-              hoverLift={!isComingSoon}
             />
           );
         })}

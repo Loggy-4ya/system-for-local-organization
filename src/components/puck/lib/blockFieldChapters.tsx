@@ -11,6 +11,8 @@
 
 import React from "react";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import type en from "../../../../messages/en.json";
 import { useNexusPuck } from "./useNexusPuck";
 import {
   BlockFieldChapterGroup,
@@ -26,11 +28,19 @@ export interface BlockFieldChapterCategory {
   fieldKeys: string[];
 }
 
+/** Stable keys under `messages/*.json` → `puck.chapters`. */
+export type PuckChapterTitleKey = keyof typeof en.puck.chapters;
+
 /** One collapsible sidebar chapter for a block. */
 export interface BlockFieldChapter {
   /** Nested prop key (e.g. `typography`, `layout`). */
   id: string;
-  /** Chapter header title. */
+  /**
+   * Message key under `puck.chapters` — preferred over {@link title} for i18n.
+   * Chapter `id` is structural only; do not use it as a translation key.
+   */
+  titleKey?: PuckChapterTitleKey;
+  /** Chapter header title (English fallback when {@link titleKey} is omitted). */
   title: string;
   /** Optional 14px icon. */
   icon?: ReactNode;
@@ -131,6 +141,49 @@ function buildCategoryDefs(
 }
 
 /**
+ * Puck custom-field renderer for one sidebar chapter (locale-aware title).
+ *
+ * @param props - Chapter config and Puck field bindings.
+ * @returns Chapter UI or empty when hidden.
+ */
+function ChapterRenderer({
+  chapter,
+  categories,
+  value,
+  onChange,
+  id,
+}: {
+  chapter: BlockFieldChapter;
+  categories: ChapterCategoryDef[];
+  value: Record<string, unknown>;
+  onChange: (value: Record<string, unknown>) => void;
+  id: string;
+}) {
+  const tChapters = useTranslations("puck.chapters");
+  const flatProps = useNexusPuck(
+    (state) => (state.selectedItem?.props ?? {}) as Record<string, unknown>,
+  );
+
+  if (chapter.visibleWhenFlat && !chapter.visibleWhenFlat(flatProps)) {
+    return <></>;
+  }
+
+  const title = chapter.titleKey ? tChapters(chapter.titleKey) : chapter.title;
+
+  return (
+    <BlockFieldChapterGroup
+      title={title}
+      icon={chapter.icon}
+      defaultOpen={chapter.defaultOpen}
+      categories={categories}
+      value={value ?? {}}
+      onChange={onChange}
+      id={id}
+    />
+  );
+}
+
+/**
  * Create a Puck custom-field renderer for one sidebar chapter.
  *
  * @param chapter - Chapter config.
@@ -147,7 +200,7 @@ function createChapterRenderer(
 }) => React.ReactElement {
   const categories = buildCategoryDefs(chapter, originalFields);
 
-  return function ChapterRenderer({
+  return function ChapterField({
     value,
     onChange,
     id,
@@ -156,21 +209,11 @@ function createChapterRenderer(
     onChange: (value: Record<string, unknown>) => void;
     id: string;
   }) {
-    const flatProps = useNexusPuck(
-      (state) => (state.selectedItem?.props ?? {}) as Record<string, unknown>,
-    );
-
-    if (chapter.visibleWhenFlat && !chapter.visibleWhenFlat(flatProps)) {
-      return <></>;
-    }
-
     return (
-      <BlockFieldChapterGroup
-        title={chapter.title}
-        icon={chapter.icon}
-        defaultOpen={chapter.defaultOpen}
+      <ChapterRenderer
+        chapter={chapter}
         categories={categories}
-        value={value ?? {}}
+        value={value}
         onChange={onChange}
         id={id}
       />

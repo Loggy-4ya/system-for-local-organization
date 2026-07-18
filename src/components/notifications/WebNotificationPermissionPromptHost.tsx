@@ -6,8 +6,9 @@
 
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -21,13 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  WEB_NOTIFICATION_PROMPT_BODY,
-  WEB_NOTIFICATION_PROMPT_DENIED_HINT,
-  WEB_NOTIFICATION_PROMPT_GRANTED_HINT,
-  WEB_NOTIFICATION_PROMPT_INSECURE_HINT,
-  WEB_NOTIFICATION_PROMPT_UNSUPPORTED_HINT,
-} from "@shared/constants/userNotificationSettings";
 import type { TaskReminderChannel } from "@shared/constants/taskSettings";
 import {
   browserNotificationsSupported,
@@ -36,6 +30,7 @@ import {
   requestBrowserNotificationPermission,
   showBrowserNotificationEnabledTest,
 } from "@/lib/webNotificationPermission";
+import { stripLocalePrefix } from "@/lib/localePathLogic";
 
 /** API response from GET /api/notifications/web-prompt. */
 interface WebPromptState {
@@ -46,29 +41,31 @@ interface WebPromptState {
 
 const AUTH_ROUTES = new Set(["/login", "/signup"]);
 
+type PermissionFeedbackKey = "granted" | "denied" | "insecure" | "unsupported";
+
 /**
- * Map permission / environment state to inline dialog feedback.
+ * Map permission / environment state to inline dialog feedback key.
  *
  * @param permission - Current Notification.permission value.
- * @returns User-facing hint, or null when waiting for user action.
+ * @returns Feedback message key, or null when waiting for user action.
  */
-function feedbackForPermission(permission: NotificationPermission): string | null {
+function feedbackKeyForPermission(permission: NotificationPermission): PermissionFeedbackKey | null {
   const blockReason = getBrowserNotificationBlockReason();
 
   if (blockReason === "insecure_context") {
-    return WEB_NOTIFICATION_PROMPT_INSECURE_HINT;
+    return "insecure";
   }
 
   if (blockReason === "unsupported") {
-    return WEB_NOTIFICATION_PROMPT_UNSUPPORTED_HINT;
+    return "unsupported";
   }
 
   if (permission === "granted" || blockReason === "already_granted") {
-    return WEB_NOTIFICATION_PROMPT_GRANTED_HINT;
+    return "granted";
   }
 
   if (permission === "denied" || blockReason === "already_denied") {
-    return WEB_NOTIFICATION_PROMPT_DENIED_HINT;
+    return "denied";
   }
 
   return null;
@@ -80,11 +77,12 @@ function feedbackForPermission(permission: NotificationPermission): string | nul
  * @returns Dialog host or null when unauthenticated / unsupported / already answered.
  */
 export function WebNotificationPermissionPromptHost() {
+  const tPerm = useTranslations("notifications.permission");
   const { status, data: session } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackKey, setFeedbackKey] = useState<PermissionFeedbackKey | null>(null);
   const [supported] = useState(() => browserNotificationsSupported());
 
   const recordOutcome = useCallback(
@@ -108,7 +106,8 @@ export function WebNotificationPermissionPromptHost() {
       return;
     }
 
-    if (AUTH_ROUTES.has(pathname)) {
+    const pathWithoutLocale = stripLocalePrefix(pathname);
+    if (AUTH_ROUTES.has(pathWithoutLocale)) {
       return;
     }
 
@@ -129,7 +128,7 @@ export function WebNotificationPermissionPromptHost() {
         return;
       }
 
-      setFeedback(feedbackForPermission(permission));
+      setFeedbackKey(feedbackKeyForPermission(permission));
       setOpen(true);
     })();
 
@@ -141,7 +140,7 @@ export function WebNotificationPermissionPromptHost() {
   /** Close dialog and persist dismiss outcome. */
   async function handleDismiss() {
     setOpen(false);
-    setFeedback(null);
+    setFeedbackKey(null);
     await recordOutcome("dismissed", Notification.permission);
   }
 
@@ -157,14 +156,14 @@ export function WebNotificationPermissionPromptHost() {
     void permissionPromise.then(async (permission) => {
       setLoading(true);
       try {
-        const hint = feedbackForPermission(permission);
-        setFeedback(hint);
+        const key = feedbackKeyForPermission(permission);
+        setFeedbackKey(key);
 
         if (permission === "granted") {
           showBrowserNotificationEnabledTest();
           setOpen(false);
           await recordOutcome("enabled", permission);
-          setFeedback(null);
+          setFeedbackKey(null);
           return;
         }
 
@@ -187,29 +186,31 @@ export function WebNotificationPermissionPromptHost() {
 
   const blockedBeforeClick = getBrowserNotificationBlockReason();
   const showBlockedHint =
-    feedback != null &&
+    feedbackKey != null &&
     (blockedBeforeClick === "already_denied" ||
       blockedBeforeClick === "insecure_context" ||
       blockedBeforeClick === "unsupported" ||
-      feedback.includes("blocked"));
+      feedbackKey === "denied");
+
+  const feedbackMessage = feedbackKey ? tPerm(`${feedbackKey}Hint`) : null;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && void handleDismiss()}>
       <DialogContent className="border-(--color-border-default) bg-(--color-bg-panel) text-(--color-text-primary) sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-(--color-text-primary)">
-            Enable web notifications?
+            {tPerm("dialogTitle")}
           </DialogTitle>
           <DialogDescription className="text-(--color-text-secondary)">
-            {WEB_NOTIFICATION_PROMPT_BODY}
+            {tPerm("dialogBody")}
           </DialogDescription>
         </DialogHeader>
 
-        {feedback && (
-          <FormAlert variant={feedback.includes("enabled") ? "success" : "error"}>
-            {feedback}
+        {feedbackMessage ? (
+          <FormAlert variant={feedbackKey === "granted" ? "success" : "error"}>
+            {feedbackMessage}
           </FormAlert>
-        )}
+        ) : null}
 
         <p className="text-sm leading-relaxed text-(--color-text-secondary)">
           Open{" "}
@@ -222,23 +223,23 @@ export function WebNotificationPermissionPromptHost() {
             )}
             onClick={() => setOpen(false)}
           >
-            profile settings
+            {tPerm("settingsLink")}
           </Link>{" "}
-          anytime to choose web, Telegram, or both.
+          {tPerm("settingsSuffix")}
         </p>
 
         <DialogFooter>
           <Button type="button" variant="outline" disabled={loading} onClick={() => void handleDismiss()}>
-            {showBlockedHint ? "Close" : "Not now"}
+            {showBlockedHint ? tPerm("close") : tPerm("notNow")}
           </Button>
           <Button type="button" disabled={loading} onClick={handleEnable}>
             {loading
-              ? "Requesting…"
+              ? tPerm("requesting")
               : blockedBeforeClick === "already_denied"
-                ? "Try again"
+                ? tPerm("tryAgain")
                 : blockedBeforeClick === "already_granted"
-                  ? "Already allowed"
-                  : "Allow notifications"}
+                  ? tPerm("alreadyAllowed")
+                  : tPerm("allow")}
           </Button>
         </DialogFooter>
       </DialogContent>

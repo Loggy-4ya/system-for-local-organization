@@ -7,13 +7,10 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { TaskGroupDetailDto } from "@shared/domains/TaskGroupDomain";
-import {
-  TASK_GROUP_STATUS_LABELS,
-  TASK_STATUS_LABELS,
-} from "@shared/constants/taskSettings";
+import type { TaskGroupStatus, TaskStatus } from "@shared/constants/taskSettings";
 import { formatTaskReminderSchedule } from "@shared/lib/taskReminderLogic";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
@@ -23,7 +20,7 @@ import {
   TaskGroupRosterPanel,
   rosterRowsToPerformerEntries,
 } from "@/components/tasks/TaskGroupRosterPanel";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { TaskPerformerEntry } from "@/components/users/UserSearchPicker";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +40,8 @@ export interface TaskGroupDetailShellProps {
  */
 export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailShellProps) {
   const router = useRouter();
+  const t = useTranslations("tasks");
+  const tCommon = useTranslations("common");
   const [group, setGroup] = useState<TaskGroupDetailDto | null>(null);
   const [roster, setRoster] = useState<TaskPerformerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,10 +62,20 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
     setRoster(rosterRowsToPerformerEntries(group.roster));
   }, [group]);
 
+  /** Localized task status label. */
+  function taskStatusLabel(status: TaskStatus): string {
+    return t(`status.${status}`);
+  }
+
+  /** Localized group status label. */
+  function groupStatusLabel(status: TaskGroupStatus): string {
+    return t(`groupStatus.${status}`);
+  }
+
   if (loading) {
     return (
       <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
-        <p className="text-sm text-[var(--color-text-secondary)]">Loading…</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{tCommon("loading")}</p>
       </StaticPageShell>
     );
   }
@@ -75,9 +84,9 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
     return (
       <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
         <div className="glass-panel w-full rounded-[var(--radius-lg)] p-6 text-center">
-          <p className="text-sm text-[var(--color-text-secondary)]">Project not found.</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t("projectNotFound")}</p>
           <Link href="/task-groups" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4 inline-flex")}>
-            Back to projects
+            {t("backToProjects")}
           </Link>
         </div>
       </StaticPageShell>
@@ -96,14 +105,14 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
               href="/task-groups"
               className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             >
-              ← Projects
+              {t("projectsNav")}
             </Link>
             <h1 className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
               {group.title}
             </h1>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              {TASK_GROUP_STATUS_LABELS[group.status]} · {group.openTaskCount} open /{" "}
-              {group.taskCount} parts
+              {groupStatusLabel(group.status)} ·{" "}
+              {t("openParts", { open: group.openTaskCount, total: group.taskCount })}
             </p>
           </div>
           {canAddPart && (
@@ -111,14 +120,14 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
               href={`/tasks/new?groupId=${encodeURIComponent(group.id)}`}
               className={cn(buttonVariants({ size: "sm" }))}
             >
-              Add task part
+              {t("addTaskPart")}
             </Link>
           )}
         </div>
 
         {group.description ? (
           <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] p-4">
-            <h2 className="text-sm font-medium text-[var(--color-text-primary)]">Overview</h2>
+            <h2 className="text-sm font-medium text-[var(--color-text-primary)]">{t("groupDetail.overview")}</h2>
             <NexusRichTextView
               html={group.description}
               className="nexus-rich-text mt-2 text-sm text-[var(--color-text-secondary)]"
@@ -127,7 +136,7 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
         ) : null}
 
         <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] p-4">
-          <h2 className="text-sm font-medium text-[var(--color-text-primary)]">Project team</h2>
+          <h2 className="text-sm font-medium text-[var(--color-text-primary)]">{t("groupDetail.projectTeam")}</h2>
           <div className="mt-3">
             <TaskGroupRosterPanel
               value={roster}
@@ -147,13 +156,13 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
         />
 
         <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] p-4">
-          <h2 className="text-sm font-medium text-[var(--color-text-primary)]">Long-run reminders</h2>
+          <h2 className="text-sm font-medium text-[var(--color-text-primary)]">{t("groupDetail.longRunReminders")}</h2>
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             {formatTaskReminderSchedule(group.reminderSettings, group.dueAt)}
           </p>
           {group.dueAt ? (
             <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-              Project deadline:{" "}
+              {t("groupDetail.projectDeadline")}{" "}
               {new Date(group.dueAt).toLocaleString(undefined, {
                 dateStyle: "medium",
                 timeStyle: "short",
@@ -163,11 +172,9 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-[var(--color-text-primary)]">Task parts</h2>
+          <h2 className="mb-3 text-sm font-medium text-[var(--color-text-primary)]">{t("groupDetail.taskParts")}</h2>
           {group.tasks.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              No tasks linked yet. Add the first part to start tracking progress.
-            </p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{t("groupDetail.noTasksLinked")}</p>
           ) : (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {group.tasks.map((task) => (
@@ -179,9 +186,8 @@ export function TaskGroupDetailShell({ groupId, canDispatch }: TaskGroupDetailSh
                   >
                     <span className="font-medium text-[var(--color-text-primary)]">{task.title}</span>
                     <span className="text-xs text-[var(--color-text-secondary)]">
-                      {TASK_STATUS_LABELS[task.status]} · {task.performerCount} performer
-                      {task.performerCount === 1 ? "" : "s"}
-                      {task.telegramForumTopicId != null ? " · Telegram topic linked" : ""}
+                      {taskStatusLabel(task.status)} · {t("performers", { count: task.performerCount })}
+                      {task.telegramForumTopicId != null ? ` · ${t("groupDetail.telegramTopicLinked")}` : ""}
                     </span>
                   </button>
                 </li>

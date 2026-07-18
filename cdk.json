@@ -1,0 +1,10 @@
+{
+  "app": "npx tsx infrastructure/bin/nexus.ts",
+  "context": {
+    "githubRepository": "Loggy-4ya/system-for-local-organization",
+    "githubSubjectPrefix": "repo:Loggy-4ya/system-for-local-organization",
+    "awsRegion": "eu-central-1",
+    "instanceType": "t3.small",
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+  }
+}

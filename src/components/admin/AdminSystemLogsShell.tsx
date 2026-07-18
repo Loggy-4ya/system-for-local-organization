@@ -10,7 +10,8 @@
  */
 
 import React from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
@@ -18,7 +19,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { SecuritySanitizeAuditSection } from "@/components/admin/SecuritySanitizeAuditSection";
 import { UserDirectoryAuditSection } from "@/components/admin/UserDirectoryAuditSection";
 import {
-  SYSTEM_LOG_SECTIONS,
+  SYSTEM_LOG_SECTION_IDS,
   type SystemLogsSectionId,
 } from "@/lib/systemLogsSections";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,16 @@ export function AdminSystemLogsShell({
   initialSection,
   initialTargetUserId,
 }: AdminSystemLogsShellProps) {
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.systemLogs");
+
+  /** Resolve localized tab label for a section id. */
+  function sectionLabel(sectionId: SystemLogsSectionId): string {
+    return sectionId === "content-sanitization"
+      ? t("sections.contentSanitization")
+      : t("sections.userDirectory");
+  }
+
   return (
     <StaticPageShell
       contentWidth={STATIC_ROUTE_CONTENT_WIDTH.admin}
@@ -58,34 +69,33 @@ export function AdminSystemLogsShell({
             className="global-layout-editor__btn-text inline-flex w-fit items-center gap-1.5 border border-zinc-700/10 text-xs text-(--color-text-secondary) no-underline transition-colors hover:bg-zinc-700/10 hover:text-(--color-text-primary) dark:border-zinc-300/5 dark:hover:bg-zinc-300/5"
           >
             <ArrowLeft size={12} aria-hidden="true" />
-            Back to Administration
+            {tAdmin("backToAdmin")}
           </Link>
 
           <div className="flex flex-col gap-1.5">
             <div className="mb-1 flex items-center gap-2 text-primary">
               <ClipboardList size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className="text-xs font-semibold tracking-wide uppercase">Administration</span>
+              <span className="text-xs font-semibold tracking-wide uppercase">{t("eyebrow")}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-              System logs
+              {t("title")}
             </h1>
             <p className="max-w-3xl text-sm leading-relaxed text-(--color-text-secondary)">
-              Browse institutional audit trails grouped by subsystem. Each section reads from its
-              own collection and never stores raw sensitive payloads.
+              {t("description")}
             </p>
           </div>
 
           <div
             className="flex flex-wrap gap-2"
             role="tablist"
-            aria-label="System log sections"
+            aria-label={t("sectionsAria")}
           >
-            {SYSTEM_LOG_SECTIONS.map((section) => {
-              const isActive = section.id === initialSection;
+            {SYSTEM_LOG_SECTION_IDS.map((sectionId) => {
+              const isActive = sectionId === initialSection;
               return (
                 <Link
-                  key={section.id}
-                  href={`/admin/logs?section=${section.id}`}
+                  key={sectionId}
+                  href={`/admin/logs?section=${sectionId}`}
                   scroll={false}
                   role="tab"
                   aria-selected={isActive}
@@ -96,7 +106,7 @@ export function AdminSystemLogsShell({
                     "no-underline",
                   )}
                 >
-                  {section.label}
+                  {sectionLabel(sectionId)}
                 </Link>
               );
             })}

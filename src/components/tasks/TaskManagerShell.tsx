@@ -7,11 +7,11 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { TaskListRow } from "@shared/domains/TaskDomain";
 import type { TaskCategoryDefinition } from "@shared/constants/taskCategoryDefaults";
-import { TASK_STATUS_LABELS } from "@shared/constants/taskSettings";
+import type { TaskStatus } from "@shared/constants/taskSettings";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
 import { NexusListPagination } from "@/components/ui/NexusListPagination";
@@ -33,6 +33,12 @@ export interface TaskManagerShellProps {
 
 type TaskScope = "all" | "authored" | "assigned";
 
+const SCOPE_LABEL_KEYS: Record<TaskScope, "scopeAll" | "scopeAuthored" | "scopeAssigned"> = {
+  all: "scopeAll",
+  authored: "scopeAuthored",
+  assigned: "scopeAssigned",
+};
+
 /**
  * Institutional task list at `/tasks`.
  *
@@ -41,6 +47,8 @@ type TaskScope = "all" | "authored" | "assigned";
  */
 export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
   const router = useRouter();
+  const t = useTranslations("tasks");
+  const tCommon = useTranslations("common");
   const [tasks, setTasks] = useState<TaskListRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -85,26 +93,29 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
     setPage(1);
   }, [scope, categoryId]);
 
+  /** Localized task status label. */
+  function taskStatusLabel(status: TaskStatus): string {
+    return t(`status.${status}`);
+  }
+
   return (
     <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
       <div className="glass-panel flex w-full flex-col gap-4 rounded-[var(--radius-lg)] p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Tasks</h1>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Assign, track, and complete institutional tasks.
-            </p>
+            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{t("title")}</h1>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("subtitle")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
               href="/task-groups"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Projects
+              {t("projects")}
             </Link>
             {canDispatch && (
               <Link href="/tasks/new" className={cn(buttonVariants({ size: "sm" }))}>
-                New task
+                {t("newTask")}
               </Link>
             )}
           </div>
@@ -129,7 +140,7 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
                     : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
                 )}
               >
-                {tab}
+                {t(SCOPE_LABEL_KEYS[tab])}
               </button>
             ),
           )}
@@ -142,11 +153,11 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
               onValueChange={(value) => setCategoryId(value === "all" ? null : value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="All categories" />
+                <SelectValue placeholder={t("allCategories")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" label="All categories">
-                  All categories
+                <SelectItem value="all" label={t("allCategories")}>
+                  {t("allCategories")}
                 </SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id} label={category.label}>
@@ -159,9 +170,9 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
         ) : null}
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading…</p>
+          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{tCommon("loading")}</p>
         ) : tasks.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">No tasks found.</p>
+          <p className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("noTasks")}</p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {tasks.map((task) => (
@@ -174,14 +185,15 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">{task.title}</p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
-                      {task.authorDisplayName} · {task.performerCount} performer
-                      {task.performerCount === 1 ? "" : "s"}
+                      {task.authorDisplayName} · {t("performers", { count: task.performerCount })}
                       {task.categoryLabel ? ` · ${task.categoryLabel}` : ""}
                       {task.groupTitle ? ` · ${task.groupTitle}` : ""}
-                      {task.dueAt ? ` · Due ${new Date(task.dueAt).toLocaleDateString()}` : ""}
+                      {task.dueAt
+                        ? ` · ${t("due", { date: new Date(task.dueAt).toLocaleDateString() })}`
+                        : ""}
                     </p>
                   </div>
-                  <span className="badge badge-group">{TASK_STATUS_LABELS[task.status]}</span>
+                  <span className="badge badge-group">{taskStatusLabel(task.status)}</span>
                 </button>
               </li>
             ))}
@@ -193,7 +205,7 @@ export function TaskManagerShell({ canDispatch }: TaskManagerShellProps) {
           totalPages={totalPages}
           onPageChange={setPage}
           disabled={loading}
-          summary={totalCount > 0 ? `${totalCount} task${totalCount === 1 ? "" : "s"} total` : undefined}
+          summary={totalCount > 0 ? t("tasksTotal", { count: totalCount }) : undefined}
         />
       </div>
     </StaticPageShell>

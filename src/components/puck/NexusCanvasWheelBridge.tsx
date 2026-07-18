@@ -15,6 +15,7 @@ import {
   canvasShellNeedsVerticalScroll,
 } from "@/components/puck/lib/canvasLetterboxScrollport";
 import { PUCK_CANVAS_INNER_SELECTOR, PUCK_CANVAS_SHELL_SELECTOR } from "@/components/puck/lib/puckCanvasSelectors";
+import { isInlinePuckPreview } from "@/components/puck/lib/previewIframeDocumentReady";
 import { usePuckPreviewMode } from "@/components/puck/lib/useNexusPuck";
 import { PUCK_COMPACT_EDITOR_MAX_WIDTH } from "@/components/puck/usePuckMobileEditorChrome";
 
@@ -43,12 +44,11 @@ export function NexusCanvasWheelBridge() {
     const onWheel = (event: WheelEvent) => {
       if (!media.matches) return;
 
-      const iframe = document.getElementById(PREVIEW_FRAME_ID) as HTMLIFrameElement | null;
-      const iframeWindow = iframe?.contentWindow;
-      if (!iframe || !iframeWindow) return;
+      const frame = document.getElementById(PREVIEW_FRAME_ID);
+      if (!(frame instanceof HTMLElement)) return;
 
       const target = event.target;
-      if (target instanceof Node && iframe.contains(target)) {
+      if (target instanceof Node && frame.contains(target)) {
         return;
       }
 
@@ -62,6 +62,22 @@ export function NexusCanvasWheelBridge() {
         event.preventDefault();
         return;
       }
+
+      if (isInlinePuckPreview()) {
+        const scrollHost =
+          (document.querySelector(PUCK_CANVAS_SHELL_SELECTOR) as HTMLElement | null) ??
+          (document.querySelector(PUCK_CANVAS_INNER_SELECTOR) as HTMLElement | null);
+        scrollHost?.scrollBy({
+          top: event.deltaY,
+          left: event.deltaX,
+          behavior: "auto",
+        });
+        event.preventDefault();
+        return;
+      }
+
+      const iframeWindow = (frame as HTMLIFrameElement).contentWindow;
+      if (!iframeWindow) return;
 
       iframeWindow.scrollBy({
         top: event.deltaY,

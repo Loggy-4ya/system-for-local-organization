@@ -1,14 +1,10 @@
 /**
  * @fileoverview Code-only Nexus homepage — stacked glass islands on the dynamic grid background.
  *
- * The root route (`/`) is intentionally not Puck-managed. This shell introduces the platform
- * in readable opaque panels and links visitors to the public page catalog at `/pages`.
- *
  * @module src/components/marketing/HomeLandingShell
  */
 
 import Image from "next/image";
-import Link from "next/link";
 import {
   ArrowRight,
   Bell,
@@ -19,6 +15,8 @@ import {
   Shield,
   Sparkles,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { buttonVariants } from "@/components/ui/button";
 import { GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
@@ -28,60 +26,27 @@ import { cn } from "@/lib/utils";
 /** Brand gradient accent shared with auth and 404 shells. */
 const HERO_GRADIENT = "linear-gradient(135deg, #1d4ed8 0%, #5b21b6 55%, #7c3aed 100%)";
 
-/** Short capability highlights rendered as island cards. */
-const CAPABILITY_ISLANDS = [
-  {
-    icon: LayoutGrid,
-    title: "Visual pages",
-    description:
-      "Publish news, guides, and landing content with the Puck editor — layouts, media, and forms without shipping new code.",
-  },
-  {
-    icon: CheckSquare,
-    title: "Tasks & projects",
-    description:
-      "Dispatch work, track acknowledgement, and coordinate multi-part projects with reminders and institutional calendars.",
-  },
-  {
-    icon: Send,
-    title: "Telegram workspaces",
-    description:
-      "Spin up dedicated project groups, collect reports in chat, and keep council operations close to where members already are.",
-  },
-] as const;
-
-/** Secondary pillars shown in the overview island. */
-const PLATFORM_PILLARS = [
-  {
-    icon: Shield,
-    title: "Role-based access",
-    description: "Admins and council leads get the right visibility without exposing sensitive operations.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Comments & engagement",
-    description: "Readers can react, discuss, and stay involved on published institutional pages.",
-  },
-  {
-    icon: Bell,
-    title: "Notification center",
-    description: "Personal inbox, broadcasts, and task reminders keep members aligned across the web app.",
-  },
-] as const;
-
 /**
  * Public homepage body — hero, capability islands, overview, and catalog CTA.
  *
  * @returns Width-aligned landing layout inside {@link StaticPageShell}.
  */
-export function HomeLandingShell() {
+export async function HomeLandingShell() {
+  const t = await getTranslations("home");
+  const tc = await getTranslations("common");
+
+  const capabilityKeys = ["visualPages", "tasksProjects", "telegramWorkspaces"] as const;
+  const capabilityIcons = [LayoutGrid, CheckSquare, Send] as const;
+
+  const pillarKeys = ["rbac", "engagement", "notifications"] as const;
+  const pillarIcons = [Shield, MessageSquare, Bell] as const;
+
   return (
     <StaticPageShell
       contentWidth={GLOBAL_LAYOUT_CONTENT_WIDTH}
       className="py-8 md:py-12"
       innerClassName="flex w-full flex-col gap-4 md:gap-6"
     >
-      {/* Hero island */}
       <section
         className="glass-panel overflow-hidden rounded-[var(--radius-lg)] shadow-[0_16px_40px_-8px_rgba(15,23,41,0.16)]"
         aria-labelledby="home-hero-heading"
@@ -110,7 +75,7 @@ export function HomeLandingShell() {
                 />
               </span>
               <p className="text-xs font-semibold tracking-[0.22em] text-[rgba(241,245,249,0.72)] uppercase">
-                Project Nexus
+                {t("brand")}
               </p>
             </div>
 
@@ -119,12 +84,10 @@ export function HomeLandingShell() {
                 id="home-hero-heading"
                 className="text-[clamp(2rem,4.5vw,3.25rem)] leading-[1.05] font-semibold tracking-tight text-[#f8fafc]"
               >
-                Institutional management for student councils
+                {t("heroTitle")}
               </h1>
               <p className="max-w-xl text-base leading-relaxed text-[rgba(241,245,249,0.82)] sm:text-lg">
-                Nexus unifies pages, tasks, profiles, and Telegram automation into one scalable
-                platform — built for councils that need clarity, accountability, and a polished
-                public presence.
+                {t("heroDescription")}
               </p>
             </div>
 
@@ -137,7 +100,7 @@ export function HomeLandingShell() {
                 )}
               >
                 <LayoutGrid size={18} strokeWidth={1.75} aria-hidden="true" />
-                Browse pages
+                {tc("browsePages")}
               </Link>
               <Link
                 href="/login"
@@ -146,7 +109,7 @@ export function HomeLandingShell() {
                   "gap-2 border-white/35 bg-white/10 text-[#f8fafc] hover:bg-white/16 hover:text-[#f8fafc]",
                 )}
               >
-                Sign in
+                {tc("signIn")}
                 <ArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
               </Link>
             </div>
@@ -155,86 +118,91 @@ export function HomeLandingShell() {
           <div className="relative z-1 hidden w-full max-w-xs shrink-0 flex-col gap-3 rounded-[var(--radius-lg)] border border-white/20 bg-[rgba(255,255,255,0.14)] p-5 lg:flex">
             <div className="flex items-center gap-2 text-sm font-medium text-[#f8fafc]">
               <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-              One platform, many workflows
+              {t("sidebarTitle")}
             </div>
             <ul className="flex flex-col gap-2 text-sm leading-relaxed text-[rgba(241,245,249,0.78)]">
-              <li>Publish institutional content with the visual editor</li>
-              <li>Run tasks, groups, and calendar-driven operations</li>
-              <li>Connect members through profiles, mentions, and Telegram</li>
+              <li>{t("sidebarItem1")}</li>
+              <li>{t("sidebarItem2")}</li>
+              <li>{t("sidebarItem3")}</li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* Capability islands */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-        {CAPABILITY_ISLANDS.map(({ icon: Icon, title, description }) => (
-          <section
-            key={title}
-            className="glass-panel flex flex-col gap-4 rounded-[var(--radius-lg)] p-6 shadow-[0_10px_28px_-10px_rgba(15,23,41,0.14)]"
-          >
-            <span className="flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
-              <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
-            </span>
-            <div className="flex flex-col gap-2">
-              <h2 className="text-lg font-semibold tracking-tight text-(--color-text-primary)">
-                {title}
-              </h2>
-              <p className="text-sm leading-relaxed text-(--color-text-secondary)">{description}</p>
-            </div>
-          </section>
-        ))}
+        {capabilityKeys.map((key, index) => {
+          const Icon = capabilityIcons[index];
+          return (
+            <section
+              key={key}
+              className="glass-panel flex flex-col gap-4 rounded-[var(--radius-lg)] p-6 shadow-[0_10px_28px_-10px_rgba(15,23,41,0.14)]"
+            >
+              <span className="flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <div className="flex flex-col gap-2">
+                <h2 className="text-lg font-semibold tracking-tight text-(--color-text-primary)">
+                  {t(`capabilities.${key}.title`)}
+                </h2>
+                <p className="text-sm leading-relaxed text-(--color-text-secondary)">
+                  {t(`capabilities.${key}.description`)}
+                </p>
+              </div>
+            </section>
+          );
+        })}
       </div>
 
-      {/* Platform overview island */}
       <section className="glass-panel rounded-[var(--radius-lg)] p-6 shadow-[0_10px_28px_-10px_rgba(15,23,41,0.12)] sm:p-8">
         <div className="flex flex-col gap-6">
           <div className="flex max-w-3xl flex-col gap-3">
             <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
-              Built for councils
+              {t("overviewEyebrow")}
             </p>
             <h2 className="text-[clamp(1.5rem,3vw,2rem)] font-semibold tracking-tight text-(--color-text-primary)">
-              Everything your institution needs to operate in the open
+              {t("overviewTitle")}
             </h2>
             <p className="text-base leading-relaxed text-(--color-text-secondary)">
-              Nexus is a containerized management and automation platform: configurable global
-              layout, membership applications, access control, media storage, rich text with
-              mentions, and admin tooling — all on top of a dynamic site background that stays
-              readable thanks to solid glass islands like these.
+              {t("overviewDescription")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {PLATFORM_PILLARS.map(({ icon: Icon, title, description }) => (
-              <div
-                key={title}
-                className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-(--color-border-default) bg-(--color-bg-elevated) p-4"
-              >
-                <span className="flex size-9 items-center justify-center rounded-lg bg-(--color-bg-panel) text-primary">
-                  <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <div className="flex flex-col gap-1.5">
-                  <h3 className="text-sm font-semibold text-(--color-text-primary)">{title}</h3>
-                  <p className="text-sm leading-relaxed text-(--color-text-secondary)">{description}</p>
+            {pillarKeys.map((key, index) => {
+              const Icon = pillarIcons[index];
+              return (
+                <div
+                  key={key}
+                  className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-(--color-border-default) bg-(--color-bg-elevated) p-4"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-(--color-bg-panel) text-primary">
+                    <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-sm font-semibold text-(--color-text-primary)">
+                      {t(`pillars.${key}.title`)}
+                    </h3>
+                    <p className="text-sm leading-relaxed text-(--color-text-secondary)">
+                      {t(`pillars.${key}.description`)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Catalog CTA island */}
       <section className="glass-panel flex flex-col gap-5 rounded-[var(--radius-lg)] p-6 shadow-[0_10px_28px_-10px_rgba(15,23,41,0.12)] sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div className="flex max-w-2xl flex-col gap-2">
           <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
-            Explore content
+            {t("ctaEyebrow")}
           </p>
           <h2 className="text-xl font-semibold tracking-tight text-(--color-text-primary) sm:text-2xl">
-            Browse published pages by category
+            {t("ctaTitle")}
           </h2>
           <p className="text-sm leading-relaxed text-(--color-text-secondary) sm:text-base">
-            News, guides, and council pages live in the public catalog. Open the page manager to
-            discover what is already published across institutional domains.
+            {t("ctaDescription")}
           </p>
         </div>
 
@@ -243,7 +211,7 @@ export function HomeLandingShell() {
           className={cn(buttonVariants({ size: "lg" }), "w-full shrink-0 gap-2 sm:w-auto")}
         >
           <LayoutGrid size={18} strokeWidth={1.75} aria-hidden="true" />
-          Go to pages
+          {t("goToPages")}
           <ArrowRight size={18} strokeWidth={1.75} aria-hidden="true" />
         </Link>
       </section>

@@ -19,7 +19,7 @@ import {
 /**
  * Layout-level InfiniteGrid driven by the active Puck page background settings.
  *
- * @returns Global background canvas for the site shell.
+ * @returns Global fixed background canvas for the site and Puck editor shell.
  */
 export function LayoutInfiniteGrid() {
   const isStatic = useSyncExternalStore(

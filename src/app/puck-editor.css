@@ -105,6 +105,21 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
   outline: none !important;
 }
 
+.Puck [class*="PuckCanvas-root"],
+.Puck #puck-canvas-root,
+.Puck #puck-canvas-root > * {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Inline preview (iframe disabled) — same transparency contract as AutoFrame iframe. */
+.Puck #preview-frame[data-puck-entry] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
 .Puck [class*="PuckPreview-frame"] {
   max-width: 100%;
 }
@@ -425,7 +440,7 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
   .Puck [class*="PuckCanvas-inner"] {
     background: transparent !important;
     box-sizing: border-box;
-    contain: paint;
+    contain: none;
     flex: 1 1 auto;
     height: 100% !important;
     justify-content: center !important;
@@ -452,7 +467,50 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
     max-width: none !important;
   }
 
-  /* Shell scrollport grid — always fill the bordered canvas panel (not the preview width). */
+  /* Puck canvas root — contained grid backdrop behind the preview iframe (transform stack). */
+  .Puck [class*="PuckCanvas-root"] > #nexus-puck-grid-host[data-nexus-scrollport-grid],
+  .Puck #puck-canvas-root > #nexus-puck-grid-host[data-nexus-scrollport-grid] {
+    height: 100% !important;
+    inset: 0 !important;
+    min-height: 100% !important;
+    overflow: hidden !important;
+    pointer-events: none;
+    position: absolute !important;
+    width: 100% !important;
+    z-index: 0;
+  }
+
+  .Puck [class*="PuckCanvas-root"] > #nexus-puck-grid-host[data-nexus-scrollport-grid] > #nexus-canvas-edit-grid,
+  .Puck #puck-canvas-root > #nexus-puck-grid-host[data-nexus-scrollport-grid] > #nexus-canvas-edit-grid {
+    bottom: auto !important;
+    height: 100% !important;
+    inset: unset !important;
+    left: 0 !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  .Puck [class*="PuckCanvas-root"] [class*="PuckPreview"],
+  .Puck [class*="PuckCanvas-root"] [class*="PuckPreview-frame"],
+  .Puck [class*="PuckCanvas-root"] iframe#preview-frame,
+  .Puck #puck-canvas-root [class*="PuckPreview"],
+  .Puck #puck-canvas-root [class*="PuckPreview-frame"],
+  .Puck #puck-canvas-root iframe#preview-frame,
+  .Puck #puck-canvas-root #preview-frame[data-puck-entry] {
+    position: relative;
+    z-index: 1;
+  }
+
+  .Puck [class*="PuckCanvas-root"],
+  .Puck #puck-canvas-root {
+    position: relative;
+  }
+
+  /* Puck canvas shell — compact/mobile scrollport grid host (not canvas-root backdrop). */
   .Puck
     [class*="PuckCanvas_"]:not([class*="PuckCanvas-controls"]):not([class*="PuckCanvas-inner"]):not(
       [class*="PuckCanvas-root"]
@@ -461,6 +519,7 @@ html:not([data-nexus-puck-preview-mode="interactive"]) iframe#preview-frame {
     height: 100% !important;
     inset: 0 !important;
     min-height: 100% !important;
+    overflow: hidden !important;
     pointer-events: none;
     position: absolute !important;
     width: 100% !important;
@@ -1012,7 +1071,47 @@ html[data-nexus-panel-resizing] .Puck [class*="PuckCanvas-inner"] {
   outline-offset: -2px;
 }
 
-/* Puck block action bar — solid panel, larger tap targets */
+/* Inline preview — overlays portal as `#preview-frame` siblings outside the scale host. */
+#preview-frame[data-puck-preview],
+.Puck #preview-frame[data-puck-entry]:not(iframe) {
+  overflow: visible !important;
+  position: relative;
+}
+
+.Puck #puck-canvas-root:has(#preview-frame[data-puck-preview]),
+.Puck #puck-canvas-root:has(#preview-frame[data-puck-entry]:not(iframe)) {
+  overflow: visible !important;
+}
+
+.nexus-puck-preview-scale-host {
+  width: 100%;
+}
+
+#preview-frame[data-puck-preview] > [data-puck-overlay] {
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+}
+
+#preview-frame[data-puck-preview] > [data-puck-overlay] [class*="DraggableComponent-actionsOverlay"] {
+  pointer-events: auto;
+}
+
+#preview-frame[data-puck-preview] > [data-puck-overlay][class*="DraggableComponent--hover"]
+  [class*="DraggableComponent-overlay"],
+#preview-frame[data-puck-preview] > [data-puck-overlay][class*="DraggableComponent--isSelected"]
+  [class*="DraggableComponent-overlay"] {
+  background: color-mix(in srgb, var(--color-accent-user) 10%, transparent) !important;
+  outline: 2px solid color-mix(in srgb, var(--color-accent-user) 55%, transparent) !important;
+  outline-offset: -2px;
+}
+
+#preview-frame[data-puck-preview] > [data-puck-overlay][class*="DraggableComponent--isSelected"]
+  [class*="DraggableComponent-overlay"] {
+  background: color-mix(in srgb, var(--color-accent-user) 18%, transparent) !important;
+  outline: 2px solid var(--color-accent-user) !important;
+}
+
 .Puck [class*="DraggableComponent-actions"] {
   align-items: center;
   background: var(--color-bg-panel) !important;
@@ -9068,10 +9167,10 @@ body.nexus-outline-pointer-dragging {
   border-radius: 999px;
   box-shadow: none;
   flex-direction: row-reverse;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   overflow: visible;
-  padding: 4px 8px 4px 4px;
+  padding: 4px 10px 4px 6px;
   width: max-content;
 }
 
@@ -9111,11 +9210,75 @@ body.nexus-outline-pointer-dragging {
 
 .Puck [class*="ViewportControls"]:not([class*="ViewportControls--fullScreen"])
   [class*="ViewportControls-actionsInner"] {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 2px;
+  justify-content: center;
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 2px;
   scrollbar-width: none;
+}
+
+/* Inline preview toolbar — Puck module hashes absent on recreated controls */
+.Puck [class*="ViewportControls-actions_"] {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.Puck [class*="ViewportControls"] .ViewportButton {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.Puck [class*="ViewportControls"] .nexus-inline-viewport-action {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--puck-color-black);
+  cursor: pointer;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+}
+
+.Puck [class*="ViewportControls"] .nexus-inline-viewport-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.Puck [class*="ViewportControls"] .ViewportButton-inner {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.Puck [class*="ViewportControls-divider_"] {
+  align-self: stretch;
+  border-inline-end: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+  margin-block: 6px;
+  margin-inline: 4px;
+  width: 0;
+}
+
+.Puck
+  [class*="PuckCanvas-controls"]:not([class*="PuckCanvas--fullScreen"]):has(
+    [class*="ViewportControls--isExpanded"]
+  ) {
+  padding: 8px 12px 6px !important;
+}
+
+.Puck [class*="ViewportControls-zoom_"] .nexus-viewport-zoom-enhancer {
+  margin-inline-start: 2px;
 }
 
 .Puck
@@ -9554,6 +9717,9 @@ body.nexus-outline-pointer-dragging {
 
   .Puck
     [class*="PuckLayout-inner"]
+    > #nexus-puck-grid-host[data-nexus-scrollport-grid-backdrop],
+  .Puck
+    [class*="PuckLayout-inner"]
     > #nexus-editor-scrollport-grid[data-nexus-scrollport-grid-backdrop] {
     height: 100% !important;
     inset: 0 !important;
@@ -9565,6 +9731,18 @@ body.nexus-outline-pointer-dragging {
     z-index: 0;
   }
 
+  html[data-nexus-panel-layout-mutating]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-puck-grid-host[data-nexus-scrollport-grid-backdrop],
+  html[data-nexus-panel-opening]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-puck-grid-host[data-nexus-scrollport-grid-backdrop],
+  html[data-nexus-panel-closing]
+    .Puck
+    [class*="PuckLayout-inner"]
+    > #nexus-puck-grid-host[data-nexus-scrollport-grid-backdrop],
   html[data-nexus-panel-layout-mutating]
     .Puck
     [class*="PuckLayout-inner"]
@@ -9720,8 +9898,57 @@ html:has(.Puck) iframe#preview-frame {
   background-image: none !important;
 }
 
+html:has(.Puck),
+html:has(.Puck) body {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 html:has(.Puck) .nexus-page-stack,
 html:has(.Puck) .nexus-page-stack main {
   background: transparent !important;
   background-color: transparent !important;
+}
+
+/* Puck 0.21 hardcodes `background: white` on canvas root — keep transparent in both themes. */
+html[data-theme="light"] .Puck [class*="PuckCanvas-root"],
+html[data-theme="dark"] .Puck [class*="PuckCanvas-root"],
+html[data-theme="light"] .Puck #puck-canvas-root,
+html[data-theme="dark"] .Puck #puck-canvas-root {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/*
+ * Puck 0.21 `styles.module.css` — `background: white` on canvas root (id + hashed class).
+ * Id selector beats module class without requiring `.Puck` ancestry.
+ */
+#puck-canvas-root,
+[class*="PuckCanvas-root"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/*
+ * Preview iframe document — CopyHostStyles clones host CSS into the iframe where no `.Puck`
+ * ancestor exists, so parent-editor selectors never apply. Mark the iframe `<html>` with
+ * `data-nexus-puck-preview-document` in PuckIframeTheme and keep the page shell transparent.
+ */
+html[data-nexus-puck-preview-document],
+html[data-nexus-puck-preview-document] body,
+html[data-nexus-puck-preview-document] #frame-root,
+html[data-nexus-puck-preview-document] [data-puck-entry],
+html[data-nexus-puck-preview-document] [data-puck-dropzone],
+html[data-nexus-puck-preview-document] [class*="DropZone"],
+html[data-nexus-puck-preview-document] [class*="DropZone-item"],
+html[data-nexus-puck-preview-document] [data-puck-component],
+html[data-nexus-puck-preview-document] .nexus-page-stack,
+html[data-nexus-puck-preview-document] .nexus-page-stack main,
+html[data-nexus-puck-preview-document] .global-layout-page-content-slot,
+html[data-nexus-puck-preview-document] .global-layout-page-content-slot > div {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
 }

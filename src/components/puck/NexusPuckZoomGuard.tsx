@@ -56,6 +56,11 @@ import {
   resolvePuckPreviewModeFromAppStore,
   type PuckPreviewMode,
 } from "@/components/puck/lib/puckPreviewMode";
+import {
+  isInlinePuckPreview,
+  resolvePuckPreviewDocument,
+} from "@/components/puck/lib/previewIframeDocumentReady";
+import { NEXUS_INLINE_PREVIEW_SCALE_HOST_ID } from "@/components/puck/lib/inlinePreviewScaleHost";
 import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
 
 /** Puck internal store shape (subset) for viewport-driven zoom refresh. */
@@ -97,16 +102,26 @@ function applyLetterboxZoomFloor(
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
 
 /**
+ * Re-apply inline canvas root transform, width, and height from store config.
+ *
+ * @param config - Sanitized Puck zoom config.
+ * @param appStore - Optional Puck internal store for viewport width lookup.
+ */
+function applyCanvasRootPresentation(
+  config: PuckZoomConfig,
+  appStore: PuckInternalAppStore | null = resolvePuckAppStore(),
+): void {
+  const viewportWidth = appStore ? resolvePuckViewportWidthFromAppStore(appStore) : undefined;
+  applyPuckCanvasRootZoomPresentation(config, viewportWidth);
+}
+
+/**
  * Resolve the preview iframe document when the editor canvas is mounted.
  *
  * @returns Preview document or null when unavailable.
  */
 function getPreviewDocument(): Document | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
-  return iframe?.contentDocument ?? null;
+  return resolvePuckPreviewDocument();
 }
 
 /**
@@ -193,7 +208,7 @@ export function NexusPuckZoomGuard(): null {
       syncRafRef.current = requestAnimationFrame(() => {
         syncRafRef.current = null;
         const resolvedConfig = config ?? zoomFallbackRef.current;
-        applyPuckCanvasRootZoomPresentation(resolvedConfig);
+        applyCanvasRootPresentation(resolvedConfig);
         syncCanvasInnerScrollportHeight(resolvedConfig);
       });
     };
@@ -222,6 +237,17 @@ export function NexusPuckZoomGuard(): null {
         attributes: true,
         attributeFilter: ["style"],
       });
+
+      if (isInlinePuckPreview()) {
+        const scaleHost = document.getElementById(NEXUS_INLINE_PREVIEW_SCALE_HOST_ID);
+        if (scaleHost) {
+          rootObserver.observe(scaleHost, {
+            attributes: true,
+            attributeFilter: ["style"],
+          });
+        }
+      }
+
       scheduleScrollportSync(zoomFallbackRef.current);
     };
 
@@ -299,7 +325,7 @@ export function NexusPuckZoomGuard(): null {
 
       if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => {
-          applyPuckCanvasRootZoomPresentation(synced);
+          applyCanvasRootPresentation(synced, appStore);
           syncCanvasInnerScrollportHeight(synced);
         });
       }
@@ -360,6 +386,7 @@ export function NexusPuckZoomGuard(): null {
         floored.autoZoom === current.autoZoom &&
         floored.rootHeight === current.rootHeight
       ) {
+        applyCanvasRootPresentation(floored, appStore);
         return;
       }
 

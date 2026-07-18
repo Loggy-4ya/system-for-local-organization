@@ -38,6 +38,8 @@ export interface ProfileUpdateInput {
   personalDataConsent?: boolean;
   /** Preferred notification delivery channels. */
   notificationChannels?: TaskReminderChannel[];
+  /** Preferred UI and bot message locale. */
+  preferredLocale?: "en" | "uk" | null;
   /** When true, records {@link IUser.webNotificationPromptAt}. */
   recordWebNotificationPrompt?: boolean;
 }
@@ -100,6 +102,9 @@ export function applyProfilePatchToUser(user: IUser, patch: ProfileUpdateInput):
   }
   if (patch.notificationChannels !== undefined) {
     user.notificationChannels = normalizeUserNotificationChannels(patch.notificationChannels);
+  }
+  if (patch.preferredLocale !== undefined) {
+    user.preferredLocale = patch.preferredLocale;
   }
   if (patch.recordWebNotificationPrompt === true && !user.webNotificationPromptAt) {
     user.webNotificationPromptAt = new Date();

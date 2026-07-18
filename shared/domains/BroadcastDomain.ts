@@ -23,6 +23,7 @@ import { sendBroadcastSchema, type SendBroadcastInput } from "@shared/validation
 import { TelegramBotDomain } from "@shared/domains/TelegramBotDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import { formatTelegramBroadcastMessage } from "@shared/lib/telegramBroadcastFormat";
+import { resolveBotLocale } from "@shared/lib/resolveBotLocale";
 import { userAcceptsNotificationChannel } from "@shared/lib/userNotificationSettingsLogic";
 import { buildInboxDeliveryKey } from "@shared/lib/notificationInboxLogic";
 import { NotificationDomain } from "@shared/domains/NotificationDomain";
@@ -74,7 +75,9 @@ export const BroadcastDomain = {
 
     const totalUsers = await User.countDocuments({});
     const telegramUsers = channels.includes(BROADCAST_CHANNELS.telegram_dm)
-      ? await User.find({ telegramId: { $ne: null } }).select("_id telegramId notificationChannels").lean()
+      ? await User.find({ telegramId: { $ne: null } })
+          .select("_id telegramId notificationChannels preferredLocale")
+          .lean()
       : [];
 
     let telegramSent = 0;
@@ -86,14 +89,16 @@ export const BroadcastDomain = {
         throw new Error("TELEGRAM_BOT_TOKEN is not configured — cannot send Telegram broadcasts.");
       }
 
-      const telegramText = formatTelegramBroadcastMessage(parsed.title, parsed.body);
 
       for (const row of telegramUsers) {
         if (row.telegramId == null) continue;
         if (!userAcceptsNotificationChannel(row.notificationChannels, "telegram")) continue;
 
+        const locale = resolveBotLocale({ preferredLocale: row.preferredLocale ?? null });
+        const localizedText = formatTelegramBroadcastMessage(parsed.title, parsed.body, locale);
+
         try {
-          await TelegramBotDomain.sendDirectMessage(botToken, row.telegramId, telegramText);
+          await TelegramBotDomain.sendDirectMessage(botToken, row.telegramId, localizedText);
           telegramSent += 1;
           await UserBroadcastReceipt.updateOne(
             { broadcastId: broadcast._id, userId: String(row._id) },

@@ -8,6 +8,7 @@
 
 import { FieldChapter } from "./FieldChapter";
 import { PuckSelectField } from "./PuckSelectField";
+import { useTranslations } from "next-intl";
 import {
   clampPageContentWidth,
   DEFAULT_CONTENT_WIDTH,
@@ -37,11 +38,14 @@ interface PageLayoutFieldGroupProps {
  */
 export function PageLayoutFieldGroup({ value, onChange }: PageLayoutFieldGroupProps) {
   const layout = value ?? {};
+  const tChapters = useTranslations("puck.pageChapters");
+  const tLayout = useTranslations("puck.pageLayout");
+  const tWidth = useTranslations("puck.contentWidth");
 
   return (
-    <FieldChapter title="Page Width" icon={puckIcon(Rows3)}>
+    <FieldChapter title={tChapters("pageWidth")} icon={puckIcon(Rows3)}>
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">Page Content Width</span>
+        <span className="nexus-field-category__label">{tLayout("contentWidth")}</span>
         <PuckSelectField
           value={clampPageContentWidth(layout.contentWidth ?? DEFAULT_CONTENT_WIDTH)}
           onChange={(next) =>
@@ -50,7 +54,7 @@ export function PageLayoutFieldGroup({ value, onChange }: PageLayoutFieldGroupPr
             })
           }
           options={PAGE_CONTENT_WIDTH_OPTIONS.map((opt) => ({
-            label: opt.label,
+            label: tWidth(opt.value),
             value: opt.value,
           }))}
         />

@@ -18,10 +18,17 @@
  * @module src/components/background/InfiniteGrid
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "@teispace/next-themes";
 import { BRAND } from "@/lib/assets";
 import { loadGridIcon } from "./infiniteGridIconLoader";
+import { resolveInfiniteGridPaintIsLight } from "./infiniteGridPaintTheme";
+import {
+  getInfiniteGridSyncState,
+  publishInfiniteGridSync,
+  resolveMirroredGridOffsets,
+  subscribeInfiniteGridSync,
+} from "./infiniteGridSyncStore";
 import { syncInfiniteGridWrapperCursor } from "./infiniteGridCursorSync";
 import {
   shouldStopGridMotionLoop,
@@ -32,8 +39,13 @@ import {
   isMobileScrollportGridPaintFrozen,
   usesMobileScrollportGridViewport,
 } from "@/components/puck/lib/mobileScrollportGridFreeze";
+import { subscribePuckCanvasGridHost } from "@/components/background/puckCanvasGridHostStore";
 import { NEXUS_PANEL_LAYOUT_SETTLED_EVENT } from "@/components/puck/lib/sidebarLayoutLimits";
 import { isParentMobilePreviewHeightSyncActive } from "@/components/puck/lib/mobilePanelPreviewSync";
+import {
+  ensureDomThemeSurfaceSyncObserver,
+  subscribeNexusThemeSurfaceSync,
+} from "@/lib/nexusThemeSurfaceSync";
 
 // ── Engine configuration ─────────────────────────────────────────────────────
 
@@ -151,16 +163,13 @@ export interface InfiniteGridProps extends Partial<EngineOptions> {
   wrapperId?: string;
   /** When true, tags the wrapper for desktop Puck canvas scrollport layering. */
   scrollportLayer?: boolean;
-}
-
-/**
- * Resolve whether the active theme is light from {@link useTheme} `resolvedTheme`.
- *
- * @param resolvedTheme - Theme string from `@teispace/next-themes`.
- * @returns True when the grid should use light-theme paint options.
- */
-function resolveIsLightTheme(resolvedTheme: string | undefined): boolean {
-  return resolvedTheme === "light";
+  /** When true, sharp grid only — Puck preview iframe backdrop (no cursor blur duplicate). */
+  isPuckEditBackdrop?: boolean;
+  /**
+   * When true, repaints from {@link publishInfiniteGridSync} instead of running a local
+   * animation loop — used for the Puck canvas mirror behind the preview iframe.
+   */
+  followLayoutGrid?: boolean;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -180,10 +189,14 @@ export function InfiniteGrid({
   isStatic = false,
   wrapperId = "nexus-bg",
   scrollportLayer = false,
+  isPuckEditBackdrop = false,
+  followLayoutGrid = false,
   ...props
 }: InfiniteGridProps) {
   const { resolvedTheme } = useTheme();
-  const isLightTheme = resolveIsLightTheme(resolvedTheme);
+  const isLightTheme = resolveInfiniteGridPaintIsLight(resolvedTheme);
+  const sharpCanvasId = `${wrapperId}-canvas-sharp`;
+  const blurredCanvasId = `${wrapperId}-canvas-blurred`;
   const themeDefaults = isLightTheme ? LIGHT_THEME_OPTIONS : DARK_THEME_OPTIONS;
   /** Coarse pointer — smaller tiles + faster scroll on phones. */
   const [isTouchLayout, setIsTouchLayout] = useState(false);
@@ -192,6 +205,12 @@ export function InfiniteGrid({
     ...(isTouchLayout ? TOUCH_ENGINE_OVERRIDES : {}),
     ...props,
   };
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const isTouchLayoutRef = useRef(isTouchLayout);
+  isTouchLayoutRef.current = isTouchLayout;
+  const partialOptionsRef = useRef(props);
+  partialOptionsRef.current = props;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const sharpRef   = useRef<HTMLCanvasElement>(null);
@@ -208,9 +227,17 @@ export function InfiniteGrid({
   /** Live theme flag — read during RAF so surface paint tracks toggles before effect restart. */
   const isLightThemeRef = useRef(isLightTheme);
   isLightThemeRef.current = isLightTheme;
-  /** Blur + mask on canvas breaks compositing on iOS — sharp layer only on touch. */
+  /** Cached icon — reused when only theme tokens change (no async reload). */
+  const iconImageRef = useRef<HTMLImageElement | null>(null);
+  /** Synchronous theme repaint wired from the engine effect. */
+  const repaintThemeRef = useRef<((forcedThemeIsLight?: boolean) => void) | null>(null);
+  /** Blur + mask on canvas breaks compositing on iOS — sharp layer only on touch / Puck shell. */
   const [showBlurLayer, setShowBlurLayer] = useState(true);
-  const showCursorBlurLayer = showBlurLayer;
+  const isPuckScrollportBackdrop = (isContained && scrollportLayer) || isPuckEditBackdrop;
+  const showCursorBlurLayer = showBlurLayer && !isPuckScrollportBackdrop;
+  const followLayoutGridRef = useRef(followLayoutGrid);
+  followLayoutGridRef.current = followLayoutGrid;
+  const isLayoutGridDriver = !isContained && wrapperId === "nexus-bg" && !followLayoutGrid;
 
   useEffect(() => {
     const coarseMq = window.matchMedia("(pointer: coarse)");
@@ -228,6 +255,28 @@ export function InfiniteGrid({
     isStaticRef.current = isStatic;
     ensureAnimLoopRef.current?.();
   }, [isStatic]);
+
+  useEffect(() => {
+    const disconnectThemeObserver = ensureDomThemeSurfaceSyncObserver();
+    const unsubscribeThemeSync = subscribeNexusThemeSurfaceSync(() => {
+      repaintThemeRef.current?.();
+    });
+    const unsubscribePuckHost = subscribePuckCanvasGridHost(() => {
+      repaintThemeRef.current?.();
+    });
+
+    return () => {
+      disconnectThemeObserver();
+      unsubscribeThemeSync();
+      unsubscribePuckHost();
+    };
+  }, []);
+
+  /** Repaint tile tint + surface immediately on theme toggle — avoids stale opposite-theme canvas. */
+  useLayoutEffect(() => {
+    isLightThemeRef.current = isLightTheme;
+    repaintThemeRef.current?.(isLightTheme);
+  }, [isLightTheme]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -260,13 +309,41 @@ export function InfiniteGrid({
       ownerWindow.parent !== ownerWindow;
     const parentWindow = inPuckPreviewIframe ? ownerWindow.parent : null;
 
+    /**
+     * Resolve live engine options from {@link isLightThemeRef} (React theme or iframe `data-theme`).
+     *
+     * @returns Theme-aware engine configuration for the active paint frame.
+     */
+    function resolveLiveEngineOptions(): EngineOptions {
+      const domIsLight = isLightThemeRef.current;
+      const themeDefaults = domIsLight ? LIGHT_THEME_OPTIONS : DARK_THEME_OPTIONS;
+      return {
+        ...themeDefaults,
+        ...(isTouchLayoutRef.current ? TOUCH_ENGINE_OVERRIDES : {}),
+        ...partialOptionsRef.current,
+      };
+    }
+
+    /** True when the active document theme is light. */
+    function readPaintThemeIsLight(): boolean {
+      return ownerDocument.documentElement.getAttribute("data-theme") === "light";
+    }
+
     /** True when static mode has fully eased — safe to idle the RAF loop. */
     function isMotionFullyStatic(): boolean {
+      if (followLayoutGridRef.current) {
+        return true;
+      }
+
       return shouldStopGridMotionLoop(motionScaleRef.current, isStaticRef.current);
     }
 
     /** Start the RAF loop when idle — used after static/dynamic toggles. */
     function ensureAnimLoop() {
+      if (followLayoutGridRef.current) {
+        return;
+      }
+
       if (animFrameId !== null) return;
       lastFrameTs = ownerWindow.performance.now();
       animFrameId = ownerWindow.requestAnimationFrame(tick);
@@ -290,9 +367,13 @@ export function InfiniteGrid({
      */
     function getPreviewIframeInParent(): HTMLIFrameElement | null {
       if (!parentWindow) return null;
-      for (const el of parentWindow.document.querySelectorAll("iframe")) {
-        const frame = el as HTMLIFrameElement;
-        if (frame.contentWindow === ownerWindow) return frame;
+      try {
+        for (const el of parentWindow.document.querySelectorAll("iframe")) {
+          const frame = el as HTMLIFrameElement;
+          if (frame.contentWindow === ownerWindow) return frame;
+        }
+      } catch {
+        return null;
       }
       return ownerWindow.frameElement as HTMLIFrameElement | null;
     }
@@ -351,16 +432,24 @@ export function InfiniteGrid({
     function readWrapperCssSize() {
       const rect = safeWrapper.getBoundingClientRect();
       const vv = ownerWindow.visualViewport;
+      const parent = safeWrapper.parentElement;
+
+      if (scrollportLayer && isContained && parent) {
+        const parentW = parent.clientWidth;
+        const parentH = parent.clientHeight;
+        if (parentW > 1 && parentH > 1) {
+          return {
+            w: Math.max(1, Math.round(parentW)),
+            h: Math.max(1, Math.round(parentH)),
+          };
+        }
+      }
 
       const w = Math.round(
-        rect.width > 1
-          ? rect.width
-          : vv?.width ?? ownerWindow.innerWidth
+        rect.width > 1 ? rect.width : vv?.width ?? ownerWindow.innerWidth,
       );
       const h = Math.round(
-        rect.height > 1
-          ? rect.height
-          : vv?.height ?? ownerWindow.innerHeight
+        rect.height > 1 ? rect.height : vv?.height ?? ownerWindow.innerHeight,
       );
 
       return {
@@ -390,11 +479,37 @@ export function InfiniteGrid({
       return readWrapperCssSize();
     }
 
+    /** Puck shell backdrop — lock wrapper box to host px so canvas CSS size matches bitmap (no stretch ghosting). */
+    function syncContainedWrapperBox() {
+      if (!(scrollportLayer && isContained)) {
+        return;
+      }
+
+      const parent = safeWrapper.parentElement;
+      if (!parent) {
+        return;
+      }
+
+      const w = Math.max(1, Math.round(parent.clientWidth));
+      const h = Math.max(1, Math.round(parent.clientHeight));
+      safeWrapper.style.top = "0px";
+      safeWrapper.style.left = "0px";
+      safeWrapper.style.right = "auto";
+      safeWrapper.style.bottom = "auto";
+      safeWrapper.style.width = `${w}px`;
+      safeWrapper.style.height = `${h}px`;
+      safeWrapper.style.maxWidth = `${w}px`;
+      safeWrapper.style.maxHeight = `${h}px`;
+      safeWrapper.style.minHeight = "0px";
+    }
+
     /** Sync canvas pixel buffers to the wrapper element size (device-pixel aware). */
     function syncResolution() {
       if (scrollportLayer && isMobileScrollportGridPaintFrozen()) {
         return;
       }
+
+      syncContainedWrapperBox();
 
       const { w, h } = readWrapperCssSize();
       dpr = Math.min(ownerWindow.devicePixelRatio || 1, 2);
@@ -468,7 +583,8 @@ export function InfiniteGrid({
 
     /** Build the repeating tile pattern from the loaded icon image. */
     function buildPattern(img: HTMLImageElement) {
-      const { cellGridSize, iconScaleSize, highlightColor, rotationDegrees } = options;
+      const liveOptions = resolveLiveEngineOptions();
+      const { cellGridSize, iconScaleSize, highlightColor, rotationDegrees } = liveOptions;
 
       const nW = img.naturalWidth  || img.width;
       const nH = img.naturalHeight || img.height;
@@ -517,10 +633,11 @@ export function InfiniteGrid({
       const { w, h } = readWrapperCssSize();
       const cx = w / 2;
       const cy = h / 2;
-      const r  = Math.max(w, h) * options.maxRadiusMultiplier;
+      const liveOptions = resolveLiveEngineOptions();
+      const r  = Math.max(w, h) * liveOptions.maxRadiusMultiplier;
 
       const grad = safeCtxS.createRadialGradient(cx, cy, 0, cx, cy, r);
-      options.vignetteColorStops.forEach(({ offset, color }) =>
+      liveOptions.vignetteColorStops.forEach(({ offset, color }) =>
         grad.addColorStop(offset, color)
       );
 
@@ -532,8 +649,8 @@ export function InfiniteGrid({
 
     /**
      * Paint the theme surface under the tile grid so body can stay transparent.
-     * Uses `resolvedTheme` from React — not `data-theme` on the document — so
-     * repaints stay in sync when ThemeProvider updates the DOM in a parent effect.
+     * Uses {@link isLightThemeRef} so repaints stay aligned with React theme toggles
+     * before `next-themes` writes `data-theme` on the document root.
      */
     function drawSurfaceBase(ctx: CanvasRenderingContext2D) {
       const { w, h } = readWrapperCssSize();
@@ -564,7 +681,8 @@ export function InfiniteGrid({
       if (!gridPattern) return;
 
       ctx.save();
-      ctx.globalAlpha = options.globalOpacity * opacityScale;
+      const liveOptions = resolveLiveEngineOptions();
+      ctx.globalAlpha = liveOptions.globalOpacity * opacityScale;
       ctx.fillStyle = gridPattern;
 
       if (supportsPatternSetTransform) {
@@ -577,47 +695,77 @@ export function InfiniteGrid({
         ctx.fillRect(
           -offsetX,
           -offsetY,
-          w + options.cellGridSize,
-          h + options.cellGridSize
+          w + liveOptions.cellGridSize,
+          h + liveOptions.cellGridSize
         );
       }
 
       ctx.restore();
     }
 
+    /** Puck edit / shell backdrop — one sharp layer only (blur reads as duplicate lining). */
+    const useBlurPaintLayer = !(scrollportLayer && isContained) && !isPuckEditBackdrop;
+
     /** Paint one frame — shared by animated and static modes. */
     function paintFrame() {
       const { w, h } = readPaintCssSize();
 
       safeCtxS.setTransform(dpr, 0, 0, dpr, 0, 0);
-      safeCtxB.setTransform(dpr, 0, 0, dpr, 0, 0);
       safeCtxS.clearRect(0, 0, w, h);
-      safeCtxB.clearRect(0, 0, w, h);
+      if (useBlurPaintLayer) {
+        safeCtxB.setTransform(dpr, 0, 0, dpr, 0, 0);
+        safeCtxB.clearRect(0, 0, w, h);
+      }
 
-      drawSurfaceBase(safeCtxS);
+      if (!isPuckEditBackdrop) {
+        drawSurfaceBase(safeCtxS);
+      }
       // Blur layer stays pattern-only — solid fill + CSS blur reads as heavy fog (Puck editor).
 
       if (gridPattern) {
-        const motionScale = motionScaleRef.current;
-        if (motionScale > 0.01) {
-          offsetX = (offsetX + options.speedX * motionScale) % options.cellGridSize;
-          offsetY = (offsetY + options.speedY * motionScale) % options.cellGridSize;
+        if (followLayoutGridRef.current) {
+          const sync = getInfiniteGridSyncState();
+          const rect = safeWrapper.getBoundingClientRect();
+          const mirrored = resolveMirroredGridOffsets(sync, rect);
+          offsetX = mirrored.offsetX;
+          offsetY = mirrored.offsetY;
+          isLightThemeRef.current = readPaintThemeIsLight();
+          optionsRef.current = resolveLiveEngineOptions();
+        } else {
+          const motionScale = motionScaleRef.current;
+          if (motionScale > 0.01) {
+            const liveOptions = resolveLiveEngineOptions();
+            offsetX = (offsetX + liveOptions.speedX * motionScale) % liveOptions.cellGridSize;
+            offsetY = (offsetY + liveOptions.speedY * motionScale) % liveOptions.cellGridSize;
+          }
+          offsetXRef.current = offsetX;
+          offsetYRef.current = offsetY;
+
+          if (isLayoutGridDriver) {
+            const liveOptions = resolveLiveEngineOptions();
+            publishInfiniteGridSync({
+              offsetX,
+              offsetY,
+              isLightTheme: isLightThemeRef.current,
+              cellGridSize: liveOptions.cellGridSize,
+            });
+          }
         }
-        offsetXRef.current = offsetX;
-        offsetYRef.current = offsetY;
 
         fillPatternLayer(safeCtxS, w, h);
 
-        if (!isContained) {
+        if (!isContained && !isPuckEditBackdrop) {
           drawVignette();
         }
 
-        fillPatternLayer(
-          safeCtxB,
-          w,
-          h,
-          BLUR_LAYER_TUNING.patternOpacityScale
-        );
+        if (useBlurPaintLayer) {
+          fillPatternLayer(
+            safeCtxB,
+            w,
+            h,
+            BLUR_LAYER_TUNING.patternOpacityScale
+          );
+        }
       }
     }
 
@@ -657,8 +805,10 @@ export function InfiniteGrid({
     ownerWindow.visualViewport?.addEventListener("scroll", scheduleSyncResolution);
 
     const onScrollportMetricsChanged = () => {
-      if (!scrollportLayer || !usesMobileScrollportGridViewport()) return;
-      if (isMobileScrollportGridPaintFrozen()) return;
+      if (!scrollportLayer) return;
+      if (usesMobileScrollportGridViewport() && isMobileScrollportGridPaintFrozen()) {
+        return;
+      }
       syncResolution();
       if (isMotionFullyStatic()) {
         paintOnce();
@@ -688,9 +838,13 @@ export function InfiniteGrid({
       ownerDocument.addEventListener("pointermove", onPointerMoveInside, {
         passive: true,
       });
-      parentWindow.addEventListener("pointermove", onPointerMoveParent, {
-        passive: true,
-      });
+      try {
+        parentWindow.addEventListener("pointermove", onPointerMoveParent, {
+          passive: true,
+        });
+      } catch {
+        /* cross-origin parent */
+      }
     } else {
       ownerDocument.addEventListener("pointermove", onPointerMovePage, {
         passive: true,
@@ -700,10 +854,14 @@ export function InfiniteGrid({
     /** Keep wrapper metrics in sync when the preview scrolls. */
     const onScroll = () => scheduleSyncResolution();
     ownerDocument.addEventListener("scroll", onScroll, { passive: true, capture: true });
-    parentWindow?.document.addEventListener("scroll", onScroll, {
-      passive: true,
-      capture: true,
-    });
+    try {
+      parentWindow?.document.addEventListener("scroll", onScroll, {
+        passive: true,
+        capture: true,
+      });
+    } catch {
+      /* cross-origin parent */
+    }
 
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
@@ -711,23 +869,64 @@ export function InfiniteGrid({
         scheduleSyncResolution();
       });
       resizeObserver.observe(safeWrapper);
+      const hostParent = scrollportLayer && isContained ? safeWrapper.parentElement : null;
+      if (hostParent) {
+        resizeObserver.observe(hostParent);
+      }
     }
 
     let cancelled = false;
 
     const fallbackSrc = BRAND.logoGrid;
-    loadGridIcon(options.iconSrc, fallbackSrc)
+    loadGridIcon(optionsRef.current.iconSrc, fallbackSrc)
       .then((img) => {
         if (cancelled) return;
+        iconImageRef.current = img;
         buildPattern(img);
-        ensureAnimLoop();
+        if (followLayoutGridRef.current) {
+          paintOnce();
+        } else {
+          ensureAnimLoop();
+        }
       })
       .catch((error: unknown) => {
         console.error("[InfiniteGrid] Failed to load icon:", error);
       });
 
+    repaintThemeRef.current = (forcedThemeIsLight?: boolean) => {
+      const img = iconImageRef.current;
+      if (forcedThemeIsLight !== undefined) {
+        isLightThemeRef.current = forcedThemeIsLight;
+      } else {
+        isLightThemeRef.current = readPaintThemeIsLight();
+      }
+      optionsRef.current = resolveLiveEngineOptions();
+      if (!img) return;
+      buildPattern(img);
+      syncResolution();
+      paintOnce();
+      ensureAnimLoop();
+    };
+
+    const unsubscribeLayoutGridSync = followLayoutGridRef.current
+      ? subscribeInfiniteGridSync(() => {
+          if (cancelled) return;
+          paintOnce();
+        })
+      : () => undefined;
+
+    const iframeThemeObserver = new MutationObserver(() => {
+      isLightThemeRef.current = readPaintThemeIsLight();
+      repaintThemeRef.current?.();
+    });
+    iframeThemeObserver.observe(ownerDocument.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
     // ── Cleanup ───────────────────────────────────────────────────────────────
     return () => {
+      repaintThemeRef.current = null;
       ensureAnimLoopRef.current = null;
       cancelled = true;
       if (animFrameId !== null) cancelAnimationFrame(animFrameId);
@@ -743,15 +942,25 @@ export function InfiniteGrid({
       );
       if (inPuckPreviewIframe && parentWindow) {
         ownerDocument.removeEventListener("pointermove", onPointerMoveInside);
-        parentWindow.removeEventListener("pointermove", onPointerMoveParent);
+        try {
+          parentWindow.removeEventListener("pointermove", onPointerMoveParent);
+        } catch {
+          /* cross-origin parent */
+        }
       } else {
         ownerDocument.removeEventListener("pointermove", onPointerMovePage);
       }
       ownerDocument.removeEventListener("scroll", onScroll, true);
-      parentWindow?.document.removeEventListener("scroll", onScroll, true);
+      try {
+        parentWindow?.document.removeEventListener("scroll", onScroll, true);
+      } catch {
+        /* cross-origin parent */
+      }
       if (resizeObserver) resizeObserver.disconnect();
+      iframeThemeObserver.disconnect();
+      unsubscribeLayoutGridSync();
     };
-  }, [isContained, isLightTheme, isTouchLayout, resolvedTheme, scrollportLayer]);
+  }, [followLayoutGrid, isContained, isLayoutGridDriver, isPuckEditBackdrop, isTouchLayout, scrollportLayer]);
 
   const spotMask = `radial-gradient(circle at var(--mouse-x) var(--mouse-y), transparent ${options.cursorSpotInnerPercent}%, black ${options.cursorSpotOuterPercent}%)`;
 
@@ -764,10 +973,20 @@ export function InfiniteGrid({
       aria-hidden="true"
       style={{
         position: isContained ? "absolute" : "fixed",
-        inset: 0,
         ...(isContained
-          ? {}
+          ? {
+              top: 0,
+              left: 0,
+              right: "auto",
+              bottom: "auto",
+              width: "100%",
+              height: "100%",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              minHeight: 0,
+            }
           : {
+              inset: 0,
               width: "100vw",
               height: "100dvh",
               minHeight: "100vh",
@@ -786,7 +1005,7 @@ export function InfiniteGrid({
       {/* Layer 1 — sharp tile grid + vignette */}
       <canvas
         ref={sharpRef}
-        id="canvas-sharp"
+        id={sharpCanvasId}
         style={{
           position: "absolute",
           inset: 0,
@@ -800,7 +1019,7 @@ export function InfiniteGrid({
       {/* Layer 2 — blurred mirror, masked by cursor proximity (desktop pointer only) */}
       <canvas
         ref={blurredRef}
-        id="canvas-blurred"
+        id={blurredCanvasId}
         aria-hidden
         style={{
           position: "absolute",

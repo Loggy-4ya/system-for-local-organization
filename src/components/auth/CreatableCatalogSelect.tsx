@@ -10,6 +10,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -56,12 +57,14 @@ export function CreatableCatalogSelect({
   value,
   onChange,
   options,
-  placeholder = "Type or select…",
+  placeholder,
   disabled = false,
   className,
   numericOnly = false,
   onBlur,
 }: CreatableCatalogSelectProps) {
+  const t = useTranslations("auth.catalogSelect");
+  const resolvedPlaceholder = placeholder ?? t("placeholder");
   const listId = useId();
   const [customEntryActive, setCustomEntryActive] = useState(false);
 
@@ -126,8 +129,8 @@ export function CreatableCatalogSelect({
         disabled={disabled}
       >
         <SelectTrigger id={id} className="w-full" size="sm">
-          <SelectValue placeholder="Select from list…">
-            {selectValue === CREATABLE_CUSTOM_VALUE ? "Other (type below)…" : undefined}
+          <SelectValue placeholder={t("selectFromList")}>
+            {selectValue === CREATABLE_CUSTOM_VALUE ? t("otherTypeBelow") : undefined}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -136,7 +139,7 @@ export function CreatableCatalogSelect({
               {opt}
             </SelectItem>
           ))}
-          <SelectItem value={CREATABLE_CUSTOM_VALUE}>Other (type below)…</SelectItem>
+          <SelectItem value={CREATABLE_CUSTOM_VALUE}>{t("otherTypeBelow")}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -146,7 +149,7 @@ export function CreatableCatalogSelect({
           value={value}
           onChange={(e) => handleCustomInput(e.target.value)}
           onBlur={numericOnly ? undefined : onBlur}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           disabled={disabled}
           inputMode={numericOnly ? "numeric" : "text"}
           pattern={numericOnly ? "[0-9]*" : undefined}

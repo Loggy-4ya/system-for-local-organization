@@ -9,6 +9,7 @@
  */
 
 import { LucideIconPicker } from "@/components/global-layout/LucideIconPicker";
+import { useTranslations } from "next-intl";
 import { ALLOWED_LUCIDE_ICONS, type AllowedLucideIcon } from "@shared/constants/globalLayout";
 import { FieldLabelRow } from "./FieldLabelRow";
 
@@ -32,13 +33,14 @@ export function LucideIconPickerField({
   onChange,
   id,
 }: LucideIconPickerFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const label = field.label ?? "Icon";
 
   return (
     <div className="nexus-sidebar-field">
       <FieldLabelRow
         label={label}
-        hint="Pick a Lucide icon from the site chrome whitelist, or choose none."
+        hint={t("lucideIconHint")}
       />
       <LucideIconPicker
         id={id}

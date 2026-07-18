@@ -7,15 +7,27 @@
  */
 
 import React from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { NotificationInboxListItem } from "@shared/domains/NotificationDomain";
+import type { UserNotificationKind } from "@shared/constants/notificationInbox";
 import {
   isNotificationInboxUnread,
   notificationInboxVariantClass,
-  resolveNotificationKindLabel,
 } from "@shared/lib/notificationInboxLogic";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
+/** Known inbox kind slugs with dedicated translation keys. */
+const INBOX_KIND_KEYS = [
+  "broadcast",
+  "task_reminder",
+  "task_group_reminder",
+  "institutional_reminder",
+  "task_assignment",
+  "page_published",
+  "page_mention",
+] as const satisfies readonly UserNotificationKind[];
 
 /** Props for {@link NotificationInboxRow}. */
 export interface NotificationInboxRowProps {
@@ -44,8 +56,12 @@ function formatInboxTimestamp(iso: string): string {
  * @returns Inbox row JSX.
  */
 export function NotificationInboxRow({ item, onMarkRead }: NotificationInboxRowProps) {
+  const tKinds = useTranslations("notifications.kinds");
+  const tInbox = useTranslations("notifications.inbox");
   const unread = isNotificationInboxUnread(item.readAt ? new Date(item.readAt) : null);
-  const kindLabel = resolveNotificationKindLabel(item.kind);
+  const kindLabel = (INBOX_KIND_KEYS as readonly string[]).includes(item.kind)
+    ? tKinds(item.kind as UserNotificationKind)
+    : tKinds("fallback");
 
   const handleOpen = () => {
     if (unread) {
@@ -66,7 +82,7 @@ export function NotificationInboxRow({ item, onMarkRead }: NotificationInboxRowP
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{kindLabel}</Badge>
-          {unread ? <Badge variant="default">New</Badge> : null}
+          {unread ? <Badge variant="default">{tInbox("newBadge")}</Badge> : null}
         </div>
         <time
           className="text-xs text-[var(--color-text-secondary)]"

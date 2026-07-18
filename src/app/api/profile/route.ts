@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest) {
       completeOAuthOnboarding,
       personalDataConsent,
       notificationChannels,
+      preferredLocale,
     } = parsed.data;
 
     const patch: Parameters<typeof AuthDomain.updateProfile>[1] = {};
@@ -78,6 +79,7 @@ export async function PATCH(req: NextRequest) {
     if (studentTitle !== undefined) patch.studentTitle = studentTitle;
     if (personalDataConsent === true) patch.personalDataConsent = true;
     if (notificationChannels !== undefined) patch.notificationChannels = notificationChannels;
+    if (preferredLocale !== undefined) patch.preferredLocale = preferredLocale;
 
     let user = await AuthDomain.updateProfile(session.user.id, patch);
 

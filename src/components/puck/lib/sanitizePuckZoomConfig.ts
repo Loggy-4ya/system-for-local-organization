@@ -10,6 +10,14 @@
  * @module src/components/puck/lib/sanitizePuckZoomConfig
  */
 
+import { isInlinePuckPreview } from "@/components/puck/lib/previewIframeDocumentReady";
+import {
+  applyInlinePreviewZoomPresentation,
+  inlinePreviewZoomPresentationDrifted,
+  isInlinePreviewZoomHost,
+  resolvePuckPreviewTransformElement,
+} from "@/components/puck/lib/inlinePreviewScaleHost";
+
 /** Puck internal zoom config shape (subset). */
 export interface PuckZoomConfig {
   /** Layout height Puck assigns to `#puck-canvas-root`, in px. */
@@ -279,6 +287,55 @@ export const PUCK_CANVAS_TRANSFORM_FROZEN_ATTR = "data-nexus-canvas-transform-fr
 const ZOOM_PRESENTATION_TOLERANCE = 0.001;
 
 /**
+ * Normalize a Puck viewport width for inline `#puck-canvas-root` presentation.
+ *
+ * @param viewportWidth - Active viewport preset width from Puck UI state.
+ * @returns CSS width value matching Puck iframe-mode inline styles.
+ */
+export function resolvePuckCanvasRootViewportWidth(
+  viewportWidth: number | "100%" | undefined,
+): string | null {
+  if (viewportWidth === undefined) {
+    return null;
+  }
+
+  if (viewportWidth === "100%") {
+    return "100%";
+  }
+
+  if (typeof viewportWidth === "number" && Number.isFinite(viewportWidth) && viewportWidth > 0) {
+    return `${viewportWidth}px`;
+  }
+
+  return null;
+}
+
+/**
+ * Whether `#puck-canvas-root` inline width drifted from the active viewport preset.
+ *
+ * @param viewportWidth - Active viewport preset width from Puck UI state.
+ * @param root - Canvas root element.
+ * @returns True when inline preview width should be re-applied.
+ */
+export function puckCanvasRootViewportWidthDrifted(
+  viewportWidth: number | "100%" | undefined,
+  root: HTMLElement | null = typeof document !== "undefined"
+    ? (document.getElementById(PUCK_CANVAS_ROOT_ID) as HTMLElement | null)
+    : null,
+): boolean {
+  if (!isInlinePuckPreview() || !root) {
+    return false;
+  }
+
+  const expectedWidth = resolvePuckCanvasRootViewportWidth(viewportWidth);
+  if (!expectedWidth) {
+    return false;
+  }
+
+  return root.style.width !== expectedWidth;
+}
+
+/**
  * Parse `scale(n)` or `matrix(a, …)` from an inline / computed transform string.
  *
  * @param transform - CSS transform value.
@@ -317,15 +374,24 @@ export function puckCanvasRootZoomPresentationDrifted(
   root: HTMLElement | null = typeof document !== "undefined"
     ? (document.getElementById(PUCK_CANVAS_ROOT_ID) as HTMLElement | null)
     : null,
+  viewportWidth?: number | "100%",
 ): boolean {
   if (!root) {
     return false;
   }
 
+  const transformEl = isInlinePuckPreview() ? resolvePuckPreviewTransformElement() : root;
   const expectedScale = resolvePuckPreviewVisualScale(config);
-  const parsedScale = parseCssTransformScale(root.style.transform);
-  const scaleDrifted =
-    parsedScale === null || Math.abs(parsedScale - expectedScale) > ZOOM_PRESENTATION_TOLERANCE;
+  const scaleDrifted = isInlinePreviewZoomHost(transformEl)
+    ? inlinePreviewZoomPresentationDrifted(transformEl, expectedScale)
+    : (() => {
+        const parsedScale = parseCssTransformScale(
+          transformEl?.style.transform ?? root.style.transform,
+        );
+        return (
+          parsedScale === null || Math.abs(parsedScale - expectedScale) > ZOOM_PRESENTATION_TOLERANCE
+        );
+      })();
 
   const expectedHeight = String(config.rootHeight);
   const heightDrifted =
@@ -333,7 +399,15 @@ export function puckCanvasRootZoomPresentationDrifted(
     root.style.height !== expectedHeight &&
     root.style.height !== `${expectedHeight}px`;
 
-  return scaleDrifted || heightDrifted;
+  const widthDrifted = puckCanvasRootViewportWidthDrifted(viewportWidth, root);
+
+  const inlineRootTransformDrifted =
+    isInlinePuckPreview() &&
+    root.style.transform !== "" &&
+    root.style.transform !== "none" &&
+    root.style.transform.length > 0;
+
+  return scaleDrifted || heightDrifted || widthDrifted || inlineRootTransformDrifted;
 }
 
 /**
@@ -346,7 +420,10 @@ export function puckCanvasRootZoomPresentationDrifted(
  * @param config - Sanitized zoom config from the Puck app store.
  * @returns True when inline transform/height were patched.
  */
-export function applyPuckCanvasRootZoomPresentation(config: PuckZoomConfig): boolean {
+export function applyPuckCanvasRootZoomPresentation(
+  config: PuckZoomConfig,
+  viewportWidth?: number | "100%",
+): boolean {
   if (typeof document === "undefined") {
     return false;
   }
@@ -356,11 +433,46 @@ export function applyPuckCanvasRootZoomPresentation(config: PuckZoomConfig): boo
     return false;
   }
 
-  if (!puckCanvasRootZoomPresentationDrifted(config, root)) {
+  if (!puckCanvasRootZoomPresentationDrifted(config, root, viewportWidth)) {
     return false;
   }
 
-  root.style.transform = `scale(${config.zoom})`;
+  const transformEl = resolvePuckPreviewTransformElement();
+  const transformTarget = (() => {
+    if (isInlinePuckPreview()) {
+      if (!transformEl || transformEl.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) {
+        return null;
+      }
+
+      return transformEl;
+    }
+
+    if (root.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) {
+      return null;
+    }
+
+    return root;
+  })();
+
+  if (transformTarget) {
+    if (isInlinePreviewZoomHost(transformTarget)) {
+      applyInlinePreviewZoomPresentation(transformTarget, config.zoom);
+    } else {
+      transformTarget.style.transform = `scale(${config.zoom})`;
+    }
+  }
+
+  if (isInlinePuckPreview()) {
+    root.style.removeProperty("transform");
+    root.style.removeProperty("zoom");
+    root.style.overflow = "visible";
+
+    const resolvedWidth = resolvePuckCanvasRootViewportWidth(viewportWidth);
+    if (resolvedWidth) {
+      root.style.width = resolvedWidth;
+    }
+  }
+
   if (config.rootHeight > 0) {
     root.style.height = String(config.rootHeight);
   }

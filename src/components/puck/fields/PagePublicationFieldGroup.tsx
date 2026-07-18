@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import {
   MAX_PAGE_ACCESS_EDITORS,
@@ -75,19 +76,37 @@ interface PagePublicationFieldGroupProps {
   onChange: (value: PagePublicationValue) => void;
 }
 
-/** Uppercase labels for publication gallery slots (`image2`–`image4`). */
+/** Uppercase labels for publication gallery slots (`image2`–`image4`) — English fallbacks for media field metadata. */
 const PUBLICATION_GALLERY_SLOT_LABELS = ["Visual II", "Visual III", "Visual IV"] as const;
+
+/**
+ * Resolve a translated gallery slot label for sidebar UI.
+ *
+ * @param t - `puck.pagePublication` translator.
+ * @param index - Zero-based gallery index.
+ * @returns Localized slot label.
+ */
+function resolveGallerySlotLabel(
+  t: (key: "galleryVisual2" | "galleryVisual3" | "galleryVisual4" | "galleryVisualN", values?: { n: number }) => string,
+  index: number,
+): string {
+  if (index === 0) return t("galleryVisual2");
+  if (index === 1) return t("galleryVisual3");
+  if (index === 2) return t("galleryVisual4");
+  return t("galleryVisualN", { n: index + 2 });
+}
 
 /**
  * Format an ISO timestamp for read-only badge display.
  *
  * @param iso - ISO string or empty.
+ * @param emptyLabel - Placeholder when unset.
  * @returns Localised label or placeholder when unset.
  */
-function formatReadOnlyTimestamp(iso: string | null | undefined): string {
-  if (!iso) return "—";
+function formatReadOnlyTimestamp(iso: string | null | undefined, emptyLabel: string): string {
+  if (!iso) return emptyLabel;
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return emptyLabel;
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
@@ -101,6 +120,8 @@ export function PagePublicationFieldGroup({
   value,
   onChange,
 }: PagePublicationFieldGroupProps) {
+  const tChapters = useTranslations("puck.pageChapters");
+  const t = useTranslations("puck.pagePublication");
   const meta = usePageEditorMeta();
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -149,52 +170,43 @@ export function PagePublicationFieldGroup({
   const galleryImages = (publication.galleryImages ?? []).filter((url) => url?.trim());
 
   return (
-    <FieldChapter title="Publication" icon={<SettingsIcon />}>
+    <FieldChapter title={tChapters("publication")} icon={<SettingsIcon />}>
       <div className="nexus-field-category">
-        <FieldLabelRow
-          label="Description"
-          hint="Short summary for news cards and search previews."
-        />
+        <FieldLabelRow label={t("description")} hint={t("descriptionHint")} />
         <textarea
           className="nexus-puck-input nexus-puck-textarea"
           rows={4}
           value={publication.description ?? ""}
           onChange={(e) => set({ description: e.target.value })}
-          placeholder="Brief page summary…"
+          placeholder={t("descriptionPlaceholder")}
         />
       </div>
 
       <div className="nexus-field-category">
-        <FieldLabelRow
-          label="Cover Image"
-          hint="Hero image for news listings. Preview uses contain scaling so text stays readable."
-        />
+        <FieldLabelRow label={t("coverImage")} hint={t("coverImageHint")} />
         <MediaUploadField
-          field={{ label: "Cover Image", accept: "image", purpose: "page-cover" }}
+          field={{ label: t("coverImage"), accept: "image", purpose: "page-cover" }}
           value={publication.coverImage ?? ""}
           onChange={(coverImage) => set({ coverImage })}
           hideFieldLabel
           showReadablePreview
           showDropZone={false}
-          emptyPickerLabel="Select cover image"
+          emptyPickerLabel={t("selectCoverImage")}
         />
       </div>
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="Publication gallery"
-          hint={
-            "Optional supplemental visuals for catalog cards and ${{ image2 }}–${{ image4 }} page variables " +
-            `(up to ${MAX_PAGE_GALLERY_IMAGES}).`
-          }
+          label={t("publicationGallery")}
+          hint={t("publicationGalleryHint", { max: MAX_PAGE_GALLERY_IMAGES })}
         />
         <div className="nexus-publication-gallery">
-          {galleryImages.map((galleryUrl, index) => (
+          {galleryImages.map((galleryUrl, index) => {
+            const slotLabel = resolveGallerySlotLabel(t, index);
+            return (
             <div key={`gallery-${galleryUrl}-${index}`} className="nexus-publication-gallery__item">
               <div className="nexus-publication-gallery__item-head">
-                <FieldLabelRow
-                  label={PUBLICATION_GALLERY_SLOT_LABELS[index] ?? `Visual ${index + 2}`}
-                />
+                <FieldLabelRow label={slotLabel} />
                 <Button
                   type="button"
                   variant="outline"
@@ -205,7 +217,7 @@ export function PagePublicationFieldGroup({
                     next.splice(index, 1);
                     set({ galleryImages: next });
                   }}
-                  aria-label={`Remove ${PUBLICATION_GALLERY_SLOT_LABELS[index] ?? `gallery image ${index + 2}`}`}
+                  aria-label={t("removeGalleryImage", { label: slotLabel })}
                 >
                   <Trash2 size={12} aria-hidden="true" />
                 </Button>
@@ -227,10 +239,11 @@ export function PagePublicationFieldGroup({
                 showDropZone={false}
               />
             </div>
-          ))}
+            );
+          })}
           {galleryImages.length < MAX_PAGE_GALLERY_IMAGES ? (
             <MediaUploadField
-              field={{ label: "Add to publication gallery", accept: "image", purpose: "page-cover" }}
+              field={{ label: t("addToGallery"), accept: "image", purpose: "page-cover" }}
               value=""
               onChange={(nextUrl) => {
                 if (!nextUrl?.trim()) return;
@@ -238,7 +251,7 @@ export function PagePublicationFieldGroup({
               }}
               hideFieldLabel
               showReadablePreview={false}
-              dropZoneLabel="Drop or click to add to gallery"
+              dropZoneLabel={t("dropOrClickGallery")}
             />
           ) : null}
         </div>
@@ -246,11 +259,11 @@ export function PagePublicationFieldGroup({
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="Catalog preview images"
+          label={t("catalogPreviewImages")}
           hint={
             availablePublicationImages.length > 0
-              ? `How many publication images appear on this page's news catalog card (max ${maxCatalogImages} available).`
-              : "Add a cover or gallery image first — catalog cards need at least one publication image."
+              ? t("catalogPreviewImagesHint", { max: maxCatalogImages })
+              : t("catalogPreviewImagesEmptyHint")
           }
         />
         <PuckSelectField
@@ -261,33 +274,27 @@ export function PagePublicationFieldGroup({
             set({ catalogImagesPerCard: Number(next) as NewsCatalogImagesPerCard })
           }
           options={catalogImageOptions.map((count) => ({
-            label: `${count} image${count === 1 ? "" : "s"}`,
+            label: t("catalogImageCount", { count }),
             value: String(count),
           }))}
         />
       </div>
 
       <div className="nexus-field-category">
-        <FieldLabelRow
-          label="Catalog card size"
-          hint="Featured cards may occupy the large hero slot in a catalog section when three or more pages are listed."
-        />
+        <FieldLabelRow label={t("catalogCardSize")} hint={t("catalogCardSizeHint")} />
         <SegmentedControl
-          ariaLabel="Catalog card size"
+          ariaLabel={t("catalogCardSizeAria")}
           value={publication.catalogCardVariant ?? "tile"}
           onChange={(next) => set({ catalogCardVariant: next as NewsCatalogPageCardVariant })}
           options={[
-            { label: "Standard", value: "tile" },
-            { label: "Featured", value: "featured" },
+            { label: t("catalogCardStandard"), value: "tile" },
+            { label: t("catalogCardFeatured"), value: "featured" },
           ]}
         />
       </div>
 
       <div className="nexus-field-category">
-        <FieldLabelRow
-          label="Publish Date & Time"
-          hint="Leave empty to publish immediately when you click Publish. Future dates schedule automatic go-live."
-        />
+        <FieldLabelRow label={t("publishDateTime")} hint={t("publishDateTimeHint")} />
         <NexusDateTimePicker
           value={publication.publishAt ?? null}
           onChange={(publishAt) => set({ publishAt })}
@@ -306,11 +313,11 @@ export function PagePublicationFieldGroup({
 
       <div className="nexus-field-category">
         <FieldLabelRow
-          label="Publisher"
+          label={t("publisher")}
           hint={
             meta.canManagePageAccess
-              ? `Primary author plus optional extra publishers (max ${MAX_PAGE_ACCESS_EDITORS}). Click + to search users, or share an invite link below.`
-              : "Recorded on first publish. Extra publishers can be added by admins and the primary author."
+              ? t("publisherHintManage", { max: MAX_PAGE_ACCESS_EDITORS })
+              : t("publisherHintReadonly")
           }
         />
         <div className="nexus-page-publisher-settings">
@@ -324,25 +331,25 @@ export function PagePublicationFieldGroup({
       </div>
 
       <div className="nexus-field-category nexus-field-category--meta-readonly">
-        <FieldLabelRow label="Page Stats" hint="Read-only counters and timestamps from the database." />
+        <FieldLabelRow label={t("pageStats")} hint={t("pageStatsHint")} />
         <div className="nexus-page-meta-readonly">
-          <PageMetaReadonlyRow label="Created">
+          <PageMetaReadonlyRow label={t("statsCreated")}>
             <PageMetaBadge muted={!meta.createdAt}>
-              {formatReadOnlyTimestamp(meta.createdAt)}
+              {formatReadOnlyTimestamp(meta.createdAt, t("emptyTimestamp"))}
             </PageMetaBadge>
           </PageMetaReadonlyRow>
-          <PageMetaReadonlyRow label="Last updated">
+          <PageMetaReadonlyRow label={t("statsLastUpdated")}>
             <PageMetaBadge muted={!meta.updatedAt}>
-              {formatReadOnlyTimestamp(meta.updatedAt)}
+              {formatReadOnlyTimestamp(meta.updatedAt, t("emptyTimestamp"))}
             </PageMetaBadge>
           </PageMetaReadonlyRow>
-          <PageMetaReadonlyRow label="Views">
+          <PageMetaReadonlyRow label={t("statsViews")}>
             <PageMetaBadge>{meta.viewCount ?? 0}</PageMetaBadge>
           </PageMetaReadonlyRow>
-          <PageMetaReadonlyRow label="Likes">
+          <PageMetaReadonlyRow label={t("statsLikes")}>
             <PageMetaBadge>{meta.likeCount ?? 0}</PageMetaBadge>
           </PageMetaReadonlyRow>
-          <PageMetaReadonlyRow label="Dislikes">
+          <PageMetaReadonlyRow label={t("statsDislikes")}>
             <PageMetaBadge>{meta.dislikeCount ?? 0}</PageMetaBadge>
           </PageMetaReadonlyRow>
         </div>

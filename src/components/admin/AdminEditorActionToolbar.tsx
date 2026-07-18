@@ -10,6 +10,7 @@
  */
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ export function AdminEditorActionToolbar({
   className,
   useEditorButtonStyle = false,
 }: AdminEditorActionToolbarProps) {
+  const t = useTranslations("admin.editorToolbar");
   const buttonClass = cn(
     "gap-2 px-3 sm:px-4",
     useEditorButtonStyle && "global-layout-editor__btn-text",
@@ -93,10 +95,10 @@ export function AdminEditorActionToolbar({
         onClick={onReset}
         disabled={resetDisabled || isSaving || isDeleting}
         className={buttonClass}
-        aria-label="Reset changes"
+        aria-label={t("resetAria")}
       >
         <RotateCcw className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="hidden sm:inline">Reset</span>
+        <span className="hidden sm:inline">{t("reset")}</span>
       </Button>
 
       <Button
@@ -104,14 +106,14 @@ export function AdminEditorActionToolbar({
         onClick={() => invokeEditorAction(onSave)}
         disabled={saveDisabled || isSaving || isDeleting}
         className={cn(buttonClass, useEditorButtonStyle && "shadow-md")}
-        aria-label="Save changes"
+        aria-label={t("saveAria")}
       >
         {isSaving ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
         ) : (
           <Save className="h-4 w-4 shrink-0" aria-hidden="true" />
         )}
-        <span className="hidden sm:inline">{isSaving ? "Saving…" : "Save Changes"}</span>
+        <span className="hidden sm:inline">{isSaving ? t("saving") : t("save")}</span>
       </Button>
 
       {onDelete ? (
@@ -121,14 +123,14 @@ export function AdminEditorActionToolbar({
           onClick={() => invokeEditorAction(onDelete)}
           disabled={deleteDisabled || isSaving || isDeleting}
           className={buttonClass}
-          aria-label="Delete account"
+          aria-label={t("deleteAccountAria")}
         >
           {isDeleting ? (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
           ) : (
             <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
           )}
-          <span className="hidden sm:inline">Delete Account</span>
+          <span className="hidden sm:inline">{t("deleteAccount")}</span>
         </Button>
       ) : null}
     </div>

@@ -53,8 +53,12 @@ import {
   resolveCanvasReleaseTargetRef,
 } from "@/components/puck/lib/canvasDragCommitPlan";
 import { syncPuckComponentOverlayAfterLayout } from "@/components/puck/lib/puckOverlaySync";
+import {
+  resolvePuckPreviewDocument,
+  resolvePuckPreviewFrameElement,
+} from "@/components/puck/lib/previewIframeDocumentReady";
 
-/** Preview iframe id assigned by Puck `AutoFrame`. */
+/** Preview frame id assigned by Puck preview host (`AutoFrame` iframe or inline div). */
 const PREVIEW_FRAME_ID = "preview-frame";
 
 /** Root overlay element id injected into the preview iframe. */
@@ -68,23 +72,19 @@ const OVERLAY_ZONE_CLASS = "nexus-canvas-drop-overlay__zone";
 const OVERLAY_GHOST_CLASS = "nexus-canvas-drop-overlay__ghost";
 
 /**
- * Resolve the preview iframe element when the editor canvas is mounted.
+ * Resolve the preview frame element when the editor canvas is mounted.
  *
- * @returns Preview iframe or null when unavailable.
+ * @returns `#preview-frame` iframe or inline div, or null when unavailable.
  */
-function getPreviewIframe(): HTMLIFrameElement | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return document.getElementById(PREVIEW_FRAME_ID) as HTMLIFrameElement | null;
+function getPreviewFrame(): HTMLElement | null {
+  return resolvePuckPreviewFrameElement();
 }
 
 /**
- * Map a pointer event to preview-iframe viewport coordinates.
+ * Map a pointer event to preview viewport coordinates.
  *
- * Events that originate inside the preview document already use iframe coords.
- * Parent-window events (including `window` pointerup) must subtract the iframe offset.
+ * Events that originate inside the preview document already use viewport coords.
+ * Parent-window events must subtract the preview frame offset when framed.
  *
  * @param event - Pointer event from the preview or parent window.
  * @returns Coordinates inside the preview viewport, or null when unavailable.
@@ -94,9 +94,9 @@ function resolvePreviewPointerCoords(event: Pick<PointerEvent, "clientX" | "clie
   y: number;
 } | null {
   const previewDoc = getPreviewDocument();
-  const iframe = getPreviewIframe();
+  const frame = getPreviewFrame();
 
-  if (!previewDoc || !iframe) {
+  if (!previewDoc || !frame) {
     return null;
   }
 
@@ -105,16 +105,16 @@ function resolvePreviewPointerCoords(event: Pick<PointerEvent, "clientX" | "clie
     return { x: event.clientX, y: event.clientY };
   }
 
-  return mapPointerToPreviewIframe(iframe, event.clientX, event.clientY);
+  return mapPointerToPreviewIframe(frame, event.clientX, event.clientY);
 }
 
 /**
- * Resolve the preview iframe document when the editor canvas is mounted.
+ * Resolve the preview document when the editor canvas is mounted.
  *
  * @returns Preview document or null when unavailable.
  */
 function getPreviewDocument(): Document | null {
-  return getPreviewIframe()?.contentDocument ?? null;
+  return resolvePuckPreviewDocument();
 }
 
 /**
@@ -457,7 +457,7 @@ export function NexusCanvasDragCoordinator(): null {
       const probe = resolveCanvasDropProbePoint(
         previewDoc,
         document,
-        getPreviewIframe(),
+        getPreviewFrame(),
         clientX,
         clientY,
       );
@@ -705,8 +705,8 @@ export function NexusCanvasDragCoordinator(): null {
         return;
       }
 
-      const iframe = getPreviewIframe();
-      const rect = iframe?.getBoundingClientRect();
+      const frame = getPreviewFrame();
+      const rect = frame?.getBoundingClientRect();
       const parentX = rect ? rect.left + event.clientX : event.clientX;
       const parentY = rect ? rect.top + event.clientY : event.clientY;
       syncCanvasDragScrollInput(event.clientX, event.clientY, parentX, parentY);
@@ -724,12 +724,12 @@ export function NexusCanvasDragCoordinator(): null {
         return;
       }
 
-      const iframe = getPreviewIframe();
-      if (!iframe) {
+      const frame = getPreviewFrame();
+      if (!frame) {
         return;
       }
 
-      const coords = mapPointerToPreviewIframe(iframe, event.clientX, event.clientY);
+      const coords = mapPointerToPreviewIframe(frame, event.clientX, event.clientY);
       if (!coords) {
         return;
       }

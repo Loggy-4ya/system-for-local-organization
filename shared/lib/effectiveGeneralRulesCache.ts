@@ -20,6 +20,12 @@ import {
   DEFAULT_WEAK_PASSWORD_USER_MESSAGE,
   type TelegramMessageTemplateKey,
 } from "@shared/constants/generalRules";
+import {
+  buildDefaultTelegramMessageTemplatesByLocale,
+  normalizeTelegramMessagesByLocale,
+} from "@shared/constants/botMessageDefaults";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { DEFAULT_BOT_LOCALE } from "@shared/constants/botLocales";
 import { normalizeContentPolicyText } from "@shared/lib/contentPolicy";
 
 /** Effective rules snapshot used by sync scanners and Telegram outbound copy. */
@@ -39,7 +45,9 @@ export interface EffectiveGeneralRules {
   blockedWordMessage: string;
   /** User-facing weak-password message. */
   weakPasswordMessage: string;
-  /** Telegram template map. */
+  /** Telegram templates per locale. */
+  telegramMessagesByLocale: Record<BotLocale, Record<TelegramMessageTemplateKey, string>>;
+  /** @deprecated English-only alias — use {@link telegramMessagesByLocale}.en */
   telegramMessages: Record<TelegramMessageTemplateKey, string>;
 }
 
@@ -54,12 +62,13 @@ let cacheExpiresAt = 0;
  * @returns Constant-backed rules snapshot.
  */
 export function buildEffectiveGeneralRulesFromConstants(): EffectiveGeneralRules {
+  const telegramMessagesByLocale = buildDefaultTelegramMessageTemplatesByLocale();
   return buildEffectiveGeneralRulesSnapshot({
     blockedWords: buildDefaultBlockedWordsSeed(),
     weakPasswords: buildDefaultWeakPasswordsSeed(),
     blockedWordMessage: DEFAULT_BLOCKED_WORD_USER_MESSAGE,
     weakPasswordMessage: DEFAULT_WEAK_PASSWORD_USER_MESSAGE,
-    telegramMessages: buildDefaultTelegramMessageTemplates(),
+    telegramMessagesByLocale,
   });
 }
 
@@ -74,7 +83,7 @@ export function buildEffectiveGeneralRulesSnapshot(input: {
   weakPasswords: readonly string[];
   blockedWordMessage: string;
   weakPasswordMessage: string;
-  telegramMessages: Record<TelegramMessageTemplateKey, string>;
+  telegramMessagesByLocale: Record<BotLocale, Record<TelegramMessageTemplateKey, string>>;
 }): EffectiveGeneralRules {
   const blockedWords = input.blockedWords
     .map((entry) => ({
@@ -102,7 +111,11 @@ export function buildEffectiveGeneralRulesSnapshot(input: {
     blockedWordMessage: input.blockedWordMessage.trim() || CONTENT_POLICY_BLOCKED_WORD_MESSAGE,
     weakPasswordMessage:
       input.weakPasswordMessage.trim() || CONTENT_POLICY_WEAK_PASSWORD_MESSAGE,
-    telegramMessages: { ...input.telegramMessages },
+    telegramMessagesByLocale: {
+      en: { ...input.telegramMessagesByLocale.en },
+      uk: { ...input.telegramMessagesByLocale.uk },
+    },
+    telegramMessages: { ...input.telegramMessagesByLocale[DEFAULT_BOT_LOCALE] },
   };
 }
 

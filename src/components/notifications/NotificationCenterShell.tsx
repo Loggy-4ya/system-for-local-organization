@@ -7,7 +7,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { NotificationInboxListItem } from "@shared/domains/NotificationDomain";
 import { NotificationInboxRow } from "@/components/notifications/NotificationInboxRow";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
@@ -29,6 +30,7 @@ type InboxFilter = "all" | "unread";
  * @returns Notification center page shell JSX.
  */
 export function NotificationCenterShell() {
+  const t = useTranslations("notifications.center");
   const [items, setItems] = useState<NotificationInboxListItem[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -103,31 +105,28 @@ export function NotificationCenterShell() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-              Notifications
+              {t("title")}
             </h1>
-            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              Your personal message history — task updates, reminders, and institution announcements.
-              Delivery to Telegram and other channels uses your profile notification preferences.
-            </p>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("subtitle")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/profile/settings#notifications"
               className="text-sm text-[var(--color-text-primary)] no-underline hover:underline"
             >
-              Notification settings
+              {t("settingsLink")}
             </Link>
             <Link
               href="/profile"
               className="text-sm text-[var(--color-text-secondary)] no-underline hover:underline"
             >
-              Back to profile
+              {t("backToProfile")}
             </Link>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-default)] pb-3">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Inbox filter">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("filterAria")}>
             {(["all", "unread"] as const).map((value) => (
               <Button
                 key={value}
@@ -136,19 +135,19 @@ export function NotificationCenterShell() {
                 variant={filter === value ? "default" : "outline"}
                 onClick={() => setFilter(value)}
               >
-                {value === "all" ? "All" : `Unread (${unreadCount})`}
+                {value === "all" ? t("filterAll") : t("filterUnread", { count: unreadCount })}
               </Button>
             ))}
           </div>
           {unreadCount > 0 ? (
             <Button type="button" size="sm" variant="secondary" onClick={() => void handleMarkAllRead()}>
-              Mark all read
+              {t("markAllRead")}
             </Button>
           ) : null}
         </div>
 
         {loading ? (
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading notifications…</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{t("loading")}</p>
         ) : items.length === 0 ? (
           <div
             className={cn(
@@ -156,9 +155,7 @@ export function NotificationCenterShell() {
             )}
           >
             <p className="text-sm text-[var(--color-text-secondary)]">
-              {filter === "unread"
-                ? "You have no unread notifications."
-                : "No notifications yet — task assignments, reminders, and institution messages will appear here."}
+              {filter === "unread" ? t("emptyUnread") : t("emptyAll")}
             </p>
           </div>
         ) : (

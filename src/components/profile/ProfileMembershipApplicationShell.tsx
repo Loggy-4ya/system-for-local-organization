@@ -7,16 +7,16 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, UserCheck } from "lucide-react";
 import type { MembershipApplicationStatusDto } from "@shared/domains/MembershipApplicationDomain";
 import {
-  resolveMembershipApplicationRequirementsHint,
-  SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY,
-  TEACHER_APPLICATION_REQUIREMENTS_HINT,
-} from "@shared/lib/userProfileCompleteness";
+  membershipApplicationRequirementsCopy,
+  missingProfileFieldsInlineCopy,
+} from "@/lib/profileCompletenessCopy";
 import { StaticPageShell } from "@/components/ui/StaticPageShell";
 import { STATIC_ROUTE_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
+import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/form-alert";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,9 @@ import { cn } from "@/lib/utils";
  * @returns Application page JSX.
  */
 export function ProfileMembershipApplicationShell() {
+  const t = useTranslations("profile.membership");
+  const tCommon = useTranslations("common");
+  const tComplete = useTranslations("profile.completeness");
   const [status, setStatus] = useState<MembershipApplicationStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -40,10 +43,10 @@ export function ProfileMembershipApplicationShell() {
     if (res.ok) {
       setStatus(await res.json());
     } else {
-      setError("Could not load application status.");
+      setError(t("loadError"));
     }
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadStatus();
@@ -58,12 +61,10 @@ export function ProfileMembershipApplicationShell() {
     if (res.ok) {
       setStatus(data);
       setMessage(
-        status?.isTeacherApplicant
-          ? "Your teacher access application has been submitted."
-          : "Your application has been submitted. Reviewers will be notified.",
+        status?.isTeacherApplicant ? t("submitTeacherSuccess") : t("submitSuccess"),
       );
     } else {
-      setError(typeof data.error === "string" ? data.error : "Could not submit application.");
+      setError(typeof data.error === "string" ? data.error : t("submitError"));
     }
     setSubmitting(false);
   };
@@ -76,9 +77,9 @@ export function ProfileMembershipApplicationShell() {
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       setStatus(data);
-      setMessage("Application withdrawn.");
+      setMessage(t("withdrawSuccess"));
     } else {
-      setError(typeof data.error === "string" ? data.error : "Could not withdraw application.");
+      setError(typeof data.error === "string" ? data.error : t("withdrawError"));
     }
     setSubmitting(false);
   };
@@ -101,28 +102,26 @@ export function ProfileMembershipApplicationShell() {
               )}
             >
               <ArrowLeft size={16} aria-hidden="true" />
-              Back to profile
+              {t("backToProfile")}
             </Link>
             <div className="flex items-center gap-2 text-primary">
               <UserCheck size={18} strokeWidth={1.75} aria-hidden="true" />
               <span className="text-xs font-semibold tracking-wide uppercase">
-                {isTeacherApplicant ? "Teacher access" : "Self-government"}
+                {isTeacherApplicant ? t("teacherEyebrow") : t("membershipEyebrow")}
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-              {isTeacherApplicant ? "Teacher access application" : "Membership application"}
+              {isTeacherApplicant ? t("teacherTitle") : t("membershipTitle")}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
-              {isTeacherApplicant
-                ? "Submit your profile for review. Institution administration or student self-government will approve teacher access to Nexus."
-                : "Apply to join the student self-government council. Reviewers with the appropriate permissions will approve your application and assign the member role."}
+              {isTeacherApplicant ? t("teacherDescription") : t("membershipDescription")}
             </p>
           </div>
           <Link
             href="/profile/settings"
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
-            Edit profile
+            {t("editProfile")}
           </Link>
         </div>
 
@@ -130,39 +129,43 @@ export function ProfileMembershipApplicationShell() {
         {message ? <FormAlert variant="success">{message}</FormAlert> : null}
 
         {loading ? (
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading…</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{tCommon("loading")}</p>
         ) : status?.isMember ? (
           <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
-            <p className="font-medium text-[var(--color-text-primary)]">
-              You are already a self-government member.
-            </p>
-            <p className="mt-1">
-              Your profile shows council roles and quality scores on the main profile page.
-            </p>
+            <p className="font-medium text-[var(--color-text-primary)]">{t("alreadyMemberTitle")}</p>
+            <p className="mt-1">{t("alreadyMemberBody")}</p>
           </section>
         ) : isTeacherApplicant && status?.teacherAccessApproved ? (
           <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
-            <p className="font-medium text-[var(--color-text-primary)]">
-              Your teacher access has been approved.
-            </p>
-            <p className="mt-1">You can now browse Nexus with your teacher account.</p>
+            <p className="font-medium text-[var(--color-text-primary)]">{t("teacherApprovedTitle")}</p>
+            <p className="mt-1">{t("teacherApprovedBody")}</p>
           </section>
         ) : (
           <>
             <section className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-secondary)]">
               <p>
                 {isTeacherApplicant
-                  ? TEACHER_APPLICATION_REQUIREMENTS_HINT
-                  : "All of the following are required to apply for self-government membership: surname, phone number, specialty, group, and profile photo."}
+                  ? tComplete("teacherRequirements")
+                  : membershipApplicationRequirementsCopy(tComplete, {
+                      name: "",
+                      surname: null,
+                      phone: null,
+                      specialty: null,
+                      group: null,
+                      avatar: null,
+                      sociumRoles: status?.isTeacherApplicant
+                        ? [{ roleKey: "teacher", roleLabel: "Teacher", kind: "teacher", source: "self", assignedAt: new Date() }]
+                        : [],
+                    })}
               </p>
               {!isTeacherApplicant ? (
-                <p className="mt-2 text-xs">{SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}</p>
+                <p className="mt-2 text-xs">{tComplete("telegramAdvisory")}</p>
               ) : null}
-              {!status?.readyForSubmission && status?.missingFieldLabels.length ? (
+              {!status?.readyForSubmission && (status?.missingFields?.length ?? 0) > 0 ? (
                 <p className="mt-2">
-                  Still missing:{" "}
+                  {t("stillMissing")}{" "}
                   <span className="text-[var(--color-text-primary)]">
-                    {status.missingFieldLabels.join(", ")}
+                    {missingProfileFieldsInlineCopy(tComplete, status?.missingFields ?? [])}
                   </span>
                   .
                 </p>
@@ -171,13 +174,8 @@ export function ProfileMembershipApplicationShell() {
 
             {status?.hasActiveApplication ? (
               <section className="rounded-[var(--radius-md)] border border-[var(--color-accent-user)]/40 p-4">
-                <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                  Application pending review
-                </p>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                  Your application is in the queue. You may withdraw it and re-apply later if your
-                  circumstances change.
-                </p>
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">{t("pendingTitle")}</p>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t("pendingBody")}</p>
                 <Button
                   type="button"
                   variant="outline"
@@ -186,7 +184,7 @@ export function ProfileMembershipApplicationShell() {
                   disabled={submitting}
                   onClick={() => void handleWithdraw()}
                 >
-                  Withdraw application
+                  {t("withdraw")}
                 </Button>
               </section>
             ) : (
@@ -197,11 +195,11 @@ export function ProfileMembershipApplicationShell() {
                   disabled={submitting || !status?.readyForSubmission}
                   onClick={() => void handleSubmit()}
                 >
-                  Submit application
+                  {t("submit")}
                 </Button>
                 {!status?.readyForSubmission ? (
                   <p className="self-center text-xs text-[var(--color-text-secondary)]">
-                    Complete your profile before submitting.
+                    {t("completeProfileHint")}
                   </p>
                 ) : null}
               </div>

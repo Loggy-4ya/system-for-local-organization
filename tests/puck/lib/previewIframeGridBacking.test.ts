@@ -34,24 +34,12 @@ describe("isInsidePuckEditorShell", () => {
 });
 
 describe("resolveShowPreviewIframeGrid", () => {
-  it("never mounts a duplicate grid inside the preview iframe", () => {
-    assert.equal(
-      resolveShowPreviewIframeGrid({
-        showEditorBackground: true,
-        background: "site-default",
-        shellScrollportGrid: true,
-        insidePuckEditorShell: true,
-        requiresIframeContainedEditGrid: false,
-      }),
-      false,
-    );
-
+  it("never mounts a duplicate grid inside the preview document", () => {
     assert.equal(
       resolveShowPreviewIframeGrid({
         showEditorBackground: true,
         background: "site-default",
         insidePuckEditorShell: true,
-        requiresIframeContainedEditGrid: true,
       }),
       false,
     );

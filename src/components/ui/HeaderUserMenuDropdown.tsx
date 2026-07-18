@@ -8,9 +8,10 @@
 
 import React from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { LogOut, User } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { Link } from "@/i18n/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,8 +58,9 @@ export function HeaderUserMenuDropdown({
   userEmail = null,
   preview = false,
 }: HeaderUserMenuDropdownProps) {
+  const t = useTranslations("header");
   const visibleItems = visibleNavItems(userMenuItems, showAdminPanel);
-  const displayName = userName?.trim() || "Account";
+  const displayName = userName?.trim() || t("account");
   const displayEmail = userEmail?.trim() || null;
 
   const blockPreviewNavigation = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -76,7 +78,7 @@ export function HeaderUserMenuDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger
         className="site-header-bar__avatar site-header-bar__avatar-trigger"
-        aria-label={userName ? `${userName} account menu` : "Account menu"}
+        aria-label={userName ? t("accountMenuFor", { name: userName }) : t("accountMenu")}
       >
         {userAvatar ? (
           <Image
@@ -143,7 +145,7 @@ export function HeaderUserMenuDropdown({
           onClick={handleLogout}
         >
           <LogOut {...siteChromeLucideProps({ className: "site-header-bar__nav-dropdown-icon" })} aria-hidden />
-          <span className="site-header-bar__nav-dropdown-label">Log out</span>
+          <span className="site-header-bar__nav-dropdown-label">{t("logOut")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

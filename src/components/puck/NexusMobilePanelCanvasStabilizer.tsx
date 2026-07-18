@@ -13,6 +13,11 @@
 import { useEffect, useRef } from "react";
 import { isMobilePanelLayoutMutating } from "@/components/puck/lib/mobilePanelLayout";
 import { PUCK_CANVAS_TRANSFORM_FROZEN_ATTR } from "@/components/puck/lib/sanitizePuckZoomConfig";
+import {
+  clearInlinePreviewZoomPresentation,
+  isInlinePreviewZoomHost,
+  resolvePuckPreviewTransformElement,
+} from "@/components/puck/lib/inlinePreviewScaleHost";
 
 /** Puck preview root inside the canvas — receives zoom `height` / `transform`. */
 const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
@@ -20,6 +25,7 @@ const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
 /** Snapshot of canvas root layout captured at mutation start. */
 interface FrozenCanvasStyle {
   transform: string;
+  zoom: string;
 }
 
 /**
@@ -34,12 +40,17 @@ function captureFrozenCanvasStyle(): FrozenCanvasStyle | null {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root) return null;
 
-  const transform = root.style.transform;
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+  const transform = transformEl.style.transform;
   const safeTransform =
     transform && !transform.includes("NaN") && transform !== "none" ? transform : "scale(1)";
+  const zoom = transformEl.style.zoom;
+  const safeZoom =
+    zoom && zoom !== "normal" && !zoom.includes("NaN") ? zoom : "1";
 
   return {
     transform: safeTransform,
+    zoom: safeZoom,
   };
 }
 
@@ -52,8 +63,20 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root) return;
 
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+
   root.setAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR, "");
-  root.style.setProperty("transform", frozen.transform, "important");
+  if (isInlinePreviewZoomHost(transformEl)) {
+    transformEl.style.setProperty("zoom", frozen.zoom, "important");
+    transformEl.style.setProperty("transform", "none", "important");
+    root.style.setProperty("transform", "none", "important");
+    root.style.setProperty("zoom", "normal", "important");
+  } else {
+    transformEl.style.setProperty("transform", frozen.transform, "important");
+    if (transformEl !== root) {
+      root.style.setProperty("transform", "none", "important");
+    }
+  }
 }
 
 /**
@@ -63,8 +86,16 @@ function clearFrozenCanvasStyle(): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root?.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) return;
 
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+
   root.removeAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR);
   root.style.removeProperty("transform");
+  root.style.removeProperty("zoom");
+  if (isInlinePreviewZoomHost(transformEl)) {
+    clearInlinePreviewZoomPresentation(transformEl);
+  } else {
+    transformEl.style.removeProperty("transform");
+  }
 }
 
 /**

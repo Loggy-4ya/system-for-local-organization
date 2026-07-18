@@ -4,7 +4,7 @@
  * @module src/components/profile/ProfileIdentityBoard
  */
 
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   ExternalLink,
   Globe,
@@ -19,6 +19,7 @@ import {
   profileSocialLinkAccentClass,
   resolveSocialLinkPlatformLabel,
 } from "@shared/lib/profileBadgeLogic";
+import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -62,13 +63,21 @@ function resolveSocialLinkIcon(platform: string) {
  * @param props - About, links, and optional personal info.
  * @returns Identity board JSX or null when entirely empty for non-self viewers.
  */
-export function ProfileIdentityBoard({
+export async function ProfileIdentityBoard({
   about,
   socialLinks,
   personalInfo,
   isSelf = false,
 }: ProfileIdentityBoardProps) {
-  const personalRows = buildPersonalRows(personalInfo);
+  const t = await getTranslations("profile.identityBoard");
+
+  const personalRows = buildPersonalRows(personalInfo, {
+    email: t("email"),
+    phone: t("phone"),
+    telegram: t("telegram"),
+    google: t("google"),
+    googleLinked: t("googleLinked"),
+  });
   const hasAbout = Boolean(about?.trim());
   const hasLinks = socialLinks.length > 0;
   const hasPersonal = personalRows.length > 0;
@@ -79,14 +88,12 @@ export function ProfileIdentityBoard({
     <section className="glass-panel flex flex-col gap-5 rounded-[var(--radius-md)] p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Personal board</h2>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-            About note, contact details, and public links
-          </p>
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h2>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t("subtitle")}</p>
         </div>
         {isSelf && (
           <Link href="/profile/settings" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Edit profile
+            {t("editProfile")}
           </Link>
         )}
       </header>
@@ -96,7 +103,7 @@ export function ProfileIdentityBoard({
           <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-4">
             <div className="flex items-center gap-2">
               <StickyNote className="size-4 shrink-0 text-[var(--color-accent-user)]" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">About</h3>
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("about")}</h3>
             </div>
             {hasAbout ? (
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-text-secondary)]">
@@ -104,16 +111,14 @@ export function ProfileIdentityBoard({
               </p>
             ) : (
               <p className="mt-3 text-sm text-[var(--color-text-secondary)]">
-                {isSelf
-                  ? "Add a short note about yourself in profile settings."
-                  : "No about note yet."}
+                {isSelf ? t("aboutEmptySelf") : t("aboutEmptyOther")}
               </p>
             )}
           </div>
 
           {hasPersonal && (
             <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-4">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Contact & accounts</h3>
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("contactAccounts")}</h3>
               <ul className="mt-3 grid list-none gap-3 p-0 sm:grid-cols-2">
                 {personalRows.map((row) => {
                   const Icon = row.icon;
@@ -138,7 +143,7 @@ export function ProfileIdentityBoard({
         </div>
 
         <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-elevated)] p-4">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Links</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("links")}</h3>
           {hasLinks ? (
             <ul className="mt-3 grid list-none gap-2 p-0 sm:grid-cols-2">
               {socialLinks.map((link) => {
@@ -175,9 +180,7 @@ export function ProfileIdentityBoard({
             </ul>
           ) : (
             <p className="mt-3 text-sm text-[var(--color-text-secondary)]">
-              {isSelf
-                ? "Share Telegram, Instagram, LinkedIn, or other links from profile settings."
-                : "No public links yet."}
+              {isSelf ? t("linksEmptySelf") : t("linksEmptyOther")}
             </p>
           )}
         </div>
@@ -190,9 +193,19 @@ export function ProfileIdentityBoard({
  * Build read-only personal info rows from optional contact fields.
  *
  * @param personalInfo - Redacted or full contact payload.
+ * @param labels - Localized field labels.
  * @returns Ordered row descriptors for the contact grid.
  */
-function buildPersonalRows(personalInfo?: ProfileIdentityPersonalInfo) {
+function buildPersonalRows(
+  personalInfo: ProfileIdentityPersonalInfo | undefined,
+  labels: {
+    email: string;
+    phone: string;
+    telegram: string;
+    google: string;
+    googleLinked: string;
+  },
+) {
   if (!personalInfo) return [];
 
   const rows: Array<{
@@ -203,21 +216,21 @@ function buildPersonalRows(personalInfo?: ProfileIdentityPersonalInfo) {
   }> = [];
 
   if (personalInfo.email) {
-    rows.push({ key: "email", label: "Email", value: personalInfo.email, icon: Mail });
+    rows.push({ key: "email", label: labels.email, value: personalInfo.email, icon: Mail });
   }
   if (personalInfo.phone) {
-    rows.push({ key: "phone", label: "Phone", value: personalInfo.phone, icon: Phone });
+    rows.push({ key: "phone", label: labels.phone, value: personalInfo.phone, icon: Phone });
   }
   if (personalInfo.username) {
     rows.push({
       key: "telegram",
-      label: "Telegram",
+      label: labels.telegram,
       value: `@${personalInfo.username}`,
       icon: MessageCircle,
     });
   }
   if (personalInfo.linkedGoogle) {
-    rows.push({ key: "google", label: "Google", value: "Linked", icon: Link2 });
+    rows.push({ key: "google", label: labels.google, value: labels.googleLinked, icon: Link2 });
   }
 
   return rows;

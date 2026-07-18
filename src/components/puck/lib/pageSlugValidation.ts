@@ -6,6 +6,8 @@
 
 import { normalizePagePath } from "../PagePathEditor";
 
+import { stripLocalePrefix } from "@/lib/localePathLogic";
+
 /** First path segments reserved for built-in app routes (cannot be Puck page slugs). */
 export const RESERVED_SLUG_SEGMENTS = new Set([
   "edit",
@@ -17,6 +19,8 @@ export const RESERVED_SLUG_SEGMENTS = new Set([
   "profile",
   "admin",
   "users",
+  "en",
+  "uk",
 ]);
 
 /**
@@ -29,11 +33,12 @@ export const RESERVED_SLUG_SEGMENTS = new Set([
  * @returns True when global chrome should be suppressed.
  */
 export function isPuckEditorRoutePath(pathname: string): boolean {
-  if (!pathname || pathname === "/") return false;
-  if (pathname === "/edit") return true;
-  if (!pathname.endsWith("/edit")) return false;
+  const normalized = stripLocalePrefix(pathname);
+  if (!normalized || normalized === "/") return false;
+  if (normalized === "/edit") return true;
+  if (!normalized.endsWith("/edit")) return false;
 
-  const viewerPath = pathname.slice(0, -"/edit".length) || "/";
+  const viewerPath = normalized.slice(0, -"/edit".length) || "/";
   if (viewerPath === "/") return true;
   return !isBuiltinAppRoutePath(viewerPath);
 }

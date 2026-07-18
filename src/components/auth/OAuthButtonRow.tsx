@@ -7,7 +7,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { signIn } from "next-auth/react";
 import { FormAlert } from "@/components/ui/form-alert";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
@@ -48,6 +49,7 @@ export function OAuthButtonRow({
   linkUserId = null,
 }: OAuthButtonRowProps) {
   const router = useRouter();
+  const t = useTranslations("auth.oauth");
   const telegramRef = useRef<HTMLDivElement>(null);
   const botUsername = normalizeTelegramBotUsername(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
   const [needsTunnel, setNeedsTunnel] = useState(false);
@@ -102,7 +104,7 @@ export function OAuthButtonRow({
             body: JSON.stringify(user),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? "Failed to link Telegram.");
+          if (!res.ok) throw new Error(data.error ?? t("linkFailed"));
 
           router.push(callbackUrl);
           router.refresh();
@@ -115,7 +117,7 @@ export function OAuthButtonRow({
           body: JSON.stringify(user),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Telegram sign-in failed.");
+        if (!res.ok) throw new Error(data.error ?? t("signInFailed"));
 
         await signIn("credentials", {
           bridgeToken: data.bridgeToken,
@@ -124,10 +126,10 @@ export function OAuthButtonRow({
         });
       } catch (err) {
         console.error(err);
-        alert(err instanceof Error ? err.message : "Telegram sign-in failed.");
+        alert(err instanceof Error ? err.message : t("signInFailed"));
       }
     },
-    [callbackUrl, linkUserId, router],
+    [callbackUrl, linkUserId, router, t],
   );
 
   useEffect(() => {
@@ -150,7 +152,7 @@ export function OAuthButtonRow({
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
-        <span className="text-xs text-[var(--color-text-secondary)]">or continue with</span>
+        <span className="text-xs text-[var(--color-text-secondary)]">{t("orContinueWith")}</span>
         <div className="h-px flex-1 bg-[var(--color-border-default)]" />
       </div>
 
@@ -158,7 +160,7 @@ export function OAuthButtonRow({
         {telegramContext === "mini-app" && !linkUserId ? (
           <TelegramWebAppAuthButton
             callbackUrl={callbackUrl}
-            label="Sign in with Telegram"
+            label={t("signInTelegram")}
             variant="outline"
             fullWidth
             showIcon
@@ -172,21 +174,20 @@ export function OAuthButtonRow({
       </div>
 
       {needsTunnel ? (
-        <FormAlert variant="info" title="HTTPS tunnel required">
+        <FormAlert variant="info" title={t("tunnelTitle")}>
           {DEV_AUTH_TUNNEL_HINT}
         </FormAlert>
       ) : null}
 
       {telegramContext === "mini-app" && linkUserId ? (
-        <FormAlert variant="info" title="Link Telegram in the bot">
-          Open Nexus from your bot chat to link Telegram automatically, or use the Login Widget in a
-          regular browser tab.
+        <FormAlert variant="info" title={t("linkInBotTitle")}>
+          {t("linkInBotBody")}
         </FormAlert>
       ) : null}
 
       {telegramContext === "browser" && !botUsername ? (
         <p className="text-center text-xs text-[var(--color-text-secondary)]">
-          Telegram sign-in unavailable (bot not configured)
+          {t("botNotConfigured")}
         </p>
       ) : null}
     </div>

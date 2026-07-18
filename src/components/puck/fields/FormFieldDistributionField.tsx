@@ -7,9 +7,11 @@
  */
 
 import { FieldLabel } from "@puckeditor/core";
+import { useTranslations } from "next-intl";
 import { PuckSwitchField } from "./PuckSwitchField";
 import type { FormFieldDistributionProps } from "@shared/lib/formFieldLogic";
 import { defaultFormFieldDistribution } from "@shared/lib/formFieldLogic";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 
 /** Props passed by Puck to the distribution custom field. */
 interface FormFieldDistributionFieldProps {
@@ -21,29 +23,29 @@ interface FormFieldDistributionFieldProps {
 const ROWS: Array<{
   key: keyof FormFieldDistributionProps;
   label: string;
-  description: string;
+  descriptionKey: "distribution_web_desc" | "distribution_tma_desc" | "distribution_bot_desc" | "distribution_embed_desc";
   disabled?: boolean;
 }> = [
   {
     key: "web",
     label: "Web (this page)",
-    description: "Respondents answer on the published Nexus page.",
+    descriptionKey: "distribution_web_desc",
     disabled: true,
   },
   {
     key: "telegramMiniApp",
     label: "Telegram Mini App",
-    description: "Future: mirror this field inside the Telegram Mini App.",
+    descriptionKey: "distribution_tma_desc",
   },
   {
     key: "telegramBot",
     label: "Telegram Bot",
-    description: "Future: push survey prompts through the institutional bot.",
+    descriptionKey: "distribution_bot_desc",
   },
   {
     key: "externalEmbed",
     label: "External embed / API",
-    description: "Future: syndicate responses via signed embed or API token.",
+    descriptionKey: "distribution_embed_desc",
   },
 ];
 
@@ -59,19 +61,21 @@ export function FormFieldDistributionField({
   onChange,
 }: FormFieldDistributionFieldProps) {
   const current = { ...defaultFormFieldDistribution(), ...value };
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
 
   const patch = (key: keyof FormFieldDistributionProps, next: "yes" | "no") => {
     onChange({ ...current, [key]: next });
   };
 
   return (
-    <FieldLabel label={field.label ?? "Distribution"}>
+    <FieldLabel label={translatePuckSidebarCopy(field.label ?? "Distribution", tLabels)}>
       <div className="flex flex-col gap-3">
         {ROWS.map((row) => (
           <PuckSwitchField
             key={row.key}
-            label={row.label}
-            description={row.description}
+            label={translatePuckSidebarCopy(row.label, tOptions)}
+            description={tLabels(row.descriptionKey)}
             value={current[row.key]}
             trueValue="yes"
             falseValue="no"

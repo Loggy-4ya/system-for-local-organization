@@ -10,7 +10,8 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import {
   ArrowLeft,
   Loader2,
@@ -90,6 +91,7 @@ export function UserDirectoryShell({
   canMutateDirectory,
   canViewSystemLogs = false,
 }: UserDirectoryShellProps) {
+  const tAdmin = useTranslations("admin");
   // Directory list state
   const [users, setUsers] = useState<DirectoryUserRow[]>([]);
   const [q, setQ] = useState("");
@@ -580,18 +582,17 @@ export function UserDirectoryShell({
             className="global-layout-editor__btn-text inline-flex w-fit items-center gap-1.5 border border-zinc-700/10 text-xs text-(--color-text-secondary) no-underline transition-colors hover:bg-zinc-700/10 hover:text-(--color-text-primary) dark:border-zinc-300/5 dark:hover:bg-zinc-300/5"
           >
             <ArrowLeft size={12} />
-            <span>Back to Administration</span>
+            <span>{tAdmin("backToAdmin")}</span>
           </Link>
           <div className="flex items-center gap-2 text-primary">
             <Users size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wide uppercase">User Directory</span>
+            <span className="text-xs font-semibold tracking-wide uppercase">{tAdmin("userDirectory.eyebrow")}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-            Institutional User Roster
+            {tAdmin("userDirectory.rosterTitle")}
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Browse, filter, and manage hierarchy levels, profile fields, and social-life discovery
-            labels. Sensitive contact fields are redacted unless you outrank the user.
+            {tAdmin("hub.user-directory.description")}
           </p>
         </div>
       </div>
@@ -722,7 +723,7 @@ export function UserDirectoryShell({
                 className="lg:hidden inline-flex w-fit items-center gap-1.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:text-primary"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                Back to roster
+                {tAdmin("userDirectory.backToRoster")}
               </button>
 
               {/* Profile Header */}

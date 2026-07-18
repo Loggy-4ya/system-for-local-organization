@@ -7,6 +7,7 @@
  */
 
 import { FieldLabelRow } from "./FieldLabelRow";
+import { useTranslations } from "next-intl";
 import { NexusRichTextEditor } from "@/components/editor/NexusRichTextEditor";
 import { useNexusPuck } from "../lib/useNexusPuck";
 import { parseListStepFieldPath } from "../lib/listStepTree";
@@ -33,6 +34,7 @@ export function ListItemTiptapField({
   value,
   onChange,
 }: ListItemTiptapFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const selectedItem = useNexusPuck((state) => state.selectedItem);
   const items = (selectedItem?.props?.items ?? []) as ListStepItem[];
   const syncStripIndex = useListStepStripSync(name, items);
@@ -42,8 +44,8 @@ export function ListItemTiptapField({
   return (
     <div className="nexus-list-step-field nexus-sidebar-field">
       <FieldLabelRow
-        label={isChild ? "Sub-step label" : "Canvas label"}
-        hint="Rich label shown on the published stepper. Use links and emphasis sparingly."
+        label={isChild ? t("listItemSubStepLabel") : t("listItemCanvasLabel")}
+        hint={t("listItemTiptapHint")}
       />
       <div
         className="nexus-rich-text-editor--puck-host nexus-list-step-field__editor-host"
@@ -54,7 +56,7 @@ export function ListItemTiptapField({
           onChange={onChange}
           variant="default"
           className="nexus-rich-text-editor--puck nexus-rich-text-editor--puck-list-step"
-          placeholder="Step label… Add links with the toolbar or / menu."
+          placeholder={t("listItemTiptapPlaceholder")}
           minHeight={isChild ? 72 : 88}
         />
       </div>

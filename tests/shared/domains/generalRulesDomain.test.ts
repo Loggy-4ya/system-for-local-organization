@@ -20,9 +20,9 @@ import {
   setEffectiveGeneralRulesCache,
 } from "@shared/lib/effectiveGeneralRulesCache";
 import {
-  buildDefaultTelegramMessageTemplates,
   interpolateTelegramMessageTemplate,
 } from "@shared/constants/generalRules";
+import { buildDefaultTelegramMessageTemplatesByLocale } from "@shared/constants/botMessageDefaults";
 import { containsBlockedWord } from "@shared/lib/contentPolicy";
 import { formatTelegramBroadcastMessage } from "@shared/lib/telegramBroadcastFormat";
 
@@ -54,7 +54,7 @@ describe("effective general rules cache", () => {
       weakPasswords: [],
       blockedWordMessage: "Nope.",
       weakPasswordMessage: "Weak.",
-      telegramMessages: buildDefaultTelegramMessageTemplates(),
+      telegramMessagesByLocale: buildDefaultTelegramMessageTemplatesByLocale(),
     });
 
     setEffectiveGeneralRulesCache(snapshot);

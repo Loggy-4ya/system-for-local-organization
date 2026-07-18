@@ -16,6 +16,8 @@ import {
   presetValuesFromOptions,
 } from "../lib/resolvePresetDimension";
 import { PresetDimensionField } from "./PresetDimensionField";
+import { useTranslations } from "next-intl";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 
 /** Height preset tokens stored on the carousel block. */
 export type CarouselHeightPreset = "240px" | "360px" | "480px" | "auto" | "custom";
@@ -261,6 +263,8 @@ export function resolveCarouselBorderRadius(
  */
 export function CarouselSizeFieldGroup({ value, onChange }: CarouselSizeFieldGroupProps) {
   const size = normalizeCarouselSizeSettings(value);
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
   const heightStored = normalizePresetValue(size.height, HEIGHT_PRESET_VALUES, "auto");
   const maxHeightStored = normalizePresetValue(size.maxHeight, MAX_HEIGHT_PRESET_VALUES, "auto");
   const radiusStored = normalizePresetValue(
@@ -276,35 +280,44 @@ export function CarouselSizeFieldGroup({ value, onChange }: CarouselSizeFieldGro
   return (
     <div className="nexus-carousel-size-fields">
       <PresetDimensionField
-        label="Min Slide Height"
+        label={translatePuckSidebarCopy("Min Slide Height", tLabels)}
         value={{ preset: heightStored, custom: size.heightCustom }}
         onChange={({ preset, custom }) => {
           patch({ height: preset, heightCustom: custom });
         }}
-        options={HEIGHT_PRESETS.map((opt) => ({ label: opt.label, value: opt.value }))}
-        customAriaLabel="Custom carousel min height"
+        options={HEIGHT_PRESETS.map((opt) => ({
+          label: translatePuckSidebarCopy(opt.label, tOptions),
+          value: opt.value,
+        }))}
+        customAriaLabel={tLabels("custom_spacing")}
         customMaxByUnit={CAROUSEL_HEIGHT_CUSTOM_LIMITS}
       />
 
       <PresetDimensionField
-        label="Max Slide Height"
+        label={translatePuckSidebarCopy("Max Slide Height", tLabels)}
         value={{ preset: maxHeightStored, custom: size.maxHeightCustom }}
         onChange={({ preset, custom }) => {
           patch({ maxHeight: preset, maxHeightCustom: custom });
         }}
-        options={MAX_HEIGHT_PRESETS.map((opt) => ({ label: opt.label, value: opt.value }))}
-        customAriaLabel="Custom carousel max height"
+        options={MAX_HEIGHT_PRESETS.map((opt) => ({
+          label: translatePuckSidebarCopy(opt.label, tOptions),
+          value: opt.value,
+        }))}
+        customAriaLabel={tLabels("custom_spacing")}
         customMaxByUnit={CAROUSEL_HEIGHT_CUSTOM_LIMITS}
       />
 
       <PresetDimensionField
-        label="Corner Radius"
+        label={translatePuckSidebarCopy("Corner Radius", tLabels)}
         value={{ preset: radiusStored, custom: size.borderRadiusCustom }}
         onChange={({ preset, custom }) => {
           patch({ borderRadius: preset, borderRadiusCustom: custom });
         }}
-        options={BORDER_RADIUS_PRESETS.map((opt) => ({ label: opt.label, value: opt.value }))}
-        customAriaLabel="Custom carousel corner radius"
+        options={BORDER_RADIUS_PRESETS.map((opt) => ({
+          label: translatePuckSidebarCopy(opt.label, tOptions),
+          value: opt.value,
+        }))}
+        customAriaLabel={tLabels("custom_corner_radius")}
       />
     </div>
   );

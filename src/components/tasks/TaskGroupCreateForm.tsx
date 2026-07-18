@@ -7,8 +7,8 @@
  */
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import { FolderKanban } from "lucide-react";
 import type { ITaskReminderSettings } from "@shared/models/Task";
 import { validateTaskReminderSettings } from "@shared/lib/taskReminderLogic";
@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
  */
 export function TaskGroupCreateForm() {
   const router = useRouter();
+  const t = useTranslations("tasks.createGroup");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueAt, setDueAt] = useState<string | null>(null);
@@ -87,7 +88,7 @@ export function TaskGroupCreateForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(typeof data.error === "string" ? data.error : "Failed to create project.");
+      setError(typeof data.error === "string" ? data.error : t("createFailed"));
       setSaving(false);
       return;
     }
@@ -112,11 +113,10 @@ export function TaskGroupCreateForm() {
             </span>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-                New project
+                {t("title")}
               </h1>
               <p className="mt-1 max-w-xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                Define a multi-part assignment, plan your project team upfront, then add individual
-                task parts. Telegram workspaces can open a forum topic per dispatched part.
+                {t("subtitle")}
               </p>
             </div>
           </div>
@@ -124,59 +124,59 @@ export function TaskGroupCreateForm() {
             href="/task-groups"
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0")}
           >
-            Cancel
+            {t("cancel")}
           </Link>
         </header>
 
         <div className="flex flex-col gap-8 py-8">
-          <TaskFormSection title="Project details" description="Overview of the combined work.">
-            <FormField label="Title" required htmlFor="group-title">
+          <TaskFormSection title={t("sectionDetailsTitle")} description={t("sectionDetailsDesc")}>
+            <FormField label={t("titleLabel")} required htmlFor="group-title">
               <Input
                 id="group-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 maxLength={200}
-                placeholder="e.g. Spring festival preparation"
+                placeholder={t("titlePlaceholder")}
               />
             </FormField>
 
-            <FormField label="Description">
+            <FormField label={t("descriptionLabel")}>
               <TaskDescriptionField
                 value={description}
                 onChange={setDescription}
-                placeholder="Describe the overall goal and how parts fit together. Type @ to mention, / for commands."
+                placeholder={t("descriptionPlaceholder")}
                 onContentPolicyViolation={setDescriptionPolicyError}
               />
             </FormField>
           </TaskFormSection>
 
-          <TaskFormSection title="Schedule & tags">
-            <FormField label="Project deadline" hint="Optional overall due date for the project.">
+          <TaskFormSection title={t("sectionScheduleTitle")}>
+            <FormField label={t("deadlineLabel")} hint={t("deadlineHint")}>
               <NexusDateTimePicker
                 value={dueAt}
                 onChange={setDueAt}
-                emptyLabel="No deadline"
-                clearLabel="Clear deadline"
+                emptyLabel={t("noDeadline")}
+                clearLabel={t("clearDeadline")}
                 triggerClassName={taskFormSelectTriggerClass}
               />
             </FormField>
 
-            <FormField label="Tags">
+            <FormField label={t("tagsLabel")}>
               <TaskCategoryTagsField value={tags} onChange={setTags} />
             </FormField>
           </TaskFormSection>
 
           <TaskFormSection
-            title="Project team"
-            description="Add everyone who will work on this project before you create task parts."
+            title={t("sectionTeamTitle")}
+            description={t("sectionTeamDesc")}
           >
             <TaskGroupRosterPanel value={roster} onChange={setRoster} disabled={saving} />
           </TaskFormSection>
 
           <TaskFormSection
-            title="Long-run reminders"
-            description="Periodic nudges listing each performer's open parts until the project is done."
+            title={t("sectionRemindersTitle")}
+            description={t("sectionRemindersDesc")}
           >
             <TaskReminderSettingsField
               value={reminderSettings}
@@ -188,14 +188,14 @@ export function TaskGroupCreateForm() {
         </div>
 
         {error ? (
-          <FormAlert variant="error" title="Could not save project" className="mb-4">
+          <FormAlert variant="error" title={t("saveErrorTitle")} className="mb-4">
             {error}
           </FormAlert>
         ) : null}
 
         <footer className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border-default)] pt-6">
           <Button type="submit" disabled={saving}>
-            {saving ? "Creating…" : "Activate project"}
+            {saving ? t("creating") : t("activate")}
           </Button>
           <Button
             type="button"
@@ -203,7 +203,7 @@ export function TaskGroupCreateForm() {
             disabled={saving}
             onClick={() => void handleSubmit(false)}
           >
-            Save as draft
+            {t("saveDraft")}
           </Button>
         </footer>
       </form>

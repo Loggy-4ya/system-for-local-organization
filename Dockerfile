@@ -44,6 +44,8 @@ WORKDIR /app
 
 COPY . .
 
+ARG NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
+ENV NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=$NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
@@ -77,11 +79,16 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --omit=dev
 
-COPY . .
+RUN addgroup --system --gid 1001 nexus && \
+    adduser --system --uid 1001 --ingroup nexus worker
+
+COPY --chown=worker:nexus . .
 
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["npx", "tsx", "scripts/workers/telegramWorker.ts"]
+USER worker
+
+CMD ["./node_modules/.bin/tsx", "scripts/workers/telegramWorker.ts"]

@@ -19,6 +19,12 @@ Nexus uses a **two-layer** env model:
 
 There are **no env profile files** (no `vps-bundled`, `config/env/`, etc.). One template; you customize `.env.local` for your machine or server.
 
+Production CI/CD adds a separate authoritative layer: AWS Secrets Manager stores
+the encrypted runtime env for each deployed environment. During an SSM rollout,
+the EC2 instance role reads its one allowed secret and atomically materializes
+`/opt/nexus/.env.local` with mode `0600`. GitHub Actions cannot read this secret,
+and no secret is passed in an SSM command parameter or Docker image.
+
 **Implementation:** [`scripts/env/`](../scripts/env/) · package `@dotenvx/dotenvx` · index [`scripts/README.md`](../scripts/README.md)
 
 ---
@@ -173,7 +179,11 @@ npm run docker:up:external
 
 ### Production AWS EC2
 
-On the server: copy or pull env into `.env.local`, then set at minimum:
+For manual deployments, copy or pull env into `.env.local`. For GitHub CI/CD,
+store the complete dotenv payload in the environment Secrets Manager secret;
+the EC2 deployment script creates `.env.local` from it.
+
+Set at minimum:
 
 - `MONGODB_URI` (Atlas)
 - `NEXTAUTH_SECRET`, `NEXTAUTH_URL` (public HTTPS)
@@ -181,6 +191,22 @@ On the server: copy or pull env into `.env.local`, then set at minimum:
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_SESSION`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`
 
 Full deploy steps: [hosting_and_deployment.md](./features/hosting_and_deployment.md).
+
+### GitHub Actions credentials
+
+GitHub uses OIDC to assume an environment-specific AWS IAM role. Do **not** add
+`AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` to GitHub secrets.
+
+GitHub Environment variables contain non-secret deployment coordinates such as
+the AWS region, role ARN, stack name, instance tag, ECR repository names, and
+public build-time `NEXT_PUBLIC_*` values. Runtime credentials remain in Secrets
+Manager.
+
+The dotenvx private key remains a team-local onboarding credential. CI/CD does
+not require it in the recommended architecture. If a temporary legacy workflow
+must decrypt `.env.staging`, add only the private key value as the protected
+environment secret `DOTENV_PRIVATE_KEY`; never upload `.env.keys`, and remove
+the secret after migration to Secrets Manager.
 
 ### `env:init` vs `env:pull-team`
 

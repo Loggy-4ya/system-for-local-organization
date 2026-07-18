@@ -91,6 +91,15 @@ export const DEFAULT_PUCK_E2E_EDIT_PATH =
 const PUCK_E2E_LOGIN = process.env.PUCK_E2E_LOGIN ?? "admin";
 const PUCK_E2E_PASSWORD = process.env.PUCK_E2E_PASSWORD ?? "your_secure_password_here";
 
+export function resolvePuckEditorPath(editPath = DEFAULT_PUCK_E2E_EDIT_PATH): string {
+  const normalized = editPath.startsWith("/") ? editPath : `/${editPath}`;
+  if (/^\/(en|uk)\//.test(normalized)) {
+    return normalized;
+  }
+
+  return `/en${normalized}`;
+}
+
 /**
  * Sign in with seeded admin credentials when the editor route requires auth.
  *
@@ -102,7 +111,7 @@ export async function loginForPuckEditor(
   callbackPath = DEFAULT_PUCK_E2E_EDIT_PATH,
 ): Promise<void> {
   const callback = resolvePuckEditorPath(callbackPath);
-  await page.goto(`/login?callbackUrl=${encodeURIComponent(callback)}`, {
+  await page.goto(`/en/login?callbackUrl=${encodeURIComponent(callback)}`, {
     waitUntil: "domcontentloaded",
   });
 
@@ -133,16 +142,6 @@ export async function tapMobileViewportPreset(page: Page, presetIndex: number): 
   );
   await buttons.nth(presetIndex).tap().catch(async () => buttons.nth(presetIndex).click());
   await page.waitForTimeout(800);
-}
-
-/**
- * Resolve the editor URL for browser automation.
- *
- * @param editPath - Absolute path such as `/news/edit`.
- * @returns Path passed to Playwright `page.goto`.
- */
-export function resolvePuckEditorPath(editPath = DEFAULT_PUCK_E2E_EDIT_PATH): string {
-  return editPath.startsWith("/") ? editPath : `/${editPath}`;
 }
 
 /**

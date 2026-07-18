@@ -1,20 +1,23 @@
 /**
- * @fileoverview Membership profile readiness banner on the profile dashboard.
+ * @fileoverview Profile membership readiness banner on the profile dashboard.
  *
  * @module src/components/profile/ProfileMembershipReadiness
  */
 
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { PublicUser } from "@shared/domains/AuthDomain";
 import {
   buildProfileCompletenessSummary,
-  PROFILE_FIELD_LABELS,
-  resolveMembershipApplicationRequirementsHint,
-  resolveSelfGovernmentMemberProfileHint,
   shouldShowMembershipReadinessBanner,
-  SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY,
 } from "@shared/lib/userProfileCompleteness";
 import { isTeacherUser } from "@shared/lib/userSociumHelpers";
+import {
+  memberProfileMaintenanceCopy,
+  membershipApplicationRequirementsCopy,
+  missingProfileFieldsInlineCopy,
+  translateProfileCompletenessField,
+} from "@/lib/profileCompletenessCopy";
+import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +32,13 @@ export interface ProfileMembershipReadinessProps {
  * @param props - Public user record.
  * @returns Readiness panel JSX or null when complete and already a member.
  */
-export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessProps) {
+export async function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessProps) {
   if (!shouldShowMembershipReadinessBanner(user.accessLevelIndex)) {
     return null;
   }
+
+  const t = await getTranslations("profile.membershipReadiness");
+  const tComplete = await getTranslations("profile.completeness");
 
   const profileSlice = {
     name: user.name,
@@ -49,7 +55,7 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
 
   const summary = buildProfileCompletenessSummary(profileSlice);
   const isTeacher = isTeacherUser(user.sociumRoles);
-  const requirementsHint = resolveMembershipApplicationRequirementsHint(profileSlice);
+  const requirementsHint = membershipApplicationRequirementsCopy(tComplete, profileSlice);
 
   if (isTeacher && summary.teacherAccessApproved) {
     return null;
@@ -63,19 +69,20 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     return (
       <section className="glass-panel rounded-[var(--radius-md)] border border-[var(--color-accent-user)]/40 p-4">
         <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-          Complete your member profile
+          {t("completeMemberTitle")}
         </h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          {resolveSelfGovernmentMemberProfileHint(profileSlice)}
+          {memberProfileMaintenanceCopy(tComplete, profileSlice)}
         </p>
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-          Still missing: {summary.missingFieldLabels.join(", ")}.
+          {t("stillMissing")}{" "}
+          {missingProfileFieldsInlineCopy(tComplete, summary.missingFields)}.
         </p>
         <Link
           href="/profile/settings"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3 inline-flex")}
         >
-          Update profile
+          {t("updateProfile")}
         </Link>
       </section>
     );
@@ -85,23 +92,25 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
     return (
       <section className="glass-panel rounded-[var(--radius-md)] p-4 text-sm text-[var(--color-text-secondary)]">
         <p>
-          {isTeacher
-            ? "Your teacher profile is ready for submission."
-            : "Your profile includes all fields required for a self-government membership application."}
+          {isTeacher ? t("teacherReady") : t("memberReady")}
           {user.selfGovernmentApplicationIntent
-            ? " Your application is pending reviewer approval."
+            ? t("pendingApproval")
             : isTeacher
-              ? " Submit your access application when you are ready."
-              : " Submit your application when you are ready."}
+              ? t("submitWhenReadyTeacher")
+              : t("submitWhenReadyMember")}
         </p>
         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-          {SELF_GOVERNMENT_APPLICATION_TELEGRAM_ADVISORY}
+          {tComplete("telegramAdvisory")}
         </p>
         <Link
           href="/profile/membership"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3 inline-flex")}
         >
-          {user.selfGovernmentApplicationIntent ? "View application" : isTeacher ? "Apply for access" : "Apply for membership"}
+          {user.selfGovernmentApplicationIntent
+            ? t("viewApplication")
+            : isTeacher
+              ? t("applyTeacher")
+              : t("applyMembership")}
         </Link>
       </section>
     );
@@ -110,12 +119,12 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
   return (
     <section className="glass-panel rounded-[var(--radius-md)] p-4">
       <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-        {isTeacher ? "Before applying for teacher access" : "Before applying for self-government membership"}
+        {isTeacher ? t("beforeTeacher") : t("beforeMembership")}
       </h2>
       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{requirementsHint}</p>
       <ul className="mt-2 list-disc pl-5 text-sm text-[var(--color-text-secondary)]">
         {summary.missingFields.map((field) => (
-          <li key={field}>{PROFILE_FIELD_LABELS[field]}</li>
+          <li key={field}>{translateProfileCompletenessField(tComplete, field)}</li>
         ))}
       </ul>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -123,13 +132,13 @@ export function ProfileMembershipReadiness({ user }: ProfileMembershipReadinessP
           href="/profile/settings"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "inline-flex")}
         >
-          Complete profile
+          {t("completeProfile")}
         </Link>
         <Link
           href="/profile/membership"
           className={cn(buttonVariants({ size: "sm" }), "inline-flex")}
         >
-          Membership application
+          {t("membershipApplication")}
         </Link>
       </div>
     </section>

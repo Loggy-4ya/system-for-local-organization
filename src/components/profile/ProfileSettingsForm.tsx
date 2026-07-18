@@ -6,8 +6,11 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { isBotLocale } from "@shared/lib/resolveBotLocale";
 import type { PublicUser } from "@shared/domains/AuthDomain";
 import type { IUserSocialLink, StudentTitle } from "@shared/models/User";
 import { OAuthButtonRow } from "@/components/auth/OAuthButtonRow";
@@ -18,7 +21,8 @@ import { FormAlert } from "@/components/ui/form-alert";
 import { RoleChipGroup } from "@/components/auth/RoleChipGroup";
 import { clientProfileSettingsSchema } from "@shared/validation/profileSchemas";
 import { formatZodErrors } from "@shared/validation/formatValidationErrors";
-import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser, SELF_GOVERNMENT_MEMBER_PROFILE_HINT, SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT, resolveSelfGovernmentMemberProfileHint, TEACHER_APPLICATION_FIELD_HINT } from "@shared/lib/userProfileCompleteness";
+import { memberProfileMaintenanceCopy } from "@/lib/profileCompletenessCopy";
+import { phoneIsRequiredForUser, avatarIsRequiredForUser, telegramIsRequiredForUser } from "@shared/lib/userProfileCompleteness";
 import { isTeacherUser } from "@shared/lib/userSociumHelpers";
 import { useContentPolicyFields } from "@/lib/useContentPolicyField";
 import { filterPhoneInputChange, phoneInputProps, phoneInputPlaceholder, autocorrectPhoneFieldValue } from "@/lib/phoneInputProps";
@@ -26,7 +30,13 @@ import { AvatarImageField } from "@/components/media/AvatarImageField";
 import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
 import { TaskChannelToggleGroup } from "@/components/tasks/TaskChannelToggleGroup";
 import {
-  USER_NOTIFICATION_CHANNELS_HINT,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   USER_NOTIFICATION_TELEGRAM_LINK_HINT,
 } from "@shared/constants/userNotificationSettings";
 import { normalizeUserNotificationChannels } from "@shared/lib/userNotificationSettingsLogic";
@@ -56,7 +66,12 @@ export function ProfileSettingsForm({
   memberTelegramOnboardingMode = false,
 }: ProfileSettingsFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const siteProfile = useOptionalSiteProfile();
+  const appLocale = useLocale();
+  const tSettings = useTranslations("profile.settingsForm");
+  const tComplete = useTranslations("profile.completeness");
+  const tLocale = useTranslations("common.locale");
   const isTeacher = isTeacherUser(user.sociumRoles);
   const profileSlice = {
     name: user.name,
@@ -70,7 +85,7 @@ export function ProfileSettingsForm({
     telegramId: user.telegramId,
     teacherAccessApproved: user.teacherAccessApproved,
   };
-  const memberProfileHint = resolveSelfGovernmentMemberProfileHint(profileSlice);
+  const memberProfileHint = memberProfileMaintenanceCopy(tComplete, profileSlice);
 
   const [name, setName] = useState(user.name);
   const [surname, setSurname] = useState(user.surname ?? "");
@@ -84,6 +99,12 @@ export function ProfileSettingsForm({
   const [notificationChannels, setNotificationChannels] = useState<TaskReminderChannel[]>(
     normalizeUserNotificationChannels(user.notificationChannels),
   );
+  const [preferredLocale, setPreferredLocale] = useState<BotLocale>(() => {
+    if (user.preferredLocale && isBotLocale(user.preferredLocale)) {
+      return user.preferredLocale;
+    }
+    return isBotLocale(appLocale) ? appLocale : "en";
+  });
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -158,7 +179,7 @@ export function ProfileSettingsForm({
    * Unlink Telegram from the authenticated account.
    */
   async function handleUnlinkTelegram() {
-    if (!window.confirm("Unlink Telegram from this Nexus account?")) return;
+    if (!window.confirm(tSettings("unlinkConfirm"))) return;
 
     setError(null);
     setSuccess(null);
@@ -167,12 +188,12 @@ export function ProfileSettingsForm({
     try {
       const res = await fetch("/api/profile/telegram", { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to unlink Telegram.");
+      if (!res.ok) throw new Error(data.error ?? tSettings("unlinkFailed"));
 
-      setSuccess("Telegram unlinked successfully.");
+      setSuccess(tSettings("unlinkSuccess"));
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to unlink Telegram.");
+      setError(err instanceof Error ? err.message : tSettings("unlinkFailed"));
     } finally {
       setUnlinkLoading(false);
     }
@@ -191,8 +212,8 @@ export function ProfileSettingsForm({
     clearLiveErrors();
 
     if (avatarRequired && !avatar.trim()) {
-      setFieldErrors({ avatar: "Profile photo is required." });
-      setError("Profile photo is required.");
+      setFieldErrors({ avatar: tSettings("photoRequired") });
+      setError(tSettings("photoRequired"));
       return;
     }
 
@@ -207,6 +228,7 @@ export function ProfileSettingsForm({
       socialLinks: socialLinks.filter((link) => link.url.trim().length > 0),
       avatar: avatar || null,
       notificationChannels,
+      preferredLocale,
       currentPassword: currentPassword || undefined,
       newPassword: newPassword || undefined,
       confirmPassword: confirmPassword || undefined,
@@ -217,7 +239,7 @@ export function ProfileSettingsForm({
     const result = clientProfileSettingsSchema.safeParse(payload);
     if (!result.success) {
       const formatted = formatZodErrors(result.error);
-      setError(formatted.formError || "Please correct the validation errors.");
+      setError(formatted.formError || tSettings("validationErrors"));
       setFieldErrors(formatted.fieldErrors);
       return;
     }
@@ -236,6 +258,7 @@ export function ProfileSettingsForm({
         socialLinks: result.data.socialLinks,
         avatar: result.data.avatar,
         notificationChannels: result.data.notificationChannels,
+        preferredLocale: result.data.preferredLocale,
       };
 
       if (onboardingMode) {
@@ -259,25 +282,36 @@ export function ProfileSettingsForm({
         if (data.fieldErrors) {
           setFieldErrors(data.fieldErrors);
         }
-        throw new Error(data.error ?? "Update failed.");
+        throw new Error(data.error ?? tSettings("updateFailed"));
       }
 
       if (onboardingMode && data.onboardingComplete) {
         await siteProfile?.refreshProfile();
-        router.push("/profile");
+        const nextLocale =
+          result.data.preferredLocale && isBotLocale(result.data.preferredLocale)
+            ? result.data.preferredLocale
+            : appLocale;
+        router.push("/profile", { locale: nextLocale });
         router.refresh();
         return;
       }
 
-      setSuccess("Profile updated successfully.");
+      const savedLocale = result.data.preferredLocale;
+      await siteProfile?.refreshProfile();
+
+      if (savedLocale && isBotLocale(savedLocale) && savedLocale !== appLocale) {
+        router.replace(pathname, { locale: savedLocale });
+        return;
+      }
+
+      setSuccess(tSettings("saved"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       clearLiveErrors();
-      await siteProfile?.refreshProfile();
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed.");
+      setError(err instanceof Error ? err.message : tSettings("updateFailed"));
     } finally {
       setLoading(false);
     }
@@ -286,10 +320,10 @@ export function ProfileSettingsForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-(--color-text-primary)">Personal info</h2>
+        <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("personalInfoTitle")}</h2>
 
         <FormField
-          label="First name"
+          label={tSettings("firstName")}
           htmlFor="settings-name"
           error={fieldError("name", fieldErrors.name)}
         >
@@ -303,7 +337,7 @@ export function ProfileSettingsForm({
         </FormField>
 
         <FormField
-          label="Surname"
+          label={tSettings("surname")}
           htmlFor="settings-surname"
           error={fieldError("surname", fieldErrors.surname)}
           hint={membershipProfileRequired ? memberProfileHint : undefined}
@@ -318,15 +352,15 @@ export function ProfileSettingsForm({
         </FormField>
 
         <FormField
-          label="Phone number"
+          label={tSettings("phoneNumber")}
           htmlFor="settings-phone"
           error={fieldErrors.phone}
           hint={
             membershipProfileRequired
               ? memberProfileHint
               : isTeacher
-                ? TEACHER_APPLICATION_FIELD_HINT
-              : "Optional but recommended for general students."
+                ? tComplete("teacherFieldHint")
+              : tSettings("phoneOptionalHint")
           }
         >
           <Input
@@ -344,27 +378,27 @@ export function ProfileSettingsForm({
         </FormField>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-(--color-text-primary)">Login</span>
+          <span className="text-sm font-medium text-(--color-text-primary)">{tSettings("login")}</span>
           <Input id="settings-login" value={user.login ?? ""} disabled />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-(--color-text-primary)">Linked email</span>
+          <span className="text-sm font-medium text-(--color-text-primary)">{tSettings("linkedEmail")}</span>
           <Input
             id="settings-email"
             value={user.email ?? ""}
             disabled
-            placeholder="No email linked"
+            placeholder={tSettings("noEmailLinked")}
           />
           <p className="text-xs text-(--color-text-secondary)">
-            Optional contact email for OAuth merge — not used for sign-in.
+            {tSettings("linkedEmailHint")}
           </p>
         </div>
 
         {!isTeacher ? (
           <>
             <FormField
-              label="Specialty"
+              label={tSettings("specialty")}
               htmlFor="settings-specialty"
               error={fieldErrors.specialty}
               hint={membershipProfileRequired ? memberProfileHint : undefined}
@@ -378,7 +412,7 @@ export function ProfileSettingsForm({
             </FormField>
 
             <FormField
-              label="Group"
+              label={tSettings("group")}
               htmlFor="settings-group"
               error={fieldErrors.group}
               hint={membershipProfileRequired ? memberProfileHint : undefined}
@@ -398,7 +432,7 @@ export function ProfileSettingsForm({
 
         {!isTeacher ? (
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-(--color-text-primary)">Student title</span>
+            <span className="text-sm font-medium text-(--color-text-primary)">{tSettings("studentTitle")}</span>
             <RoleChipGroup
               value={studentTitle}
               onChange={(v) => setStudentTitle(v)}
@@ -407,13 +441,13 @@ export function ProfileSettingsForm({
         ) : null}
 
         <FormField
-          label="Profile photo"
+          label={tSettings("profilePhoto")}
           htmlFor="settings-avatar-file"
           error={fieldErrors.avatar}
           hint={
             membershipProfileRequired
               ? memberProfileHint
-              : "Upload a profile photo. Without a photo, a User icon is shown in the header and directory."
+              : tSettings("profilePhotoHint")
           }
         >
           <AvatarImageField
@@ -425,7 +459,7 @@ export function ProfileSettingsForm({
         </FormField>
 
         <FormField
-          label="About you"
+          label={tSettings("aboutYou")}
           htmlFor="settings-about"
           error={fieldError("about", fieldErrors.about)}
         >
@@ -436,15 +470,15 @@ export function ProfileSettingsForm({
             onBlur={() => validateField("about", about, "plain-text")}
             rows={4}
             className="w-full rounded-[var(--radius-md)] border border-(--color-border-default) bg-(--color-bg-elevated) px-3 py-2 text-sm text-(--color-text-primary)"
-            placeholder="Short bio visible on your profile"
+            placeholder={tSettings("aboutPlaceholder")}
           />
         </FormField>
 
         <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-(--color-text-primary)">Social links</span>
+          <span className="text-sm font-medium text-(--color-text-primary)">{tSettings("socialLinks")}</span>
           {socialLinks.map((link, index) => (
             <div key={`social-link-${index}`} className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-(--color-border-default) p-3">
-              <FormField label="Platform" htmlFor={`social-platform-${index}`}>
+              <FormField label={tSettings("platform")} htmlFor={`social-platform-${index}`}>
                 <Input
                   id={`social-platform-${index}`}
                   value={link.platform}
@@ -455,7 +489,7 @@ export function ProfileSettingsForm({
                   }}
                 />
               </FormField>
-              <FormField label="URL" htmlFor={`social-url-${index}`} error={fieldErrors[`socialLinks.${index}.url`]}>
+              <FormField label={tSettings("url")} htmlFor={`social-url-${index}`} error={fieldErrors[`socialLinks.${index}.url`]}>
                 <Input
                   id={`social-url-${index}`}
                   value={link.url}
@@ -472,7 +506,7 @@ export function ProfileSettingsForm({
                 size="sm"
                 onClick={() => setSocialLinks(socialLinks.filter((_, i) => i !== index))}
               >
-                Remove link
+                {tSettings("removeLink")}
               </Button>
             </div>
           ))}
@@ -486,7 +520,7 @@ export function ProfileSettingsForm({
                 setSocialLinks([...socialLinks, { platform: "custom", label: null, url: "" }])
               }
             >
-              Add social link
+              {tSettings("addSocialLink")}
             </Button>
           )}
         </div>
@@ -494,10 +528,10 @@ export function ProfileSettingsForm({
 
       {canChangePassword && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-(--color-text-primary)">Password</h2>
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("passwordTitle")}</h2>
           
           <FormField
-            label="Current password"
+            label={tSettings("currentPassword")}
             htmlFor="current-password"
             error={fieldErrors.currentPassword}
           >
@@ -510,7 +544,7 @@ export function ProfileSettingsForm({
           </FormField>
 
           <FormField
-            label="New password"
+            label={tSettings("newPassword")}
             htmlFor="new-password"
             error={fieldErrors.newPassword}
           >
@@ -523,7 +557,7 @@ export function ProfileSettingsForm({
           </FormField>
 
           <FormField
-            label="Confirm new password"
+            label={tSettings("confirmPassword")}
             htmlFor="confirm-password"
             error={fieldErrors.confirmPassword}
           >
@@ -539,9 +573,9 @@ export function ProfileSettingsForm({
 
       {onboardingMode && telegramRequired && !user.telegramId ? (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-(--color-text-primary)">Telegram</h2>
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("telegramTitle")}</h2>
           <p className="text-sm text-(--color-text-secondary)">
-            {SELF_GOVERNMENT_MEMBER_PROFILE_HINT}
+            {tComplete("memberProfileHintShort")}
           </p>
           <OAuthButtonRow callbackUrl="/profile/settings?onboarding=1" linkUserId={user.id} />
         </section>
@@ -549,9 +583,9 @@ export function ProfileSettingsForm({
 
       {showMemberTelegramConnect ? (
         <section className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--color-accent-warning,#f59e0b)]/40 p-4">
-          <h2 className="text-lg font-semibold text-(--color-text-primary)">Telegram required</h2>
+          <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("telegramRequiredTitle")}</h2>
           <p className="text-sm text-(--color-text-secondary)">
-            {SELF_GOVERNMENT_MEMBER_TELEGRAM_REQUIRED_HINT}
+            {tComplete("memberTelegramRequired")}
           </p>
           <OAuthButtonRow
             callbackUrl="/profile/settings?onboarding=member-telegram"
@@ -571,8 +605,7 @@ export function ProfileSettingsForm({
               aria-invalid={Boolean(fieldErrors.personalDataConsent)}
             />
             <span>
-              I consent to the processing of my personal data in accordance with institutional
-              policy.
+              {tSettings("consentLabel")}
             </span>
           </label>
           {fieldErrors.personalDataConsent && (
@@ -582,16 +615,41 @@ export function ProfileSettingsForm({
       )}
 
       {!onboardingMode && (
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("languageTitle")}</h2>
+        <p className="text-sm text-(--color-text-secondary)">{tSettings("languageHint")}</p>
+        <FormField label={tSettings("languageLabel")} htmlFor="settings-preferred-locale">
+          <Select
+            value={preferredLocale}
+            onValueChange={(value) => {
+              if (typeof value === "string" && isBotLocale(value)) {
+                setPreferredLocale(value);
+              }
+            }}
+          >
+            <SelectTrigger id="settings-preferred-locale" className="w-full md:max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">{tLocale("en")}</SelectItem>
+              <SelectItem value="uk">{tLocale("uk")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+      </section>
+      )}
+
+      {!onboardingMode && (
       <section id="notifications" className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-(--color-text-primary)">Notifications</h2>
-        <p className="text-sm text-(--color-text-secondary)">{USER_NOTIFICATION_CHANNELS_HINT}</p>
+        <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("notificationsTitle")}</h2>
+        <p className="text-sm text-(--color-text-secondary)">{tComplete("notificationChannelsHint")}</p>
         <TaskChannelToggleGroup
           value={notificationChannels}
           onChange={setNotificationChannels}
         />
         {!user.telegramId && notificationChannels.includes("telegram") && (
           <div className="flex items-center gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
-            <span className="text-(--color-text-secondary)">Telegram is not linked yet.</span>
+            <span className="text-(--color-text-secondary)">{tSettings("telegramNotLinkedBanner")}</span>
             <a
               href="#connected-accounts"
               className="ml-auto shrink-0 font-medium text-(--color-accent-user) underline-offset-2 hover:underline"
@@ -600,7 +658,7 @@ export function ProfileSettingsForm({
                 document.getElementById("connected-accounts")?.scrollIntoView({ behavior: "smooth" });
               }}
             >
-              Link now ↓
+              {tSettings("linkTelegramNow")}
             </a>
           </div>
         )}
@@ -609,10 +667,15 @@ export function ProfileSettingsForm({
 
       {!onboardingMode && (
       <section id="connected-accounts" className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-(--color-text-primary)">Connected accounts</h2>
+        <h2 className="text-lg font-semibold text-(--color-text-primary)">{tSettings("connectedAccountsTitle")}</h2>
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm text-(--color-text-secondary)">
-          <li>Google: {user.googleId ? "Linked" : "Not linked"}</li>
-          <li>Telegram: {user.telegramId ? `Linked (@${user.username ?? user.telegramId})` : "Not linked"}</li>
+          <li>Google: {user.googleId ? tSettings("googleLinked") : tSettings("googleNotLinked")}</li>
+          <li>
+            Telegram:{" "}
+            {user.telegramId
+              ? tSettings("telegramLinked", { username: user.username ?? String(user.telegramId) })
+              : tSettings("telegramNotLinked")}
+          </li>
         </ul>
         {canUnlinkTelegram && (
           <Button
@@ -622,7 +685,7 @@ export function ProfileSettingsForm({
             onClick={handleUnlinkTelegram}
             className="w-full md:w-auto"
           >
-            {unlinkLoading ? "Unlinking…" : "Unlink Telegram"}
+            {unlinkLoading ? tSettings("unlinking") : tSettings("unlinkTelegram")}
           </Button>
         )}
         {user.telegramId && !canUnlinkTelegram && (
@@ -638,13 +701,13 @@ export function ProfileSettingsForm({
               selfGovernmentApplicationIntent: user.selfGovernmentApplicationIntent,
               telegramId: user.telegramId,
             })
-              ? "Telegram is required for self-government members."
-              : "Set a password or link Google before unlinking Telegram."}
+              ? tSettings("telegramRequiredForMembers")
+              : tSettings("unlinkTelegramHint")}
           </p>
         )}
         {!user.telegramId && !showMemberTelegramConnect && (
           <p className="text-xs text-(--color-text-secondary)">
-            Use the Telegram button below to link your account (Login Widget in browser).
+            {tSettings("linkTelegramWidgetHint")}
           </p>
         )}
         {!showMemberTelegramConnect ? (
@@ -665,7 +728,7 @@ export function ProfileSettingsForm({
       )}
 
       <Button type="submit" disabled={loading} className="w-full md:w-auto">
-        {loading ? "Saving…" : onboardingMode ? "Save and continue" : memberTelegramOnboardingMode ? "Save profile" : "Save changes"}
+        {loading ? tSettings("saving") : onboardingMode ? tSettings("saveAndContinue") : memberTelegramOnboardingMode ? tSettings("saveProfile") : tSettings("saveChanges")}
       </Button>
     </form>
   );

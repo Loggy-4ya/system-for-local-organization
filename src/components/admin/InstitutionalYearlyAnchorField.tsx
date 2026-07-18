@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { CalendarIcon, X } from "lucide-react";
 import type { InstitutionalYearlyAnchor } from "@shared/constants/institutionalCalendar";
 import { MAX_INSTITUTIONAL_YEARLY_ANCHORS } from "@shared/constants/institutionalCalendar";
@@ -26,11 +27,6 @@ export interface InstitutionalYearlyAnchorFieldProps {
   className?: string;
 }
 
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
 /**
  * Add yearly repeating calendar anchors (month/day + time).
  *
@@ -43,6 +39,7 @@ export function InstitutionalYearlyAnchorField({
   disabled = false,
   className,
 }: InstitutionalYearlyAnchorFieldProps) {
+  const t = useTranslations("admin.institutionalCalendar.yearlyAnchors");
   const [timeDraft, setTimeDraft] = useState("09:00");
   const [open, setOpen] = useState(false);
 
@@ -79,14 +76,14 @@ export function InstitutionalYearlyAnchorField({
         >
           <CalendarIcon className="size-4 opacity-70" aria-hidden="true" />
           <span className="text-sm text-[var(--color-text-secondary)]">
-            Add yearly date ({value.length}/{MAX_INSTITUTIONAL_YEARLY_ANCHORS})
+            {t("addYearlyDate", { count: value.length, max: MAX_INSTITUTIONAL_YEARLY_ANCHORS })}
           </span>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar mode="single" onSelect={(date) => addAnchor(date)} disabled={disabled} />
           <div className="border-t border-[var(--color-border-default)] px-3 py-2">
             <label className="mb-1 block text-[11px] font-medium text-[var(--color-text-secondary)]">
-              Time
+              {t("timeLabel")}
             </label>
             <input
               type="time"
@@ -107,13 +104,17 @@ export function InstitutionalYearlyAnchorField({
               className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-border-default)] px-3 py-2 text-sm"
             >
               <span>
-                Every {anchor.day} {MONTH_NAMES[anchor.month - 1]} at {anchor.atTime}
+                {t("everyDateAt", {
+                  day: anchor.day,
+                  month: (t as (key: string) => string)(`months.${anchor.month}`),
+                  time: anchor.atTime,
+                })}
               </span>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => removeAnchor(index)}
-                aria-label="Remove yearly date"
+                aria-label={t("removeYearlyDate")}
               >
                 <X className="size-4" />
               </button>
@@ -121,7 +122,7 @@ export function InstitutionalYearlyAnchorField({
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-[var(--color-text-secondary)]">No yearly dates yet.</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t("noYearlyDatesYet")}</p>
       )}
     </div>
   );

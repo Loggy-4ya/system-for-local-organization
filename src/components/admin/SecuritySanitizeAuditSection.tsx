@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { DEFAULT_AUDIT_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
 import { computePageRowRange } from "@shared/lib/listPaginationLogic";
 import type { SecuritySanitizeAuditRow } from "@shared/domains/SecuritySanitizeDomain";
@@ -43,6 +44,8 @@ function formatAuditTimestamp(iso: string): string {
  * @returns Sanitization audit section JSX.
  */
 export function SecuritySanitizeAuditSection() {
+  const t = useTranslations("admin.systemLogs");
+  const tSanitize = useTranslations("admin.systemLogs.sanitize");
   const [items, setItems] = useState<SecuritySanitizeAuditRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -66,7 +69,7 @@ export function SecuritySanitizeAuditSection() {
       const response = await fetch(`/api/admin/security-sanitize-audits?${params}`);
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "Failed to load audit log.");
+        throw new Error(body.error || t("loadFailed"));
       }
 
       const data = (await response.json()) as AuditListResponse;
@@ -76,7 +79,7 @@ export function SecuritySanitizeAuditSection() {
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
     },
-    [],
+    [t],
   );
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export function SecuritySanitizeAuditSection() {
         await fetchAudits(page, appliedPathFilter);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load audit log.");
+          setError(err instanceof Error ? err.message : t("loadFailed"));
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -110,14 +113,13 @@ export function SecuritySanitizeAuditSection() {
   const paginationSummary = useMemo(() => {
     const { from, to } = computePageRowRange(page, DEFAULT_AUDIT_LIST_PAGE_SIZE, totalCount);
     if (totalCount <= 0) return undefined;
-    return `Showing ${from}–${to} of ${totalCount}`;
-  }, [page, totalCount]);
+    return t("paginationSummary", { from, to, total: totalCount });
+  }, [page, totalCount, t]);
 
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-3xl text-sm leading-relaxed text-(--color-text-secondary)">
-        When Puck page saves strip unsafe links, media URLs, or rich HTML, a record is stored
-        here. Raw malicious payloads are never persisted — only field paths and length metadata.
+        {tSanitize("description")}
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -126,17 +128,17 @@ export function SecuritySanitizeAuditSection() {
             htmlFor="audit-path-filter"
             className="text-xs font-medium text-(--color-text-secondary)"
           >
-            Filter by page path prefix
+            {tSanitize("pathFilterLabel")}
           </label>
           <Input
             id="audit-path-filter"
             value={pathFilter}
             onChange={(event) => setPathFilter(event.target.value)}
-            placeholder="/news"
+            placeholder={tSanitize("pathPlaceholder")}
           />
         </div>
         <Button type="button" variant="secondary" onClick={handleApplyFilter}>
-          Apply filter
+          {t("applyFilter")}
         </Button>
       </div>
 
@@ -156,11 +158,11 @@ export function SecuritySanitizeAuditSection() {
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 p-12 text-sm text-(--color-text-secondary)">
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            Loading audit log…
+            {t("loadingAudit")}
           </div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center text-sm text-(--color-text-secondary)">
-            No sanitization events recorded yet.
+            {tSanitize("empty")}
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -180,12 +182,12 @@ export function SecuritySanitizeAuditSection() {
                         {row.pagePath}
                       </span>
                       <Badge variant="secondary">
-                        {row.eventCount} field{row.eventCount === 1 ? "" : "s"}
+                        {t("eventCount", { count: row.eventCount })}
                       </Badge>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-(--color-text-secondary)">
                       <span>{formatAuditTimestamp(row.createdAt)}</span>
-                      {row.actorUserId ? <span>Editor: {row.actorUserId}</span> : null}
+                      {row.actorUserId ? <span>{t("editorId", { id: row.actorUserId })}</span> : null}
                     </div>
                   </button>
 
@@ -195,10 +197,10 @@ export function SecuritySanitizeAuditSection() {
                         <table className="w-full min-w-[480px] text-left text-xs">
                           <thead>
                             <tr className="text-(--color-text-secondary)">
-                              <th className="pb-2 pr-4 font-medium">Field path</th>
-                              <th className="pb-2 pr-4 font-medium">Kind</th>
-                              <th className="pb-2 pr-4 font-medium">Raw length</th>
-                              <th className="pb-2 font-medium">After length</th>
+                              <th className="pb-2 pr-4 font-medium">{tSanitize("fieldPath")}</th>
+                              <th className="pb-2 pr-4 font-medium">{tSanitize("kind")}</th>
+                              <th className="pb-2 pr-4 font-medium">{tSanitize("rawLength")}</th>
+                              <th className="pb-2 font-medium">{tSanitize("afterLength")}</th>
                             </tr>
                           </thead>
                           <tbody>

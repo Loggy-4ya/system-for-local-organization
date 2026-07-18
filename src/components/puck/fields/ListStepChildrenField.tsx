@@ -7,6 +7,7 @@
  */
 
 import { ChevronDown, Plus, Sparkles, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { NexusRichTextEditor } from "@/components/editor/NexusRichTextEditor";
 import { EditorFlagBadge } from "@/components/global-layout/EditorFlagBadge";
@@ -43,6 +44,7 @@ export function ListStepChildrenField({
   value,
   onChange,
 }: ListStepChildrenFieldProps) {
+  const t = useTranslations("puck.fieldHints");
   const selectedItem = useNexusPuck((state) => state.selectedItem);
   const componentId = selectedItem?.props?.id as string | undefined;
   const items = (selectedItem?.props?.items ?? []) as ListStepItem[];
@@ -117,12 +119,12 @@ export function ListStepChildrenField({
     <div className="nexus-list-step-field nexus-sidebar-field">
       <FieldLabelRow
         label={field.label ?? "Sub-steps"}
-        hint="Nested rows collapse into a chapter on the canvas stepper."
+        hint={t("listStepChildrenHint")}
       />
       <div className="nexus-list-step-children">
         {children.length === 0 ? (
           <p className="nexus-list-step-children__empty">
-            Add nested sub-steps to create a collapsible chapter on the canvas.
+            {t("listStepChildrenEmpty")}
           </p>
         ) : null}
 
@@ -146,7 +148,7 @@ export function ListStepChildrenField({
           onClick={addChild}
         >
           <Plus aria-hidden size={14} />
-          Add sub-step
+          {t("listStepChildrenAdd")}
         </button>
       </div>
     </div>
@@ -181,6 +183,7 @@ function ListStepChildRow({
   onPatch,
   onFocus,
 }: ListStepChildRowProps) {
+  const t = useTranslations("puck.fieldHints");
   const panelId = useId();
   const [hydrated, setHydrated] = useState(false);
   const labelPlaceholder = formatListStepChildLabel(parentIndex, childIndex);
@@ -237,11 +240,11 @@ function ListStepChildRow({
 
       <div className="nexus-list-step-children__row-meta">
         <EditorFlagBadge
-          label="Highlight"
+          label={t("listStepHighlightLabel")}
           icon={<Sparkles size={12} aria-hidden />}
           active={highlighted}
           activeVariant="default"
-          tooltip="Emphasize this sub-step on the published page"
+          tooltip={t("listStepChildHighlightTooltip")}
           onToggle={() => onPatch({ highlighted: !highlighted })}
         />
       </div>
@@ -261,7 +264,7 @@ function ListStepChildRow({
               onChange={(html) => onPatch({ text: html })}
               variant="default"
               className="nexus-rich-text-editor--puck nexus-rich-text-editor--puck-list-step"
-              placeholder="Sub-step label… Add links with the toolbar."
+              placeholder={t("listStepChildTiptapPlaceholder")}
               minHeight={88}
             />
           </div>

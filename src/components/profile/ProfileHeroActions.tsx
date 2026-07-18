@@ -6,10 +6,11 @@
 
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Copy, Mail, MessageCircle, Pencil } from "lucide-react";
 import type { ProfileContactOptions } from "@shared/lib/profileContactLogic";
+import { Link } from "@/i18n/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ export function ProfileHeroActions({
   publicProfilePath,
   contact,
 }: ProfileHeroActionsProps) {
+  const t = useTranslations("profile.actions");
   const [copied, setCopied] = useState(false);
 
   /** Copy the canonical public profile URL to the clipboard. */
@@ -64,13 +66,13 @@ export function ProfileHeroActions({
           ) : (
             <MessageCircle className="size-3.5" aria-hidden="true" />
           )}
-          Message
+          {t("message")}
         </a>
       )}
 
       {!isSelf && !contact.hasAny && (
-        <Button size="sm" type="button" variant="outline" disabled title="No contact method on this profile">
-          Message unavailable
+        <Button size="sm" type="button" variant="outline" disabled title={t("noContactTitle")}>
+          {t("messageUnavailable")}
         </Button>
       )}
 
@@ -82,13 +84,13 @@ export function ProfileHeroActions({
         onClick={() => void handleCopyProfileLink()}
       >
         {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
-        {copied ? "Copied" : "Copy link"}
+        {copied ? t("copied") : t("copyLink")}
       </Button>
 
       {isSelf && (
         <Link href="/profile/settings" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}>
           <Pencil className="size-3.5" aria-hidden="true" />
-          Edit profile
+          {t("editProfile")}
         </Link>
       )}
     </div>

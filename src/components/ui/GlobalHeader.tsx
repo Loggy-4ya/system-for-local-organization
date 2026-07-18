@@ -6,29 +6,24 @@
  * @module src/components/ui/GlobalHeader
  */
 
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { useOptionalSiteProfile } from "@/components/auth/SiteProfileProvider";
 import { SiteHeaderBar } from "@/components/ui/SiteHeaderBar";
 import { isPuckEditorRoutePath } from "@/components/puck/lib/pageSlugValidation";
 import { GLOBAL_LAYOUT_HEADER_SLOT_CLASS, GLOBAL_LAYOUT_CONTENT_WIDTH } from "@/components/puck/lib/contentWidthTokens";
+import { stripLocalePrefix } from "@/lib/localePathLogic";
 import { type HeaderConfig } from "@shared/constants/globalLayout";
 
 /** Props accepted by `GlobalHeader`. */
 export interface GlobalHeaderProps {
   header: HeaderConfig;
   showAdminPanel?: boolean;
-  /** Whether the stored theme preference is dark (for toggle link visuals). */
   isDarkTheme?: boolean;
   userAvatar?: string | null;
-  /** Whether a user session is active. */
   isAuthenticated?: boolean;
-  /** Display name for sign-in link label. */
   userName?: string | null;
-  /** Email shown under the name in the mobile sidebar account row. */
   userEmail?: string | null;
-  /** Content width preset. */
   contentWidth?: string;
-  /** Live-preview chrome: explicit user props override {@link SiteProfileProvider}. */
   preview?: boolean;
 }
 
@@ -70,8 +65,11 @@ export function GlobalHeader({
     ? userEmail
     : resolvedProfile?.email ?? userEmail;
 
+  const pathnameWithoutLocale = stripLocalePrefix(pathname);
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/"
+      ? pathnameWithoutLocale === "/"
+      : pathnameWithoutLocale.startsWith(href);
 
   return (
     <>
@@ -94,7 +92,6 @@ export function GlobalHeader({
           contentWidth={contentWidth}
         />
       </header>
-      {/* Reserves document flow space under the fixed header */}
       <div className="site-header-spacer" aria-hidden="true" />
     </>
   );

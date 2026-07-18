@@ -9,8 +9,10 @@
  */
 
 import type { FormFieldAnswerMode } from "@shared/constants/formField";
+import { useTranslations } from "next-intl";
 import { FieldLabelRow } from "./FieldLabelRow";
 import { SegmentedControl } from "./SegmentedControl";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 
 /** Props passed by Puck to the answer mode custom field. */
 interface FormFieldAnswerModeFieldProps {
@@ -42,28 +44,23 @@ const ANSWER_MODE_OPTIONS: Array<{ label: string; value: FormFieldAnswerMode; ti
   },
 ];
 
-const ANSWER_MODE_HELP_SR =
-  "Survey collects opinions without scoring. Quiz tests knowledge with marked correct answers and Correct or Incorrect feedback. Pick one uses radio buttons; pick any uses checkboxes.";
-
 /** Rich tooltip copy for survey vs quiz (question-mark hover). */
 function AnswerModeHelpContent() {
+  const t = useTranslations("puck.fieldLabels");
+
   return (
     <div className="flex flex-col gap-2 text-left">
       <p className="m-0">
-        <span className="font-semibold text-(--color-text-primary)">Survey</span>
+        <span className="font-semibold text-(--color-text-primary)">{t("survey_heading")}</span>
         {" — "}
-        collect opinions or preferences. There are no right or wrong answers. Statistics show how
-        many people chose each option.
+        {t("survey_help")}
       </p>
       <p className="m-0">
-        <span className="font-semibold text-(--color-text-primary)">Quiz</span>
+        <span className="font-semibold text-(--color-text-primary)">{t("quiz_heading")}</span>
         {" — "}
-        test knowledge. Mark the correct option(s). After submit, respondents see Correct or
-        Incorrect. Statistics include a correctness rate.
+        {t("quiz_help")}
       </p>
-      <p className="m-0 text-(--color-text-secondary)">
-        Pick one = radio buttons. Pick any = checkboxes.
-      </p>
+      <p className="m-0 text-(--color-text-secondary)">{t("pick_one_pick_any")}</p>
     </div>
   );
 }
@@ -80,17 +77,32 @@ export function FormFieldAnswerModeField({
   onChange,
 }: FormFieldAnswerModeFieldProps) {
   const current = value ?? "survey-single";
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
+
+  const titleKeys = {
+    "survey-single": "survey_pick_one_title",
+    "survey-multiple": "survey_pick_any_title",
+    "quiz-single": "quiz_one_title",
+    "quiz-multiple": "quiz_multiple_title",
+  } as const;
+
+  const options = ANSWER_MODE_OPTIONS.map((opt) => ({
+    label: translatePuckSidebarCopy(opt.label, tOptions),
+    value: opt.value,
+    title: tLabels(titleKeys[opt.value] as never),
+  }));
 
   return (
     <div className="nexus-sidebar-field">
       <FieldLabelRow
-        label={field.label ?? "Answer mode"}
-        hint={ANSWER_MODE_HELP_SR}
+        label={translatePuckSidebarCopy(field.label ?? "Answer mode", tLabels)}
+        hint={tLabels("answer_mode_help_sr")}
         hintContent={<AnswerModeHelpContent />}
       />
       <SegmentedControl
-        ariaLabel="Form field answer mode"
-        options={ANSWER_MODE_OPTIONS}
+        ariaLabel={tLabels("form_field_answer_mode")}
+        options={options}
         value={current}
         onChange={onChange}
       />

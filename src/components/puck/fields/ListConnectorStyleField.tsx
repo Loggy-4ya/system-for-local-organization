@@ -7,12 +7,14 @@
  */
 
 import { FieldLabel } from "@puckeditor/core";
+import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   normalizeConnectorStyle,
   type ListConnectorStyle,
 } from "../lib/listStepTree";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 
 /** Props passed by Puck to the connector style field. */
 interface ListConnectorStyleFieldProps {
@@ -25,16 +27,24 @@ interface ListConnectorStyleFieldProps {
 const CONNECTOR_OPTIONS: Array<{
   value: ListConnectorStyle;
   label: string;
-  hint: string;
+  hintKey:
+    | "solid_vertical_line"
+    | "broken_dash_rhythm"
+    | "dot_trail_between_steps"
+    | "spine_nested_branches"
+    | "soft_track_column"
+    | "hollow_ring_markers"
+    | "chevron_links"
+    | "dots_only_no_connectors";
 }> = [
-  { value: "spine", label: "Spine", hint: "Solid vertical line" },
-  { value: "dashed", label: "Dashed", hint: "Broken dash rhythm" },
-  { value: "dotted", label: "Dotted", hint: "Dot trail between steps" },
-  { value: "tree", label: "Tree", hint: "Spine + nested branches" },
-  { value: "rail", label: "Rail", hint: "Soft track column behind dots" },
-  { value: "ring", label: "Ring", hint: "Hollow ring markers" },
-  { value: "arrow", label: "Arrow", hint: "Chevron links between steps" },
-  { value: "minimal", label: "Minimal", hint: "Dots only — no connectors" },
+  { value: "spine", label: "Spine", hintKey: "solid_vertical_line" },
+  { value: "dashed", label: "Dashed", hintKey: "broken_dash_rhythm" },
+  { value: "dotted", label: "Dotted", hintKey: "dot_trail_between_steps" },
+  { value: "tree", label: "Tree", hintKey: "spine_nested_branches" },
+  { value: "rail", label: "Rail", hintKey: "soft_track_column" },
+  { value: "ring", label: "Ring", hintKey: "hollow_ring_markers" },
+  { value: "arrow", label: "Arrow", hintKey: "chevron_links" },
+  { value: "minimal", label: "Minimal", hintKey: "dots_only_no_connectors" },
 ];
 
 /**
@@ -74,11 +84,17 @@ export function ListConnectorStyleField({
   onChange,
 }: ListConnectorStyleFieldProps) {
   const resolved = normalizeConnectorStyle(value);
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
 
   return (
-    <FieldLabel label={field.label ?? "Connections"}>
+    <FieldLabel label={translatePuckSidebarCopy(field.label ?? "Connections", tLabels)}>
       <div className="nexus-list-step-field nexus-sidebar-field">
-        <div className="nexus-list-connector-picker" role="radiogroup" aria-label="Connection style">
+        <div
+          className="nexus-list-connector-picker"
+          role="radiogroup"
+          aria-label={tLabels("connection_style")}
+        >
           {CONNECTOR_OPTIONS.map((option) => {
             const active = resolved === option.value;
             return (
@@ -87,7 +103,7 @@ export function ListConnectorStyleField({
                 type="button"
                 role="radio"
                 aria-checked={active}
-                title={option.hint}
+                title={tLabels(option.hintKey)}
                 className={cn(
                   "nexus-list-connector-picker__option",
                   active && "nexus-list-connector-picker__option--active",
@@ -95,7 +111,9 @@ export function ListConnectorStyleField({
                 onClick={() => onChange(option.value)}
               >
                 <ConnectorStylePreview style={option.value} />
-                <span className="nexus-list-connector-picker__label">{option.label}</span>
+                <span className="nexus-list-connector-picker__label">
+                  {translatePuckSidebarCopy(option.label, tOptions)}
+                </span>
               </button>
             );
           })}

@@ -7,8 +7,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useSession } from "next-auth/react";
 import { SiteToastCard } from "@/components/notifications/SiteToastCard";
 
@@ -45,13 +45,17 @@ function resolveTaskReminderHref(toast: TaskReminderToast): string {
  * Resolve the action label for a task reminder toast.
  *
  * @param toast - Reminder payload.
+ * @param t - Toast action label translator.
  * @returns Link label copy.
  */
-function resolveTaskReminderActionLabel(toast: TaskReminderToast): string {
-  if (toast.kind === "group") return "View project";
-  if (toast.kind === "institutional" && toast.taskId) return "View task";
-  if (toast.kind === "institutional") return "View tasks";
-  return "View task";
+function resolveTaskReminderActionLabel(
+  toast: TaskReminderToast,
+  t: (key: "viewProject" | "viewTask" | "viewTasks") => string,
+): string {
+  if (toast.kind === "group") return t("viewProject");
+  if (toast.kind === "institutional" && toast.taskId) return t("viewTask");
+  if (toast.kind === "institutional") return t("viewTasks");
+  return t("viewTask");
 }
 
 /**
@@ -61,6 +65,7 @@ function resolveTaskReminderActionLabel(toast: TaskReminderToast): string {
  */
 export function TaskReminderToastHost() {
   const router = useRouter();
+  const tToast = useTranslations("notifications.toast");
   const { status } = useSession();
   const [toasts, setToasts] = useState<TaskReminderToast[]>([]);
   const pendingNavRef = useRef<Map<string, string>>(new Map());
@@ -129,7 +134,7 @@ export function TaskReminderToastHost() {
   }
 
   return (
-    <div className="site-notification-toast-group" role="region" aria-label="Task reminders">
+    <div className="site-notification-toast-group" role="region" aria-label={tToast("remindersRegion")}>
       {toasts.map((toast) => {
         const href = resolveTaskReminderHref(toast);
 
@@ -137,7 +142,7 @@ export function TaskReminderToastHost() {
           <SiteToastCard
             key={toast.id}
             variant={toast.variant}
-            dismissLabel="Dismiss task reminder"
+            dismissLabel={tToast("dismissReminder")}
             onDismissComplete={() => void finalizeDismiss(toast.id)}
             footer={({ beginExit }) => (
               <Link
@@ -149,7 +154,7 @@ export function TaskReminderToastHost() {
                   beginExit();
                 }}
               >
-                {resolveTaskReminderActionLabel(toast)}
+                {resolveTaskReminderActionLabel(toast, tToast)}
               </Link>
             )}
           >

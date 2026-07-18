@@ -240,20 +240,32 @@ test.describe("Puck mobile plugin panel", () => {
     expect(snapshot.rootVisualWidth / snapshot.innerWidth).toBeGreaterThan(0.85);
   });
 
-  test("uses single global background grid on phone viewport preset", async ({ page }) => {
+  test("uses only the global layout grid on phone viewport preset", async ({ page }) => {
     await tapMobileViewportPreset(page, 0);
 
-    const snapshot = await page.evaluate(() => ({
-      globalGrid: document.getElementById("nexus-bg") !== null,
-      scrollportGrid: document.getElementById("nexus-editor-scrollport-grid") === null,
-      iframeEditGrid: document.getElementById("nexus-edit-iframe-contained-grid") === null,
-      previewIframeGrid: document.getElementById("nexus-preview-iframe-grid") === null,
-    }));
+    const snapshot = await page.evaluate(() => {
+      const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+      const iframeDoc = iframe?.contentDocument ?? null;
+      const parentGridCount = document.querySelectorAll("#nexus-bg").length;
+      const canvasEditGridCount = document.querySelectorAll("#nexus-canvas-edit-grid").length;
+      const iframeGridCount = iframeDoc?.querySelectorAll("#nexus-bg").length ?? 0;
+      return {
+        hasLayoutGrid: document.getElementById("nexus-bg") !== null,
+        hasCanvasEditGrid: canvasEditGridCount === 0,
+        gridPortaled:
+          parentGridCount === 1 &&
+          canvasEditGridCount === 0 &&
+          iframeGridCount === 0,
+        gridInstanceCount: parentGridCount + canvasEditGridCount + iframeGridCount,
+        iframeEditGrid: document.getElementById("nexus-edit-iframe-contained-grid") === null,
+        previewIframeGrid: document.getElementById("nexus-preview-iframe-grid") === null,
+      };
+    });
 
-    expect(snapshot.globalGrid).toBe(true);
-    expect(snapshot.scrollportGrid).toBe(true);
-    expect(snapshot.iframeEditGrid).toBe(true);
-    expect(snapshot.previewIframeGrid).toBe(true);
+    expect(snapshot.hasLayoutGrid).toBe(true);
+    expect(snapshot.hasCanvasEditGrid).toBe(false);
+    expect(snapshot.gridPortaled).toBe(true);
+    expect(snapshot.gridInstanceCount).toBe(1);
   });
 });
 

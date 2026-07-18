@@ -3,38 +3,29 @@
 /**
  * @fileoverview Mobile sidebar footer — theme toggle, user badge, and account links panel.
  *
- * User menu links open in a fixed-height panel above the signed-in badge when the
- * chevron on the badge is pressed. Log out stays as a single action below the badge.
- *
  * @module src/components/ui/MobileSidebarAccountFooter
  */
 
 import React, { useId, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { ChevronDown, LogIn, LogOut, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { signOut } from "next-auth/react";
+import { Link } from "@/i18n/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LocaleSwitcher } from "@/components/ui/LocaleSwitcher";
 import { resolveLucideIcon, siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import { type HeaderNavItem } from "@shared/constants/globalLayout";
 
 /** Props for {@link MobileSidebarAccountFooter}. */
 export interface MobileSidebarAccountFooterProps {
-  /** Signed-in user menu links from global layout settings. */
   userMenuItems: HeaderNavItem[];
-  /** Whether the viewer is signed in. */
   isAuthenticated: boolean;
-  /** Optional avatar URL. */
   userAvatar?: string | null;
-  /** User display name. */
   userName?: string | null;
-  /** User email subtitle. */
   userEmail?: string | null;
-  /** Active path matcher. */
   isActive?: (href: string) => boolean;
-  /** Live-preview chrome: links do not navigate; logout is disabled. */
   preview?: boolean;
-  /** Close the mobile drawer after navigation actions. */
   onClose: () => void;
 }
 
@@ -54,6 +45,8 @@ export function MobileSidebarAccountFooter({
   preview = false,
   onClose,
 }: MobileSidebarAccountFooterProps) {
+  const t = useTranslations("header");
+  const tc = useTranslations("common");
   const [userLinksOpen, setUserLinksOpen] = useState(false);
   const linksPanelId = useId();
   const hasUserLinks = isAuthenticated && userMenuItems.length > 0;
@@ -71,8 +64,9 @@ export function MobileSidebarAccountFooter({
 
   return (
     <div className="site-header-mobile-menu__actions px-2 pb-3">
-      <div className="site-header-mobile-menu__meta-row site-header-mobile-menu__meta-row--theme-only">
+      <div className="site-header-mobile-menu__meta-row flex items-center gap-2">
         <ThemeToggle variant="sidebar" className="site-header-mobile-menu__theme-toggle" />
+        <LocaleSwitcher variant="sidebar" />
       </div>
 
       {isAuthenticated ? (
@@ -81,7 +75,7 @@ export function MobileSidebarAccountFooter({
             <div
               id={linksPanelId}
               className="site-header-mobile-menu__account-links-panel"
-              aria-label="Account links"
+              aria-label={t("accountLinks")}
             >
               <ul className="site-header-mobile-menu__account-links-list">
                 {userMenuItems.map((item) => {
@@ -134,9 +128,9 @@ export function MobileSidebarAccountFooter({
               )}
             </span>
             <span className="site-header-mobile-menu__account-text">
-              <span className="site-header-mobile-menu__account-name">{userName ?? "Account"}</span>
+              <span className="site-header-mobile-menu__account-name">{userName ?? t("account")}</span>
               <span className="site-header-mobile-menu__account-email">
-                {userEmail ?? "Signed in"}
+                {userEmail ?? t("signedIn")}
               </span>
             </span>
             {hasUserLinks ? (
@@ -145,7 +139,7 @@ export function MobileSidebarAccountFooter({
                 className="site-header-mobile-menu__account-toggle"
                 aria-expanded={userLinksOpen}
                 aria-controls={linksPanelId}
-                aria-label={userLinksOpen ? "Hide account links" : "Show account links"}
+                aria-label={userLinksOpen ? t("hideAccountLinks") : t("showAccountLinks")}
                 onClick={toggleUserLinks}
               >
                 <ChevronDown
@@ -165,7 +159,7 @@ export function MobileSidebarAccountFooter({
             onClick={handleLogout}
           >
             <LogOut {...siteChromeLucideProps()} aria-hidden />
-            <span>Log out</span>
+            <span>{tc("signOut")}</span>
           </button>
         </div>
       ) : (
@@ -185,8 +179,8 @@ export function MobileSidebarAccountFooter({
             </span>
           </span>
           <span className="site-header-mobile-menu__account-text">
-            <span className="site-header-mobile-menu__account-name">Sign in</span>
-            <span className="site-header-mobile-menu__account-email">Access your account</span>
+            <span className="site-header-mobile-menu__account-name">{tc("signIn")}</span>
+            <span className="site-header-mobile-menu__account-email">{t("accessAccount")}</span>
           </span>
         </Link>
       )}

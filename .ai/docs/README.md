@@ -37,6 +37,7 @@ Central entry point for **Project Nexus** living documentation (`.ai/docs/`).
 | Access control | [features/access_control_and_hierarchy.md](./features/access_control_and_hierarchy.md) |
 | **List pagination** | [features/list_pagination.md](./features/list_pagination.md) |
 | Admin hub | [features/admin_hub.md](./features/admin_hub.md) |
+| **Internationalization** | [features/internationalization.md](./features/internationalization.md) |
 | System broadcasts | [features/system_broadcasts.md](./features/system_broadcasts.md) |
 | **Personal notification center** | [features/notification_center.md](./features/notification_center.md) |
 | **Content security (XSS)** | [features/content_security.md](./features/content_security.md) |

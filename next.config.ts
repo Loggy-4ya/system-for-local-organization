@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 import path from "path";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 /** Hostname from NEXTAUTH_URL — enables phone/LAN access in `next dev`. */
 function resolveDevLanOrigin(): string | undefined {
@@ -46,6 +49,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "t.me" },
+      // Virtual-hosted Nexus media buckets (eu-central-1 and other regions)
+      { protocol: "https", hostname: "*.s3.eu-central-1.amazonaws.com" },
+      { protocol: "https", hostname: "*.s3.amazonaws.com" },
     ],
   },
 
@@ -58,4 +64,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

@@ -17,6 +17,9 @@ import {
 import {
   interpolateTelegramMessageTemplate,
 } from "@shared/constants/generalRules";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { resolveTelegramBotLocaleForUser } from "@shared/lib/resolveTelegramBotLocaleForUser";
+import { telegramBotInlineCopy } from "@shared/lib/telegramBotInlineCopy";
 import { AuthDomain } from "@shared/domains/AuthDomain";
 import { GeneralRulesDomain } from "@shared/domains/GeneralRulesDomain";
 import {
@@ -42,6 +45,8 @@ export interface TelegramBotUser {
   first_name: string;
   /** Optional @username without at-sign. */
   username?: string;
+  /** Telegram client language tag (e.g. `uk`, `en`). */
+  language_code?: string;
 }
 
 /** Telegram chat reference on inbound messages. */
@@ -277,6 +282,7 @@ export const TelegramBotDomain = {
           botToken,
           chatId,
           telegramUserId,
+          message.from?.language_code,
         );
         if (!registrationOk) return true;
 
@@ -347,6 +353,7 @@ export const TelegramBotDomain = {
           botToken,
           chatId,
           telegramUserId,
+          message.from?.language_code,
         );
         if (!registrationOk) {
           if (sessionDiscarded && settings) {
@@ -382,6 +389,7 @@ export const TelegramBotDomain = {
         botToken,
         chatId,
         telegramUserId,
+        message.from?.language_code,
       );
       if (!registrationOk) return true;
 
@@ -487,16 +495,24 @@ export const TelegramBotDomain = {
     botToken: string,
     chatId: number,
     telegramUserId: number,
+    languageCode?: string | null,
   ): Promise<boolean> {
     const resolution = await TelegramBotUserDomain.resolve(telegramUserId);
     if (resolution.kind === "ready") return true;
 
     await GeneralRulesDomain.ensureLoaded();
-    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate("startOpenButtonLabel");
+    const locale = await resolveTelegramBotLocaleForUser({
+      telegramUserId,
+      languageCode,
+    });
+    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate(
+      "startOpenButtonLabel",
+      locale,
+    );
 
     const templateKey =
       resolution.kind === "unknown" ? "botRegisterPrompt" : "botFinishRegistrationPrompt";
-    const template = await GeneralRulesDomain.getTelegramMessageTemplate(templateKey);
+    const template = await GeneralRulesDomain.getTelegramMessageTemplate(templateKey, locale);
     const promptText = interpolateTelegramMessageTemplate(template, {
       missingFields: resolution.missingFieldLabels ?? "",
     });
@@ -544,18 +560,26 @@ export const TelegramBotDomain = {
    */
   async handleStartCommand(botToken: string, message: TelegramBotMessage): Promise<void> {
     await GeneralRulesDomain.ensureLoaded();
-    const welcomeText = await GeneralRulesDomain.getTelegramMessageTemplate("startWelcome");
-    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate("startOpenButtonLabel");
-
     const senderId = message.from?.id;
+    const locale = await resolveTelegramBotLocaleForUser({
+      telegramUserId: senderId,
+      languageCode: message.from?.language_code,
+    });
+    const welcomeText = await GeneralRulesDomain.getTelegramMessageTemplate("startWelcome", locale);
+    const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate(
+      "startOpenButtonLabel",
+      locale,
+    );
+
     let followUp: string | null = null;
     if (senderId != null) {
       const resolution = await TelegramBotUserDomain.resolve(senderId);
       if (resolution.kind === "unknown") {
-        followUp = await GeneralRulesDomain.getTelegramMessageTemplate("botRegisterPrompt");
+        followUp = await GeneralRulesDomain.getTelegramMessageTemplate("botRegisterPrompt", locale);
       } else if (resolution.kind === "incomplete") {
         const template = await GeneralRulesDomain.getTelegramMessageTemplate(
           "botFinishRegistrationPrompt",
+          locale,
         );
         followUp = interpolateTelegramMessageTemplate(template, {
           missingFields: resolution.missingFieldLabels ?? "",
@@ -580,7 +604,11 @@ export const TelegramBotDomain = {
     });
 
     if ((message.chat.type ?? "private") === "private") {
-      await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+      await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id, {
+        telegramUserId: senderId,
+        languageCode: message.from?.language_code,
+        locale,
+      });
     }
   },
 
@@ -592,15 +620,23 @@ export const TelegramBotDomain = {
    */
   async handlePhoneCommand(botToken: string, message: TelegramBotMessage): Promise<void> {
     const chatType = message.chat.type ?? "private";
+    const locale = await resolveTelegramBotLocaleForUser({
+      telegramUserId: message.from?.id,
+      languageCode: message.from?.language_code,
+    });
     if (chatType !== "private") {
       await callTelegramBotApi(botToken, "sendMessage", {
         chat_id: message.chat.id,
-        text: "Share your phone in a private chat with the bot.",
+        text: telegramBotInlineCopy("sharePhonePrivateChatOnly", locale),
       });
       return;
     }
 
-    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id, {
+      telegramUserId: message.from?.id,
+      languageCode: message.from?.language_code,
+      locale,
+    });
   },
 
   /**
@@ -625,8 +661,15 @@ export const TelegramBotDomain = {
     }
 
     await GeneralRulesDomain.ensureLoaded();
-    const savedText = await GeneralRulesDomain.getTelegramMessageTemplate("contactPhoneSaved");
-    const rejectedText = await GeneralRulesDomain.getTelegramMessageTemplate("contactPhoneRejected");
+    const locale = await resolveTelegramBotLocaleForUser({
+      telegramUserId: senderId,
+      languageCode: message.from?.language_code,
+    });
+    const savedText = await GeneralRulesDomain.getTelegramMessageTemplate("contactPhoneSaved", locale);
+    const rejectedText = await GeneralRulesDomain.getTelegramMessageTemplate(
+      "contactPhoneRejected",
+      locale,
+    );
 
     const result = await AuthDomain.absorbTelegramSharedContact(
       senderId,
@@ -646,7 +689,11 @@ export const TelegramBotDomain = {
       chat_id: message.chat.id,
       text: rejectedText,
     });
-    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id);
+    await TelegramBotDomain.sendSharePhonePrompt(botToken, message.chat.id, {
+      telegramUserId: senderId,
+      languageCode: message.from?.language_code,
+      locale,
+    });
   },
 
   /**
@@ -654,12 +701,31 @@ export const TelegramBotDomain = {
    *
    * @param botToken - BotFather token.
    * @param chatId - Private chat id.
+   * @param options - Optional sender metadata for locale resolution.
    */
-  async sendSharePhonePrompt(botToken: string, chatId: number): Promise<void> {
+  async sendSharePhonePrompt(
+    botToken: string,
+    chatId: number,
+    options?: {
+      telegramUserId?: number;
+      languageCode?: string | null;
+      locale?: BotLocale;
+    },
+  ): Promise<void> {
     await GeneralRulesDomain.ensureLoaded();
-    const promptText = await GeneralRulesDomain.getTelegramMessageTemplate("startSharePhonePrompt");
+    const locale =
+      options?.locale ??
+      (await resolveTelegramBotLocaleForUser({
+        telegramUserId: options?.telegramUserId,
+        languageCode: options?.languageCode,
+      }));
+    const promptText = await GeneralRulesDomain.getTelegramMessageTemplate(
+      "startSharePhonePrompt",
+      locale,
+    );
     const buttonLabel = await GeneralRulesDomain.getTelegramMessageTemplate(
       "contactShareButtonLabel",
+      locale,
     );
 
     await callTelegramBotApi(botToken, "sendMessage", {
@@ -741,6 +807,7 @@ export const TelegramBotDomain = {
           botToken,
           chat.id,
           message.from.id,
+          message.from.language_code,
         );
         return;
       }

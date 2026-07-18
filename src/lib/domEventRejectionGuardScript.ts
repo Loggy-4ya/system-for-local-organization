@@ -1,7 +1,7 @@
 /**
  * @fileoverview Inline script that swallows benign DOM `Event` promise rejections.
  *
- * Used by the root `beforeInteractive` script in `layout.tsx` and injected into Puck
+ * Used by the inline bootstrap script in `[locale]/layout.tsx` and injected into Puck
  * preview iframes before AutoFrame clones host stylesheets.
  *
  * @module src/lib/domEventRejectionGuardScript

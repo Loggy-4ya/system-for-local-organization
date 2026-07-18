@@ -13,8 +13,9 @@
  * @module src/lib/profileOnboardingGate
  */
 
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/serverRedirect";
 import { AuthDomain } from "@shared/domains/AuthDomain";
+import { stripLocalePrefix } from "@/lib/localePathLogic";
 import {
   resolveTeacherAccessGatePath,
   userNeedsMemberTelegramOnboarding,
@@ -36,15 +37,16 @@ export const MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH =
  * @returns True when onboarding redirect should not run.
  */
 export function isProfileOnboardingExemptPath(pathname: string): boolean {
-  if (!pathname || pathname === "/") return false;
+  const normalized = stripLocalePrefix(pathname);
+  if (!normalized || normalized === "/") return false;
 
   if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/profile/settings") ||
-    pathname.startsWith("/profile/membership") ||
-    pathname.startsWith("/profile") ||
-    pathname.startsWith("/telegram")
+    normalized.startsWith("/login") ||
+    normalized.startsWith("/signup") ||
+    normalized.startsWith("/profile/settings") ||
+    normalized.startsWith("/profile/membership") ||
+    normalized.startsWith("/profile") ||
+    normalized.startsWith("/telegram")
   ) {
     return true;
   }
@@ -59,9 +61,10 @@ export function isProfileOnboardingExemptPath(pathname: string): boolean {
  * @returns True when member Telegram compliance should be enforced.
  */
 export function isMemberFunctionalPath(pathname: string): boolean {
-  if (!pathname) return false;
+  const normalized = stripLocalePrefix(pathname);
+  if (!normalized) return false;
 
-  return pathname.startsWith("/tasks") || pathname.startsWith("/task-groups");
+  return normalized.startsWith("/tasks") || normalized.startsWith("/task-groups");
 }
 
 /**
@@ -81,7 +84,7 @@ export async function enforceProfileOnboarding(userId: string, pathname: string)
   }
 
   if (userNeedsProfileOnboarding(user)) {
-    redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
+    return await redirect(PROFILE_ONBOARDING_SETTINGS_PATH);
   }
 }
 
@@ -118,7 +121,7 @@ export async function enforceTeacherAccessApproval(
   };
 
   if (userNeedsTeacherAccessGate(slice)) {
-    redirect(resolveTeacherAccessGatePath(slice));
+    return await redirect(resolveTeacherAccessGatePath(slice));
   }
 }
 
@@ -144,6 +147,6 @@ export async function enforceMemberTelegramCompliance(
   }
 
   if (userNeedsMemberTelegramOnboarding(user)) {
-    redirect(MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH);
+    return await redirect(MEMBER_TELEGRAM_ONBOARDING_SETTINGS_PATH);
   }
 }

@@ -7,11 +7,14 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, BookOpen } from "lucide-react";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { GeneralRulesPublicConfig } from "@shared/domains/GeneralRulesDomain";
+import { AdminBotLocaleTabs } from "@/components/admin/AdminBotLocaleTabs";
 import { TelegramMessageTemplatesEditor } from "@/components/admin/TelegramMessageTemplatesEditor";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { DEFAULT_BOT_LOCALE } from "@shared/constants/botLocales";
 import { DEFAULT_ACCESS_LEVELS } from "@shared/constants/accessControl";
 import {
   parseBlockedWordsTextarea,
@@ -50,9 +53,13 @@ function cloneGeneralRulesConfig(config: GeneralRulesPublicConfig): GeneralRules
  */
 export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShellProps) {
   const router = useRouter();
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.generalRules");
+  const tLocale = useTranslations("common.locale");
   const [config, setConfig] = useState(() => cloneGeneralRulesConfig(initialConfig));
   const [savedConfig, setSavedConfig] = useState(() => cloneGeneralRulesConfig(initialConfig));
   const [tab, setTab] = useState<EditorTab>("content");
+  const [telegramLocale, setTelegramLocale] = useState<BotLocale>(DEFAULT_BOT_LOCALE);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -99,18 +106,18 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       });
       const data = (await res.json()) as { error?: string; config?: GeneralRulesPublicConfig };
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to save general rules.");
+        throw new Error(data.error ?? t("saveError"));
       }
 
       const next = cloneGeneralRulesConfig(data.config ?? config);
       setConfig(next);
       setSavedConfig(next);
-      setStatus({ type: "success", message: "General rules saved." });
+      setStatus({ type: "success", message: t("saveSuccess") });
       router.refresh();
     } catch (err) {
       setStatus({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to save general rules.",
+        message: err instanceof Error && err.message ? err.message : t("saveError"),
       });
     } finally {
       setIsSaving(false);
@@ -129,21 +136,19 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
           className="mb-4 inline-flex items-center gap-2 text-sm text-(--color-text-secondary) no-underline hover:text-(--color-text-primary)"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Back to Administration
+          {tAdmin("backToAdmin")}
         </Link>
 
         <div className="flex flex-col gap-1.5">
           <div className="mb-1 flex items-center gap-2 text-primary">
             <BookOpen size={18} strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wide uppercase">General rules</span>
+            <span className="text-xs font-semibold tracking-wide uppercase">{t("eyebrow")}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-            Content policy, tasks &amp; Telegram copy
+            {t("title")}
           </h1>
           <p className="max-w-3xl text-sm leading-relaxed text-(--color-text-secondary)">
-            Manage blocked words, weak-password denylist, user-facing validation messages, task
-            delegation quotas, task scoring categories, and Telegram bot templates. Numeric fields (group numbers, phones)
-            are never scanned by the language filter.
+            {t("description")}
           </p>
         </div>
       </div>
@@ -151,10 +156,10 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       <div className="glass-panel flex flex-wrap gap-2 rounded-lg border border-zinc-700/20 p-2 dark:border-zinc-300/10">
         {(
           [
-            ["content", "Content policy"],
-            ["tasks", "Tasks"],
-            ["telegram", "Telegram bot"],
-            ["messages", "User messages"],
+            ["content", t("tabs.content")],
+            ["tasks", t("tabs.tasks")],
+            ["telegram", t("tabs.telegram")],
+            ["messages", t("tabs.messages")],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -181,9 +186,9 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       {tab === "content" ? (
         <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
           <FormField
-            label="Blocked words & phrases"
+            label={t("blockedWordsLabel")}
             htmlFor="general-rules-blocked-words"
-            hint="One term per line. Optional category: term | profanity. Applies to prose fields and rich text — not numbers."
+            hint={t("blockedWordsHint")}
           >
             <textarea
               id="general-rules-blocked-words"
@@ -200,9 +205,9 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
           </FormField>
 
           <FormField
-            label="Weak passwords denylist"
+            label={t("weakPasswordsLabel")}
             htmlFor="general-rules-weak-passwords"
-            hint="One password per line. Used at signup and password change."
+            hint={t("weakPasswordsHint")}
           >
             <textarea
               id="general-rules-weak-passwords"
@@ -222,10 +227,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
 
       {tab === "tasks" ? (
         <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
-          <p className="text-sm text-(--color-text-secondary)">
-            Maximum number of times a performer may delegate a task to someone else. Leave blank or
-            check &ldquo;Unlimited&rdquo; for no cap at that tier.
-          </p>
+          <p className="text-sm text-(--color-text-secondary)">{t("delegationIntro")}</p>
           {DEFAULT_ACCESS_LEVELS.map((level) => {
             const key = String(level.index);
             const raw = config.taskDelegationLimits[key];
@@ -272,7 +274,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }))
                       }
                     />
-                    Unlimited
+                    {t("unlimited")}
                   </label>
                 </div>
               </FormField>
@@ -280,11 +282,8 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
           })}
 
           <div className="border-t border-(--color-border-default) pt-6">
-            <h2 className="text-base font-semibold text-(--color-text-primary)">Task categories</h2>
-            <p className="mt-1 text-sm text-(--color-text-secondary)">
-              Categories define the allowed base score (B) range per assignment type and default Q/T
-              coefficient percents. Used on task create and in the task list filter.
-            </p>
+            <h2 className="text-base font-semibold text-(--color-text-primary)">{t("taskCategoriesTitle")}</h2>
+            <p className="mt-1 text-sm text-(--color-text-secondary)">{t("taskCategoriesIntro")}</p>
 
             <div className="mt-4 flex flex-col gap-4">
               {config.taskCategories.map((category, index) => (
@@ -312,12 +311,12 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                           }))
                         }
                       />
-                      Enabled in picker
+                      {t("enabledInPicker")}
                     </label>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    <FormField label="Label">
+                    <FormField label={t("categoryLabel")}>
                       <Input
                         value={category.label}
                         onChange={(e) => {
@@ -331,7 +330,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }}
                       />
                     </FormField>
-                    <FormField label="Base score min (B)">
+                    <FormField label={t("baseScoreMin")}>
                       <Input
                         type="number"
                         min={0}
@@ -353,7 +352,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }}
                       />
                     </FormField>
-                    <FormField label="Base score max (B)">
+                    <FormField label={t("baseScoreMax")}>
                       <Input
                         type="number"
                         min={0}
@@ -375,7 +374,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }}
                       />
                     </FormField>
-                    <FormField label="Default quality % (Q)">
+                    <FormField label={t("defaultQuality")}>
                       <Input
                         type="number"
                         min={0}
@@ -399,7 +398,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }}
                       />
                     </FormField>
-                    <FormField label="Default time % (T)">
+                    <FormField label={t("defaultTime")}>
                       <Input
                         type="number"
                         min={0}
@@ -437,7 +436,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                         }))
                       }
                     >
-                      Remove category
+                      {t("removeCategory")}
                     </Button>
                   </div>
                 </div>
@@ -449,7 +448,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
               className="mt-4"
               variant="outline"
               onClick={() => {
-                const label = `Category ${config.taskCategories.length + 1}`;
+                const label = t("newCategoryLabel", { n: config.taskCategories.length + 1 });
                 setConfig((prev) => ({
                   ...prev,
                   taskCategories: [
@@ -467,7 +466,7 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
                 }));
               }}
             >
-              Add category
+              {t("addCategory")}
             </Button>
           </div>
         </section>
@@ -476,20 +475,30 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       {tab === "telegram" ? (
         <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
           <p className="text-sm text-(--color-text-secondary)">
-            For a focused bot-only workspace, open{" "}
-            <Link href="/admin/telegram-bot" className="text-(--color-text-primary) underline">
-              Telegram Bot Messages
-            </Link>
-            .
+            {t.rich("telegramTabIntro", {
+              link: (chunks) => (
+                <Link href="/admin/telegram-bot" className="text-(--color-text-primary) underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
+          <AdminBotLocaleTabs
+            value={telegramLocale}
+            onChange={setTelegramLocale}
+            labels={{ en: tLocale("en"), uk: tLocale("uk") }}
+          />
           <TelegramMessageTemplatesEditor
-            templates={config.telegramMessages}
+            templates={config.telegramMessagesByLocale[telegramLocale]}
             onChange={(key, value) =>
               setConfig((prev) => ({
                 ...prev,
-                telegramMessages: {
-                  ...prev.telegramMessages,
-                  [key]: value,
+                telegramMessagesByLocale: {
+                  ...prev.telegramMessagesByLocale,
+                  [telegramLocale]: {
+                    ...prev.telegramMessagesByLocale[telegramLocale],
+                    [key]: value,
+                  },
                 },
               }))
             }
@@ -500,9 +509,9 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
       {tab === "messages" ? (
         <section className="glass-panel flex flex-col gap-6 rounded-lg border border-zinc-700/20 p-6 dark:border-zinc-300/10">
           <FormField
-            label="Blocked language message"
+            label={t("blockedMessageLabel")}
             htmlFor="general-rules-blocked-message"
-            hint="Shown in forms and the rich text editor when prose contains a blocked term."
+            hint={t("blockedMessageHint")}
           >
             <Input
               id="general-rules-blocked-message"
@@ -514,9 +523,9 @@ export function GeneralRulesEditorShell({ initialConfig }: GeneralRulesEditorShe
           </FormField>
 
           <FormField
-            label="Weak password message"
+            label={t("weakPasswordMessageLabel")}
             htmlFor="general-rules-weak-password-message"
-            hint="Shown when a user picks a denylisted password."
+            hint={t("weakPasswordMessageHint")}
           >
             <Input
               id="general-rules-weak-password-message"

@@ -217,9 +217,9 @@ curl -sS -X POST \
 ## Deployment migration (Amazon S3)
 
 1. Set `MEDIA_STORAGE_DRIVER=s3`, `S3_MEDIA_BUCKET`, and `S3_MEDIA_REGION` (or `AWS_REGION`).
-2. Configure the bucket for public read (or front it with CloudFront) and optionally set `S3_MEDIA_PUBLIC_BASE_URL`.
+2. Configure the bucket for public `GetObject` (CDK does this for Nexus cloud stacks) and optionally set `S3_MEDIA_PUBLIC_BASE_URL` to the virtual-hosted S3 HTTPS base.
 3. Optionally copy `public/uploads/**` into the bucket using the same `{segment}/{filename}` keys.
-4. Update `next.config.ts` `images.remotePatterns` for the S3 or CloudFront hostname.
+4. Update `next.config.ts` `images.remotePatterns` for the S3 hostname when using `next/image`.
 
 No changes required in:
 

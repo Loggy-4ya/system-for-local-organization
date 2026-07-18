@@ -7,6 +7,7 @@
  */
 
 import { FieldLabel } from "@puckeditor/core";
+import { useTranslations } from "next-intl";
 import { useCallback, useRef, useState } from "react";
 import { SettingsMediaPreview } from "@/components/media/SettingsMediaPreview";
 import { cn } from "@/lib/utils";
@@ -54,9 +55,12 @@ export function MediaUploadField({
   onAltTextChange,
   hideFieldLabel = false,
   showDropZone = true,
-  emptyPickerLabel = "Select image",
-  dropZoneLabel = "Drop or click to select media",
+  emptyPickerLabel,
+  dropZoneLabel,
 }: MediaUploadFieldProps) {
+  const t = useTranslations("puck.fieldHints");
+  const resolvedEmptyPicker = emptyPickerLabel ?? t("mediaSelectImage");
+  const resolvedDropZone = dropZoneLabel ?? t("mediaDropZone");
   const accept = field.accept ?? "both";
   const purpose = field.purpose ?? "puck-block";
   const acceptAttr =
@@ -88,7 +92,7 @@ export function MediaUploadField({
         onChange(url);
       } catch (err: unknown) {
         console.error("[MediaUploadField]", err);
-        setError((err as Error)?.message || "Upload failed.");
+        setError((err as Error)?.message || t("mediaUploadFailed"));
       } finally {
         setUploading(false);
         if (fileInputRef.current) {
@@ -96,7 +100,7 @@ export function MediaUploadField({
         }
       }
     },
-    [accept, purpose, onChange],
+    [accept, purpose, onChange, t],
   );
 
   /**
@@ -113,11 +117,11 @@ export function MediaUploadField({
       onChange(nextUrl);
     } catch (err: unknown) {
       console.error("[MediaUploadField recrop]", err);
-      setError((err as Error)?.message || "Recrop failed.");
+      setError((err as Error)?.message || t("mediaRecropFailed"));
     } finally {
       setUploading(false);
     }
-  }, [canRecropImage, onChange, purpose, uploading, value]);
+  }, [canRecropImage, onChange, purpose, uploading, value, t]);
 
   const showEmptyPicker = !value?.trim() && !showDropZone;
   const showDropStrip = showDropZone && !value?.trim();
@@ -139,8 +143,8 @@ export function MediaUploadField({
             "nexus-media-upload-field__empty-picker",
             uploading && "nexus-media-upload-field__empty-picker--busy",
           )}
-          title={emptyPickerLabel}
-          aria-label={emptyPickerLabel}
+          title={resolvedEmptyPicker}
+          aria-label={resolvedEmptyPicker}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
@@ -149,14 +153,14 @@ export function MediaUploadField({
           }}
           onClick={openFilePicker}
         >
-          {uploading ? "Uploading…" : emptyPickerLabel}
+          {uploading ? t("mediaUploading") : resolvedEmptyPicker}
         </div>
       ) : null}
 
       {value && showReadablePreview ? (
         <SettingsMediaPreview
           src={value}
-          alt={altText || field.label || "Preview"}
+          alt={altText || field.label || t("mediaPreview")}
           onRecropClick={canRecropImage ? () => void handleRecrop() : undefined}
           recropDisabled={uploading}
         />
@@ -172,8 +176,8 @@ export function MediaUploadField({
             ? {
                 role: "button",
                 tabIndex: uploading ? -1 : 0,
-                title: "Click to recrop",
-                "aria-label": "Preview — click to recrop",
+                title: t("mediaRecropTitle"),
+                "aria-label": t("mediaRecropAria"),
                 onClick: () => !uploading && void handleRecrop(),
                 onKeyDown: (event) => {
                   if ((event.key === "Enter" || event.key === " ") && !uploading) {
@@ -190,7 +194,7 @@ export function MediaUploadField({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={value}
-              alt="Preview"
+              alt={t("mediaPreview")}
               className="nexus-media-upload-field__preview-media"
             />
           )}
@@ -199,13 +203,13 @@ export function MediaUploadField({
 
       {onAltTextChange ? (
         <div className="nexus-media-upload-field__alt">
-          <span className="nexus-field-category__label">Alt Text</span>
+          <span className="nexus-field-category__label">{t("mediaAltTextLabel")}</span>
           <input
             type="text"
             className="nexus-puck-input"
             value={altText ?? ""}
             onChange={(e) => onAltTextChange(e.target.value)}
-            placeholder="Describe the image for accessibility"
+            placeholder={t("mediaAltTextPlaceholder")}
           />
         </div>
       ) : null}
@@ -237,7 +241,7 @@ export function MediaUploadField({
           }}
           onClick={openFilePicker}
         >
-          {uploading ? "Uploading…" : dropZoneLabel}
+          {uploading ? t("mediaUploading") : resolvedDropZone}
         </div>
       ) : null}
 

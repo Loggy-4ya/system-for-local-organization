@@ -17,6 +17,11 @@ import {
   PUCK_CANVAS_SHELL_SELECTOR,
 } from "@/components/puck/lib/puckCanvasSelectors";
 import { PUCK_CANVAS_TRANSFORM_FROZEN_ATTR } from "@/components/puck/lib/sanitizePuckZoomConfig";
+import {
+  clearInlinePreviewZoomPresentation,
+  isInlinePreviewZoomHost,
+  resolvePuckPreviewTransformElement,
+} from "@/components/puck/lib/inlinePreviewScaleHost";
 
 /** Attribute set on `<html>` while a Puck sidebar resize handle is active. */
 export const NEXUS_SIDEBAR_RESIZING_ATTR = "data-nexus-sidebar-resizing";
@@ -28,6 +33,7 @@ const PUCK_CANVAS_ROOT_ID = "puck-canvas-root";
 interface FrozenCanvasStyle {
   heightPx: number;
   transform: string;
+  zoom: string;
 }
 
 /**
@@ -48,13 +54,18 @@ function captureFrozenCanvasStyle(): FrozenCanvasStyle | null {
 
   if (heightPx <= 0) return null;
 
-  const transform = root.style.transform;
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+  const transform = transformEl.style.transform;
   const safeTransform =
     transform && !transform.includes("NaN") && transform !== "none" ? transform : "scale(1)";
+  const zoom = transformEl.style.zoom;
+  const safeZoom =
+    zoom && zoom !== "normal" && !zoom.includes("NaN") ? zoom : "1";
 
   return {
     heightPx,
     transform: safeTransform,
+    zoom: safeZoom,
   };
 }
 
@@ -67,10 +78,22 @@ function applyFrozenCanvasStyle(frozen: FrozenCanvasStyle): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root) return;
 
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+
   root.setAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR, "");
   root.style.setProperty("height", `${frozen.heightPx}px`, "important");
-  root.style.setProperty("transform", frozen.transform, "important");
   root.style.setProperty("transition", "none", "important");
+  if (isInlinePreviewZoomHost(transformEl)) {
+    transformEl.style.setProperty("zoom", frozen.zoom, "important");
+    transformEl.style.setProperty("transform", "none", "important");
+    root.style.setProperty("transform", "none", "important");
+    root.style.setProperty("zoom", "normal", "important");
+  } else {
+    transformEl.style.setProperty("transform", frozen.transform, "important");
+    if (transformEl !== root) {
+      root.style.setProperty("transform", "none", "important");
+    }
+  }
 }
 
 /**
@@ -80,10 +103,18 @@ function clearFrozenCanvasStyle(): void {
   const root = document.getElementById(PUCK_CANVAS_ROOT_ID);
   if (!root?.hasAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR)) return;
 
+  const transformEl = resolvePuckPreviewTransformElement() ?? root;
+
   root.removeAttribute(PUCK_CANVAS_TRANSFORM_FROZEN_ATTR);
   root.style.removeProperty("height");
   root.style.removeProperty("transform");
+  root.style.removeProperty("zoom");
   root.style.removeProperty("transition");
+  if (isInlinePreviewZoomHost(transformEl)) {
+    clearInlinePreviewZoomPresentation(transformEl);
+  } else {
+    transformEl.style.removeProperty("transform");
+  }
 }
 
 /**

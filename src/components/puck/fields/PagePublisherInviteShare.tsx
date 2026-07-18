@@ -7,6 +7,7 @@
  */
 
 import { useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import { Link2 } from "lucide-react";
 import { NexusFieldHint } from "@/components/ui/NexusFieldHint";
 import { editorPagePathRef } from "../lib/editorPagePathRef";
@@ -23,6 +24,7 @@ import { usePageEditorMeta } from "../lib/pageEditorMetaContext";
  * @returns Invite share UI or null when the actor cannot manage access.
  */
 export function PagePublisherInviteShare() {
+  const t = useTranslations("puck.pagePublisherInvite");
   const meta = usePageEditorMeta();
   const isPersisted = useSyncExternalStore(
     subscribeEditorPagePersisted,
@@ -42,7 +44,7 @@ export function PagePublisherInviteShare() {
     setCopied(false);
 
     if (!isPersisted) {
-      setError("Publish the page once before sharing an invite link.");
+      setError(t("publishOnceError"));
       return;
     }
 
@@ -59,7 +61,8 @@ export function PagePublisherInviteShare() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2400);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to copy invite link.");
+      const fallback = t("copyError");
+      setError(err instanceof Error && err.message ? err.message : fallback);
     } finally {
       setLoading(false);
     }
@@ -68,12 +71,8 @@ export function PagePublisherInviteShare() {
   return (
     <div className="nexus-page-publisher-subsection">
       <div className="nexus-page-publisher-subsection__head">
-        <span className="nexus-page-publisher-subsection__label">Invite link</span>
-        <NexusFieldHint
-          text="Share this link so another signed-in user can join as a publisher. Links expire after 7 days; creating a new link replaces the previous one."
-          label="About invite links"
-          size="sm"
-        />
+        <span className="nexus-page-publisher-subsection__label">{t("inviteLink")}</span>
+        <NexusFieldHint text={t("inviteLinkHint")} label={t("inviteLinkHintAria")} size="sm" />
       </div>
 
       <button
@@ -87,17 +86,17 @@ export function PagePublisherInviteShare() {
         <Link2 className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="nexus-page-publisher-invite__btn-label">
           {loading
-            ? "Creating link…"
+            ? t("creatingLink")
             : copied
-              ? "Link copied"
+              ? t("linkCopied")
               : inviteUrl
-                ? "Copy invite link"
-                : "Create invite link"}
+                ? t("copyInviteLink")
+                : t("createInviteLink")}
         </span>
       </button>
 
       {!isPersisted ? (
-        <p className="nexus-page-publisher-subsection__hint">Save the page once to enable invite links.</p>
+        <p className="nexus-page-publisher-subsection__hint">{t("saveOnceHint")}</p>
       ) : null}
 
       {error ? (

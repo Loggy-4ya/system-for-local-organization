@@ -431,14 +431,15 @@ async function dispatchGroupReminderDeliveries(group: ITaskGroup, firedAt: Date)
   const deliveryKey = `${groupId}:${firedAt.toISOString()}`;
   const groupPath = `/task-groups/${groupId}`;
 
-  const telegramUsers =
-    wantsTelegram
-      ? await User.find({ _id: { $in: [...tasksByPerformer.keys()] } })
-          .select("_id telegramId")
-          .lean()
-      : [];
+  const performerIds = [...tasksByPerformer.keys()];
+  const performerUsers = await User.find({ _id: { $in: performerIds } })
+    .select("_id telegramId preferredLocale")
+    .lean();
   const telegramByUser = new Map(
-    telegramUsers.map((row) => [String(row._id), row.telegramId as number | null | undefined]),
+    performerUsers.map((row) => [String(row._id), row.telegramId as number | null | undefined]),
+  );
+  const localeByUser = new Map(
+    performerUsers.map((row) => [String(row._id), row.preferredLocale ?? null]),
   );
 
   const botToken = wantsTelegram ? process.env.TELEGRAM_BOT_TOKEN?.trim() : undefined;
@@ -448,6 +449,7 @@ async function dispatchGroupReminderDeliveries(group: ITaskGroup, firedAt: Date)
       group.title,
       performerTasks,
       group.dueAt,
+      localeByUser.get(userId),
     );
 
     let notification = await TaskReminderNotification.findOne({ userId, deliveryKey });

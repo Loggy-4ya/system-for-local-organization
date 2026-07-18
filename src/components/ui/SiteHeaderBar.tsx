@@ -10,11 +10,13 @@
  */
 
 import React from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { LogIn, Menu, X } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import { HeaderUserMenuDropdown } from "@/components/ui/HeaderUserMenuDropdown";
 import { MobileSidebarAccountFooter } from "@/components/ui/MobileSidebarAccountFooter";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LocaleSwitcher } from "@/components/ui/LocaleSwitcher";
 import { NotificationBellButton } from "@/components/notifications/NotificationBellButton";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import {
@@ -85,6 +87,7 @@ function MobileNavPanel({
   showAdminPanel,
   onClose,
   preview = false,
+  navAriaLabel,
 }: {
   categories: HeaderCategory[];
   userMenuItems: HeaderNavItem[];
@@ -96,12 +99,13 @@ function MobileNavPanel({
   showAdminPanel: boolean;
   onClose: () => void;
   preview?: boolean;
+  navAriaLabel: string;
 }) {
   const visibleUserLinks = visibleNavItems(userMenuItems, showAdminPanel);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <nav className="site-header-mobile-panel__scroll px-2 pb-2" aria-label="Mobile navigation">
+      <nav className="site-header-mobile-panel__scroll px-2 pb-2" aria-label={navAriaLabel}>
         {categories.map((category) => (
           <MobileHeaderNavCategory
             key={category.id}
@@ -149,6 +153,8 @@ export function SiteHeaderBar({
   preview = false,
   previewBadge,
 }: SiteHeaderBarProps) {
+  const t = useTranslations("header");
+  const tc = useTranslations("common");
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [menuMounted, setMenuMounted] = React.useState(false);
   const [menuVisible, setMenuVisible] = React.useState(false);
@@ -229,7 +235,7 @@ export function SiteHeaderBar({
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <Link
               href="/"
-              aria-label="Nexus home"
+              aria-label={t("homeAria")}
               className="site-header-bar__logo inline-flex shrink-0 items-center no-underline"
               onClick={blockPreviewNavigation}
             >
@@ -252,6 +258,7 @@ export function SiteHeaderBar({
               </span>
             ) : null}
             <ThemeToggle className="site-header-bar__theme-toggle hidden lg:inline-flex" />
+            <LocaleSwitcher className="hidden lg:inline-flex" />
             {isAuthenticated ? (
               <NotificationBellButton isAuthenticated preview={preview} />
             ) : null}
@@ -269,12 +276,12 @@ export function SiteHeaderBar({
               <Link
                 href="/login"
                 className="site-header-bar__signin hidden rounded-[var(--radius-md)] border border-[var(--color-border-default)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] no-underline hover:text-[var(--color-text-primary)] lg:inline-flex"
-                aria-label="Sign in"
-                title="Sign in"
+                aria-label={t("signInAria")}
+                title={tc("signIn")}
                 onClick={blockPreviewNavigation}
               >
                 <LogIn {...siteChromeLucideProps({ className: "site-header-bar__signin-icon" })} aria-hidden />
-                <span className="site-header-bar__signin-label">Sign in</span>
+                <span className="site-header-bar__signin-label">{tc("signIn")}</span>
               </Link>
             )}
 
@@ -283,7 +290,7 @@ export function SiteHeaderBar({
                 type="button"
                 onClick={() => setMobileMenuOpen(!menuOpen)}
                 className="site-header-bar__menu-btn site-header-bar__menu-btn--mobile-only"
-                aria-label={menuOpen ? "Close site menu" : "Open site menu"}
+                aria-label={menuOpen ? t("closeMenu") : t("openMenu")}
                 aria-expanded={menuOpen}
                 aria-controls={menuOpen ? "site-header-mobile-menu" : undefined}
               >
@@ -320,7 +327,7 @@ export function SiteHeaderBar({
                   type="button"
                   className="site-header-mobile-panel__close-btn"
                   onClick={() => setMobileMenuOpen(false)}
-                  aria-label="Close site menu"
+                  aria-label={t("closeMenu")}
                 >
                   <X className="size-4" aria-hidden="true" />
                 </button>
@@ -336,6 +343,7 @@ export function SiteHeaderBar({
                 showAdminPanel={showAdminPanel}
                 onClose={() => setMobileMenuOpen(false)}
                 preview={preview}
+                navAriaLabel={t("mobileNavAria")}
               />
             </div>
           </div>

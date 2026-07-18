@@ -28,8 +28,18 @@ When you ship code that is **dev-safe but needs prod verification**, add a row h
 | Configure Telegram bot token + webhook URL | `[ ]` | See [telegram_mini_app_and_bot.md](./features/telegram_mini_app_and_bot.md) |
 | Seed / rotate admin credentials (`ADMIN_SEED_*`) | `[ ]` | Change defaults; link OAuth in profile after first login |
 | Choose hosting mode for scheduled jobs | `[x]` | `NEXUS_HOSTING_MODE` + profile templates — [hosting_and_deployment.md](./features/hosting_and_deployment.md) |
-| Docker / standalone build smoke (`npm run build && npm run start`) | `[ ]` | |
+| Docker / standalone build smoke (`npm run build && npm run start`) | `[~]` | `npm run build` verified 2026-07-18 (TypeScript + Next.js 16). Full `npm run start` + Docker image smoke still pending before production. |
 | Run registered test suites for touched domains | `[ ]` | [testing.md](./testing.md) |
+| GitHub `main` protection and required CI checks | `[~]` | Workflow files exist locally but are not yet committed/pushed; branch protection deferred until CI check names exist on GitHub |
+| GitHub `production` environment approval + `main` branch restriction | `[~]` | Branch restrictions exist; production stack and required reviewers still pending |
+| GitHub OIDC roles (no permanent AWS keys) | `[x]` | `NexusGithubIdentity` + staging deploy role live; subject `repo:Loggy-4ya/system-for-local-organization:environment:staging` |
+| Immutable web + worker ECR images | `[x]` | Staging repos `nexus-staging-web` / `nexus-staging-worker` with scan-on-push + immutable tags |
+| EC2 SSM management with port 22 closed | `[x]` | Staging instance `i-08b67e49f72b32061` SSM PingStatus Online; no SSH ingress |
+| CloudFront private media CDN | `[x]` | Intentionally removed — local institutional deployment uses public-read S3 object URLs |
+| Secrets Manager runtime env isolation | `[~]` | Secret `nexus/staging/runtime-env` exists empty — operator must upload dotenv payload before first deploy |
+| Public DNS + automatic HTTPS | `[~]` | Temporary staging origin `https://52.57.18.154.sslip.io` (EIP `52.57.18.154`); replace with real DNS before production |
+| Deployment health check and automatic rollback smoke | `[ ]` | Requires first successful image deploy after secrets + workflow push |
+| ECR/CDK security checks in CI | `[~]` | Local CDK assertions/nag pass; GitHub Actions still need a committed workflow on `dev` |
 
 ---
 
@@ -40,7 +50,7 @@ Shipped in codebase; **production verification still required.**
 | Item | Status | Action before / in production |
 |------|--------|-------------------------------|
 | CSP nonce mode (`CSP_USE_NONCE`) | `[~]` | **Default ON in production.** After deploy, open DevTools → Console: confirm no CSP violations on `/`, `/admin`, Puck editor, published Puck pages. Set `CSP_USE_NONCE=true` locally to reproduce prod CSP. |
-| Root layout `next/script` nonces | `[x]` | Theme init + wallet shim receive `x-nonce` from middleware |
+| Locale layout bootstrap script nonces | `[x]` | Theme init + wallet shim + DOM-event guard streamed via `BootstrapInlineScriptsHost` with `x-nonce` |
 | Puck save sanitization (`POST /api/puck`) | `[x]` | Strips unsafe `href`, media URLs, rich HTML before MongoDB write |
 | Render-time URL guards (Puck blocks) | `[x]` | Defense in depth on published pages |
 | SVG upload block | `[x]` | Reject `image/svg+xml` on all upload paths |
@@ -68,7 +78,7 @@ Shipped in codebase; **production verification still required.**
 | Item | Status | Notes |
 |------|--------|-------|
 | Local driver (`MEDIA_STORAGE_DRIVER=local`) | `[x]` | Default dev setup |
-| S3 driver (`MEDIA_STORAGE_DRIVER=s3`) | `[~]` | **Required in production** — `S3_MEDIA_BUCKET`, `S3_MEDIA_REGION` (or `AWS_REGION`), IAM role or credentials, optional `S3_MEDIA_PUBLIC_BASE_URL` |
+| S3 driver (`MEDIA_STORAGE_DRIVER=s3`) | `[~]` | **Required in production** — `S3_MEDIA_BUCKET`, `S3_MEDIA_REGION` (or `AWS_REGION`), EC2 IAM role for writes; CDK media buckets allow public `GetObject` (no CloudFront) |
 | Orphan upload cleanup job | `[~]` | `npm run job:media-orphan-cleanup` / API cron — configure `MEDIA_ORPHAN_MIN_AGE_HOURS`, schedule in prod |
 | S3 orphan cleanup (`listInventory`) | `[x]` | Same job scans S3 when driver is `s3` |
 | **Prod:** schedule orphan cleanup (cron or `MEDIA_ORPHAN_CLEANUP_INTERVAL_HOURS`) | `[ ]` | Do not rely on manual CLI in prod |
@@ -131,7 +141,7 @@ Copy [`.env.example`](../.env.example) to `.env.local` and follow the inline com
 | `MEDIA_STORAGE_DRIVER` | Yes | `local` (dev) or `s3` (production on AWS EC2) |
 | `S3_MEDIA_BUCKET` | If `s3` | S3 object storage bucket |
 | `S3_MEDIA_REGION` | If `s3` | AWS region (`AWS_REGION` fallback) |
-| `S3_MEDIA_PUBLIC_BASE_URL` | Optional | CDN/CloudFront origin for S3 media URLs |
+| `S3_MEDIA_PUBLIC_BASE_URL` | Optional | Override for public S3 object URLs (defaults to virtual-hosted S3 HTTPS) |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | Recommended | Hours before an unreferenced upload may be deleted (default 24) |
 
 **Background jobs — pick one approach** ([scheduled_events.md](./features/scheduled_events.md)):
@@ -171,3 +181,7 @@ Registry: [testing.md](./testing.md)
 | 2026-06-19 | Initial production readiness doc: XSS/CSP, media/S3, sanitization audit, admin deferrals from security hardening workstream |
 | 2026-06-19 | Added `/admin/security-audits` viewer; linked docs index at `.ai/docs/README.md` |
 | 2026-06-20 | Page categories in Puck editor; Page Manager badge UI deferred — [page_categories.md](./features/page_categories.md) |
+| 2026-07-16 | Added GitHub OIDC → ECR → SSM deployment automation, CDK security checks, Secrets Manager runtime env, private CloudFront media delivery, health checks, and rollback; live AWS/GitHub bootstrap remains pending credentials. |
+| 2026-07-16 | Created branch-restricted GitHub `staging` and `production` environments. AWS bootstrap remains paused because the only configured CLI profile uses the account root identity and has an invalid default region (`eu-east-1`); no paid AWS resources were created. |
+| 2026-07-18 | Bootstrapped CDK in `eu-central-1` with IAM user `loggy-ec2-instance` (`ide-agent`). Deployed `NexusGithubIdentity` and `NexusStaging`. Staging EIP `52.57.18.154`, SSM Online, GitHub `staging` environment variables set. Production stack not deployed. |
+| 2026-07-18 | Removed CloudFront from the target architecture; media uses public-read S3 `GetObject` for local/institutional delivery. |

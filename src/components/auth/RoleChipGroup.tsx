@@ -6,6 +6,7 @@
 
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { StudentTitle } from "@shared/models/User";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +18,13 @@ export interface RoleChipGroupProps {
   onChange: (value: StudentTitle) => void;
 }
 
-const OPTIONS: { label: string; value: StudentTitle }[] = [
-  { label: "Starosta", value: "Starosta" },
-  { label: "Deputy", value: "Deputy" },
-  { label: "Neither", value: "Neither" },
-];
+const OPTION_VALUES: StudentTitle[] = ["Starosta", "Deputy", "Neither"];
+
+const OPTION_MESSAGE_KEYS: Record<StudentTitle, "starosta" | "deputy" | "neither"> = {
+  Starosta: "starosta",
+  Deputy: "deputy",
+  Neither: "neither",
+};
 
 /**
  * Pill chip group for student council title selection during signup.
@@ -30,15 +33,17 @@ const OPTIONS: { label: string; value: StudentTitle }[] = [
  * @returns Role chip group JSX.
  */
 export function RoleChipGroup({ value, onChange }: RoleChipGroupProps) {
+  const t = useTranslations("auth.roleChip");
+
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Student role">
-      {OPTIONS.map((opt) => {
-        const active = value === opt.value;
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("ariaLabel")}>
+      {OPTION_VALUES.map((roleValue) => {
+        const active = value === roleValue;
         return (
           <button
-            key={opt.value}
+            key={roleValue}
             type="button"
-            onClick={() => onChange(opt.value)}
+            onClick={() => onChange(roleValue)}
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               active
@@ -47,7 +52,7 @@ export function RoleChipGroup({ value, onChange }: RoleChipGroupProps) {
             )}
             aria-pressed={active}
           >
-            {opt.label}
+            {t(OPTION_MESSAGE_KEYS[roleValue])}
           </button>
         );
       })}

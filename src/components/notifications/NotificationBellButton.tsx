@@ -7,7 +7,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { Bell } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
@@ -32,6 +33,7 @@ export function NotificationBellButton({
   isAuthenticated: isAuthenticatedProp,
   preview = false,
 }: NotificationBellButtonProps) {
+  const t = useTranslations("notifications.bell");
   const { status } = useSession();
   const isAuthenticated =
     isAuthenticatedProp ?? (preview ? false : status === "authenticated");
@@ -84,10 +86,10 @@ export function NotificationBellButton({
       )}
       aria-label={
         unreadCount > 0
-          ? `Notifications, ${unreadCount} unread`
-          : "Notifications"
+          ? t("labelUnread", { count: unreadCount })
+          : t("label")
       }
-      title="Notifications"
+      title={t("label")}
       onClick={blockPreviewNavigation}
     >
       <Bell {...siteChromeLucideProps({ className: "size-4" })} aria-hidden />

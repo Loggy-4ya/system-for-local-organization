@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { PagePathDomainCatalogEntry } from "@shared/constants/pageCategoriesHub";
-import { NewPageForm } from "@/app/pages/NewPageForm";
+import { NewPageForm } from "@/app/[locale]/pages/NewPageForm";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

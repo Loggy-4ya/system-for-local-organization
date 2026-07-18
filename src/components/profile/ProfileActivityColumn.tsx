@@ -4,13 +4,14 @@
  * @module src/components/profile/ProfileActivityColumn
  */
 
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { ProfileTaskSnapshot } from "@shared/domains/TaskDomain";
-import { TASK_STATUS_LABELS } from "@shared/constants/taskSettings";
+import type { TaskStatus } from "@shared/constants/taskSettings";
 import {
   formatProfileTaskRelativeTime,
   profileTaskStatusBadgeClass,
 } from "@shared/lib/profileTaskDisplayLogic";
+import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 /** Props for {@link ProfileActivityColumn}. */
@@ -29,12 +30,15 @@ export interface ProfileActivityColumnProps {
  * @param props - Profile owner label and task snapshot.
  * @returns Activity column JSX.
  */
-export function ProfileActivityColumn({
+export async function ProfileActivityColumn({
   displayName,
   snapshot,
   isSelf = false,
 }: ProfileActivityColumnProps) {
-  const subject = isSelf ? "You" : displayName.split(" ")[0] ?? displayName;
+  const t = await getTranslations("profile.activity");
+  const tTasks = await getTranslations("tasks");
+
+  const subject = isSelf ? t("you") : displayName.split(" ")[0] ?? displayName;
   const completionRate =
     snapshot.openCount + snapshot.completedLast30Days === 0
       ? 0
@@ -44,18 +48,23 @@ export function ProfileActivityColumn({
             100,
         );
 
+  /** Localized task status label. */
+  function taskStatusLabel(status: TaskStatus): string {
+    return tTasks(`status.${status}`);
+  }
+
   return (
     <div className="flex w-full shrink-0 flex-col gap-3 md:w-[340px]">
       <div>
-        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Recent task activity</h2>
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("recentTitle")}</h2>
         <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-          {isSelf ? "Your latest open assignments" : `What ${subject} is working on`}
+          {isSelf ? t("recentSubtitleSelf") : t("recentSubtitleOther", { name: subject })}
         </p>
       </div>
 
       <div className="glass-panel rounded-[var(--radius-md)] p-4">
         {snapshot.recentOpenTasks.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-secondary)]">No open tasks right now.</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{t("noOpenTasks")}</p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {snapshot.recentOpenTasks.map((task) => (
@@ -68,7 +77,7 @@ export function ProfileActivityColumn({
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className={cn("badge", profileTaskStatusBadgeClass(task.status))}>
-                    {TASK_STATUS_LABELS[task.status]}
+                    {taskStatusLabel(task.status)}
                   </span>
                   <span className="text-[11px] text-[var(--color-text-secondary)]">
                     {formatProfileTaskRelativeTime(task.updatedAt)}
@@ -81,28 +90,26 @@ export function ProfileActivityColumn({
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Performance (30 days)</h2>
-        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-          Completion momentum and active projects
-        </p>
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("performanceTitle")}</h2>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{t("performanceSubtitle")}</p>
       </div>
 
       <div className="glass-panel rounded-[var(--radius-md)] p-4">
         <dl className="m-0 grid grid-cols-1 gap-3 p-0 text-xs">
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-[var(--color-text-secondary)]">Completed tasks</dt>
+            <dt className="text-[var(--color-text-secondary)]">{t("completedTasks")}</dt>
             <dd className="font-semibold text-[var(--color-text-primary)]">{snapshot.completedLast30Days}</dd>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-[var(--color-text-secondary)]">Open tasks</dt>
+            <dt className="text-[var(--color-text-secondary)]">{t("openTasks")}</dt>
             <dd className="font-semibold text-[var(--color-text-primary)]">{snapshot.openCount}</dd>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-[var(--color-text-secondary)]">Completion rate</dt>
+            <dt className="text-[var(--color-text-secondary)]">{t("completionRate")}</dt>
             <dd className="font-semibold text-[var(--color-text-primary)]">{completionRate}%</dd>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-[var(--color-text-secondary)]">Active projects</dt>
+            <dt className="text-[var(--color-text-secondary)]">{t("activeProjects")}</dt>
             <dd className="font-semibold text-[var(--color-text-primary)]">{snapshot.activeGroupCount}</dd>
           </div>
         </dl>

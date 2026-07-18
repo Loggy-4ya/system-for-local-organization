@@ -18,7 +18,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import {
   canLoaderAutoRetry,
@@ -53,12 +54,14 @@ export interface SiteLoaderProps {
  * @returns Site loader JSX.
  */
 export function SiteLoader({
-  label = "Loading…",
+  label,
   className,
   autoRetry = true,
   autoRetryDelayMs,
 }: SiteLoaderProps) {
   const router = useRouter();
+  const t = useTranslations("common");
+  const resolvedLabel = label ?? t("loading");
   const [retryExhausted, setRetryExhausted] = useState(false);
   const [recoveryPhase, setRecoveryPhase] = useState<"idle" | "refreshing" | "reloading">(
     "idle",
@@ -107,12 +110,12 @@ export function SiteLoader({
   }, [autoRetry, autoRetryDelayMs, router]);
 
   const statusLabel = retryExhausted
-    ? "Still loading"
+    ? t("loadingStill")
     : recoveryPhase === "reloading"
-      ? "Reloading…"
+      ? t("loadingReloading")
       : recoveryPhase === "refreshing"
-        ? "Retrying…"
-        : label;
+        ? t("loadingRetrying")
+        : resolvedLabel;
 
   return (
     <div
@@ -135,14 +138,14 @@ export function SiteLoader({
       {retryExhausted ? (
         <div className="flex flex-col items-center gap-3">
           <p className="m-0 max-w-xs text-center text-sm text-muted-foreground">
-            This page is taking longer than expected. Try refreshing manually.
+            {t("loadingSlowHint")}
           </p>
           <button
             type="button"
             className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)]"
             onClick={() => window.location.reload()}
           >
-            Refresh page
+            {t("refreshPage")}
           </button>
         </div>
       ) : null}

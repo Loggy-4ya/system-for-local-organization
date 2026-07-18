@@ -9,6 +9,9 @@
 
 import type { TaskStatus } from "@shared/constants/taskSettings";
 
+/** Supported UI locales for notification copy. */
+export type NotificationCopyLocale = "en" | "uk";
+
 /** Inputs for building a reminder notification message. */
 export interface TaskReminderNotificationCopyInput {
   /** Task headline. */
@@ -17,6 +20,8 @@ export interface TaskReminderNotificationCopyInput {
   status: TaskStatus;
   /** Optional deadline. */
   dueAt?: Date | string | null;
+  /** UI locale for localized strings. */
+  locale?: NotificationCopyLocale;
 }
 
 /** Generated reminder title and body for web/Telegram delivery. */
@@ -29,39 +34,91 @@ export interface TaskReminderNotificationCopy {
   variant: "info" | "warning";
 }
 
+/** Localized notification templates. */
+const COPY: Record<
+  NotificationCopyLocale,
+  {
+    taskOverdue: string;
+    taskOverdueWithDue: string;
+    taskOverdueNoDue: string;
+    taskReminder: string;
+    taskReminderWithDue: string;
+    taskReminderNoDue: string;
+  }
+> = {
+  en: {
+    taskOverdue: "Task overdue",
+    taskOverdueWithDue:
+      '"{title}" was due {due}. Please submit your report or confirm progress.',
+    taskOverdueNoDue: '"{title}" is overdue. Please submit your report or confirm progress.',
+    taskReminder: "Task reminder",
+    taskReminderWithDue: 'Reminder for "{title}" — due {due}.',
+    taskReminderNoDue: 'Reminder for "{title}".',
+  },
+  uk: {
+    taskOverdue: "Прострочене завдання",
+    taskOverdueWithDue:
+      "«{title}» мало бути виконане до {due}. Надішліть звіт або підтвердіть прогрес.",
+    taskOverdueNoDue: "«{title}» прострочено. Надішліть звіт або підтвердіть прогрес.",
+    taskReminder: "Нагадування про завдання",
+    taskReminderWithDue: "Нагадування про «{title}» — термін {due}.",
+    taskReminderNoDue: "Нагадування про «{title}».",
+  },
+};
+
+/**
+ * Interpolate `{name}` placeholders in a template string.
+ *
+ * @param template - Message template.
+ * @param values - Replacement map.
+ * @returns Interpolated string.
+ */
+function interpolate(template: string, values: Record<string, string>): string {
+  return Object.entries(values).reduce(
+    (output, [key, value]) => output.replace(`{${key}}`, value),
+    template,
+  );
+}
+
 /**
  * Build human-readable reminder copy from a task snapshot.
  *
- * @param input - Task title, status, and optional due date.
+ * @param input - Task title, status, optional due date, and locale.
  * @returns Toast title, body, and variant.
  */
 export function buildTaskReminderNotificationCopy(
   input: TaskReminderNotificationCopyInput,
 ): TaskReminderNotificationCopy {
+  const locale = input.locale ?? "en";
+  const strings = COPY[locale] ?? COPY.en;
+
   const due =
     input.dueAt != null && input.dueAt !== ""
       ? new Date(input.dueAt)
       : null;
   const dueValid = due && !Number.isNaN(due.getTime()) ? due : null;
   const dueLabel = dueValid
-    ? dueValid.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    ? dueValid.toLocaleString(locale === "uk" ? "uk-UA" : undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
     : null;
 
   if (input.status === "overdue") {
     return {
-      title: "Task overdue",
+      title: strings.taskOverdue,
       body: dueLabel
-        ? `"${input.title}" was due ${dueLabel}. Please submit your report or confirm progress.`
-        : `"${input.title}" is overdue. Please submit your report or confirm progress.`,
+        ? interpolate(strings.taskOverdueWithDue, { title: input.title, due: dueLabel })
+        : interpolate(strings.taskOverdueNoDue, { title: input.title }),
       variant: "warning",
     };
   }
 
   return {
-    title: "Task reminder",
+    title: strings.taskReminder,
     body: dueLabel
-      ? `Reminder for "${input.title}" — due ${dueLabel}.`
-      : `Reminder for "${input.title}".`,
+      ? interpolate(strings.taskReminderWithDue, { title: input.title, due: dueLabel })
+      : interpolate(strings.taskReminderNoDue, { title: input.title }),
     variant: "info",
   };
 }

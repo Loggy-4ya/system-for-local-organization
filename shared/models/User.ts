@@ -198,6 +198,12 @@ export interface IUser extends Document {
    */
   notificationChannels: TaskReminderChannel[];
 
+  /**
+   * Preferred UI and bot message locale (`en` or `uk`).
+   * When set, overrides Telegram client language for linked bot replies.
+   */
+  preferredLocale: "en" | "uk" | null;
+
   /** When the user answered the browser notification permission prompt (enable or dismiss). */
   webNotificationPromptAt: Date | null;
 
@@ -326,6 +332,11 @@ const UserSchema = new Schema<IUser>(
       type: [String],
       enum: ["web", "telegram"],
       default: ["web"],
+    },
+    preferredLocale: {
+      type: String,
+      enum: ["en", "uk"],
+      default: null,
     },
     webNotificationPromptAt: { type: Date, default: null },
   },

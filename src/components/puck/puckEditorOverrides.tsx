@@ -10,7 +10,8 @@
  */
 
 import { FieldLabel, type Overrides } from "@puckeditor/core";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link as LocaleLink } from "@/i18n/navigation";
 import { GripVertical, LayoutList } from "lucide-react";
 import { siteChromeLucideProps } from "@/components/global-layout/resolveLucideIcon";
 import { injectPuckAutoFrameStylesheetRejectionGuardScript } from "@/components/puck/PuckAutoFrameStylesheetRejectionGuard";
@@ -23,6 +24,10 @@ import { useNexusPuck } from "@/components/puck/lib/useNexusPuck";
 import { PuckSelectField } from "@/components/puck/fields/PuckSelectField";
 import { PuckSwitchField } from "@/components/puck/fields/PuckSwitchField";
 import { SegmentedControl } from "@/components/puck/fields/SegmentedControl";
+import {
+  translatePuckSelectOptions,
+  translatePuckSidebarCopy,
+} from "@/components/puck/lib/translatePuckSidebarCopy";
 import {
   isBinaryToggleField,
   resolveToggleValues,
@@ -40,13 +45,14 @@ import { NexusSidebarWidthClamp } from "@/components/puck/NexusSidebarWidthClamp
 import { NexusMobilePanelCanvasStabilizer } from "@/components/puck/NexusMobilePanelCanvasStabilizer";
 import { NexusPuckZoomGuard } from "@/components/puck/NexusPuckZoomGuard";
 import { NexusSidebarResizeStabilizer } from "@/components/puck/NexusSidebarResizeStabilizer";
+import { NexusInlinePreviewViewportControls } from "@/components/puck/NexusInlinePreviewViewportControls";
 import { NexusViewportZoomEnhancer } from "@/components/puck/NexusViewportZoomEnhancer";
 import { NexusHistoryCanvasIsland } from "@/components/puck/NexusHistoryToolbar";
 import { NexusMobileViewportToggleIcon } from "@/components/puck/NexusMobileViewportToggleIcon";
 import { NexusPublishButton } from "@/components/puck/NexusPublishButton";
 import { NexusSaveButton } from "@/components/puck/NexusSaveButton";
 import { NexusEditorScrollportGrid } from "@/components/puck/NexusEditorScrollportGrid";
-import { NexusPuckCanvasTransparencyEnforcer } from "@/components/puck/NexusPuckCanvasTransparencyEnforcer";
+import { NexusPreviewFrameShell } from "@/components/puck/NexusPreviewFrameShell";
 import { NexusCanvasWheelBridge } from "@/components/puck/NexusCanvasWheelBridge";
 import { NexusCompactEditorAttr } from "@/components/puck/NexusCompactEditorAttr";
 import { NexusCompactRightSidebarGuard } from "@/components/puck/NexusCompactRightSidebarGuard";
@@ -91,12 +97,21 @@ function PuckSelectFieldOverride({
   readOnly,
   name,
 }: PuckBuiltinFieldOverrideProps) {
-  const options = (field.options ?? []).map((opt) => ({
-    label: opt.label,
-    value: String(opt.value ?? ""),
-  }));
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
+  const options = translatePuckSelectOptions(
+    (field.options ?? []).map((opt) => ({
+      label: opt.label,
+      value: String(opt.value ?? ""),
+      title: (opt as { title?: string }).title,
+    })),
+    tOptions,
+  );
 
-  const fieldLabel = label ?? field.label ?? name ?? "Select";
+  const fieldLabel = translatePuckSidebarCopy(
+    label ?? field.label ?? name ?? "Select",
+    tLabels,
+  );
 
   if (!LabelComponent) {
     return (
@@ -122,13 +137,21 @@ function PuckRadioFieldOverride({
   readOnly,
   name,
 }: PuckBuiltinFieldOverrideProps) {
-  const options = (field.options ?? []).map((opt) => ({
-    label: opt.label,
-    value: String(opt.value ?? ""),
-    title: (opt as { title?: string }).title,
-  }));
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
+  const options = translatePuckSelectOptions(
+    (field.options ?? []).map((opt) => ({
+      label: opt.label,
+      value: String(opt.value ?? ""),
+      title: (opt as { title?: string }).title,
+    })),
+    tOptions,
+  );
 
-  const fieldLabel = label ?? field.label ?? name ?? "Option";
+  const fieldLabel = translatePuckSidebarCopy(
+    label ?? field.label ?? name ?? "Option",
+    tLabels,
+  );
 
   if (isBinaryToggleField(options)) {
     const { trueValue, falseValue } = resolveToggleValues(options);
@@ -186,6 +209,7 @@ function PuckDrawerItemOverride({
   children?: React.ReactNode;
   name: string;
 }) {
+  const tLabels = useTranslations("puck.fieldLabels");
   const label = useNexusPuck((state) => {
     const component = state.config.components[name] as { label?: string } | undefined;
     return component?.label ?? name;
@@ -198,7 +222,9 @@ function PuckDrawerItemOverride({
         <GripVertical size={12} />
       </span>
       {icon ? <span className="nexus-plugin-panel-row__icon">{icon}</span> : null}
-      <span className="nexus-plugin-panel-row__label">{label}</span>
+      <span className="nexus-plugin-panel-row__label">
+        {translatePuckSidebarCopy(label, tLabels)}
+      </span>
     </div>
   );
 }
@@ -219,9 +245,12 @@ function PuckFieldLabelOverride({
   readOnly?: boolean;
   className?: string;
 }) {
+  const tLabels = useTranslations("puck.fieldLabels");
+  const localizedLabel = translatePuckSidebarCopy(label, tLabels);
+
   return (
     <FieldLabel
-      label={label}
+      label={localizedLabel}
       icon={icon ?? fieldLabelIcon(label)}
       el={el}
       readOnly={readOnly}
@@ -235,6 +264,7 @@ function PuckFieldLabelOverride({
 /** Puck `headerActions` override — publish controls plus Nexus chrome. */
 function PuckHeaderActionsOverride() {
   const error = usePuckEditorError();
+  const tHeader = useTranslations("puck.header");
 
   return (
     <span className="nexus-puck-header-actions">
@@ -248,19 +278,19 @@ function PuckHeaderActionsOverride() {
         className="nexus-editor-header-btn nexus-puck-header-actions__theme"
       />
 
-      <Link
+      <LocaleLink
         href="/pages"
         className="nexus-puck-header-actions__pages-link nexus-editor-header-btn"
-        aria-label="All pages"
-        title="All pages"
+        aria-label={tHeader("allPagesAria")}
+        title={tHeader("allPagesAria")}
       >
         <LayoutList
           className="nexus-puck-header-actions__pages-icon site-chrome-icon"
           {...siteChromeLucideProps()}
           aria-hidden
         />
-        <span className="nexus-puck-header-actions__pages-label">All Pages</span>
-      </Link>
+        <span className="nexus-puck-header-actions__pages-label">{tHeader("allPages")}</span>
+      </LocaleLink>
 
       <EditorModeToggle className="nexus-mode-toggle nexus-editor-header-btn" />
 
@@ -298,11 +328,12 @@ function PuckRootOverride({ children }: { children: React.ReactNode }) {
       <NexusMobilePanelOpenAnimation />
       <NexusMobileBlocksPalettePanelDismiss />
       <NexusMobileNavPanelGestures />
+      <NexusInlinePreviewViewportControls />
       <NexusViewportZoomEnhancer />
       <NexusHistoryCanvasIsland />
       <NexusMobileViewportToggleIcon />
       <NexusEditorScrollportGrid />
-      <NexusPuckCanvasTransparencyEnforcer />
+      <NexusPreviewFrameShell />
       <NexusCanvasWheelBridge />
       <NexusGridItemPlacementGuard />
     </>

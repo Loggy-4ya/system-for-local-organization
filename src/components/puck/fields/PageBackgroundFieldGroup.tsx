@@ -12,6 +12,7 @@ import { FieldLabelRow } from "./FieldLabelRow";
 import { MediaUploadField } from "./MediaUploadField";
 import { PuckSelectField } from "./PuckSelectField";
 import { SegmentedControl } from "./SegmentedControl";
+import { useTranslations } from "next-intl";
 
 /** Background props stored under root `pageBackground`. */
 export interface PageBackgroundProps {
@@ -40,38 +41,40 @@ interface PageBackgroundFieldGroupProps {
 export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFieldGroupProps) {
   const background = value ?? { background: "site-default" as const };
   const mode = background.background ?? "site-default";
+  const tChapters = useTranslations("puck.pageChapters");
+  const t = useTranslations("puck.pageBackground");
 
   const set = (patch: Partial<PageBackgroundProps>) => {
     onChange({ ...background, ...patch });
   };
 
   return (
-    <FieldChapter title="Page Background" icon={<BackgroundIcon />}>
+    <FieldChapter title={tChapters("pageBackground")} icon={<BackgroundIcon />}>
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">Style</span>
+        <span className="nexus-field-category__label">{t("style")}</span>
         <PuckSelectField
           value={mode}
           onChange={(next) => set({ background: next as PageBackgroundProps["background"] })}
           options={[
-            { label: "Site Default (Grid)", value: "site-default" },
-            { label: "Solid Color", value: "solid" },
-            { label: "Custom Image", value: "custom-image" },
+            { label: t("styleSiteDefault"), value: "site-default" },
+            { label: t("styleSolid"), value: "solid" },
+            { label: t("styleCustomImage"), value: "custom-image" },
           ]}
         />
       </div>
 
       {mode === "site-default" ? (
         <div className="nexus-field-category">
-          <span className="nexus-field-category__label">Grid Motion</span>
+          <span className="nexus-field-category__label">{t("gridMotion")}</span>
           <SegmentedControl
-            ariaLabel="Grid motion"
+            ariaLabel={t("gridMotionAria")}
             value={background.backgroundGridMotion ?? "dynamic"}
             onChange={(next) =>
               set({ backgroundGridMotion: next as PageBackgroundProps["backgroundGridMotion"] })
             }
             options={[
-              { label: "Dynamic", value: "dynamic" },
-              { label: "Static", value: "static" },
+              { label: t("gridMotionDynamic"), value: "dynamic" },
+              { label: t("gridMotionStatic"), value: "static" },
             ]}
           />
         </div>
@@ -80,7 +83,7 @@ export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFiel
       {mode === "solid" ? (
         <div className="nexus-field-category">
           <AccentPresetField
-            field={{ label: "Hue" }}
+            field={{ label: t("hue") }}
             value={background.backgroundPreset ?? "hue-blue"}
             onChange={(v) => set({ backgroundPreset: v })}
           />
@@ -89,9 +92,9 @@ export function PageBackgroundFieldGroup({ value, onChange }: PageBackgroundFiel
 
       {mode === "custom-image" ? (
         <div className="nexus-field-category">
-          <FieldLabelRow label="Image" hint="Full-page background image behind content." />
+          <FieldLabelRow label={t("image")} hint={t("imageHint")} />
           <MediaUploadField
-            field={{ label: "Image", accept: "image", purpose: "page-cover" }}
+            field={{ label: t("image"), accept: "image", purpose: "page-cover" }}
             value={background.backgroundImage ?? ""}
             onChange={(v) => set({ backgroundImage: v })}
             hideFieldLabel

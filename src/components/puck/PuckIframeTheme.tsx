@@ -56,11 +56,15 @@ const FORCE_TRANSPARENT_STYLE_ID = "nexus-puck-preview-force-transparent";
 
 /** Last-resort iframe transparency — appended after CopyHostStyles clones host CSS. */
 const FORCE_TRANSPARENT_IFRAME_CSS = `
-html, body, #frame-root, [data-puck-entry],
-[class*="DropZone"], [class*="DropZone-item"],
-[data-puck-component],
+html[data-nexus-puck-preview-document],
+html[data-nexus-puck-preview-document] body,
+html, body, #frame-root, [data-puck-entry], [data-puck-dropzone],
+[class*="DropZone"], [class*="DropZone-item"], [class*="DropZone-dropZone"],
+[data-puck-component], [data-puck-component] > *,
 .global-layout-page-content-slot,
-.global-layout-page-content-slot > div {
+.global-layout-page-content-slot > div,
+.nexus-page-stack,
+.nexus-page-stack main {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -70,38 +74,35 @@ html, body, #frame-root, [data-puck-entry],
 /** DOM id used for preview document scroll/overflow rules inside the iframe. */
 const DOCUMENT_STYLE_ID = "nexus-puck-preview-document";
 
+import {
+  isPreviewIframeDocumentReady,
+} from "@/components/puck/lib/previewIframeDocumentReady";
+
 /**
- * Force transparent backgrounds on the preview iframe document (inline + stylesheet).
+ * Inject transparent canvas CSS into the preview iframe (stylesheet only).
+ *
+ * Re-appends the override `<style>` on theme changes so it stays after CopyHostStyles.
  *
  * @param iframeDoc - Preview iframe document.
  */
-function forcePreviewDocumentTransparency(iframeDoc: Document): void {
-  const { documentElement, body } = iframeDoc;
-  documentElement.style.setProperty("background", "transparent", "important");
-  documentElement.style.setProperty("background-color", "transparent", "important");
-
-  if (body) {
-    body.style.setProperty("background", "transparent", "important");
-    body.style.setProperty("background-color", "transparent", "important");
+export function ensurePreviewDocumentTransparencyStyles(iframeDoc: Document): void {
+  if (!isPreviewIframeDocumentReady(iframeDoc)) {
+    return;
   }
 
-  const frameRoot = iframeDoc.getElementById("frame-root");
-  if (frameRoot) {
-    frameRoot.style.setProperty("background", "transparent", "important");
-    frameRoot.style.setProperty("background-color", "transparent", "important");
-  }
-
+  const { head } = iframeDoc;
   let forceStyle = iframeDoc.getElementById(FORCE_TRANSPARENT_STYLE_ID) as HTMLStyleElement | null;
+
   if (!forceStyle) {
     forceStyle = iframeDoc.createElement("style");
     forceStyle.id = FORCE_TRANSPARENT_STYLE_ID;
-    iframeDoc.head.appendChild(forceStyle);
+    head.appendChild(forceStyle);
   }
 
   forceStyle.textContent = FORCE_TRANSPARENT_IFRAME_CSS;
 
-  if (iframeDoc.head.lastElementChild !== forceStyle) {
-    iframeDoc.head.appendChild(forceStyle);
+  if (head.lastElementChild !== forceStyle) {
+    head.appendChild(forceStyle);
   }
 
   syncCarouselEditSlideBackground(iframeDoc);
@@ -113,17 +114,22 @@ function forcePreviewDocumentTransparency(iframeDoc: Document): void {
  * @param iframeDoc - Preview iframe document.
  */
 function syncCarouselEditSlideBackground(iframeDoc: Document): void {
+  if (!isPreviewIframeDocumentReady(iframeDoc)) {
+    return;
+  }
+
+  const { head } = iframeDoc;
   let carouselStyle = iframeDoc.getElementById(CAROUSEL_EDIT_BG_STYLE_ID) as HTMLStyleElement | null;
   if (!carouselStyle) {
     carouselStyle = iframeDoc.createElement("style");
     carouselStyle.id = CAROUSEL_EDIT_BG_STYLE_ID;
-    iframeDoc.head.appendChild(carouselStyle);
+    head.appendChild(carouselStyle);
   }
 
   carouselStyle.textContent = CAROUSEL_EDIT_BACKGROUND_IFRAME_CSS;
 
-  if (iframeDoc.head.lastElementChild !== carouselStyle) {
-    iframeDoc.head.appendChild(carouselStyle);
+  if (head.lastElementChild !== carouselStyle) {
+    head.appendChild(carouselStyle);
   }
 }
 
@@ -144,11 +150,16 @@ function buildPreviewDocumentCss(previewMode: "edit" | "interactive"): string {
 [data-puck-dropzone],
 [class*="DropZone"],
 [class*="DropZone-item"],
+[class*="DropZone-dropZone"],
 [data-puck-component],
+[data-puck-component] > *,
 .global-layout-page-content-slot,
-.global-layout-page-content-slot > div {
+.global-layout-page-content-slot > div,
+.nexus-page-stack,
+.nexus-page-stack main {
   background: transparent !important;
   background-color: transparent !important;
+  background-image: none !important;
 }
 
 [class*="DraggableComponent-overlay"]:not(:hover) {
@@ -158,6 +169,7 @@ function buildPreviewDocumentCss(previewMode: "edit" | "interactive"): string {
 
   if (previewMode === "edit") {
     return `
+html[data-nexus-puck-preview-document],
 html,
 body {
   margin: 0;
@@ -173,11 +185,12 @@ body {
 [data-puck-entry] {
   background: transparent !important;
   background-color: transparent !important;
+  position: relative;
+  z-index: 1;
 }
 
 /*
- * Puck edit mode — keep drop-zone / component wrappers transparent so global nexus-bg
- * shows through the preview iframe (single grid — no iframe duplicate).
+ * Puck edit mode — block wrappers stay transparent so global nexus-bg shows through.
  */
 ${sharedTransparentRules}
 `;
@@ -355,6 +368,58 @@ const PREVIEW_TOKEN_CSS = `
 }
 `;
 
+/**
+ * Inject or refresh all Nexus preview iframe styles after Puck CopyHostStyles clones CSS.
+ *
+ * CopyHostStyles replaces `iframeDoc.head` asynchronously; styles must be re-appended afterward.
+ *
+ * @param iframeDoc - Preview iframe document.
+ * @param previewMode - Active Puck preview mode.
+ * @param theme - Resolved site theme (`light` | `dark`).
+ */
+export function syncPreviewIframeDocumentStyles(
+  iframeDoc: Document,
+  previewMode: "edit" | "interactive",
+  theme: "light" | "dark",
+): void {
+  if (!isPreviewIframeDocumentReady(iframeDoc)) {
+    return;
+  }
+
+  iframeDoc.documentElement.setAttribute("data-theme", theme);
+  iframeDoc.documentElement.setAttribute("data-nexus-puck-preview-document", "true");
+
+  const { head } = iframeDoc;
+
+  let styleEl = iframeDoc.getElementById(TOKEN_STYLE_ID) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = iframeDoc.createElement("style");
+    styleEl.id = TOKEN_STYLE_ID;
+    head.appendChild(styleEl);
+  }
+  styleEl.textContent = PREVIEW_TOKEN_CSS;
+
+  let docStyleEl = iframeDoc.getElementById(DOCUMENT_STYLE_ID) as HTMLStyleElement | null;
+  if (!docStyleEl) {
+    docStyleEl = iframeDoc.createElement("style");
+    docStyleEl.id = DOCUMENT_STYLE_ID;
+    head.appendChild(docStyleEl);
+  }
+  docStyleEl.textContent = buildPreviewDocumentCss(previewMode);
+
+  ensurePreviewDocumentTransparencyStyles(iframeDoc);
+  applyPreviewDocumentScrollStyles(iframeDoc, previewMode);
+
+  if (iframeDoc.body) {
+    iframeDoc.body.style.color = "var(--color-text-primary)";
+    iframeDoc.body.style.fontFamily = "var(--font-sans)";
+    iframeDoc.body.style.margin = "0";
+  }
+}
+
+/** Delayed re-sync schedule (ms) — beats Puck CopyHostStyles head wipe without observers. */
+const COPY_HOST_STYLES_RESYNC_DELAYS_MS = [0, 16, 50, 120, 250, 500, 900] as const;
+
 /** Props for the Puck `iframe` override wrapper. */
 export interface PuckIframeThemeProps {
   /** Default iframe children rendered by Puck. */
@@ -374,60 +439,34 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
   const theme = resolvedTheme === "light" ? "light" : "dark";
   const previewMode = usePuckPreviewMode();
 
-  /** Sync `data-theme` before paint so iframe-contained grids read the active theme. */
+  /** Sync theme, tokens, and transparency before paint; re-sync after CopyHostStyles head wipe. */
   useLayoutEffect(() => {
     if (!iframeDoc?.documentElement) return;
 
     injectPuckAutoFrameStylesheetRejectionGuardScript(iframeDoc);
     injectSafePointerCaptureScript(iframeDoc);
     installSafePointerCapture(iframeDoc.defaultView);
-
-    iframeDoc.documentElement.setAttribute("data-theme", theme);
-    forcePreviewDocumentTransparency(iframeDoc);
-    applyPreviewDocumentScrollStyles(iframeDoc, previewMode);
-
-    try {
-      const frame = iframeDoc.defaultView?.frameElement as HTMLIFrameElement | null;
-      if (frame) {
-        frame.style.backgroundColor = "transparent";
-      }
-    } catch {
-      /* cross-origin parent */
-    }
+    syncPreviewIframeDocumentStyles(iframeDoc, previewMode, theme);
   }, [iframeDoc, previewMode, theme]);
 
   useEffect(() => {
     if (!iframeDoc?.documentElement) return;
 
-    let styleEl = iframeDoc.getElementById(TOKEN_STYLE_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = iframeDoc.createElement("style");
-      styleEl.id = TOKEN_STYLE_ID;
-      styleEl.textContent = PREVIEW_TOKEN_CSS;
-      iframeDoc.head.appendChild(styleEl);
-    }
+    const timeoutIds = COPY_HOST_STYLES_RESYNC_DELAYS_MS.map((delayMs) =>
+      window.setTimeout(() => {
+        syncPreviewIframeDocumentStyles(iframeDoc, previewMode, theme);
+      }, delayMs),
+    );
 
-    let docStyleEl = iframeDoc.getElementById(DOCUMENT_STYLE_ID) as HTMLStyleElement | null;
-    if (!docStyleEl) {
-      docStyleEl = iframeDoc.createElement("style");
-      docStyleEl.id = DOCUMENT_STYLE_ID;
-      iframeDoc.head.appendChild(docStyleEl);
-    }
-    docStyleEl.textContent = buildPreviewDocumentCss(previewMode);
-    forcePreviewDocumentTransparency(iframeDoc);
-    applyPreviewDocumentScrollStyles(iframeDoc, previewMode);
     resetInteractivePreviewScrollports(iframeDoc.defaultView?.parent?.document ?? null);
     iframeDoc.defaultView?.scrollTo(0, 0);
 
-    if (iframeDoc.body) {
-      iframeDoc.body.style.color = "var(--color-text-primary)";
-      iframeDoc.body.style.fontFamily = "var(--font-sans)";
-      iframeDoc.body.style.margin = "0";
-      iframeDoc.body.style.background = "transparent";
-    }
-
     const iframeWindow = iframeDoc.defaultView;
-    if (!iframeWindow) return;
+    if (!iframeWindow) {
+      return () => {
+        timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      };
+    }
 
     const onWheel = (event: WheelEvent) => {
       if (previewMode === "interactive") {
@@ -454,25 +493,6 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     };
     iframeDoc.addEventListener("pointermove", onPointerMove, { passive: true });
 
-    const headObserver = new MutationObserver((records) => {
-      const hostStylesAdded = records.some((record) =>
-        Array.from(record.addedNodes).some(
-          (node) =>
-            node instanceof HTMLLinkElement ||
-            (node instanceof HTMLStyleElement &&
-              node.id !== FORCE_TRANSPARENT_STYLE_ID &&
-              node.id !== TOKEN_STYLE_ID &&
-              node.id !== DOCUMENT_STYLE_ID &&
-              node.id !== CAROUSEL_EDIT_BG_STYLE_ID),
-        ),
-      );
-
-      if (hostStylesAdded) {
-        forcePreviewDocumentTransparency(iframeDoc);
-      }
-    });
-    headObserver.observe(iframeDoc.head, { childList: true });
-
     let frameResizeObserver: ResizeObserver | null = null;
     if (previewMode === "interactive") {
       const frame = iframeDoc.defaultView?.frameElement;
@@ -488,9 +508,9 @@ export function PuckIframeTheme({ children, document: iframeDoc }: PuckIframeThe
     }
 
     return () => {
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
       iframeDoc.removeEventListener("wheel", onWheel, { capture: true });
       iframeDoc.removeEventListener("pointermove", onPointerMove);
-      headObserver.disconnect();
       frameResizeObserver?.disconnect();
     };
   }, [iframeDoc, previewMode, theme]);

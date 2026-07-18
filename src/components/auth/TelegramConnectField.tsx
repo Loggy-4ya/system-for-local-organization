@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { TelegramWidgetPayload } from "@shared/domains/AuthDomain";
 import { normalizeTelegramBotUsername } from "@shared/lib/telegramBotUsername";
 import { devAuthNeedsHttpsTunnel, DEV_AUTH_TUNNEL_HINT } from "@shared/lib/devAuthTunnelHint";
@@ -52,6 +53,7 @@ export function TelegramConnectField({
   error = null,
   className,
 }: TelegramConnectFieldProps) {
+  const t = useTranslations("auth.telegramConnect");
   const telegramRef = useRef<HTMLDivElement>(null);
   const botUsername = normalizeTelegramBotUsername(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
   const [needsTunnel, setNeedsTunnel] = useState(false);
@@ -115,15 +117,15 @@ export function TelegramConnectField({
 
   if (!botUsername) {
     return (
-      <FormAlert variant="info" title="Telegram unavailable">
-        Telegram connection is required but the bot is not configured on this server.
+      <FormAlert variant="info" title={t("unavailableTitle")}>
+        {t("unavailableBody")}
       </FormAlert>
     );
   }
 
   if (needsTunnel) {
     return (
-      <FormAlert variant="info" title="HTTPS tunnel required">
+      <FormAlert variant="info" title={t("tunnelTitle")}>
         {DEV_AUTH_TUNNEL_HINT}
       </FormAlert>
     );
@@ -132,30 +134,25 @@ export function TelegramConnectField({
   if (telegramContext === "mini-app") {
     return (
       <div className={cn("flex flex-col gap-2", className)}>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          You are inside Telegram — use the button below to verify your account. New users are sent
-          to the Mini App signup flow.
-        </p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t("miniAppHint")}</p>
         <TelegramWebAppAuthButton
-          label="Connect with Telegram"
+          label={t("connectButton")}
           callbackUrl="/signup"
         />
       </div>
     );
   }
 
+  const connectedName = value?.username ? `@${value.username}` : value?.first_name ?? "";
+
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {value ? (
-        <FormAlert variant="success" title="Telegram connected">
-          Authorized as {value.username ? `@${value.username}` : value.first_name}. You can reconnect
-          below if needed.
+        <FormAlert variant="success" title={t("connectedTitle")}>
+          {t("connectedBody", { name: connectedName })}
         </FormAlert>
       ) : (
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Tap the button below and approve access in Telegram. Required for self-government
-          members after approval.
-        </p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{t("browserHint")}</p>
       )}
 
       <div
@@ -173,7 +170,7 @@ export function TelegramConnectField({
           disabled={disabled}
           onClick={() => onChange(null)}
         >
-          Clear connection
+          {t("clearConnection")}
         </button>
       ) : null}
 

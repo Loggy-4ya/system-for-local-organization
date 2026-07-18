@@ -210,7 +210,7 @@ On dispatch, `TaskDomain` → `TelegramWorkspaceDomain.syncTaskForumTopic()`. If
 ## Deploy telegram-worker
 
 1. Set `TELEGRAM_OPERATOR_SESSION`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_BOT_TOKEN` on the worker host (see [hosting_and_deployment.md](./hosting_and_deployment.md)).
-2. Run `npm run worker:telegram` or `npm run docker:up` / `npm run docker:up:prod` (worker is always in the stack).
+2. Run `npm run worker:telegram` or `npm run docker:up` / `npm run docker:up:prod`. GitHub/SSM deployment publishes a separate immutable worker ECR image and starts it only when all four operator credentials are present, preventing an unconfigured restart loop.
 3. Worker polls every 15s (override with `TELEGRAM_WORKER_POLL_SECONDS`).
 
 ---

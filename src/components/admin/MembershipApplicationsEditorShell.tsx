@@ -7,7 +7,8 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowLeft, UserCheck } from "lucide-react";
 import type { MembershipApplicationRowDto } from "@shared/domains/MembershipApplicationDomain";
 import { DEFAULT_LIST_PAGE_SIZE } from "@shared/constants/listPagination";
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { translateProfileCompletenessField, type ProfileCompletenessTranslator } from "@/lib/profileCompletenessCopy";
 
 /**
  * Admin membership application review at `/admin/membership-applications`.
@@ -26,6 +28,9 @@ import { cn } from "@/lib/utils";
  * @returns Review queue shell JSX.
  */
 export function MembershipApplicationsEditorShell() {
+  const tAdmin = useTranslations("admin");
+  const t = useTranslations("admin.membershipApplications");
+  const tProfileFields = useTranslations("profile.completeness");
   const [applications, setApplications] = useState<MembershipApplicationRowDto[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -55,10 +60,10 @@ export function MembershipApplicationsEditorShell() {
       setTotalPages(data.totalPages ?? 1);
       setTotalCount(data.totalCount ?? 0);
     } else {
-      setError("Could not load applications.");
+      setError(t("loadError"));
     }
     setLoading(false);
-  }, [page, search]);
+  }, [page, search, t]);
 
   useEffect(() => {
     void loadApplications();
@@ -77,10 +82,11 @@ export function MembershipApplicationsEditorShell() {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      setMessage("Application approved.");
+      setMessage(t("approveSuccess"));
       await loadApplications();
     } else {
-      setError(typeof data.error === "string" ? data.error : "Could not approve application.");
+      const fallback = t("approveError");
+      setError(typeof data.error === "string" ? data.error : fallback);
     }
     setActingId(null);
   };
@@ -96,12 +102,24 @@ export function MembershipApplicationsEditorShell() {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      setMessage("Application rejected.");
+      setMessage(t("rejectSuccess"));
       await loadApplications();
     } else {
-      setError(typeof data.error === "string" ? data.error : "Could not reject application.");
+      const fallback = t("rejectError");
+      setError(typeof data.error === "string" ? data.error : fallback);
     }
     setActingId(null);
+  };
+
+  const formatMissingFields = (application: MembershipApplicationRowDto): string => {
+    if (application.missingFields?.length) {
+      return application.missingFields
+        .map((field) =>
+          translateProfileCompletenessField(tProfileFields as ProfileCompletenessTranslator, field),
+        )
+        .join(", ");
+    }
+    return application.missingFieldLabels.join(", ");
   };
 
   const pageStart = totalCount === 0 ? 0 : (page - 1) * DEFAULT_LIST_PAGE_SIZE + 1;
@@ -122,19 +140,16 @@ export function MembershipApplicationsEditorShell() {
           )}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Back to Administration
+          {tAdmin("backToAdmin")}
         </Link>
         <div className="flex items-center gap-2 text-primary">
           <UserCheck size={18} strokeWidth={1.75} aria-hidden="true" />
-          <span className="text-xs font-semibold tracking-wide uppercase">Membership</span>
+          <span className="text-xs font-semibold tracking-wide uppercase">{t("eyebrow")}</span>
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-(--color-text-primary)">
-          Membership applications
+          {t("title")}
         </h1>
-        <p className="mt-1 max-w-2xl text-sm text-(--color-text-secondary)">
-          Review students who applied for self-government membership. Approving assigns the member
-          socium role and initializes quality scores.
-        </p>
+        <p className="mt-1 max-w-2xl text-sm text-(--color-text-secondary)">{t("description")}</p>
       </div>
 
       {error ? <FormAlert variant="destructive">{error}</FormAlert> : null}
@@ -153,24 +168,24 @@ export function MembershipApplicationsEditorShell() {
               htmlFor="membership-search"
               className="mb-1 block text-xs font-medium text-(--color-text-secondary)"
             >
-              Search applicants
+              {t("searchLabel")}
             </label>
             <Input
               id="membership-search"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Name, login, specialty, or group"
+              placeholder={t("searchPlaceholder")}
             />
           </div>
           <Button type="submit" variant="outline" size="sm">
-            Search
+            {t("search")}
           </Button>
         </form>
 
         {loading ? (
-          <p className="text-sm text-(--color-text-secondary)">Loading…</p>
+          <p className="text-sm text-(--color-text-secondary)">{tAdmin("loading")}</p>
         ) : applications.length === 0 ? (
-          <p className="text-sm text-(--color-text-secondary)">No pending applications.</p>
+          <p className="text-sm text-(--color-text-secondary)">{t("empty")}</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {applications.map((application) => (
@@ -185,28 +200,30 @@ export function MembershipApplicationsEditorShell() {
                         {application.fullName}
                       </p>
                       <Badge variant={application.applicantType === "teacher" ? "outline" : "secondary"}>
-                        {application.applicantType === "teacher" ? "Teacher" : "Student council"}
+                        {application.applicantType === "teacher"
+                          ? t("badgeTeacher")
+                          : t("badgeStudentCouncil")}
                       </Badge>
                     </div>
                     <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
                       {application.applicantType === "teacher"
-                        ? "Teacher access application"
+                        ? t("teacherApplication")
                         : [application.specialty, application.group].filter(Boolean).join(" · ") ||
-                          "No specialty / group"}
+                          t("noSpecialtyGroup")}
                     </p>
                     {application.login ? (
                       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                        Login: {application.login}
+                        {t("loginPrefix")} {application.login}
                         {application.phone ? ` · ${application.phone}` : ""}
                       </p>
                     ) : null}
                     {!application.readyForReview ? (
                       <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                        Profile incomplete: {application.missingFieldLabels.join(", ")}
+                        {t("profileIncomplete", { fields: formatMissingFields(application) })}
                       </p>
                     ) : (
                       <Badge variant="secondary" className="mt-2">
-                        Ready for review
+                        {t("readyForReview")}
                       </Badge>
                     )}
                   </div>
@@ -221,7 +238,7 @@ export function MembershipApplicationsEditorShell() {
                       }
                       onClick={() => void handleApprove(application.id)}
                     >
-                      Approve
+                      {t("approve")}
                     </Button>
                     <Button
                       type="button"
@@ -230,7 +247,7 @@ export function MembershipApplicationsEditorShell() {
                       disabled={actingId === application.id || !application.canReject}
                       onClick={() => void handleReject(application.id)}
                     >
-                      Reject
+                      {t("reject")}
                     </Button>
                   </div>
                 </div>
@@ -246,7 +263,7 @@ export function MembershipApplicationsEditorShell() {
           disabled={loading}
           summary={
             totalCount > 0
-              ? `Showing ${pageStart}–${pageEnd} of ${totalCount} pending applications`
+              ? t("paginationSummary", { start: pageStart, end: pageEnd, total: totalCount })
               : undefined
           }
         />

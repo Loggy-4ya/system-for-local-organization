@@ -120,6 +120,7 @@ const profileUpdateObjectSchema = z.object({
     .array(z.enum(["web", "telegram"] as const))
     .min(1, "Select at least one notification channel.")
     .optional(),
+  preferredLocale: z.enum(["en", "uk"]).nullable().optional(),
   recordWebNotificationPrompt: z.boolean().optional(),
   /** Server-injected flag — teachers skip specialty/group during OAuth onboarding. */
   profileIsTeacher: z.boolean().optional(),

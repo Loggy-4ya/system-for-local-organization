@@ -36,7 +36,7 @@ When `CSP_USE_NONCE` is enabled (default in production):
 1. Middleware generates a per-request nonce (`generateCspNonce`).
 2. CSP uses `script-src 'self' 'nonce-…' 'strict-dynamic'` (no `'unsafe-inline'`).
 3. Nonce is forwarded on `x-nonce` request header for Server Components.
-4. Root layout passes `nonce` to `next/script` blocks (theme init, wallet shim).
+4. Locale layout streams theme init, wallet shim, and DOM-event guard via `BootstrapInlineScriptsHost` (`useServerInsertedHTML`) with the CSP `nonce` — not as render-tree `<script>` / `next/script` children (React 19 rejects those on the client).
 5. Next.js attaches the nonce to framework script chunks when the CSP request header is set.
 
 Dev default keeps legacy `'unsafe-inline'` unless `CSP_USE_NONCE=true`.

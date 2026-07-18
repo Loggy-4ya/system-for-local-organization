@@ -79,6 +79,12 @@
       ]
     },
     {
+      "id": "preview-iframe-document-ready",
+      "files": [
+        "tests/puck/lib/previewIframeDocumentReady.test.ts"
+      ]
+    },
+    {
       "id": "preview-iframe-grid-backing",
       "files": [
         "tests/puck/lib/previewIframeGridBacking.test.ts"
@@ -515,6 +521,12 @@
       ]
     },
     {
+      "id": "locale-path-logic",
+      "files": [
+        "tests/lib/localePathLogic.test.ts"
+      ]
+    },
+    {
       "id": "list-pagination",
       "files": [
         "tests/shared/lib/listPaginationLogic.test.ts"
@@ -548,6 +560,18 @@
       "id": "infinite-grid-cursor-sync",
       "files": [
         "tests/components/background/infiniteGridCursorSync.test.ts"
+      ]
+    },
+    {
+      "id": "infinite-grid-paint-theme",
+      "files": [
+        "tests/components/background/infiniteGridPaintTheme.test.ts"
+      ]
+    },
+    {
+      "id": "infinite-grid-sync-store",
+      "files": [
+        "tests/components/background/infiniteGridSyncStore.test.ts"
       ]
     },
     {
@@ -662,6 +686,12 @@
       "id": "nexus-hosting-logic",
       "files": [
         "tests/shared/lib/nexusHostingLogic.test.ts"
+      ]
+    },
+    {
+      "id": "nexus-deployment-infrastructure",
+      "files": [
+        "tests/infrastructure/nexusDeploymentStacks.test.ts"
       ]
     },
     {
@@ -900,6 +930,11 @@
     {
       "id": "browser:puck-canvas-scrollport",
       "file": "tests/e2e/puck/canvas-scrollport.spec.ts",
+      "project": "puck-desktop-chrome"
+    },
+    {
+      "id": "browser:puck-theme-canvas",
+      "file": "tests/e2e/puck/theme-canvas.spec.ts",
       "project": "puck-desktop-chrome"
     },
     {

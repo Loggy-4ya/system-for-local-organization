@@ -7,10 +7,11 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { TaskDetailDto } from "@shared/domains/TaskDomain";
 import type { ITaskMediaRef } from "@shared/models/Task";
-import { TASK_STATUS_LABELS } from "@shared/constants/taskSettings";
+import type { TaskStatus } from "@shared/constants/taskSettings";
 import { formatTaskReminderSchedule } from "@shared/lib/taskReminderLogic";
 import {
   canReopenTask,
@@ -45,6 +46,8 @@ export interface TaskDetailShellProps {
  * @returns Task detail JSX.
  */
 export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetailShellProps) {
+  const t = useTranslations("tasks.detail");
+  const tTasks = useTranslations("tasks");
   const [task, setTask] = useState<TaskDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportText, setReportText] = useState("");
@@ -101,6 +104,11 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
       : false;
   const mayScore = task?.canScore === true;
 
+  /** Localized task status label. */
+  function taskStatusLabel(status: TaskStatus): string {
+    return tTasks(`status.${status}`);
+  }
+
   /** POST helper for task sub-actions. */
   async function postAction(path: string, body?: unknown) {
     setMessage(null);
@@ -111,11 +119,11 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setMessage(typeof data.error === "string" ? data.error : "Action failed.");
+      setMessage(typeof data.error === "string" ? data.error : t("actionFailed"));
       return;
     }
     setTask(await res.json());
-    setMessage("Saved.");
+    setMessage(t("saved"));
   }
 
   /** Submit scores with optional completion. */
@@ -134,7 +142,7 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
   if (loading) {
     return (
       <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
-        <p className="text-sm text-[var(--color-text-secondary)]">Loading task…</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t("loading")}</p>
       </StaticPageShell>
     );
   }
@@ -142,7 +150,7 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
   if (!task) {
     return (
       <StaticPageShell contentWidth={STATIC_ROUTE_CONTENT_WIDTH.profile} className="items-center p-6">
-        <p className="text-sm text-[var(--color-text-secondary)]">Task not found.</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t("notFound")}</p>
       </StaticPageShell>
     );
   }
@@ -153,12 +161,12 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <Link href="/tasks" className="text-xs text-[var(--color-accent-user)] hover:underline">
-              ← All tasks
+              {t("allTasks")}
             </Link>
             <h1 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">{task.title}</h1>
             {task.groupId && task.groupTitle ? (
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                Part of{" "}
+                {t("partOf")}{" "}
                 <Link
                   href={`/task-groups/${task.groupId}`}
                   className="text-[var(--color-accent-user)] hover:underline"
@@ -168,16 +176,16 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
               </p>
             ) : null}
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              {TASK_STATUS_LABELS[task.status]} · by {task.authorDisplayName}
+              {taskStatusLabel(task.status)} · {t("by")} {task.authorDisplayName}
               {task.categoryLabel ? ` · ${task.categoryLabel}` : ""}
-              {task.baseScore != null ? ` · Base ${task.baseScore}` : ""}
-              {task.dueAt ? ` · Due ${new Date(task.dueAt).toLocaleString()}` : ""}
+              {task.baseScore != null ? ` · ${t("baseScore", { score: task.baseScore })}` : ""}
+              {task.dueAt ? ` · ${tTasks("due", { date: new Date(task.dueAt).toLocaleString() })}` : ""}
             </p>
             <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-              Created {new Date(task.createdAt).toLocaleString()}
+              {t("created", { date: new Date(task.createdAt).toLocaleString() })}
             </p>
           </div>
-          <span className="badge badge-group">{TASK_STATUS_LABELS[task.status]}</span>
+          <span className="badge badge-group">{taskStatusLabel(task.status)}</span>
         </div>
 
         {task.tags.length > 0 && (
@@ -196,11 +204,11 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
           </div>
         ) : null}
 
-        <TaskMediaGallery items={task.explanationMedia} label="Explanation media" />
+        <TaskMediaGallery items={task.explanationMedia} label={t("explanationMedia")} />
 
         {task.completedAtHistory.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Completion history</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("completionHistory")}</h2>
             <ul className="mt-2 list-disc pl-5 text-xs text-[var(--color-text-secondary)]">
               {task.completedAtHistory.map((stamp, index) => (
                 <li key={`${stamp}-${index}`}>{new Date(stamp).toLocaleString()}</li>
@@ -210,7 +218,7 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
         )}
 
         <section>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Performers</h2>
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("performers")}</h2>
           <ul className="mt-2 flex list-none flex-col gap-2 p-0">
             {task.performers.map((performer) => (
               <li
@@ -230,9 +238,11 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
                   </p>
                   <p className="text-xs text-[var(--color-text-secondary)]">
                     {performer.acknowledgedAt
-                      ? `Acknowledged ${new Date(performer.acknowledgedAt).toLocaleString()}`
-                      : "Not acknowledged"}
-                    {performer.score != null ? ` · Final ${performer.score}` : ""}
+                      ? t("acknowledged", {
+                          date: new Date(performer.acknowledgedAt).toLocaleString(),
+                        })
+                      : t("notAcknowledged")}
+                    {performer.score != null ? ` · ${t("finalScore", { score: performer.score })}` : ""}
                     {performer.qualityPercent != null && performer.timePercent != null
                       ? ` (Q ${performer.qualityPercent}% · T ${performer.timePercent}%)`
                       : ""}
@@ -240,9 +250,9 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
                   {performer.report && (
                     <div className="mt-2 space-y-2">
                       <p className="text-xs whitespace-pre-wrap text-[var(--color-text-secondary)]">
-                        Report: {performer.report.description}
+                        {t("reportLabel")} {performer.report.description}
                       </p>
-                      <TaskMediaGallery items={performer.report.media ?? []} label="Proof media" />
+                      <TaskMediaGallery items={performer.report.media ?? []} label={t("proofMedia")} />
                     </div>
                   )}
                 </div>
@@ -259,26 +269,26 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
 
         {isPerformer && task.status === "dispatched" && (
           <Button type="button" onClick={() => postAction("acknowledge")}>
-            Confirm receipt
+            {t("confirmReceipt")}
           </Button>
         )}
 
         {mayStart && (
           <Button type="button" variant="outline" onClick={() => postAction("start")}>
-            Start work
+            {t("startWork")}
           </Button>
         )}
 
         {mayReopen && (
           <Button type="button" variant="outline" onClick={() => postAction("reopen")}>
-            Reopen for redo
+            {t("reopen")}
           </Button>
         )}
 
         {isPerformer && task.status !== "completed" && task.status !== "cancelled" && (
           <div className="glass-panel flex flex-col gap-3 rounded-[var(--radius-md)] p-4">
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Submit report</h2>
-            <FormField label="Description">
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("submitReportTitle")}</h2>
+            <FormField label={t("descriptionLabel")}>
               <textarea
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
@@ -286,7 +296,7 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
                 className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm"
               />
             </FormField>
-            <FormField label="Proof media">
+            <FormField label={t("proofMediaLabel")}>
               <TaskMediaAttachmentsField value={reportMedia} onChange={setReportMedia} />
             </FormField>
             <Button
@@ -296,18 +306,18 @@ export function TaskDetailShell({ taskId, viewerUserId, canDispatch }: TaskDetai
                 postAction("report", { description: reportText, media: reportMedia })
               }
             >
-              Submit report
+              {t("submitReport")}
             </Button>
           </div>
         )}
 
         {(isPerformer || isAuthor || canDispatch) && task.status !== "completed" && task.status !== "cancelled" && (
           <div className="glass-panel flex flex-col gap-3 rounded-[var(--radius-md)] p-4">
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Delegate to another user</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("delegateTitle")}</h2>
             <UserSearchPicker
               onSelect={(candidate) => postAction("delegate", { userId: candidate.userId })}
               excludedUserIds={task.performers.map((p) => p.userId)}
-              placeholder="Search by name, @login, group, or email…"
+              placeholder={t("delegatePlaceholder")}
             />
           </div>
         )}

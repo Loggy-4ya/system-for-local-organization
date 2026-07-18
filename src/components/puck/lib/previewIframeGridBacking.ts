@@ -2,7 +2,8 @@
  * @fileoverview Puck editor shell detection and single-grid policy helpers.
  *
  * Site-default background uses one global {@link LayoutInfiniteGrid} (`#nexus-bg`) for the
- * whole app. Puck editor routes must never mount a second InfiniteGrid in the shell or iframe.
+ * whole app. Puck edit mode renders the preview inline (`iframe={{ enabled: false }}`) so the
+ * canvas stays transparent and the layout grid shows through — no duplicate grid.
  *
  * Tests: `tests/puck/lib/previewIframeGridBacking.test.ts` — `npm run test:preview-iframe-grid-backing`
  *
@@ -35,9 +36,9 @@ export function isInsidePuckEditorShell(target: Window = window): boolean {
 }
 
 /**
- * Resolve whether PageRoot should mount InfiniteGrid inside the preview iframe.
+ * Resolve whether PageRoot should mount InfiniteGrid inside the preview document.
  *
- * Always false — the global layout grid is the only InfiniteGrid instance.
+ * Always false — only the layout `#nexus-bg` paints the site grid.
  *
  * @param _input - Legacy PageRoot flags (ignored).
  * @returns Always false.
@@ -53,11 +54,12 @@ export function resolveShowPreviewIframeGrid(_input: {
 }
 
 /**
- * @deprecated Shell scrollport grid removed — global `#nexus-bg` is the only grid.
- * @returns Always true so legacy callers never mount a shell scrollport grid.
+ * Whether the shell scrollport grid should stay suppressed.
+ *
+ * @returns Always true — only `#nexus-bg` may paint the site grid.
  */
 export function shouldSuppressShellScrollportGridForIframeContainedEdit(
-  _input: { requiresIframeContainedEditGrid?: boolean } = {},
+  _input: { requiresIframeContainedEditGrid?: boolean; showIframeGrid?: boolean } = {},
 ): boolean {
   return true;
 }

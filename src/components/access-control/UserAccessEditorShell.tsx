@@ -9,8 +9,9 @@
  */
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { ArrowLeft, Shield, SlidersHorizontal, Users } from "lucide-react";
 import type { AccessControlSettingsConfig } from "@shared/constants/accessControl";
 import { AdminEditorActionToolbar } from "@/components/admin/AdminEditorActionToolbar";
@@ -43,6 +44,7 @@ function cloneAccessControlConfig(
  * @returns Editor shell JSX.
  */
 export function UserAccessEditorShell({ initialConfig }: UserAccessEditorShellProps) {
+  const tAdmin = useTranslations("admin");
   const router = useRouter();
   const [config, setConfig] = useState(() => cloneAccessControlConfig(initialConfig));
   const [savedConfig, setSavedConfig] = useState(() => cloneAccessControlConfig(initialConfig));
@@ -138,15 +140,13 @@ export function UserAccessEditorShell({ initialConfig }: UserAccessEditorShellPr
               className="global-layout-editor__btn-text inline-flex w-fit items-center gap-1.5 border border-zinc-700/10 text-xs text-(--color-text-secondary) no-underline transition-colors hover:bg-zinc-700/10 hover:text-(--color-text-primary) dark:border-zinc-300/5 dark:hover:bg-zinc-300/5"
             >
               <ArrowLeft size={12} />
-              <span>Back to Administration</span>
+              <span>{tAdmin("backToAdmin")}</span>
             </Link>
             <h1 className="text-2xl font-bold tracking-tight text-(--color-text-primary)">
-              User Access & Permissions
+              {tAdmin("hub.user-access.title")}
             </h1>
             <p className="max-w-2xl text-sm leading-relaxed text-(--color-text-secondary)">
-              Configure the seven-tier access hierarchy, default permissions per tier, and downward
-              grant rules. To administer user roles, an actor must outrank the target and hold the
-              relevant permission — or receive it via delegation from above.
+              {tAdmin("hub.user-access.description")}
             </p>
           </div>
 

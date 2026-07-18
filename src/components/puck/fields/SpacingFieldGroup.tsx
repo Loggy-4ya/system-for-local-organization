@@ -9,6 +9,8 @@
 import type { SpacingProps, SpacingToken } from "../lib/spacingFields";
 import type { SpacingCustomUnit } from "../lib/spacingCustomValue";
 import { formatSpacingResolvedHint, SPACING_TOKEN_LABELS } from "../lib/spacingDisplay";
+import { useTranslations } from "next-intl";
+import { translatePuckSidebarCopy } from "../lib/translatePuckSidebarCopy";
 import { CustomDimensionInput } from "./CustomDimensionInput";
 import { FieldChapter, SpacingIcon } from "./FieldChapter";
 import { PuckSelectField } from "./PuckSelectField";
@@ -73,26 +75,34 @@ function SideGrid({
   sides,
   value,
   onSideChange,
+  tLabels,
+  tOptions,
 }: {
   sides: typeof PADDING_SIDES;
   value: SpacingProps;
   onSideChange: (key: keyof SpacingProps, next: string) => void;
+  tLabels: ReturnType<typeof useTranslations<"puck.fieldLabels">>;
+  tOptions: ReturnType<typeof useTranslations<"puck.fieldOptions">>;
 }) {
   return (
     <div className="nexus-field-grid">
       {sides.map(({ tokenKey, customKey, label }) => {
         const token = (value[tokenKey] as SpacingToken | undefined) ?? "none";
+        const sideLabel = translatePuckSidebarCopy(label, tLabels);
         const hint =
           token === "custom"
             ? formatSpacingResolvedHint(token, value[customKey] as string | undefined)
             : formatSpacingResolvedHint(token);
         return (
           <div key={tokenKey} className="nexus-field-grid__cell">
-            <span className="nexus-field-grid__label">{label}</span>
+            <span className="nexus-field-grid__label">{sideLabel}</span>
             <PuckSelectField
               value={token}
               onChange={(next) => onSideChange(tokenKey, next)}
-              options={SPACING_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+              options={SPACING_OPTIONS.map((opt) => ({
+                label: translatePuckSidebarCopy(opt.label, tOptions),
+                value: opt.value,
+              }))}
             />
             {hint ? <span className="nexus-field-grid__resolved">{hint}</span> : null}
             {token === "custom" ? (
@@ -100,7 +110,7 @@ function SideGrid({
                 value={value[customKey] as string | undefined}
                 onChange={(next) => onSideChange(customKey, next)}
                 units={SPACING_UNITS}
-                ariaLabel={`Custom ${label.toLowerCase()} spacing`}
+                ariaLabel={tLabels("custom_spacing")}
               />
             ) : null}
           </div>
@@ -118,20 +128,34 @@ function SideGrid({
  */
 export function SpacingFieldGroup({ value, onChange }: SpacingFieldGroupProps) {
   const spacing = value ?? {};
+  const tLabels = useTranslations("puck.fieldLabels");
+  const tOptions = useTranslations("puck.fieldOptions");
 
   const handleChange = (key: keyof SpacingProps, next: string) => {
     onChange(patchSpacing(spacing, key, next));
   };
 
   return (
-    <FieldChapter title="Spacing" icon={<SpacingIcon />}>
+    <FieldChapter title={tLabels("spacing")} icon={<SpacingIcon />}>
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">Padding</span>
-        <SideGrid sides={PADDING_SIDES} value={spacing} onSideChange={handleChange} />
+        <span className="nexus-field-category__label">{tLabels("padding")}</span>
+        <SideGrid
+          sides={PADDING_SIDES}
+          value={spacing}
+          onSideChange={handleChange}
+          tLabels={tLabels}
+          tOptions={tOptions}
+        />
       </div>
       <div className="nexus-field-category">
-        <span className="nexus-field-category__label">Margin</span>
-        <SideGrid sides={MARGIN_SIDES} value={spacing} onSideChange={handleChange} />
+        <span className="nexus-field-category__label">{tLabels("margin")}</span>
+        <SideGrid
+          sides={MARGIN_SIDES}
+          value={spacing}
+          onSideChange={handleChange}
+          tLabels={tLabels}
+          tOptions={tOptions}
+        />
       </div>
     </FieldChapter>
   );

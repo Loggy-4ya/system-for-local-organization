@@ -134,7 +134,7 @@ One-off maintenance jobs: `npm run job:*` (see `package.json` and [`scripts/`](s
 
 ## Deployment
 
-Production targets **AWS EC2 (Docker)** with **MongoDB Atlas** and **Amazon S3** for media. Local dev uses Docker with bundled or external MongoDB. Do not guess env vars — follow the canonical guide:
+Production targets **AWS EC2 (Docker)** with **MongoDB Atlas** and **Amazon S3** for media. GitHub Actions publishes immutable ECR images and deploys through OIDC + Systems Manager; runtime credentials stay in AWS Secrets Manager. Local dev uses Docker with bundled or external MongoDB. Do not guess env vars — follow the canonical guide:
 
 | Topic | Document |
 |-------|----------|
@@ -152,7 +152,9 @@ nexus-web/
 ├── src/                 Next.js App Router (UI + API routes)
 ├── shared/              Mongoose models, domain engines, shared logic
 ├── tests/               Automated tests (*.test.ts, e2e specs)
-├── scripts/             CLI jobs — see scripts/README.md (env, auth, jobs, test, workers)
+├── infrastructure/      AWS CDK stacks for GitHub OIDC, ECR, EC2, S3, SSM, and secrets
+├── .github/workflows/   CI and environment-gated immutable deployments
+├── scripts/             CLI jobs — see scripts/README.md (env, auth, deploy, jobs, test, workers)
 ├── .ai/docs/            Living architecture & feature specifications
 ├── AGENTS.md            AI agent contract (read before coding)
 ├── docker-compose.yml   All dev + prod services (Compose profiles)

@@ -27,31 +27,41 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `.ai/assets/` | Design-time media symlinked from `.ai/docs/assets/` | Background engine sources, exported Figma preview PNGs | Application runtime code |
 | `.cursor/` | Cursor IDE project settings and agent rules | `settings.json`, `rules/*.mdc` (LLM context, not imported by app) | Application runtime code, secrets |
 | `.cursor/rules/` | File-targeted Cursor agent rules (`.mdc`) | Puck sidebar chapter policy, file-specific constraints | Runtime `.ts` / `.tsx`, tests |
+| `.github/workflows/` | GitHub Actions CI and environment-gated AWS deployments | Workflow YAML for validation, OIDC, ECR publishing, and SSM rollout | Runtime secrets, permanent AWS access keys, application source |
+| `infrastructure/` | AWS CDK v2 infrastructure-as-code for shared CI identity and isolated Nexus environments | TypeScript stacks, CDK app/config, infrastructure tests | Application runtime code, plaintext secrets, generated `cdk.out/` |
+| `infrastructure/bin/` | AWS CDK application entrypoints | Stack composition, context validation, security validation plugins | Reusable construct implementations, application runtime |
+| `infrastructure/lib/` | Reusable Nexus AWS CDK stacks and constructs | IAM, ECR, EC2, S3, SSM, Secrets Manager definitions | CLI entrypoints, plaintext environment values |
+| `cdk.json` | AWS CDK app command and non-secret deployment defaults | Repository identity format, region, instance sizing | Account credentials, runtime application secrets |
 | `scripts/` | CLI jobs, env tooling, test runner, workers — see [`scripts/README.md`](../scripts/README.md) | Domain subdirs: `env/`, `auth/`, `jobs/`, `test/`, `workers/` | Application UI, `*.test.ts` |
+| `scripts/deploy/` | EC2-side immutable image rollout and rollback entrypoints invoked through SSM | Shell scripts with deployment locking, secret materialization, health checks | Developer env initialization, application runtime imports, embedded credentials |
 | `scripts/test/testRegistry.json` | Canonical unit/browser test suite registry | Suite ids, file paths, groups | Application code |
 | `.env.example` | Committed environment template (all variables + dev defaults) | Active | Real secrets |
 | `.env.staging` | Team shared env encrypted with dotenvx (optional) | Active when team uses dotenvx | Plaintext secrets |
 | `.env.staging.plain.example` | Plaintext template before first dotenvx encrypt | Active | — |
 | `.ai/docs/env_and_secrets.md` | Canonical env & dotenvx guide (solo dev, team, scripts) | Markdown spec | — |
 | `docker-compose.yml` | All services — profiles: `dev`, `prod`, `bundled-db` (web + telegram-worker always) | Active |
+| `docker-compose.deploy.yml` | ECR-backed EC2 runtime: web, Telegram worker, and Caddy HTTPS proxy | Active when deployed by CI; immutable image references supplied by deployment script |
+| `Caddyfile` | Production reverse proxy and automatic HTTPS policy | Environment-expanded public origin and web upstream | Secrets, application business logic |
 | `Dockerfile` | Unified multi-stage image — targets `dev`, `production`, `worker` | Active |
+| `.dockerignore` | Secret-safe Docker build-context allow/deny policy | Excludes env files, keys, Git metadata, generated output, and test artifacts | Runtime configuration |
 
 ## `src/` Sub-directories
 
 | Path | Purpose | Status |
 |------|---------|--------|
-| `src/app/` | App Router routes, root layout, API handlers | Active |
-| `src/app/loading.tsx` | Root Suspense fallback — `SiteLoader` with soft refresh + reload recovery | Active |
-| `src/components/navigation/RouteNavigationRecoveryHost.tsx` | `popstate` / bfcache `pageshow` hooks — fast `router.refresh()` on history nav | Active |
-| `src/lib/routeLoaderRecoveryLogic.ts` | Back-navigation detection and stuck-loader recovery delay tiers | Active |
-| `src/app/layout.tsx` | Root layout: Inter font, ThemeProvider, InfiniteGrid, GlobalHeader | Active |
-| `src/app/page.tsx` | Code-only homepage (`/`) — `HomeLandingShell` marketing islands; not Puck-managed | Active |
-| `src/app/not-found.tsx` | Custom 404 — compact `StaticPageShell` so global footer stays in viewport (replaces Next.js `100vh` default) | Active |
+| `messages/` | UI translation catalogs (`en.json`, `uk.json`) for next-intl | Active |
+| `src/i18n/` | next-intl routing, request config, locale-aware navigation helpers | Active |
+| `src/lib/localePathLogic.ts` | Pure pathname helpers — strip/add locale prefix for middleware and nav | Active |
+| `src/app/[locale]/` | Locale-prefixed App Router tree (`/en/...`, `/uk/...`) | Active |
+| `src/app/[locale]/layout.tsx` | Locale html/body shell — fonts (latin+cyrillic), NextIntlClientProvider, theme, session, global chrome | Active |
+| `src/app/[locale]/page.tsx` | Code-only homepage — `HomeLandingShell` | Active |
+| `src/app/[locale]/not-found.tsx` | Custom localized 404 | Active |
+| `src/app/layout.tsx` | Minimal root passthrough layout (html lives under `[locale]`) | Active |
 | `src/app/globals.css` | Nexus CSS Custom Properties + Shadcn UI token bridge (`@import shadcn/tailwind.css`, `--background` → `--color-bg-surface`, etc.); spacing scale (`--spacing-sm` = default root-level Puck block vertical margin) | Active |
 | `src/app/page-catalog.css` | `/pages` and `/pages/edit` catalog surfaces (split from globals for Safari/WebKit stylesheet size limits); imported in root layout | Active |
 | `src/lib/utils.ts` | Shadcn `cn()` helper (`clsx` + `tailwind-merge`) | Active |
 | `src/lib/assets.ts` | Canonical `public/` URL paths (`ICONS`, `BRAND`, `SITE_ICONS` for metadata) | Active |
-| `src/app/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode); colocated `client.tsx` only | Active |
+| `src/app/[locale]/[...puckPath]/` | Puck catch-all route (viewer + `/edit` editor mode) under locale prefix | Active |
 | `src/app/pages/` | Public catalog (`/pages`), publisher editor (`/pages/edit`); `PagesBrowseShell.tsx`, `PageManagerShell.tsx`, `NewPageForm.tsx` | Active |
 | `src/app/pages/edit/` | Publisher catalog editor (drag reorder, FAB, save) | Active |
 | `src/app/pages/categories/` | Legacy redirects → `/pages` | Active |
@@ -151,6 +161,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `src/lib/nexusJobsConfig.ts` | Scheduler interval readers clamped by hosting policy | Active |
 | `src/instrumentation.ts` | Next.js boot hook — hosting bootstrap + in-process job schedulers | Active |
 | `src/app/api/admin/hosting-config/` | GET admin hosting mode, policy, warnings, errors | Active |
+| `src/app/api/health/` | Unauthenticated minimal liveness endpoint used by Docker and deployment verification | Active |
 | `src/app/admin/hosting/` | Admin hosting diagnostics page | Active |
 | `scripts/workers/telegramWorker.ts` | MTProto worker poll loop (`npm run worker:telegram`) | Active |
 
@@ -162,6 +173,7 @@ Central directory-purpose map for the Nexus monorepo. Update this file whenever 
 | `tests/shared/lib/` | Unit tests for shared lib helpers (Telegram initData verify, media storage rules) | Active |
 | `tests/shared/domains/` | Unit tests for shared domains (global layout validation) | Active |
 | `tests/shared/validation/` | Unit tests for shared validation schemas | Active |
+| `tests/infrastructure/` | Offline AWS CDK assertions for deployment boundaries, IAM trust, and network/security invariants | Active |
 
 ## `shared/` Sub-directories
 

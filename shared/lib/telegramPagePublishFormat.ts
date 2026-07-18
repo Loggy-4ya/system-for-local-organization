@@ -8,24 +8,27 @@
  */
 
 import { interpolateTelegramMessageTemplate } from "@shared/constants/generalRules";
+import type { BotLocale } from "@shared/constants/botLocales";
+import { DEFAULT_BOT_LOCALE } from "@shared/constants/botLocales";
 import { getEffectiveGeneralRulesSync } from "@shared/lib/effectiveGeneralRulesCache";
 
 /**
  * Format a page go-live notification for Telegram DM delivery.
  *
- * Uses the `pagePublishedAnnouncement` template from general rules.
- *
  * @param title - Notification headline (includes page title).
  * @param body - Supporting summary text.
  * @param pageUrl - Absolute or relative open link.
+ * @param locale - Recipient locale for template selection.
  * @returns Telegram-safe plain text.
  */
 export function formatTelegramPagePublishedMessage(
   title: string,
   body: string,
   pageUrl: string,
+  locale: BotLocale = DEFAULT_BOT_LOCALE,
 ): string {
-  const template = getEffectiveGeneralRulesSync().telegramMessages.pagePublishedAnnouncement;
+  const template =
+    getEffectiveGeneralRulesSync().telegramMessagesByLocale[locale].pagePublishedAnnouncement;
   return interpolateTelegramMessageTemplate(template, {
     title: title.trim(),
     body: body.trim(),
